@@ -10,12 +10,13 @@ use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Fluid\View\StandaloneView;
+use TYPO3\CMS\Core\View\ViewFactoryData;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
 /**
  * Shared base for the real artifact generators. Provides Specialized-call guarding
- * (budget + availability), Fluid StandaloneView rendering of the branded theme templates,
- * a per-run temp directory and a uniform failed-artifact helper.
+ * (budget + availability), Fluid rendering of the branded theme templates via the
+ * v14 ViewFactory API, a per-run temp directory and a uniform failed-artifact helper.
  *
  * Concrete generators MUST NOT throw for a single-artifact business failure: record the
  * artifact as failed and return false so sibling generators keep running.
@@ -49,12 +50,12 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     protected function renderTemplate(string $area, string $theme, array $variables): string
     {
         $templateName = $theme === 'nr' ? 'Nr' : 'Neutral';
-        $view = GeneralUtility::makeInstance(StandaloneView::class);
-        $view->setTemplatePathAndFilename(
-            GeneralUtility::getFileAbsFileName(
+        $viewFactory = GeneralUtility::makeInstance(ViewFactoryInterface::class);
+        $view = $viewFactory->create(new ViewFactoryData(
+            templatePathAndFilename: GeneralUtility::getFileAbsFileName(
                 sprintf('EXT:nr_repurpose/Resources/Private/Templates/Generated/%s/%s.html', $area, $templateName),
             ),
-        );
+        ));
         $view->assignMultiple($variables);
 
         return $view->render();
