@@ -1,0 +1,29 @@
+# cat=podcast/voices/10; type=options[alloy=alloy,echo=echo,fable=fable,onyx=onyx,nova=nova,shimmer=shimmer]; label=Podcast Host A voice
+voices.hostA = nova
+
+# cat=podcast/voices/20; type=options[alloy=alloy,echo=echo,fable=fable,onyx=onyx,nova=nova,shimmer=shimmer]; label=Podcast Host B voice
+voices.hostB = onyx
+
+# cat=podcast/tts/10; type=options[tts-1=tts-1,tts-1-hd=tts-1-hd]; label=Text-to-speech model
+tts.model = tts-1-hd
+
+# cat=image/provider/10; type=options[DALL-E=dalle,FAL=fal]; label=Image generation provider
+image.provider = dalle
+
+# cat=image/provider/20; type=string; label=Image generation model (e.g. dall-e-3, flux-dev)
+image.model = dall-e-3
+
+# cat=render/diagram/10; type=int+; label=Schaubild render viewport width in px
+diagram.viewportWidth = 1200
+
+# cat=render/story/10; type=int+; label=Instagram story width in px
+story.width = 1080
+
+# cat=render/story/20; type=int+; label=Instagram story height in px
+story.height = 1920
+
+# cat=general/theme/10; type=options[Netresearch CI=nr,Neutral=neutral]; label=Default theme for new jobs
+defaultTheme = nr
+
+# cat=analysis/mapReduce/10; type=int+; label=Source-text char count above which the analyzer uses map-reduce
+mapReduce.charThreshold = 12000
