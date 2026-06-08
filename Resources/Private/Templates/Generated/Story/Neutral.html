@@ -1,0 +1,42 @@
+<f:spaceless>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 1080px;
+            height: 1920px;
+            <f:if condition="{transparent}">
+                <f:then>background: transparent;</f:then>
+                <f:else>background: linear-gradient(160deg, #1f2933 0%, #3b4654 100%);</f:else>
+            </f:if>
+        }
+        .story {
+            box-sizing: border-box;
+            width: 1080px;
+            height: 1920px;
+            padding: 120px 96px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+        }
+        .story__accent { width: 120px; height: 12px; background: #3b6ef5; margin-bottom: 40px; }
+        .story__headline { font-weight: 700; font-size: 96px; line-height: 1.1; margin: 0 0 32px; }
+        .story__subline { font-size: 40px; line-height: 1.4; font-weight: 400; margin: 0; }
+    </style>
+</head>
+<body>
+    <div class="story">
+        <div class="story__accent"></div>
+        <h1 class="story__headline">{headline}</h1>
+        <p class="story__subline">{subline}</p>
+    </div>
+</body>
+</html>
+</f:spaceless>
