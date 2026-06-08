@@ -1,1 +1,16 @@
+# User-managed (DDEV will not overwrite this). Ignore DDEV-generated artifacts + local secrets.
 /.env
+/.dbimageBuild
+/.ddev-docker-compose-base.yaml
+/.ddev-docker-compose-full.yaml
+/.global_commands
+/.homeadditions
+/homeadditions
+/.sshimageBuild
+/.venv
+/.webimageBuild
+/db_snapshots
+/sequelpro.spf
+/import-db
+/import.yaml
+/traefik
