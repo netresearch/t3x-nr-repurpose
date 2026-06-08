@@ -42,11 +42,3 @@ jobs:
     uses: netresearch/typo3-ci-workflows/.github/workflows/license-check.yml@f61237eecfafb5559d8eb37e8007389cf65bc5f9 # main
     permissions:
       contents: read
-
-  scorecard:
-    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch)
-    uses: netresearch/.github/.github/workflows/scorecard.yml@8bf8b33a7c8865830f9b5ce787a67c2a209d7afe # main
-    permissions:
-      contents: read
-      security-events: write
-      id-token: write
