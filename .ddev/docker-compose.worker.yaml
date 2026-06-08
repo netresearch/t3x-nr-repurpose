@@ -1,0 +1,38 @@
+# Continuous Symfony Messenger consumer for the doctrine transport.
+# Reuses the web image (same PHP + typo3 binary). The restart loop survives the
+# deliberate time/memory limits that recycle the worker. Needs the sibling mounts
+# because the composer path-repo symlinks in .Build/vendor point at /var/t3x-*/main.
+services:
+  worker:
+    container_name: ddev-${DDEV_SITENAME}-worker
+    image: ${DDEV_WEBIMAGE}
+    restart: "unless-stopped"
+    command:
+      - bash
+      - -c
+      - |
+        sleep 20
+        while true; do
+          /var/www/html/.Build/bin/typo3 messenger:consume doctrine \
+            --time-limit=3600 --memory-limit=256M --sleep=2 || true
+          sleep 2
+        done
+    volumes:
+      - type: bind
+        source: ../
+        target: /var/www/html
+      - type: bind
+        source: /home/sme/p/t3x-nr-llm/main
+        target: /var/t3x-nr-llm/main
+      - type: bind
+        source: /home/sme/p/t3x-nr-vault/main
+        target: /var/t3x-nr-vault/main
+    environment:
+      - TYPO3_CONTEXT=Development
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - FAL_API_KEY=${FAL_API_KEY:-}
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: ${DDEV_APPROOT}
