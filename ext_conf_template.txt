@@ -10,8 +10,8 @@ tts.model = tts-1-hd
 # cat=image/provider/10; type=options[DALL-E=dalle,FAL=fal]; label=Image generation provider
 image.provider = dalle
 
-# cat=image/provider/20; type=string; label=Image generation model (e.g. dall-e-3, flux-dev)
-image.model = dall-e-3
+# cat=image/provider/20; type=string; label=Image generation model (e.g. gpt-image-1, flux-dev)
+image.model = gpt-image-1
 
 # cat=render/diagram/10; type=int+; label=Schaubild render viewport width in px
 diagram.viewportWidth = 1200

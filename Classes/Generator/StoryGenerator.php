@@ -28,7 +28,9 @@ class StoryGenerator extends AbstractGenerator
 {
     private const WIDTH = 1080;
     private const HEIGHT = 1920;
-    private const IMAGE_SIZE = '1024x1792';
+    // gpt-image-1 portrait (DALL·E's 1024x1792 is no longer a valid size); the 2:3 image is
+    // composited as a background behind the 9:16 story canvas, so the aspect difference is fine.
+    private const IMAGE_SIZE = '1024x1536';
     private const IMAGE_COST = 0.05;
 
     public function __construct(

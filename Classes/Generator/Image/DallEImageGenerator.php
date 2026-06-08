@@ -10,10 +10,14 @@ use Netresearch\NrRepurpose\Rendering\RenderingException;
 
 /**
  * Default ImageGeneratorInterface: delegates to nr-llm's DallEImageService (OpenAI images).
- * DALL-E has no image-to-image, so every variant uses text-to-image from a content-derived prompt.
+ * Uses the gpt-image-1 model (OpenAI retired DALL·E-3); there is no image-to-image, so every
+ * variant uses text-to-image from a content-derived prompt. gpt-image-1 returns base64, which
+ * the result's saveToFile() decodes directly.
  */
 final class DallEImageGenerator implements ImageGeneratorInterface
 {
+    private const MODEL = 'gpt-image-1';
+
     public function __construct(private readonly DallEImageService $dalle) {}
 
     public function isAvailable(): bool
@@ -24,7 +28,7 @@ final class DallEImageGenerator implements ImageGeneratorInterface
     public function generateToFile(string $prompt, string $size, string $outputPath): void
     {
         try {
-            $result = $this->dalle->generate($prompt, new ImageGenerationOptions(model: 'dall-e-3', size: $size));
+            $result = $this->dalle->generate($prompt, new ImageGenerationOptions(model: self::MODEL, size: $size));
             if (!$result->saveToFile($outputPath)) {
                 throw RenderingException::because('DALL-E could not save generated image to ' . $outputPath, 1749411000);
             }

@@ -12,7 +12,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * Typed, read-only accessor for the nr_repurpose extension configuration (ext_conf_template.txt).
  * The analyzer and generators read their defaults from here instead of poking ExtensionConfiguration
  * directly, so the configuration surface lives in exactly one place. (Image provider defaults to
- * DALL-E — the only configured provider in this stack.)
+ * OpenAI's gpt-image-1 — the only configured provider in this stack; DALL·E was retired.)
  */
 final class RepurposeConfiguration
 {
@@ -59,7 +59,7 @@ final class RepurposeConfiguration
     {
         $value = trim((string) ($this->leaf('image', 'model') ?? ''));
 
-        return $value !== '' ? $value : 'dall-e-3';
+        return $value !== '' ? $value : 'gpt-image-1';
     }
 
     public function diagramViewportWidth(): int

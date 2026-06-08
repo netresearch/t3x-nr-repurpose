@@ -31,7 +31,8 @@ use Psr\Log\LoggerInterface;
 class SchaubildGenerator extends AbstractGenerator
 {
     private const WIDTH = 1200;
-    private const IMAGE_SIZE = '1792x1024';
+    // gpt-image-1 landscape (DALL·E's 1792x1024 is no longer a valid size).
+    private const IMAGE_SIZE = '1536x1024';
     private const IMAGE_COST = 0.05;
 
     public function __construct(

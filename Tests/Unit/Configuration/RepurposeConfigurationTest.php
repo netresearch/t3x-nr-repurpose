@@ -27,7 +27,7 @@ final class RepurposeConfigurationTest extends TestCase
         self::assertSame('onyx', $config->hostBVoice());
         self::assertSame('tts-1-hd', $config->ttsModel());
         self::assertSame('dalle', $config->imageProvider());
-        self::assertSame('dall-e-3', $config->imageModel());
+        self::assertSame('gpt-image-1', $config->imageModel());
         self::assertSame(1200, $config->diagramViewportWidth());
         self::assertSame(1080, $config->storyWidth());
         self::assertSame(1920, $config->storyHeight());
@@ -40,7 +40,7 @@ final class RepurposeConfigurationTest extends TestCase
         $config = $this->withTree([
             'voices' => ['hostA' => 'alloy', 'hostB' => 'shimmer'],
             'tts' => ['model' => 'tts-1'],
-            'image' => ['provider' => 'dalle', 'model' => 'dall-e-3'],
+            'image' => ['provider' => 'dalle', 'model' => 'gpt-image-1'],
             'diagram' => ['viewportWidth' => '1600'],
             'story' => ['width' => '1080', 'height' => '1920'],
             'defaultTheme' => 'neutral',
@@ -51,7 +51,7 @@ final class RepurposeConfigurationTest extends TestCase
         self::assertSame('shimmer', $config->hostBVoice());
         self::assertSame('tts-1', $config->ttsModel());
         self::assertSame('dalle', $config->imageProvider());
-        self::assertSame('dall-e-3', $config->imageModel());
+        self::assertSame('gpt-image-1', $config->imageModel());
         self::assertSame(1600, $config->diagramViewportWidth());
         self::assertSame('neutral', $config->defaultTheme());
         self::assertSame(8000, $config->mapReduceCharThreshold());
