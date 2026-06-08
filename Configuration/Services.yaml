@@ -15,3 +15,7 @@ services:
   Netresearch\NrLlm\Service\CapabilityPermissionServiceInterface:
     alias: Netresearch\NrLlm\Service\CapabilityPermissionService
     public: true
+
+  # Public so functional tests can fetch them via $this->get().
+  Netresearch\NrRepurpose\Persistence\JobProcessingRepository:
+    public: true
