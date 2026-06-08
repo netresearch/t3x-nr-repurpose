@@ -84,4 +84,32 @@ final class JobProcessingRepository
 
         return (int)$conn->lastInsertId();
     }
+
+    /**
+     * Fill a previously-inserted (pending) artifact row. Only whitelisted columns are writable.
+     * Empty $fields is a no-op (no UPDATE issued).
+     *
+     * @param array<string, mixed> $fields keys: file_uid, subtitle_file_uid, source_html,
+     *                                      script_text, metadata, status, variant, error_message
+     */
+    public function updateArtifact(int $artifactUid, array $fields): void
+    {
+        $allowed = [
+            'file_uid', 'subtitle_file_uid', 'source_html',
+            'script_text', 'metadata', 'status', 'variant', 'error_message',
+        ];
+        $update = [];
+        foreach ($allowed as $column) {
+            if (array_key_exists($column, $fields)) {
+                $update[$column] = $fields[$column];
+            }
+        }
+        if ($update === []) {
+            return;
+        }
+        $update['tstamp'] = time();
+
+        $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)
+            ->update(self::ARTIFACT_TABLE, $update, ['uid' => $artifactUid]);
+    }
 }
