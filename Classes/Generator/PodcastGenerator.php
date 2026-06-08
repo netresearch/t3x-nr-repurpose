@@ -33,6 +33,14 @@ final class PodcastGenerator extends AbstractGenerator
     private const TTS_COST_PER_TURN = 0.015;
     private const SCRIPT_COST = 0.02;
 
+    /**
+     * Each turn is one Specialized TTS HTTP call. OpenAI occasionally stalls a request (a slow
+     * response or a stale keep-alive connection); a single retry issues a fresh request — usually
+     * on a new connection — and almost always recovers. A turn that still fails is skipped rather
+     * than failing the whole podcast, so one flaky call can't lose a 15-turn episode.
+     */
+    private const TTS_MAX_ATTEMPTS = 2;
+
     public function __construct(
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
@@ -80,7 +88,9 @@ final class PodcastGenerator extends AbstractGenerator
 
             foreach ($turns as $i => $turn) {
                 $segmentPath = sprintf('%s/turn-%d.mp3', $tmpDir, $i);
-                $this->speech->synthesizeToFile($turn['text'], $turn['voice'], $segmentPath);
+                if (!$this->synthesizeWithRetry($turn['text'], $turn['voice'], $segmentPath, $jobUid, $i)) {
+                    continue;
+                }
                 $segmentPaths[] = $segmentPath;
                 $vttSegments[] = [
                     'speaker' => $turn['speaker'],
@@ -88,6 +98,12 @@ final class PodcastGenerator extends AbstractGenerator
                     'durationSeconds' => $this->stitcher->probeDurationSeconds($segmentPath),
                 ];
                 $transcriptLines[] = $turn['speaker'] . ': ' . $turn['text'];
+            }
+
+            if ($segmentPaths === []) {
+                $this->failArtifact($artifactUid, $jobUid, 'All podcast TTS turns failed');
+
+                return false;
             }
 
             $mp3Path = $tmpDir . '/podcast.mp3';
@@ -117,6 +133,30 @@ final class PodcastGenerator extends AbstractGenerator
 
             return false;
         }
+    }
+
+    /**
+     * Synthesize one turn, retrying a transient TTS failure once. Returns false when every
+     * attempt failed so the caller can skip the turn and keep the rest of the episode.
+     */
+    private function synthesizeWithRetry(string $text, string $voice, string $segmentPath, int $jobUid, int $turnIndex): bool
+    {
+        for ($attempt = 1; $attempt <= self::TTS_MAX_ATTEMPTS; $attempt++) {
+            try {
+                $this->speech->synthesizeToFile($text, $voice, $segmentPath);
+
+                return true;
+            } catch (\Throwable $e) {
+                $this->logger->warning('Podcast TTS turn failed', [
+                    'job' => $jobUid,
+                    'turn' => $turnIndex,
+                    'attempt' => $attempt,
+                    'reason' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return false;
     }
 
     /**
