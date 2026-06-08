@@ -77,18 +77,30 @@ final class GdImageCompositorTest extends TestCase
         self::assertSame(0, $centre['red']);
     }
 
-    public function testForegroundIsResizedToBackgroundDimensions(): void
+    public function testOutputUsesForegroundDimensionsAndBackgroundCoversWithoutDistortion(): void
     {
-        $bg = $this->makeOpaquePng(40, 40, 10, 20, 30);
-        $fg = $this->makeMostlyTransparentPng(8, 8);
-        $out = $this->tmpDir . '/out-resized.png';
+        // The foreground is the design canvas (a tall 1:2 portrait); the background is a
+        // mismatched 2:1 landscape. The output must take the FOREGROUND's dimensions and the
+        // background must be scaled to cover them — never the other way round.
+        $bg = $this->makeOpaquePng(40, 20, 10, 20, 200);
+        $fg = $this->makeMostlyTransparentPng(20, 40);
+        $out = $this->tmpDir . '/out-cover.png';
 
         (new GdImageCompositor())->overlay($bg, $fg, $out);
 
         $size = getimagesize($out);
         self::assertNotFalse($size);
-        self::assertSame(40, $size[0]);
-        self::assertSame(40, $size[1]);
+        self::assertSame(20, $size[0], 'output width must equal the foreground width');
+        self::assertSame(40, $size[1], 'output height must equal the foreground height');
+
+        $result = imagecreatefrompng($out);
+        // Where the foreground is transparent, the cover-scaled background shows through.
+        $centre = imagecolorsforindex($result, imagecolorat($result, 10, 20));
+        self::assertSame(200, $centre['blue']);
+        // The single opaque foreground pixel is painted on top of the background.
+        $corner = imagecolorsforindex($result, imagecolorat($result, 0, 0));
+        self::assertSame(255, $corner['red']);
+        self::assertSame(0, $corner['blue']);
     }
 
     public function testMissingBackgroundRaisesRenderingException(): void
