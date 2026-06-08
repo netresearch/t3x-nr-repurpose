@@ -61,6 +61,8 @@ final class FfmpegAudioStitcher implements AudioStitcherInterface
                 $this->timeoutSeconds,
             );
         } finally {
+            // nosemgrep: php.lang.security.unlink-use.unlink-use -- $listPath is an
+            // internally-generated temp file (makeTempDir + fixed name), never user input.
             @unlink($listPath);
         }
 

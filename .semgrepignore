@@ -1,0 +1,17 @@
+# Opengrep / Semgrep exclude list for nr_repurpose.
+#
+# Consumed by the `security / SAST (Opengrep)` CI job.
+
+# Build artefacts, vendored code and local dev environment.
+.Build/
+.ddev/
+node_modules/
+vendor/
+
+# Test code is covered by the unit/functional suites; opengrep's default ruleset
+# flags legitimate test patterns such as unlink() for fixture cleanup, which is
+# safe on static test paths.
+Tests/
+
+# Build scripts are shell-only and reviewed manually.
+Build/Scripts/

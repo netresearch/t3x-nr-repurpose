@@ -1,0 +1,26 @@
+# Auto-detect text files and normalize line endings
+* text=auto eol=lf
+
+*.php text eol=lf
+*.md text eol=lf
+*.rst text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.xml text eol=lf
+*.html text eol=lf
+*.sh text eol=lf
+*.cjs text eol=lf
+
+# Exclude dev-only files from the distribution archive (composer/TER)
+/.Build export-ignore
+/.ddev export-ignore
+/.github export-ignore
+/Tests export-ignore
+/Build export-ignore
+/docs export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.editorconfig export-ignore
+/.semgrepignore export-ignore

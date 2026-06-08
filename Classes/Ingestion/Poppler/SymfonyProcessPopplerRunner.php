@@ -42,6 +42,8 @@ final class SymfonyProcessPopplerRunner implements PopplerRunnerInterface
             throw new \RuntimeException('pdftoppm failed for page ' . $page . ': ' . $e->getMessage(), 1749379431, $e);
         } finally {
             if (is_file($pngPath)) {
+                // nosemgrep: php.lang.security.unlink-use.unlink-use -- $pngPath is an
+                // internally-generated temp render path (makeTempDir), never user input.
                 @unlink($pngPath);
             }
         }
