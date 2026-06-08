@@ -1,7 +1,8 @@
 # Continuous Symfony Messenger consumer for the doctrine transport.
 # Reuses the web image (same PHP + typo3 binary). The restart loop survives the
-# deliberate time/memory limits that recycle the worker. Needs the sibling mounts
-# because the composer path-repo symlinks in .Build/vendor point at /var/t3x-*/main.
+# deliberate time/memory limits that recycle the worker. Dependencies (nr-llm,
+# nr-vault) are installed from their released versions into .Build/vendor, so no
+# sibling mounts are needed — only the project mount.
 services:
   worker:
     container_name: ddev-${DDEV_SITENAME}-worker
@@ -21,12 +22,6 @@ services:
       - type: bind
         source: ../
         target: /var/www/html
-      - type: bind
-        source: /home/sme/p/t3x-nr-llm/main
-        target: /var/t3x-nr-llm/main
-      - type: bind
-        source: /home/sme/p/t3x-nr-vault/main
-        target: /var/t3x-nr-vault/main
     environment:
       - TYPO3_CONTEXT=Development
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
