@@ -14,7 +14,7 @@ use Psr\Http\Message\RequestFactoryInterface;
  * DOM strip (boilerplate node types removed, densest content container kept). JS-heavy
  * pages would be pre-rendered with the Plan-4 Chromium path; Plan 2 defaults to static HTML.
  */
-final class WebPageFetcher
+class WebPageFetcher
 {
     /** Node names removed wholesale before text extraction. */
     private const BOILERPLATE_TAGS = ['script', 'style', 'nav', 'header', 'footer', 'aside', 'form', 'noscript', 'svg'];

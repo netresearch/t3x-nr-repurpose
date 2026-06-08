@@ -12,7 +12,7 @@ use Netresearch\NrRepurpose\Ingestion\Poppler\PopplerRunnerInterface;
  * Tier 2 — renders a PDF page to PNG (Poppler) and OCRs it through nr-llm Vision.
  * Used by the auto dispatcher for scanned/image-only pages and by forced `vision` mode.
  */
-final class PdfVisionExtractor
+class PdfVisionExtractor
 {
     private const OCR_PROMPT = 'Transcribe ALL text in this page image verbatim, '
         . 'preserving reading order and line breaks. Output plain text only, no commentary.';

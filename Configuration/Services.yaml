@@ -40,3 +40,10 @@ services:
 
   Netresearch\NrRepurpose\Ingestion\PdfFileResolver:
     public: true
+
+  Netresearch\NrRepurpose\Ingestion\Poppler\PopplerRunnerInterface:
+    alias: Netresearch\NrRepurpose\Ingestion\Poppler\SymfonyProcessPopplerRunner
+
+  Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface:
+    alias: Netresearch\NrRepurpose\Ingestion\SourceIngestionService
+    public: true

@@ -15,7 +15,7 @@ use TYPO3\CMS\Core\Resource\ResourceFactory;
  *  - pdf_fal: the attached sys_file is fetched for local processing (ResourceFactory).
  *  - pdf_url: the remote PDF is downloaded to a temp file (PSR-18).
  */
-final class PdfFileResolver
+class PdfFileResolver
 {
     public function __construct(
         private readonly ResourceFactory $resourceFactory,

@@ -11,7 +11,7 @@ use Smalot\PdfParser\Parser;
  * Tier 1 — embedded PDF text via smalot/pdfparser, per page, with near-empty (sparse)
  * detection so the auto dispatcher can escalate scanned pages to Vision OCR.
  */
-final class PdfTextExtractor
+class PdfTextExtractor
 {
     /** Minimum non-whitespace chars before a page counts as "has text". */
     private const MIN_CHARS_PER_PAGE = 80;
