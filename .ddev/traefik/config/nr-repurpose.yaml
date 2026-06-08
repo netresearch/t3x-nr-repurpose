@@ -1,0 +1,98 @@
+#ddev-generated
+# If you remove the ddev-generated line above you
+# are responsible for maintaining this file. DDEV will not then
+# update it, for example if you add `additional_hostnames`, etc.
+
+http:
+  routers:
+    nr-repurpose-xhgui-80-http:
+      entrypoints:
+        - http-8143
+      rule: HostRegexp(`^nr-repurpose\.ddev\.site$`)
+      
+      service: "nr-repurpose-xhgui-80"
+      tls: false
+      # middlewares:
+      #   - "nr-repurpose-redirectHttps"
+    nr-repurpose-web-80-http:
+      entrypoints:
+        - http-80
+      rule: HostRegexp(`^nr-repurpose\.ddev\.site$`)
+      
+      service: "nr-repurpose-web-80"
+      tls: false
+      # middlewares:
+      #   - "nr-repurpose-redirectHttps"
+    nr-repurpose-web-8025-http:
+      entrypoints:
+        - http-8025
+      rule: HostRegexp(`^nr-repurpose\.ddev\.site$`)
+      
+      service: "nr-repurpose-web-8025"
+      tls: false
+      # middlewares:
+      #   - "nr-repurpose-redirectHttps"
+    
+    
+    nr-repurpose-xhgui-80-https:
+      entrypoints:
+        - http-8142
+      rule: HostRegexp(`^nr-repurpose\.ddev\.site$`)
+      
+      service: "nr-repurpose-xhgui-80"
+      
+      tls: true
+      
+    
+    
+    nr-repurpose-web-80-https:
+      entrypoints:
+        - http-443
+      rule: HostRegexp(`^nr-repurpose\.ddev\.site$`)
+      
+      service: "nr-repurpose-web-80"
+      
+      tls: true
+      
+    nr-repurpose-web-8025-https:
+      entrypoints:
+        - http-8026
+      rule: HostRegexp(`^nr-repurpose\.ddev\.site$`)
+      
+      service: "nr-repurpose-web-8025"
+      
+      tls: true
+      
+    
+
+  middlewares:
+    nr-repurpose-redirectHttps:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+  services:
+    nr-repurpose-xhgui-80:
+      loadbalancer:
+        servers:
+          - url: http://ddev-nr-repurpose-xhgui:80
+        
+    
+    nr-repurpose-web-80:
+      loadbalancer:
+        servers:
+          - url: http://ddev-nr-repurpose-web:80
+        
+    nr-repurpose-web-8025:
+      loadbalancer:
+        servers:
+          - url: http://ddev-nr-repurpose-web:8025
+        
+    
+    
+    
+
+tls:
+  certificates:
+    - certFile: /mnt/ddev-global-cache/traefik/certs/nr-repurpose.crt
+      keyFile: /mnt/ddev-global-cache/traefik/certs/nr-repurpose.key

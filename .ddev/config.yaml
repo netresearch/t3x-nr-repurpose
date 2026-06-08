@@ -1,0 +1,15 @@
+name: nr-repurpose
+type: typo3
+docroot: .Build/Web
+php_version: "8.5"
+composer_version: "2"
+webserver_type: apache-fpm
+database:
+  type: mariadb
+  version: "11.4"
+web_environment:
+  - TYPO3_CONTEXT=Development
+  - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+  - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+  - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+  - FAL_API_KEY=${FAL_API_KEY:-}

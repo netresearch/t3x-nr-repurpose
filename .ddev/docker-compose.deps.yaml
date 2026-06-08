@@ -1,0 +1,13 @@
+# Bind-mount the local sibling extensions so the composer `path` repositories
+# (../../t3x-nr-llm/main, ../../t3x-nr-vault/main) resolve INSIDE the container.
+# Composer root is /var/www/html, so ../../ == /var → mount the siblings under /var/...
+# This makes the same relative path work on the host and in the container.
+services:
+  web:
+    volumes:
+      - type: bind
+        source: /home/sme/p/t3x-nr-llm/main
+        target: /var/t3x-nr-llm/main
+      - type: bind
+        source: /home/sme/p/t3x-nr-vault/main
+        target: /var/t3x-nr-vault/main

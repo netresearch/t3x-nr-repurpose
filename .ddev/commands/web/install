@@ -1,0 +1,29 @@
+#!/bin/bash
+## Description: Install TYPO3 v14.3 into .Build/Web and activate nr_repurpose + nr_llm
+## Usage: install
+## Example: ddev install
+set -eu
+
+cd /var/www/html
+
+composer install --no-interaction --no-progress
+
+.Build/bin/typo3 setup -n \
+  --driver=mysqli --host=db --port=3306 --dbname=db --username=db --password=db \
+  --admin-username=admin --admin-user-password='Demo1234!' --admin-email=admin@example.com \
+  --project-name='nr_repurpose Dev' \
+  --create-site=https://nr-repurpose.ddev.site/ --server-type=apache --force
+
+# Route the generation message to the async doctrine transport (dev settings).
+mkdir -p config/system
+cat > config/system/additional.php <<'PHP'
+<?php
+// Dev-only: trust the DDEV host (avoids #1396795884 trusted-hosts exception).
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'][\Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage::class] = 'doctrine';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing']['*'] = 'default';
+PHP
+
+.Build/bin/typo3 extension:setup
+.Build/bin/typo3 cache:flush
+echo "Done. Backend: https://nr-repurpose.ddev.site/typo3/ (admin / Demo1234!)"
