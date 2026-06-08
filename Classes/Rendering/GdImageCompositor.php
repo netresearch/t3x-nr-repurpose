@@ -14,46 +14,41 @@ final class GdImageCompositor implements ImageCompositorInterface
 {
     public function overlay(string $backgroundPng, string $foregroundPng, string $outPath): string
     {
+        // GdImage instances are freed by the garbage collector when they go out of scope
+        // (imagedestroy() is a deprecated no-op since PHP 8.0).
         $background = $this->load($backgroundPng);
-        try {
-            $foreground = $this->load($foregroundPng);
-            try {
-                $bgWidth = imagesx($background);
-                $bgHeight = imagesy($background);
-                $fgWidth = imagesx($foreground);
-                $fgHeight = imagesy($foreground);
+        $foreground = $this->load($foregroundPng);
 
-                // Keep the foreground alpha during the copy and in the output.
-                imagealphablending($background, true);
-                imagesavealpha($background, true);
+        $bgWidth = imagesx($background);
+        $bgHeight = imagesy($background);
+        $fgWidth = imagesx($foreground);
+        $fgHeight = imagesy($foreground);
 
-                if ($fgWidth === $bgWidth && $fgHeight === $bgHeight) {
-                    $ok = imagecopy($background, $foreground, 0, 0, 0, 0, $bgWidth, $bgHeight);
-                } else {
-                    $ok = imagecopyresampled(
-                        $background,
-                        $foreground,
-                        0, 0, 0, 0,
-                        $bgWidth, $bgHeight,
-                        $fgWidth, $fgHeight,
-                    );
-                }
-                if ($ok === false) {
-                    throw RenderingException::because('GD overlay copy failed', 1749400201);
-                }
+        // Keep the foreground alpha during the copy and in the output.
+        imagealphablending($background, true);
+        imagesavealpha($background, true);
 
-                $dir = \dirname($outPath);
-                if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) {
-                    throw RenderingException::because('Compositor output dir not writable: ' . $dir, 1749400202);
-                }
-                if (imagepng($background, $outPath) === false) {
-                    throw RenderingException::because('GD could not write PNG to ' . $outPath, 1749400203);
-                }
-            } finally {
-                imagedestroy($foreground);
-            }
-        } finally {
-            imagedestroy($background);
+        if ($fgWidth === $bgWidth && $fgHeight === $bgHeight) {
+            $ok = imagecopy($background, $foreground, 0, 0, 0, 0, $bgWidth, $bgHeight);
+        } else {
+            $ok = imagecopyresampled(
+                $background,
+                $foreground,
+                0, 0, 0, 0,
+                $bgWidth, $bgHeight,
+                $fgWidth, $fgHeight,
+            );
+        }
+        if ($ok === false) {
+            throw RenderingException::because('GD overlay copy failed', 1749400201);
+        }
+
+        $dir = \dirname($outPath);
+        if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) {
+            throw RenderingException::because('Compositor output dir not writable: ' . $dir, 1749400202);
+        }
+        if (imagepng($background, $outPath) === false) {
+            throw RenderingException::because('GD could not write PNG to ' . $outPath, 1749400203);
         }
 
         return $outPath;

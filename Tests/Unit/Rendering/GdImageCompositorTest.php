@@ -35,7 +35,6 @@ final class GdImageCompositorTest extends TestCase
         imagefill($im, 0, 0, imagecolorallocate($im, $r, $g, $b));
         $path = $this->tmpDir . '/bg-' . bin2hex(random_bytes(3)) . '.png';
         imagepng($im, $path);
-        imagedestroy($im);
 
         return $path;
     }
@@ -49,7 +48,6 @@ final class GdImageCompositorTest extends TestCase
         imagesetpixel($im, 0, 0, imagecolorallocate($im, 255, 0, 0));      // one opaque red pixel
         $path = $this->tmpDir . '/fg-' . bin2hex(random_bytes(3)) . '.png';
         imagepng($im, $path);
-        imagedestroy($im);
 
         return $path;
     }
@@ -77,7 +75,6 @@ final class GdImageCompositorTest extends TestCase
         $centre = imagecolorsforindex($result, imagecolorat($result, 10, 15));
         self::assertSame(255, $centre['blue']);
         self::assertSame(0, $centre['red']);
-        imagedestroy($result);
     }
 
     public function testForegroundIsResizedToBackgroundDimensions(): void
