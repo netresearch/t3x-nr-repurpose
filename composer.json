@@ -3,6 +3,7 @@
     "description": "Turn a webpage or PDF into a podcast, a diagram and an Instagram story — built on netresearch/nr-llm",
     "license": "GPL-2.0-or-later",
     "type": "typo3-cms-extension",
+    "version": "0.1.0",
     "authors": [
         {
             "name": "Netresearch DTT GmbH",
