@@ -26,7 +26,6 @@ final class GeneratorRegistrationTest extends AbstractFunctionalTestCase
         $orchestrator = $this->get(GenerationOrchestratorInterface::class);
 
         $prop = (new \ReflectionClass($orchestrator))->getProperty('generators');
-        $prop->setAccessible(true);
         /** @var list<ArtifactGeneratorInterface> $generators */
         $generators = $prop->getValue($orchestrator);
 
