@@ -10,9 +10,11 @@ on:
 
 permissions: {}
 
+# Reusable workflow refs are pinned to a full commit SHA (this repo enforces
+# sha_pinning_required); the trailing comment records the human-readable ref.
 jobs:
   ci:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@main
+    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@f61237eecfafb5559d8eb37e8007389cf65bc5f9 # main
     permissions:
       contents: read
     with:
@@ -31,18 +33,18 @@ jobs:
       run-functional-tests: false
 
   security:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/security.yml@main
+    uses: netresearch/typo3-ci-workflows/.github/workflows/security.yml@f61237eecfafb5559d8eb37e8007389cf65bc5f9 # main
     permissions:
       contents: read
       security-events: write
 
   license-check:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/license-check.yml@main
+    uses: netresearch/typo3-ci-workflows/.github/workflows/license-check.yml@f61237eecfafb5559d8eb37e8007389cf65bc5f9 # main
     permissions:
       contents: read
 
   codeql:
-    uses: netresearch/.github/.github/workflows/codeql.yml@main
+    uses: netresearch/.github/.github/workflows/codeql.yml@8bf8b33a7c8865830f9b5ce787a67c2a209d7afe # main
     permissions:
       contents: read
       security-events: write
@@ -50,7 +52,7 @@ jobs:
 
   scorecard:
     if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch)
-    uses: netresearch/.github/.github/workflows/scorecard.yml@main
+    uses: netresearch/.github/.github/workflows/scorecard.yml@8bf8b33a7c8865830f9b5ce787a67c2a209d7afe # main
     permissions:
       contents: read
       security-events: write
