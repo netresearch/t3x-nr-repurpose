@@ -3,6 +3,9 @@
   <file source-language="en" datatype="plaintext" original="EXT:nr_repurpose/Resources/Private/Language/locallang.xlf" date="2026-06-08T00:00:00Z" product-name="nr_repurpose">
     <body>
       <trans-unit id="job.created"><source>Job created and queued.</source></trans-unit>
+      <trans-unit id="perm.header"><source>Content Repurpose</source></trans-unit>
+      <trans-unit id="perm.generate_audio"><source>Generate podcast audio</source></trans-unit>
+      <trans-unit id="perm.generate_vision"><source>Generate AI imagery</source></trans-unit>
     </body>
   </file>
 </xliff>
