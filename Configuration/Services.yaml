@@ -81,3 +81,6 @@ services:
   Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface:
     alias: Netresearch\NrRepurpose\Ingestion\SourceIngestionService
     public: true
+
+  Netresearch\NrRepurpose\Command\GenerateCommand:
+    public: true
