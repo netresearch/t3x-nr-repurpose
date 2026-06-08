@@ -10,7 +10,7 @@
 
 `nr_repurpose` ist eine TYPO3-Extension, die aus **einer Quelle** (Webseite-URL oder PDF — als FAL-Datei oder URL) automatisch **drei Medienformate** erzeugt:
 
-1. **Podcast** — Zwei-Stimmen-Dialog als Audiodatei (mp3)
+1. **Podcast** — Zwei-Stimmen-Dialog als Audiodatei (mp3), inkl. **Transkript** (Text) und **Untertiteln** (WebVTT)
 2. **Schaubild** — Diagramm/Infografik als Pixelgrafik (PNG), in **drei Varianten** zum Vergleich
 3. **Instagram-Story** — ein 9:16-Key-Visual (1080×1920 PNG)
 
@@ -60,9 +60,12 @@ Die Extension baut auf **`netresearch/nr-llm`** auf — der geteilten KI-Grundla
 | Story-Umfang | einzelner 9:16-Slide | schlanker MVP, später erweiterbar |
 | Ausführung | asynchron über Symfony Messenger | keine Timeouts, Fortschritt sichtbar, moderne v14-Variante |
 | Zielplattform | TYPO3 v14.3, PHP ^8.3 | v14-only erlaubt Messenger/Fluid-5/Backend-Module-API ohne Kompat-Ballast |
-| PDF-Umfang | Text + Vision-OCR + Tabellen/Layout | komplexe Dokumente erfordern alle drei Stufen |
+| PDF-Umfang | Text + Vision-OCR + Tabellen/Layout, **Stufe pro Lauf wählbar (Default `auto`)** | komplexe Dokumente erfordern alle drei Stufen; `auto` staffelt automatisch |
 | Branding | NR-CI **und** neutral, umschaltbar | Demo-tauglich und kundenprojekt-tauglich |
 | Sprache | Quellsprache automatisch | deckt DE/EN ohne Zusatz-UI ab |
+| Artefakt-Auswahl | Redakteur wählt pro Lauf (Podcast/Schaubild/Story), Default alle | gezielte und günstigere Läufe möglich |
+| Podcast-Länge | nach Dokumentumfang (LLM-bestimmt) | keine künstliche Zielvorgabe; folgt dem Inhalt |
+| Podcast-Transkript/Untertitel | Transkript (Text) + WebVTT-Untertitel aus Segment-Dauern | lesbar/barrierearm, kein zusätzlicher Provider-Aufruf |
 
 ---
 
@@ -126,7 +129,8 @@ Jede Unit hat **eine Aufgabe**, kommuniziert über ein Interface und ist einzeln
 | `source_value` | text | URL (bei `url`/`pdf_url`) |
 | `source_file` | sys_file-Ref | FAL-PDF (bei `pdf_fal`) |
 | `theme` | enum | `nr` \| `neutral` |
-| `requested_artifacts` | set | `podcast`, `schaubild`, `story` (Default: alle) |
+| `requested_artifacts` | set | `podcast`, `schaubild`, `story` — vom Redakteur wählbar (Default: alle) |
+| `pdf_mode` | enum | `auto` (Default) \| `text` \| `vision` \| `tables` — nur bei PDF-Quellen |
 | `language_detected` | string | von der Analyse gefüllt |
 | `status` | enum | `queued`, `ingesting`, `analyzing`, `generating`, `done`, `partially_done`, `failed` |
 | `progress` | int | 0–100 (für BE-Anzeige) |
@@ -144,7 +148,8 @@ Jede Unit hat **eine Aufgabe**, kommuniziert über ein Interface und ist einzeln
 | `variant` | enum | Schaubild: `html` \| `html_bg` \| `ki_image`; sonst `default` |
 | `file` | sys_file-Ref | erzeugte Datei (mp3/PNG) in FAL |
 | `source_html` | text | erzeugtes HTML (Schaubild/Story) — zur Nachvollziehbarkeit |
-| `script_text` | text | Dialog-Skript (Podcast) |
+| `script_text` | text | Dialog-Transkript (Podcast), Sprecher-getaggt |
+| `subtitle_file` | sys_file-Ref | WebVTT-Untertitel (Podcast) |
 | `status` | enum | `pending`, `done`, `failed` |
 | `error_message` | text | bei `failed` |
 | `metadata` | json | Provider, Modell, Stimmen, Maße, Kosten/Tokens |
@@ -174,7 +179,7 @@ Der Worker läuft über `vendor/bin/typo3 messenger:consume` (im DDEV als eigene
 - `PdfVisionExtractor` — rendert Seiten ohne Textebene als Bild und gibt sie an nr-llm `VisionService` (OCR/Verständnis).
 - `PdfTableExtractor` — erkennt und strukturiert Tabellen/Spalten-Layouts für treue Übernahme in den `ContentBrief`.
 
-Die PDF-Strategien sind gestaffelt: zuerst Text-Extraktion; liefert sie zu wenig (z. B. Scan ohne Textebene), greift Vision; Tabellen-Extraktion ergänzt strukturierte Bereiche.
+Die PDF-Strategie richtet sich nach `pdf_mode`. Bei `auto` (Default) sind die Stufen gestaffelt: zuerst Text-Extraktion; liefert sie zu wenig (z. B. Scan ohne Textebene), greift Vision; Tabellen-Extraktion ergänzt strukturierte Bereiche. Alternativ erzwingt der Redakteur eine Stufe (`text` / `vision` / `tables`) explizit pro Lauf.
 
 ### Understanding
 
@@ -220,10 +225,11 @@ Alle drei werden als eigene `tx_repurpose_artifact`-Records (gleicher `type=scha
 
 ## 9. Podcast
 
-- `PodcastGenerator` erzeugt über nr-llm ein **Dialog-Skript** zweier Hosts (Host A / Host B) aus dem `ContentBrief` — strukturiert als Folge von Sprecher-Turns in der erkannten Quellsprache.
+- `PodcastGenerator` erzeugt über nr-llm ein **Dialog-Skript** zweier Hosts (Host A / Host B) aus dem `ContentBrief` — strukturiert als Folge von Sprecher-Turns in der erkannten Quellsprache. Die **Länge richtet sich nach dem Dokumentumfang** (LLM-bestimmt) — keine feste Zielvorgabe.
 - Pro Turn ruft der Generator `TextToSpeechService::synthesize` mit der jeweiligen Stimme (Default Host A = `nova`, Host B = `onyx`), Format mp3.
 - `AudioStitcher` (ffmpeg) fügt die Segmente in Reihenfolge zu einer mp3 zusammen (einheitliches Format/Samplerate, saubere Übergänge).
-- Ergebnis: ein `artifact` (`type=podcast`), Datei in FAL; das Skript liegt in `script_text`.
+- Aus den Sprecher-Turns entsteht ein **Transkript** (Sprecher-getaggt, in `script_text`) und daraus eine **WebVTT-Untertiteldatei**: die Cue-Zeiten ergeben sich aus den per `ffprobe` gemessenen Segment-Dauern — also ohne zusätzlichen Provider-Aufruf und passend zur erzeugten Audiospur.
+- Ergebnis: ein `artifact` (`type=podcast`) mit mp3 (`file`) und WebVTT (`subtitle_file`) in FAL; das Transkript liegt in `script_text` und ist als Text herunterladbar.
 
 ---
 
@@ -237,9 +243,9 @@ Alle drei werden als eigene `tx_repurpose_artifact`-Records (gleicher `type=scha
 
 ## 11. Backend-Modul „Content Studio"
 
-- **Eingabe** — Formular: Quelltyp (URL / PDF-URL / FAL-PDF), Wert bzw. Datei-Auswahl, Theme, Artefakt-Auswahl. Validierung vor Anlage.
+- **Eingabe** — Formular: Quelltyp (URL / PDF-URL / FAL-PDF), Wert bzw. Datei-Auswahl, Theme, **Artefakt-Auswahl** (Podcast/Schaubild/Story), bei PDF zusätzlich **Extraktionsstufe** (`auto` / `text` / `vision` / `tables`). Validierung vor Anlage.
 - **Job-Liste** — laufende und abgeschlossene Jobs mit Status, Progress und Schritt.
-- **Ergebnis-Ansicht** — Audio-Player (Podcast), Bild-Previews (Schaubild-Varianten nebeneinander, Story), Download-Links, „HTML ansehen", Status/Fehler pro Artefakt.
+- **Ergebnis-Ansicht** — Audio-Player mit **Untertiteln** und ausklappbarem **Transkript** (Podcast), Bild-Previews (Schaubild-Varianten nebeneinander, Story), Download-Links (mp3 / WebVTT / Transkript / PNG), „HTML ansehen", Status/Fehler pro Artefakt.
 - **Berechtigungen/Budget** — über nr-llm `CapabilityPermissionService` und `BudgetService`; ein Lauf startet nur, wenn das Budget reicht.
 
 ---
@@ -296,7 +302,7 @@ Alle drei werden als eigene `tx_repurpose_artifact`-Records (gleicher `type=scha
 
 1. Ein Redakteur gibt im Backend eine URL oder ein PDF an und erhält ohne weitere Schritte Podcast, Schaubild (3 Varianten) und Story.
 2. Schaubild-Variante `html` zeigt **korrekte, lesbare** Beschriftungen aus dem Quelldokument.
-3. Der Podcast ist ein hörbarer Zwei-Stimmen-Dialog in der Quellsprache.
+3. Der Podcast ist ein hörbarer Zwei-Stimmen-Dialog in der Quellsprache, begleitet von Transkript und WebVTT-Untertiteln.
 4. Die Story ist ein 1080×1920-PNG im gewählten Theme.
 5. Lange Dokumente laufen ohne Timeout durch (asynchron); der Fortschritt ist im Backend sichtbar.
 6. Ein fehlgeschlagenes Artefakt beendet nicht die übrigen.
