@@ -4,6 +4,10 @@ services:
     autoconfigure: true
     public: false
 
+  _instanceof:
+    Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface:
+      tags: ['nr_repurpose.artifact_generator']
+
   Netresearch\NrRepurpose\:
     resource: '../Classes/*'
     exclude:
@@ -20,4 +24,12 @@ services:
   Netresearch\NrRepurpose\Persistence\JobProcessingRepository:
     public: true
   Netresearch\NrRepurpose\Resource\JobFileStorage:
+    public: true
+
+  Netresearch\NrRepurpose\Service\GenerationOrchestrator:
+    arguments:
+      $generators: !tagged_iterator nr_repurpose.artifact_generator
+
+  Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface:
+    alias: Netresearch\NrRepurpose\Service\GenerationOrchestrator
     public: true
