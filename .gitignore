@@ -3,3 +3,4 @@
 /var/
 /config/
 /.ddev/.env
+/Resources/Private/NodeRenderer/node_modules/

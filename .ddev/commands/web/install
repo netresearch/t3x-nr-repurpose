@@ -29,5 +29,13 @@ if ($nrLlmOpenAiKey !== '') {
 PHP
 
 .Build/bin/typo3 extension:setup
+
+# Render-infra (Plan 4): install the Node renderer's playwright-core into the web container.
+# Chromium itself is the apt binary baked by the web-build Dockerfile (CHROMIUM_PATH=/usr/bin/chromium),
+# and PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 keeps playwright-core from fetching its own browser.
+if [ -f Resources/Private/NodeRenderer/package.json ]; then
+  ( cd Resources/Private/NodeRenderer && npm ci --no-audit --no-fund 2>/dev/null || npm install --no-audit --no-fund )
+fi
+
 .Build/bin/typo3 cache:flush
 echo "Done. Backend: https://nr-repurpose.ddev.site/typo3/ (admin / Demo1234!)"
