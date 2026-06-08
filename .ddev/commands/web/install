@@ -22,6 +22,10 @@ cat > config/system/additional.php <<'PHP'
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'][\Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage::class] = 'doctrine';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing']['*'] = 'default';
+$nrLlmOpenAiKey = getenv('OPENAI_API_KEY') ?: '';
+if ($nrLlmOpenAiKey !== '') {
+    $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['apiKey'] = $nrLlmOpenAiKey;
+}
 PHP
 
 .Build/bin/typo3 extension:setup
