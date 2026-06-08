@@ -13,7 +13,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * Plain DBAL persistence for the long-running Messenger worker.
  * Avoids Extbase persistence-session pitfalls in a recycled consumer process.
  */
-final class JobProcessingRepository
+class JobProcessingRepository
 {
     private const JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
     private const ARTIFACT_TABLE = 'tx_nrrepurpose_domain_model_artifact';

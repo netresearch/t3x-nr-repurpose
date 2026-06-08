@@ -11,7 +11,7 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
  * Stores generated artifact bytes into the default FAL storage under a `repurpose/` folder
  * and returns the resulting sys_file (File). Artifacts reference it by sys_file uid.
  */
-final class JobFileStorage
+class JobFileStorage
 {
     private const SUBFOLDER = 'repurpose';
 
