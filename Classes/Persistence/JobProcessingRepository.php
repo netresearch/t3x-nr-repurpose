@@ -52,6 +52,15 @@ final class JobProcessingRepository
         );
     }
 
+    public function setLanguageDetected(int $jobUid, string $language): void
+    {
+        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
+            self::JOB_TABLE,
+            ['language_detected' => $language, 'tstamp' => time()],
+            ['uid' => $jobUid],
+        );
+    }
+
     public function insertArtifact(
         int $jobUid,
         ArtifactType $type,
