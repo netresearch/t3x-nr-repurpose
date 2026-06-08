@@ -19,3 +19,5 @@ services:
   # Public so functional tests can fetch them via $this->get().
   Netresearch\NrRepurpose\Persistence\JobProcessingRepository:
     public: true
+  Netresearch\NrRepurpose\Resource\JobFileStorage:
+    public: true
