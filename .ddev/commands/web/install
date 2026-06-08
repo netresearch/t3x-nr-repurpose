@@ -20,15 +20,35 @@ cat > config/system/additional.php <<'PHP'
 <?php
 // Dev-only: trust the DDEV host (avoids #1396795884 trusted-hosts exception).
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
+// Bound outbound HTTP — TYPO3's shared Guzzle client defaults to timeout=0 (no read
+// timeout), so a stalled OpenAI response would hang the generation worker indefinitely.
+$GLOBALS['TYPO3_CONF_VARS']['HTTP']['timeout'] = 180;
+$GLOBALS['TYPO3_CONF_VARS']['HTTP']['connect_timeout'] = 15;
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'][\Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage::class] = 'doctrine';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing']['*'] = 'default';
+# nr-llm LLM providers read the key from nr-vault by identifier (seeded below); the Specialized
+# TTS/DALL-E services read a plaintext key from providers.openai.apiKey. Set both.
 $nrLlmOpenAiKey = getenv('OPENAI_API_KEY') ?: '';
 if ($nrLlmOpenAiKey !== '') {
     $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['apiKey'] = $nrLlmOpenAiKey;
 }
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['apiKeyIdentifier'] = 'nr_repurpose_openai';
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['defaultProvider'] = 'openai';
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['defaultModel'] = 'gpt-4o';
 PHP
 
 .Build/bin/typo3 extension:setup
+
+# Seed the OpenAI key into nr-vault under the identifier the provider config points at.
+# vault:store uses the TYPO3 encryption key as master key (nr-vault masterKeyProvider=typo3),
+# so no extra vault setup is needed. Idempotent: rotate if it already exists.
+if [ -n "${OPENAI_API_KEY:-}" ]; then
+  if .Build/bin/typo3 vault:list 2>/dev/null | grep -q nr_repurpose_openai; then
+    printf '%s' "$OPENAI_API_KEY" | .Build/bin/typo3 vault:rotate nr_repurpose_openai --stdin || true
+  else
+    printf '%s' "$OPENAI_API_KEY" | .Build/bin/typo3 vault:store nr_repurpose_openai --stdin
+  fi
+fi
 
 # Render-infra (Plan 4): install the Node renderer's playwright-core into the web container.
 # Chromium itself is the apt binary baked by the web-build Dockerfile (CHROMIUM_PATH=/usr/bin/chromium),
