@@ -1,0 +1,17 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  Netresearch\NrRepurpose\:
+    resource: '../Classes/*'
+    exclude:
+      - '../Classes/Domain/Model/*'
+      - '../Classes/Queue/Message/*'
+
+  # nr_llm aliases CapabilityPermissionServiceInterface privately; expose it publicly
+  # here so it can be autowired once capability gating is added.
+  Netresearch\NrLlm\Service\CapabilityPermissionServiceInterface:
+    alias: Netresearch\NrLlm\Service\CapabilityPermissionService
+    public: true

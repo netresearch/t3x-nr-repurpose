@@ -1,0 +1,68 @@
+{
+    "name": "netresearch/nr-repurpose",
+    "description": "Turn a webpage or PDF into a podcast, a diagram and an Instagram story — built on netresearch/nr-llm",
+    "license": "GPL-2.0-or-later",
+    "type": "typo3-cms-extension",
+    "authors": [
+        {
+            "name": "Netresearch DTT GmbH",
+            "homepage": "https://www.netresearch.de/",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "ext-json": "*",
+        "netresearch/nr-llm": "dev-main",
+        "netresearch/nr-vault": "dev-main as 0.5.0",
+        "psr/log": "^3.0",
+        "symfony/messenger": "^7.0",
+        "symfony/process": "^7.0",
+        "typo3/cms-backend": "^14.3",
+        "typo3/cms-core": "^14.3",
+        "typo3/cms-extbase": "^14.3",
+        "typo3/cms-fluid": "^14.3",
+        "typo3/cms-frontend": "^14.3",
+        "typo3/cms-install": "^14.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5",
+        "typo3/cms-belog": "^14.3",
+        "typo3/cms-beuser": "^14.3",
+        "typo3/cms-filelist": "^14.3",
+        "typo3/cms-lowlevel": "^14.3",
+        "typo3/cms-setup": "^14.3",
+        "typo3/cms-tstemplate": "^14.3",
+        "typo3/testing-framework": "^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Netresearch\\NrRepurpose\\": "Classes/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Netresearch\\NrRepurpose\\Tests\\": "Tests/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "allow-plugins": {
+            "typo3/class-alias-loader": true,
+            "typo3/cms-composer-installers": true
+        },
+        "bin-dir": ".Build/bin",
+        "vendor-dir": ".Build/vendor"
+    },
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nr_repurpose",
+            "web-dir": ".Build/Web"
+        }
+    },
+    "repositories": [
+        { "type": "path", "url": "../../t3x-nr-llm/main" },
+        { "type": "path", "url": "../../t3x-nr-vault/main" }
+    ]
+}

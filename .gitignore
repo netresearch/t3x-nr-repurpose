@@ -1,0 +1,5 @@
+/.Build/
+/composer.lock
+/var/
+/config/
+/.ddev/.env
