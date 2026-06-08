@@ -16,6 +16,9 @@ final class RecordingProcessRunner implements ProcessRunnerInterface
     /** @var list<array{command: list<string>, stdin: ?string, timeout: float}> */
     public array $calls = [];
 
+    /** @var array<string, string> contents of argv paths that existed at call time (inputs survive caller cleanup) */
+    public array $fileSnapshots = [];
+
     /** @var list<ProcessResult> */
     private array $results;
 
@@ -27,6 +30,13 @@ final class RecordingProcessRunner implements ProcessRunnerInterface
     public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0): ProcessResult
     {
         $this->calls[] = ['command' => $command, 'stdin' => $stdin, 'timeout' => $timeoutSeconds];
+
+        // Snapshot existing input files now, before the caller cleans them up in a finally block.
+        foreach ($command as $arg) {
+            if (is_string($arg) && is_file($arg) && !isset($this->fileSnapshots[$arg])) {
+                $this->fileSnapshots[$arg] = (string) file_get_contents($arg);
+            }
+        }
 
         $result = $this->results[count($this->calls) - 1] ?? $this->results[count($this->results) - 1];
 
