@@ -1,0 +1,67 @@
+<f:spaceless>
+<!DOCTYPE html>
+<html lang="{language}">
+<head>
+    <meta charset="utf-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700&family=Open+Sans:wght@400;600;700&display=swap');
+        :root {
+            --nr-primary: #2F99A4;
+            --nr-accent: #FF4D00;
+            --nr-text: #585961;
+            --font-headline: 'Raleway', 'Helvetica Neue', Arial, sans-serif;
+            --font-body: 'Open Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            <f:if condition="{transparent}">
+                <f:then>background: transparent;</f:then>
+                <f:else>background: #ffffff;</f:else>
+            </f:if>
+        }
+        .schaubild {
+            width: 1200px;
+            box-sizing: border-box;
+            padding: 64px;
+            font-family: var(--font-body);
+            color: var(--nr-text);
+        }
+        .schaubild__header {
+            border-bottom: 4px solid var(--nr-accent);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+        .schaubild__title {
+            font-family: var(--font-headline);
+            font-weight: 700;
+            font-size: 48px;
+            line-height: 1.2;
+            color: var(--nr-primary);
+            margin: 0;
+        }
+        .schaubild__body { font-size: 20px; line-height: 1.6; }
+        .schaubild__body h2,
+        .schaubild__body h3 {
+            font-family: var(--font-headline);
+            color: var(--nr-primary);
+        }
+        .schaubild__footer { margin-top: 40px; font-size: 14px; color: var(--nr-text); }
+        .schaubild__footer a { color: var(--nr-primary); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="schaubild">
+        <header class="schaubild__header">
+            <h1 class="schaubild__title">{title}</h1>
+        </header>
+        <main class="schaubild__body">
+            <f:format.raw>{bodyHtml}</f:format.raw>
+        </main>
+        <footer class="schaubild__footer">
+            <a href="https://www.netresearch.de/">Netresearch DTT GmbH</a>
+        </footer>
+    </div>
+</body>
+</html>
+</f:spaceless>

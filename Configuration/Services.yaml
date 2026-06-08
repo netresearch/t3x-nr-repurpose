@@ -56,6 +56,9 @@ services:
   Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface:
     alias: Netresearch\NrRepurpose\Generator\Speech\OpenAiSpeechSynthesizer
 
+  Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface:
+    alias: Netresearch\NrRepurpose\Generator\Image\DallEImageGenerator
+
   # Core registers the PSR-18 client (ClientInterface) but not the PSR-17 request factory.
   Psr\Http\Message\RequestFactoryInterface:
     class: GuzzleHttp\Psr7\HttpFactory

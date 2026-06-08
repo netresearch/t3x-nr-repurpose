@@ -1,0 +1,49 @@
+<f:spaceless>
+<!DOCTYPE html>
+<html lang="{language}">
+<head>
+    <meta charset="utf-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        :root {
+            --fg: #1f2933;
+            --accent: #3b6ef5;
+            --font: 'Inter', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            <f:if condition="{transparent}">
+                <f:then>background: transparent;</f:then>
+                <f:else>background: #ffffff;</f:else>
+            </f:if>
+        }
+        .schaubild {
+            width: 1200px;
+            box-sizing: border-box;
+            padding: 64px;
+            font-family: var(--font);
+            color: var(--fg);
+        }
+        .schaubild__header {
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+        .schaubild__title { font-weight: 700; font-size: 48px; line-height: 1.2; margin: 0; }
+        .schaubild__body { font-size: 20px; line-height: 1.6; }
+        .schaubild__body h2, .schaubild__body h3 { color: var(--accent); }
+    </style>
+</head>
+<body>
+    <div class="schaubild">
+        <header class="schaubild__header">
+            <h1 class="schaubild__title">{title}</h1>
+        </header>
+        <main class="schaubild__body">
+            <f:format.raw>{bodyHtml}</f:format.raw>
+        </main>
+    </div>
+</body>
+</html>
+</f:spaceless>
