@@ -1,19 +1,82 @@
-<html data-namespace-typo3-fluid="true" xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
+<html data-namespace-typo3-fluid="true"
+      xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:nr="http://typo3.org/ns/Netresearch/NrRepurpose/ViewHelpers">
 <f:layout name="Module" />
 <f:section name="Content">
     <h1>Job #{job.uid}</h1>
-    <dl>
-        <dt>Source</dt><dd>{job.sourceValue}</dd>
-        <dt>Status</dt><dd>{job.status} ({job.progress}%)</dd>
-        <dt>Step</dt><dd>{job.currentStep}</dd>
-        <f:if condition="{job.errorMessage}"><dt>Error</dt><dd>{job.errorMessage}</dd></f:if>
+
+    <dl class="row">
+        <dt class="col-sm-2">Source</dt><dd class="col-sm-10">{job.sourceValue}</dd>
+        <dt class="col-sm-2">Status</dt>
+        <dd class="col-sm-10">
+            <span class="badge badge-info">{job.status}</span> ({job.progress}%) — {job.currentStep}
+        </dd>
+        <f:if condition="{job.languageDetected}">
+            <dt class="col-sm-2">Language</dt><dd class="col-sm-10">{job.languageDetected}</dd>
+        </f:if>
+        <f:if condition="{job.errorMessage}">
+            <dt class="col-sm-2">Error</dt><dd class="col-sm-10 text-danger">{job.errorMessage}</dd>
+        </f:if>
     </dl>
+
     <h2>Artifacts</h2>
-    <ul>
-        <f:for each="{job.artifacts}" as="artifact">
-            <li>{artifact.type} / {artifact.variant} — {artifact.status}</li>
-        </f:for>
-    </ul>
-    <p><f:link.action action="list">Back</f:link.action></p>
+    <f:for each="{job.artifacts}" as="artifact">
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong>{artifact.type}</strong><f:if condition="{artifact.variant} != 'default'"> — {artifact.variant}</f:if>
+                <f:if condition="{artifact.status} == 'done'">
+                    <f:then><span class="badge badge-success">{artifact.status}</span></f:then>
+                    <f:else><span class="badge badge-warning">{artifact.status}</span></f:else>
+                </f:if>
+            </div>
+            <div class="card-body">
+                <f:if condition="{artifact.errorMessage}">
+                    <p class="text-danger">{artifact.errorMessage}</p>
+                </f:if>
+
+                <f:if condition="{artifact.status} == 'done'">
+                    <f:comment><!-- Podcast: audio player + subtitles + transcript --></f:comment>
+                    <f:if condition="{artifact.type} == 'podcast'">
+                        <f:variable name="mp3" value="{nr:publicUrl(fileUid: artifact.fileUid)}" />
+                        <f:variable name="vtt" value="{nr:publicUrl(fileUid: artifact.subtitleFileUid)}" />
+                        <f:if condition="{mp3}">
+                            <audio controls preload="metadata" style="width: 100%; max-width: 640px;">
+                                <source src="{mp3}" type="audio/mpeg" />
+                                <f:if condition="{vtt}">
+                                    <track kind="subtitles" src="{vtt}" srclang="{job.languageDetected}" label="Transcript" default="default" />
+                                </f:if>
+                            </audio>
+                            <p class="mt-2">
+                                <a href="{mp3}" download class="btn btn-sm btn-default">Download MP3</a>
+                                <f:if condition="{vtt}">
+                                    <a href="{vtt}" download class="btn btn-sm btn-default">Download subtitles (VTT)</a>
+                                </f:if>
+                            </p>
+                        </f:if>
+                        <f:if condition="{artifact.scriptText}">
+                            <details>
+                                <summary>Transcript</summary>
+                                <pre style="white-space: pre-wrap;">{artifact.scriptText}</pre>
+                            </details>
+                        </f:if>
+                    </f:if>
+
+                    <f:comment><!-- Schaubild + Story: image preview + download --></f:comment>
+                    <f:if condition="{artifact.type} != 'podcast'">
+                        <f:variable name="img" value="{nr:publicUrl(fileUid: artifact.fileUid)}" />
+                        <f:if condition="{img}">
+                            <p>
+                                <img src="{img}" alt="{artifact.type} {artifact.variant}"
+                                     style="max-width: 100%; max-height: 480px; border: 1px solid #ccc;" />
+                            </p>
+                            <p><a href="{img}" download class="btn btn-sm btn-default">Download PNG</a></p>
+                        </f:if>
+                    </f:if>
+                </f:if>
+            </div>
+        </div>
+    </f:for>
+
+    <p><f:link.action action="list" class="btn btn-default">Back to list</f:link.action></p>
 </f:section>
 </html>
