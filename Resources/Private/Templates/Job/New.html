@@ -4,9 +4,25 @@
     <h1>New job</h1>
     <f:form action="create" name="newJob" object="{newJob}">
         <div class="form-group">
-            <label>Source URL</label>
+            <label>Source type</label>
+            <f:form.select property="sourceType"
+                options="{url:'Webpage URL', pdf_url:'PDF URL', pdf_fal:'PDF file (FAL)'}"
+                class="form-control" />
+        </div>
+        <div class="form-group">
+            <label>Source URL (for Webpage URL / PDF URL)</label>
             <f:form.textfield property="sourceValue" class="form-control" placeholder="https://…" />
         </div>
+        <div class="form-group">
+            <label>PDF extraction mode</label>
+            <f:form.select property="pdfMode"
+                options="{auto:'Auto (staggered)', text:'Embedded text only', vision:'Vision OCR', tables:'Layout / tables'}"
+                class="form-control" />
+        </div>
+        <p class="text-muted">
+            For "PDF file (FAL)" upload the PDF as a sys_file and attach it via the record
+            edit view; the New form sets type, URL and extraction mode.
+        </p>
         <div class="form-group">
             <label>Theme</label>
             <f:form.select property="theme" options="{nr:'Netresearch CI', neutral:'Neutral'}" class="form-control" />

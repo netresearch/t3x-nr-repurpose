@@ -39,6 +39,33 @@ return [
                 'default' => 'nr',
             ],
         ],
+        'pdf_mode' => [
+            'label' => 'PDF extraction mode',
+            'displayCond' => 'FIELD:source_type:IN:pdf_url,pdf_fal',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'items' => [
+                    ['label' => 'Auto (staggered)', 'value' => 'auto'],
+                    ['label' => 'Embedded text only', 'value' => 'text'],
+                    ['label' => 'Vision OCR', 'value' => 'vision'],
+                    ['label' => 'Layout / tables', 'value' => 'tables'],
+                ],
+                'default' => 'auto',
+            ],
+        ],
+        'source_pdf' => [
+            'label' => 'Source PDF (FAL)',
+            'displayCond' => 'FIELD:source_type:=:pdf_fal',
+            'config' => [
+                'type' => 'file',
+                'allowed' => 'pdf',
+                'maxitems' => 1,
+                'appearance' => [
+                    'fileByUrlAllowed' => false,
+                ],
+            ],
+        ],
         'want_podcast' => ['label' => 'Podcast', 'config' => ['type' => 'check', 'default' => 1]],
         'want_schaubild' => ['label' => 'Schaubild', 'config' => ['type' => 'check', 'default' => 1]],
         'want_story' => ['label' => 'Story', 'config' => ['type' => 'check', 'default' => 1]],
@@ -58,6 +85,6 @@ return [
         ],
     ],
     'types' => [
-        '0' => ['showitem' => 'source_type, source_value, theme, want_podcast, want_schaubild, want_story, status, progress, current_step, error_message, language_detected, artifacts'],
+        '0' => ['showitem' => 'source_type, source_value, source_pdf, pdf_mode, theme, want_podcast, want_schaubild, want_story, status, progress, current_step, error_message, language_detected, artifacts'],
     ],
 ];

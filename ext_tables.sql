@@ -2,6 +2,7 @@ CREATE TABLE tx_nrrepurpose_domain_model_job (
     source_type varchar(16) DEFAULT 'url' NOT NULL,
     source_value text,
     theme varchar(16) DEFAULT 'nr' NOT NULL,
+    pdf_mode varchar(16) DEFAULT 'auto' NOT NULL,
     want_podcast smallint unsigned DEFAULT 1 NOT NULL,
     want_schaubild smallint unsigned DEFAULT 1 NOT NULL,
     want_story smallint unsigned DEFAULT 1 NOT NULL,

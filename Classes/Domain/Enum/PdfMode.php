@@ -14,4 +14,10 @@ enum PdfMode: string
     case Text = 'text';
     case Vision = 'vision';
     case Tables = 'tables';
+
+    /** Null-safe parse of a job-row value; unknown/empty falls back to Auto. */
+    public static function fromJobValue(?string $value): self
+    {
+        return $value !== null && $value !== '' ? (self::tryFrom($value) ?? self::Auto) : self::Auto;
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Domain\Model;
 
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
+use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
@@ -14,6 +15,7 @@ class Job extends AbstractEntity
     protected string $sourceType = 'url';
     protected string $sourceValue = '';
     protected string $theme = 'nr';
+    protected string $pdfMode = 'auto';
     protected bool $wantPodcast = true;
     protected bool $wantSchaubild = true;
     protected bool $wantStory = true;
@@ -27,9 +29,13 @@ class Job extends AbstractEntity
     /** @var ObjectStorage<Artifact> */
     protected ObjectStorage $artifacts;
 
+    /** @var ObjectStorage<\TYPO3\CMS\Extbase\Domain\Model\FileReference> */
+    protected ObjectStorage $sourcePdf;
+
     public function __construct()
     {
         $this->artifacts = new ObjectStorage();
+        $this->sourcePdf = new ObjectStorage();
     }
 
     public function getSourceTypeEnum(): SourceType
@@ -70,6 +76,37 @@ class Job extends AbstractEntity
     public function setTheme(string $theme): void
     {
         $this->theme = $theme;
+    }
+
+    public function getPdfMode(): string
+    {
+        return $this->pdfMode;
+    }
+
+    public function setPdfMode(string $pdfMode): void
+    {
+        $this->pdfMode = $pdfMode;
+    }
+
+    public function getPdfModeEnum(): PdfMode
+    {
+        return PdfMode::fromJobValue($this->pdfMode);
+    }
+
+    public function setPdfModeEnum(PdfMode $mode): void
+    {
+        $this->pdfMode = $mode->value;
+    }
+
+    /** @return ObjectStorage<\TYPO3\CMS\Extbase\Domain\Model\FileReference> */
+    public function getSourcePdf(): ObjectStorage
+    {
+        return $this->sourcePdf;
+    }
+
+    public function getSourcePdfCount(): int
+    {
+        return $this->sourcePdf->count();
     }
 
     public function isWantPodcast(): bool
