@@ -42,9 +42,15 @@ final class PlaywrightHtmlToImageRenderer implements HtmlToImageRendererInterfac
 
         $out = $dir . '/' . bin2hex(random_bytes(8)) . '.png';
 
+        // Default the renderer script to the extension's bundled render.cjs (root-package layout:
+        // Classes/Rendering -> extension root -> Resources/Private/NodeRenderer/render.cjs).
+        $script = $this->scriptPath !== ''
+            ? $this->scriptPath
+            : dirname(__DIR__, 2) . '/Resources/Private/NodeRenderer/render.cjs';
+
         $command = [
             $this->nodeBinary,
-            $this->scriptPath,
+            $script,
             '--width', (string) $width,
             '--height', $height === null ? 'auto' : (string) $height,
             '--scale', $this->formatScale($deviceScaleFactor),

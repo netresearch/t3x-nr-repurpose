@@ -37,6 +37,21 @@ services:
   Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface:
     alias: Netresearch\NrRepurpose\Understanding\DocumentAnalyzer
 
+  # Render-infra (Plan 4): process boundary + the three primitives. The implementations'
+  # constructor defaults (node/ffmpeg/ffprobe on PATH, chromium at /usr/bin/chromium,
+  # render.cjs resolved relative to the extension, temp work dirs) need no explicit scalars.
+  Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface:
+    alias: Netresearch\NrRepurpose\Rendering\Process\SymfonyProcessRunner
+
+  Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface:
+    alias: Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer
+
+  Netresearch\NrRepurpose\Rendering\ImageCompositorInterface:
+    alias: Netresearch\NrRepurpose\Rendering\GdImageCompositor
+
+  Netresearch\NrRepurpose\Rendering\AudioStitcherInterface:
+    alias: Netresearch\NrRepurpose\Rendering\FfmpegAudioStitcher
+
   # Core registers the PSR-18 client (ClientInterface) but not the PSR-17 request factory.
   Psr\Http\Message\RequestFactoryInterface:
     class: GuzzleHttp\Psr7\HttpFactory
