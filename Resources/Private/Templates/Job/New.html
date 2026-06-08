@@ -1,0 +1,20 @@
+<html data-namespace-typo3-fluid="true" xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
+<f:layout name="Module" />
+<f:section name="Content">
+    <h1>New job</h1>
+    <f:form action="create" name="newJob" object="{newJob}">
+        <div class="form-group">
+            <label>Source URL</label>
+            <f:form.textfield property="sourceValue" class="form-control" placeholder="https://…" />
+        </div>
+        <div class="form-group">
+            <label>Theme</label>
+            <f:form.select property="theme" options="{nr:'Netresearch CI', neutral:'Neutral'}" class="form-control" />
+        </div>
+        <div class="form-check"><f:form.checkbox property="wantPodcast" value="1" checked="true" /> Podcast</div>
+        <div class="form-check"><f:form.checkbox property="wantSchaubild" value="1" checked="true" /> Schaubild</div>
+        <div class="form-check"><f:form.checkbox property="wantStory" value="1" checked="true" /> Story</div>
+        <p><f:form.submit value="Create &amp; queue" class="btn btn-primary" /></p>
+    </f:form>
+</f:section>
+</html>

@@ -1,0 +1,19 @@
+<html data-namespace-typo3-fluid="true" xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
+<f:layout name="Module" />
+<f:section name="Content">
+    <h1>Job #{job.uid}</h1>
+    <dl>
+        <dt>Source</dt><dd>{job.sourceValue}</dd>
+        <dt>Status</dt><dd>{job.status} ({job.progress}%)</dd>
+        <dt>Step</dt><dd>{job.currentStep}</dd>
+        <f:if condition="{job.errorMessage}"><dt>Error</dt><dd>{job.errorMessage}</dd></f:if>
+    </dl>
+    <h2>Artifacts</h2>
+    <ul>
+        <f:for each="{job.artifacts}" as="artifact">
+            <li>{artifact.type} / {artifact.variant} — {artifact.status}</li>
+        </f:for>
+    </ul>
+    <p><f:link.action action="list">Back</f:link.action></p>
+</f:section>
+</html>

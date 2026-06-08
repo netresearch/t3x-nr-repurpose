@@ -1,0 +1,21 @@
+<html data-namespace-typo3-fluid="true" xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
+<f:layout name="Module" />
+<f:section name="Content">
+    <h1>Content Studio</h1>
+    <p><f:link.action action="new" class="btn btn-primary">New job</f:link.action></p>
+    <table class="table table-striped">
+        <thead><tr><th>#</th><th>Source</th><th>Status</th><th>Progress</th><th></th></tr></thead>
+        <tbody>
+            <f:for each="{jobs}" as="job">
+                <tr>
+                    <td>{job.uid}</td>
+                    <td>{job.sourceValue}</td>
+                    <td>{job.status}</td>
+                    <td>{job.progress}%</td>
+                    <td><f:link.action action="show" arguments="{job: job}">Details</f:link.action></td>
+                </tr>
+            </f:for>
+        </tbody>
+    </table>
+</f:section>
+</html>
