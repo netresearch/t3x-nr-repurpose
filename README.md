@@ -99,7 +99,7 @@ so their symlinked classes autoload.
 
 ## Architecture
 
-See `docs/superpowers/specs/2026-06-08-nr-repurpose-design.md` (design) and
-`docs/superpowers/plans/` (implementation plans). Pipeline: ingest (web/PDF) → analyze
-(one `ContentBrief` via nr-llm) → generate (podcast / schaubild×3 / story) → store in the
-TYPO3 File Abstraction Layer (FAL).
+See the rendered documentation under `Documentation/` (Introduction, Installation,
+Configuration, Usage, Architecture, and the Architecture Decision Records). Pipeline:
+ingest (web/PDF) → analyze (one `ContentBrief` via nr-llm) → generate (podcast /
+schaubild×3 / story) → store in the TYPO3 File Abstraction Layer (FAL).

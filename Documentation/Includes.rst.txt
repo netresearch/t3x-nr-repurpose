@@ -1,0 +1,22 @@
+.. This is included by all TYPO3 ReST based documentation
+
+.. |extension_key| replace:: nr_repurpose
+.. |extension_name| replace:: Content Repurpose
+.. |vendor| replace:: Netresearch
+
+.. role:: typoscript(code)
+   :language: typoscript
+
+.. role:: php(code)
+   :language: php
+
+.. role:: yaml(code)
+   :language: yaml
+
+.. role:: bash(code)
+   :language: bash
+
+.. role:: sql(code)
+   :language: sql
+
+.. default-role:: code
