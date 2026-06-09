@@ -76,7 +76,7 @@ Getting started
 
    .. card:: 🎬 Usage
 
-      Walk through the *Content Studio* backend module and
+      Walk through the *Repurpose* backend module and
       the ``nr_repurpose:generate`` CLI command.
 
       .. card-footer:: :ref:`Read more <usage>`

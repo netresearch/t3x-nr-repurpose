@@ -75,6 +75,6 @@ class JobController extends ActionController
 
     private function moduleTitle(): string
     {
-        return LocalizationUtility::translate('module.title', 'nr_repurpose') ?? 'Content Studio';
+        return LocalizationUtility::translate('module.title', 'nr_repurpose') ?? 'Repurpose';
     }
 }

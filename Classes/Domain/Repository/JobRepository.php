@@ -17,7 +17,7 @@ class JobRepository extends Repository
     protected $defaultOrderings = ['crdate' => QueryInterface::ORDER_DESCENDING];
 
     /**
-     * The backend "Content Studio" module lists every job regardless of where it was created
+     * The backend "Repurpose" module lists every job regardless of where it was created
      * in the page tree, so storage-page filtering must be off — otherwise jobs (stored on pid 0
      * by the queue) can vanish from the list depending on the module's page context.
      */

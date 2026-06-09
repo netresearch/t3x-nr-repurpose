@@ -8,7 +8,7 @@
       <trans-unit id="perm.generate_vision"><source>Generate AI imagery</source><target>KI-Bilder generieren</target></trans-unit>
 
       <!-- Module-wide -->
-      <trans-unit id="module.title"><source>Content Studio</source><target>Content Studio</target></trans-unit>
+      <trans-unit id="module.title"><source>Repurpose</source><target>Repurpose</target></trans-unit>
 
       <!-- List view -->
       <trans-unit id="list.action.new"><source>New job</source><target>Neuer Auftrag</target></trans-unit>

@@ -40,7 +40,7 @@ Added
     (``render.cjs``) drives the apt ``chromium`` binary through
     ``playwright-core`` to turn branded Fluid HTML into PNGs. See :ref:`adr-002`.
 
--   **Backend module.** *Content Studio* (``web_nrrepurpose``) with a job list,
+-   **Backend module.** *Repurpose* (``web_nrrepurpose``) with a job list,
     a submission form, and a result view that plays the podcast and shows every
     generated image.
 
