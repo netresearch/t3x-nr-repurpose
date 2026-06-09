@@ -22,4 +22,19 @@ final class JobStatusTest extends TestCase
         self::assertFalse(JobStatus::Queued->isTerminal());
         self::assertFalse(JobStatus::Generating->isTerminal());
     }
+
+    public function testLabelKeyIsNamespacedByBackedValue(): void
+    {
+        self::assertSame('status.queued', JobStatus::Queued->getLabelKey());
+        self::assertSame('status.partially_done', JobStatus::PartiallyDone->getLabelKey());
+    }
+
+    public function testSeverityMapsTerminalStatesToContextualClasses(): void
+    {
+        self::assertSame('success', JobStatus::Done->getSeverity());
+        self::assertSame('warning', JobStatus::PartiallyDone->getSeverity());
+        self::assertSame('danger', JobStatus::Failed->getSeverity());
+        self::assertSame('info', JobStatus::Queued->getSeverity());
+        self::assertSame('info', JobStatus::Generating->getSeverity());
+    }
 }

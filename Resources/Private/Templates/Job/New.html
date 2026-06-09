@@ -1,36 +1,116 @@
 <html data-namespace-typo3-fluid="true" xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
 <f:layout name="Module" />
 <f:section name="Content">
-    <h1>New job</h1>
+    <h1><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.title" /></h1>
+
     <f:form action="create" name="newJob" object="{newJob}">
         <div class="form-group">
-            <label>Source type</label>
-            <f:form.select property="sourceType"
-                options="{url:'Webpage URL', pdf_url:'PDF URL', pdf_fal:'PDF file (FAL)'}"
-                class="form-control" />
+            <label class="form-label" for="nrrepurpose-sourceType">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceType" />
+            </label>
+            <f:form.select property="sourceType" id="nrrepurpose-sourceType" class="form-select"
+                options="{
+                    url: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceType.url\')}',
+                    pdf_url: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceType.pdf_url\')}',
+                    pdf_fal: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceType.pdf_fal\')}'
+                }" />
         </div>
+
         <div class="form-group">
-            <label>Source URL (for Webpage URL / PDF URL)</label>
-            <f:form.textfield property="sourceValue" class="form-control" placeholder="https://…" />
+            <label class="form-label" for="nrrepurpose-sourceValue">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceValue" />
+            </label>
+            <f:form.textfield property="sourceValue" id="nrrepurpose-sourceValue" class="form-control"
+                placeholder="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceValue.placeholder')}" />
         </div>
+
         <div class="form-group">
-            <label>PDF extraction mode</label>
-            <f:form.select property="pdfMode"
-                options="{auto:'Auto (staggered)', text:'Embedded text only', vision:'Vision OCR', tables:'Layout / tables'}"
-                class="form-control" />
+            <label class="form-label" for="nrrepurpose-pdfMode">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.pdfMode" />
+            </label>
+            <f:form.select property="pdfMode" id="nrrepurpose-pdfMode" class="form-select"
+                options="{
+                    auto: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:pdfMode.auto\')}',
+                    text: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:pdfMode.text\')}',
+                    vision: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:pdfMode.vision\')}',
+                    tables: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:pdfMode.tables\')}'
+                }" />
         </div>
+
         <p class="text-muted">
-            For "PDF file (FAL)" upload the PDF as a sys_file and attach it via the record
-            edit view; the New form sets type, URL and extraction mode.
+            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.hint.pdfFal" />
         </p>
+
         <div class="form-group">
-            <label>Theme</label>
-            <f:form.select property="theme" options="{nr:'Netresearch CI', neutral:'Neutral'}" class="form-control" />
+            <label class="form-label" for="nrrepurpose-theme">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.theme" />
+            </label>
+            <f:form.select property="theme" id="nrrepurpose-theme" class="form-select"
+                options="{
+                    nr: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:theme.nr\')}',
+                    neutral: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:theme.neutral\')}'
+                }" />
         </div>
-        <div class="form-check"><f:form.checkbox property="wantPodcast" value="1" checked="true" /> Podcast</div>
-        <div class="form-check"><f:form.checkbox property="wantSchaubild" value="1" checked="true" /> Schaubild</div>
-        <div class="form-check"><f:form.checkbox property="wantStory" value="1" checked="true" /> Story</div>
-        <p><f:form.submit value="Create &amp; queue" class="btn btn-primary" /></p>
+
+        <fieldset class="form-group">
+            <legend class="form-label">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.section.artifacts" />
+            </legend>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <f:form.checkbox property="wantPodcast" value="1" checked="true" id="nrrepurpose-wantPodcast" class="form-check-input" />
+                                <label class="form-check-label fw-bold" for="nrrepurpose-wantPodcast">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.podcast" />
+                                </label>
+                            </div>
+                            <p class="card-text text-muted small mb-0">
+                                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.podcast.desc" />
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <f:form.checkbox property="wantSchaubild" value="1" checked="true" id="nrrepurpose-wantSchaubild" class="form-check-input" />
+                                <label class="form-check-label fw-bold" for="nrrepurpose-wantSchaubild">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.schaubild" />
+                                </label>
+                            </div>
+                            <p class="card-text text-muted small mb-0">
+                                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.schaubild.desc" />
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <f:form.checkbox property="wantStory" value="1" checked="true" id="nrrepurpose-wantStory" class="form-check-input" />
+                                <label class="form-check-label fw-bold" for="nrrepurpose-wantStory">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story" />
+                                </label>
+                            </div>
+                            <p class="card-text text-muted small mb-0">
+                                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story.desc" />
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+
+        <p>
+            <f:form.submit value="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.submit')}" class="btn btn-primary" />
+            <f:link.action action="list" class="btn btn-default">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.cancel" />
+            </f:link.action>
+        </p>
     </f:form>
 </f:section>
 </html>
