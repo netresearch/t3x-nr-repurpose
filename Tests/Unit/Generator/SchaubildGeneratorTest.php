@@ -78,6 +78,8 @@ final class SchaubildGeneratorTest extends TestCase
 
         self::assertSame('<p>x</p>', $subject->expose("```html\n<p>x</p>\n```"));
         self::assertSame('<p>x</p>', $subject->expose("```\n<p>x</p>\n```"));
+        // Single-line fence (no newline) must keep the HTML, not wipe it.
+        self::assertSame('<p>x</p>', $subject->expose('```html<p>x</p>```'));
         // Unfenced input is returned trimmed but otherwise untouched.
         self::assertSame('<p>x</p>', $subject->expose('  <p>x</p>  '));
     }

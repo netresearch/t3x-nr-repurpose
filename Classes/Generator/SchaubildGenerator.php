@@ -204,9 +204,16 @@ class SchaubildGenerator extends AbstractGenerator
             return $trimmed;
         }
 
-        // Drop the opening fence line (``` or ```html etc.).
-        $firstNewline = strpos($trimmed, "\n");
-        $trimmed = $firstNewline === false ? '' : substr($trimmed, $firstNewline + 1);
+        // Drop the opening fence (``` plus an optional language tag): up to the first
+        // newline for a multi-line fence, or — for a single-line fence like
+        // "```html<p>…</p>```" — up to the first '<' so the HTML fragment is preserved.
+        $newlinePos = strpos($trimmed, "\n");
+        if ($newlinePos !== false) {
+            $trimmed = substr($trimmed, $newlinePos + 1);
+        } else {
+            $tagPos = strpos($trimmed, '<');
+            $trimmed = $tagPos !== false ? substr($trimmed, $tagPos) : '';
+        }
 
         // Drop a trailing closing fence.
         $trimmed = rtrim($trimmed);
