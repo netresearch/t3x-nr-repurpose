@@ -82,6 +82,9 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
         );
 
         // 4) Generation — per-artifact isolation; a single failure does not abort siblings.
+        // Clear any artifacts from a prior (interrupted or re-queued) run so reprocessing yields
+        // a clean set instead of duplicating rows. Terminal jobs never reach here (guarded above).
+        $this->jobs->deleteArtifactsForJob($jobUid);
         $this->jobs->markStatus($jobUid, JobStatus::Generating, 'generating', 30);
         $applicable = array_values(array_filter(
             $this->generators,

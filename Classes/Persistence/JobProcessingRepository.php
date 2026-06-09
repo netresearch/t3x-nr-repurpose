@@ -8,6 +8,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 
 /**
  * Plain DBAL persistence for the long-running Messenger worker.
@@ -18,7 +19,10 @@ class JobProcessingRepository
     private const JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
     private const ARTIFACT_TABLE = 'tx_nrrepurpose_domain_model_artifact';
 
-    public function __construct(private readonly ConnectionPool $connectionPool) {}
+    public function __construct(
+        private readonly ConnectionPool $connectionPool,
+        private readonly ResourceFactory $resourceFactory,
+    ) {}
 
     /** @return array<string, mixed>|null */
     public function findRow(int $jobUid): ?array
@@ -83,6 +87,59 @@ class JobProcessingRepository
         ]);
 
         return (int)$conn->lastInsertId();
+    }
+
+    /**
+     * Remove all artifact rows for a job before a fresh generation run. Generators append a row
+     * per (type, variant), so reprocessing — e.g. a Messenger redelivery after a mid-run worker
+     * crash, or a manual re-queue — would otherwise accumulate a second set of rows and the
+     * result view would show duplicates. Clearing first makes generation idempotent.
+     *
+     * The referenced FAL files (sys_file + physical bytes) are removed first so a re-run does not
+     * leak orphaned files/records. Permission evaluation is disabled for the delete because the
+     * worker runs in a CLI context with no backend user (mirrors JobFileStorage::store()).
+     */
+    public function deleteArtifactsForJob(int $jobUid): void
+    {
+        $connection = $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE);
+
+        /** @var list<array{file_uid: int|string|null, subtitle_file_uid: int|string|null}> $rows */
+        $rows = $connection->select(['file_uid', 'subtitle_file_uid'], self::ARTIFACT_TABLE, ['job' => $jobUid])
+            ->fetchAllAssociative();
+
+        foreach ($rows as $row) {
+            foreach (['file_uid', 'subtitle_file_uid'] as $column) {
+                $this->deleteFalFile((int) ($row[$column] ?? 0));
+            }
+        }
+
+        $connection->delete(self::ARTIFACT_TABLE, ['job' => $jobUid]);
+    }
+
+    /**
+     * Delete one FAL file by sys_file uid, tolerating an already-removed/unresolvable file.
+     * Permission evaluation is toggled off for the trusted system delete and restored afterwards
+     * so the shared (cached) storage instance is not left mutated.
+     */
+    private function deleteFalFile(int $fileUid): void
+    {
+        if ($fileUid <= 0) {
+            return;
+        }
+
+        try {
+            $file = $this->resourceFactory->getFileObject($fileUid);
+            $storage = $file->getStorage();
+            $previousEvaluatePermissions = $storage->getEvaluatePermissions();
+            $storage->setEvaluatePermissions(false);
+            try {
+                $storage->deleteFile($file);
+            } finally {
+                $storage->setEvaluatePermissions($previousEvaluatePermissions);
+            }
+        } catch (\Throwable) {
+            // File already deleted or unresolvable — the artifact row delete still cleans up.
+        }
     }
 
     /**

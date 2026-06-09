@@ -163,9 +163,13 @@ class SchaubildGenerator extends AbstractGenerator
         $keyPoints = implode("\n- ", $brief->keyPoints);
         $prompt = sprintf(
             "Title: %s\nSummary: %s\nKey points:\n- %s\n\n"
-            . 'Produce the inner HTML body of an infographic/diagram that visualises this content. '
-            . 'Use semantic, self-contained HTML with inline classes only (no <html>/<head>). '
-            . 'Keep every label, number and term exactly as given. Write text in language code "%s".',
+            . 'Produce the inner HTML body of an INFOGRAPHIC that visualises this content — not a '
+            . 'text document. Lay it out as distinct visual blocks (cards / columns / a simple flow), '
+            . 'each with a short heading and the key figure or term made prominent; use inline CSS '
+            . 'styles for layout, spacing, colour accents and typographic hierarchy. Avoid long '
+            . 'paragraphs and plain bullet lists. Self-contained HTML only (no <html>/<head>, no '
+            . 'external assets). Keep every label, number and term exactly as given. '
+            . 'Write text in language code "%s".',
             $brief->title,
             $brief->summary,
             $keyPoints,
@@ -173,11 +177,12 @@ class SchaubildGenerator extends AbstractGenerator
         );
         $options = new ChatOptions(
             temperature: 0.3,
-            systemPrompt: 'You are an information designer. Output an HTML fragment only.',
+            systemPrompt: 'You are an information designer. Output a raw HTML fragment only — '
+                . 'no Markdown, no code fences.',
             beUserUid: $ctx->beUser,
             plannedCost: 0.03,
         );
-        $bodyHtml = $this->completion->completeMarkdown($prompt, $options);
+        $bodyHtml = self::stripCodeFences($this->completion->completeMarkdown($prompt, $options));
 
         return $this->renderTemplate('Schaubild', $ctx->theme, [
             'title' => $brief->title,
@@ -185,6 +190,38 @@ class SchaubildGenerator extends AbstractGenerator
             'transparent' => $transparent,
             'language' => $brief->language,
         ]);
+    }
+
+    /**
+     * Strip a single Markdown code fence the LLM sometimes wraps the HTML fragment in
+     * (```html … ```), which would otherwise render as literal text. Plain string ops
+     * (no regex) keep this simple and backtracking-safe.
+     */
+    protected static function stripCodeFences(string $html): string
+    {
+        $trimmed = trim($html);
+        if (!str_starts_with($trimmed, '```')) {
+            return $trimmed;
+        }
+
+        // Drop the opening fence (``` plus an optional language tag): up to the first
+        // newline for a multi-line fence, or — for a single-line fence like
+        // "```html<p>…</p>```" — up to the first '<' so the HTML fragment is preserved.
+        $newlinePos = strpos($trimmed, "\n");
+        if ($newlinePos !== false) {
+            $trimmed = substr($trimmed, $newlinePos + 1);
+        } else {
+            $tagPos = strpos($trimmed, '<');
+            $trimmed = $tagPos !== false ? substr($trimmed, $tagPos) : '';
+        }
+
+        // Drop a trailing closing fence.
+        $trimmed = rtrim($trimmed);
+        if (str_ends_with($trimmed, '```')) {
+            $trimmed = substr($trimmed, 0, -3);
+        }
+
+        return trim($trimmed);
     }
 
     private function backgroundPrompt(GenerationContext $ctx): string

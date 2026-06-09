@@ -6,16 +6,16 @@
 Usage
 =====
 
-There are two ways to run a generation: the *Content Studio* backend module
+There are two ways to run a generation: the *Repurpose* backend module
 (asynchronous, the normal path) and the ``nr_repurpose:generate`` CLI command
 (synchronous, for ops and debugging).
 
 .. _usage-backend-module:
 
-The Content Studio backend module
+The Repurpose backend module
 ================================
 
-The module registers under :guilabel:`Web > Content Studio`
+The module registers under :guilabel:`Web > Repurpose`
 (``web_nrrepurpose``) and is available to any backend user (``access: user``).
 It has three views, backed by the :php:`JobController` actions ``list``,
 ``new`` / ``create``, and ``show``.
