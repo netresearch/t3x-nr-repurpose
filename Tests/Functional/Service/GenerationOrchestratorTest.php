@@ -34,20 +34,25 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         return (int) $conn->lastInsertId();
     }
 
-    public function testProcessRunsIngestAnalyzeGenerateAndEndsDone(): void
+    private function stubDocument(string $title = 'Doc', string $text = 'Body.'): SourceDocument
     {
-        $jobUid = $this->seedJob();
-
-        $document = new SourceDocument(
-            title: 'Quarterly report',
-            text: 'Revenue grew across all regions.',
+        return new SourceDocument(
+            title: $title,
+            text: $text,
             sourceLabel: 'https://example.com/',
             pageCount: 0,
             languageHint: 'en',
         );
-        $brief = new ContentBrief('Quarterly report', 'Summary.', ['Point'], [], 'Analysts', 'en');
+    }
 
-        $ingestion = new class ($document) implements SourceIngestionServiceInterface {
+    private function stubBrief(string $title = 'Doc'): ContentBrief
+    {
+        return new ContentBrief($title, 'Summary.', ['Point'], [], 'Analysts', 'en');
+    }
+
+    private function stubIngestion(SourceDocument $document): SourceIngestionServiceInterface
+    {
+        return new class ($document) implements SourceIngestionServiceInterface {
             public function __construct(private readonly SourceDocument $document) {}
 
             public function ingest(array $jobRow): SourceDocument
@@ -55,8 +60,11 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
                 return $this->document;
             }
         };
+    }
 
-        $analyzer = new class ($brief) implements DocumentAnalyzerInterface {
+    private function stubAnalyzer(ContentBrief $brief): DocumentAnalyzerInterface
+    {
+        return new class ($brief) implements DocumentAnalyzerInterface {
             public function __construct(private readonly ContentBrief $brief) {}
 
             public function analyze(SourceDocument $document, array $jobRow): ContentBrief
@@ -64,28 +72,25 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
                 return $this->brief;
             }
         };
+    }
+
+    public function testProcessRunsIngestAnalyzeGenerateAndEndsDone(): void
+    {
+        $jobUid = $this->seedJob();
+
+        $document = $this->stubDocument('Quarterly report', 'Revenue grew across all regions.');
+        $brief = $this->stubBrief('Quarterly report');
 
         $jobs = $this->get(JobProcessingRepository::class);
-        $generator = new class ($jobs) implements ArtifactGeneratorInterface {
-            public ?GenerationContext $seen = null;
+        $generator = new RecordingArtifactGenerator($jobs);
 
-            public function __construct(private readonly JobProcessingRepository $jobs) {}
-
-            public function supports(GenerationContext $ctx): bool
-            {
-                return true;
-            }
-
-            public function generate(GenerationContext $ctx): bool
-            {
-                $this->seen = $ctx;
-                $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
-
-                return true;
-            }
-        };
-
-        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, [$generator]);
+        $orchestrator = new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $this->stubIngestion($document),
+            $this->stubAnalyzer($brief),
+            [$generator],
+        );
         $orchestrator->process($jobUid);
 
         self::assertInstanceOf(GenerationContext::class, $generator->seen);
@@ -159,48 +164,13 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         // A prior (interrupted) run left a stale artifact row for this job.
         $jobs->insertArtifact($jobUid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Failed);
 
-        $document = new SourceDocument(
-            title: 'Doc',
-            text: 'Body.',
-            sourceLabel: 'https://example.com/',
-            pageCount: 0,
-            languageHint: 'en',
+        $orchestrator = new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $this->stubIngestion($this->stubDocument()),
+            $this->stubAnalyzer($this->stubBrief()),
+            [new RecordingArtifactGenerator($jobs)],
         );
-        $brief = new ContentBrief('Doc', 'Summary.', ['Point'], [], 'Analysts', 'en');
-
-        $ingestion = new class ($document) implements SourceIngestionServiceInterface {
-            public function __construct(private readonly SourceDocument $document) {}
-
-            public function ingest(array $jobRow): SourceDocument
-            {
-                return $this->document;
-            }
-        };
-        $analyzer = new class ($brief) implements DocumentAnalyzerInterface {
-            public function __construct(private readonly ContentBrief $brief) {}
-
-            public function analyze(SourceDocument $document, array $jobRow): ContentBrief
-            {
-                return $this->brief;
-            }
-        };
-        $generator = new class ($jobs) implements ArtifactGeneratorInterface {
-            public function __construct(private readonly JobProcessingRepository $jobs) {}
-
-            public function supports(GenerationContext $ctx): bool
-            {
-                return true;
-            }
-
-            public function generate(GenerationContext $ctx): bool
-            {
-                $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
-
-                return true;
-            }
-        };
-
-        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, [$generator]);
         $orchestrator->process($jobUid);
 
         // The stale row is cleared before generation; only the fresh artifact remains (no duplicate).
@@ -208,5 +178,29 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
             ->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobUid]);
         self::assertSame(1, $total);
+    }
+}
+
+/**
+ * Records the context it saw and inserts one Done artifact — shared by the orchestrator tests
+ * so the stub is defined once (avoids duplicated test fixtures).
+ */
+final class RecordingArtifactGenerator implements ArtifactGeneratorInterface
+{
+    public ?GenerationContext $seen = null;
+
+    public function __construct(private readonly JobProcessingRepository $jobs) {}
+
+    public function supports(GenerationContext $ctx): bool
+    {
+        return true;
+    }
+
+    public function generate(GenerationContext $ctx): bool
+    {
+        $this->seen = $ctx;
+        $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+
+        return true;
     }
 }
