@@ -24,6 +24,13 @@ class JobFileStorage
             throw new \RuntimeException('No default FAL storage available', 1749379300);
         }
 
+        // Artifacts are written by the async messenger worker, which runs in a CLI
+        // context with no backend user. ResourceStorage would otherwise evaluate
+        // backend-user file permissions and deny the write ("You are not allowed to
+        // write to the target folder"). This is a trusted system write, so disable
+        // permission evaluation for this storage instance.
+        $storage->setEvaluatePermissions(false);
+
         $folder = $storage->hasFolder(self::SUBFOLDER)
             ? $storage->getFolder(self::SUBFOLDER)
             : $storage->createFolder(self::SUBFOLDER);
