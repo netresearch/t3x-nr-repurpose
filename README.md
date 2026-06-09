@@ -44,7 +44,7 @@ ddev install                      # composer install + TYPO3 v14.3 setup into .B
 no further configuration is required for a dev instance.
 
 Backend: <https://nr-repurpose.ddev.site/typo3/> — user `admin`, password `Demo1234!`.
-Open **Web › Content Studio**, choose *New job*, paste a URL, pick the artifacts and theme,
+Open **Web › Repurpose**, choose *New job*, paste a URL, pick the artifacts and theme,
 and submit. The list shows the job progress `queued → done`; the detail view plays the
 podcast (with subtitles + transcript) and shows/downloads every image.
 
