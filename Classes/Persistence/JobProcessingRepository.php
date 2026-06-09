@@ -86,6 +86,18 @@ class JobProcessingRepository
     }
 
     /**
+     * Remove all artifact rows for a job before a fresh generation run. Generators append a row
+     * per (type, variant), so reprocessing — e.g. a Messenger redelivery after a mid-run worker
+     * crash, or a manual re-queue — would otherwise accumulate a second set of rows and the
+     * result view would show duplicates. Clearing first makes generation idempotent.
+     */
+    public function deleteArtifactsForJob(int $jobUid): void
+    {
+        $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)
+            ->delete(self::ARTIFACT_TABLE, ['job' => $jobUid]);
+    }
+
+    /**
      * Fill a previously-inserted (pending) artifact row. Only whitelisted columns are writable.
      * Empty $fields is a no-op (no UPDATE issued).
      *
