@@ -28,7 +28,7 @@
         "smalot/pdfparser": "^2.12"
     },
     "require-dev": {
-        "phpunit/phpunit": "^11.5",
+        "phpunit/phpunit": "^11.5 || ^13.0",
         "typo3/cms-belog": "^14.3",
         "typo3/cms-beuser": "^14.3",
         "typo3/cms-filelist": "^14.3",
