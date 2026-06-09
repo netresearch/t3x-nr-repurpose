@@ -1,11 +1,88 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
-  <file source-language="en" datatype="plaintext" original="EXT:nr_repurpose/Resources/Private/Language/locallang.xlf" date="2026-06-08T00:00:00Z" product-name="nr_repurpose">
+  <file source-language="en" datatype="plaintext" original="EXT:nr_repurpose/Resources/Private/Language/locallang.xlf" date="2026-06-09T00:00:00Z" product-name="nr_repurpose">
     <body>
-      <trans-unit id="job.created"><source>Job created and queued.</source></trans-unit>
+      <trans-unit id="job.created"><source>Job created and queued for generation.</source></trans-unit>
       <trans-unit id="perm.header"><source>Content Repurpose</source></trans-unit>
       <trans-unit id="perm.generate_audio"><source>Generate podcast audio</source></trans-unit>
       <trans-unit id="perm.generate_vision"><source>Generate AI imagery</source></trans-unit>
+
+      <!-- Module-wide -->
+      <trans-unit id="module.title"><source>Content Studio</source></trans-unit>
+
+      <!-- List view -->
+      <trans-unit id="list.action.new"><source>New job</source></trans-unit>
+      <trans-unit id="list.column.id"><source>ID</source></trans-unit>
+      <trans-unit id="list.column.source"><source>Source</source></trans-unit>
+      <trans-unit id="list.column.status"><source>Status</source></trans-unit>
+      <trans-unit id="list.column.progress"><source>Progress</source></trans-unit>
+      <trans-unit id="list.column.actions"><source>Actions</source></trans-unit>
+      <trans-unit id="list.action.details"><source>Details</source></trans-unit>
+      <trans-unit id="list.empty"><source>No jobs yet. Create your first job to turn a URL or PDF into a podcast, a diagram and an Instagram story.</source></trans-unit>
+
+      <!-- New / create form -->
+      <trans-unit id="new.title"><source>New job</source></trans-unit>
+      <trans-unit id="new.field.sourceType"><source>Source type</source></trans-unit>
+      <trans-unit id="new.field.sourceValue"><source>Source URL (for Webpage URL / PDF URL)</source></trans-unit>
+      <trans-unit id="new.field.sourceValue.placeholder"><source>https://…</source></trans-unit>
+      <trans-unit id="new.field.pdfMode"><source>PDF extraction mode</source></trans-unit>
+      <trans-unit id="new.field.theme"><source>Theme</source></trans-unit>
+      <trans-unit id="new.section.artifacts"><source>Artifacts to generate</source></trans-unit>
+      <trans-unit id="new.hint.pdfFal"><source>For "PDF file (FAL)" upload the PDF as a sys_file and attach it via the record edit view; the New form sets type, URL and extraction mode.</source></trans-unit>
+      <trans-unit id="new.submit"><source>Create &amp; queue</source></trans-unit>
+      <trans-unit id="new.cancel"><source>Cancel</source></trans-unit>
+
+      <!-- Source types -->
+      <trans-unit id="sourceType.url"><source>Webpage URL</source></trans-unit>
+      <trans-unit id="sourceType.pdf_url"><source>PDF URL</source></trans-unit>
+      <trans-unit id="sourceType.pdf_fal"><source>PDF file (FAL)</source></trans-unit>
+
+      <!-- PDF extraction modes -->
+      <trans-unit id="pdfMode.auto"><source>Auto (staggered)</source></trans-unit>
+      <trans-unit id="pdfMode.text"><source>Embedded text only</source></trans-unit>
+      <trans-unit id="pdfMode.vision"><source>Vision OCR</source></trans-unit>
+      <trans-unit id="pdfMode.tables"><source>Layout / tables</source></trans-unit>
+
+      <!-- Themes -->
+      <trans-unit id="theme.nr"><source>Netresearch CI</source></trans-unit>
+      <trans-unit id="theme.neutral"><source>Neutral</source></trans-unit>
+
+      <!-- Artifact types -->
+      <trans-unit id="artifact.podcast"><source>Podcast</source></trans-unit>
+      <trans-unit id="artifact.schaubild"><source>Schaubild</source></trans-unit>
+      <trans-unit id="artifact.story"><source>Story</source></trans-unit>
+
+      <!-- Show view -->
+      <trans-unit id="show.title"><source>Job #%d</source></trans-unit>
+      <trans-unit id="show.field.source"><source>Source</source></trans-unit>
+      <trans-unit id="show.field.status"><source>Status</source></trans-unit>
+      <trans-unit id="show.field.language"><source>Language</source></trans-unit>
+      <trans-unit id="show.field.error"><source>Error</source></trans-unit>
+      <trans-unit id="show.section.artifacts"><source>Artifacts</source></trans-unit>
+      <trans-unit id="show.artifacts.empty"><source>No artifacts have been produced for this job yet.</source></trans-unit>
+      <trans-unit id="show.running.notice"><source>This job is still being processed. Reload the page to see the latest progress.</source></trans-unit>
+      <trans-unit id="show.action.reload"><source>Reload</source></trans-unit>
+      <trans-unit id="show.action.back"><source>Back to list</source></trans-unit>
+      <trans-unit id="show.podcast.transcript"><source>Transcript</source></trans-unit>
+      <trans-unit id="show.podcast.subtitleLabel"><source>Transcript</source></trans-unit>
+      <trans-unit id="show.download.mp3"><source>Download MP3</source></trans-unit>
+      <trans-unit id="show.download.vtt"><source>Download subtitles (VTT)</source></trans-unit>
+      <trans-unit id="show.download.png"><source>Download PNG</source></trans-unit>
+      <trans-unit id="show.preview.alt"><source>Preview of the generated %s (%s variant)</source></trans-unit>
+
+      <!-- Job status labels -->
+      <trans-unit id="status.queued"><source>Queued</source></trans-unit>
+      <trans-unit id="status.ingesting"><source>Ingesting source</source></trans-unit>
+      <trans-unit id="status.analyzing"><source>Analyzing content</source></trans-unit>
+      <trans-unit id="status.generating"><source>Generating artifacts</source></trans-unit>
+      <trans-unit id="status.done"><source>Done</source></trans-unit>
+      <trans-unit id="status.partially_done"><source>Partially done</source></trans-unit>
+      <trans-unit id="status.failed"><source>Failed</source></trans-unit>
+
+      <!-- Artifact status labels -->
+      <trans-unit id="artifactStatus.pending"><source>Pending</source></trans-unit>
+      <trans-unit id="artifactStatus.done"><source>Done</source></trans-unit>
+      <trans-unit id="artifactStatus.failed"><source>Failed</source></trans-unit>
     </body>
   </file>
 </xliff>

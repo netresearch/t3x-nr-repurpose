@@ -21,4 +21,21 @@ enum JobStatus: string
             default => false,
         };
     }
+
+    /** LLL key (locallang.xlf) for the human-readable status label. */
+    public function labelKey(): string
+    {
+        return 'status.' . $this->value;
+    }
+
+    /** Bootstrap contextual suffix used for the status badge in the backend module. */
+    public function severity(): string
+    {
+        return match ($this) {
+            self::Done => 'success',
+            self::PartiallyDone => 'warning',
+            self::Failed => 'danger',
+            default => 'info',
+        };
+    }
 }

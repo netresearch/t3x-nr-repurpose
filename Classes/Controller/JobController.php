@@ -12,6 +12,7 @@ use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 #[AsController]
 class JobController extends ActionController
@@ -33,6 +34,7 @@ class JobController extends ActionController
 
     public function listAction(): ResponseInterface
     {
+        $this->moduleTemplate->setTitle($this->moduleTitle());
         $this->moduleTemplate->assign('jobs', $this->jobRepository->findAll());
 
         return $this->moduleTemplate->renderResponse('Job/List');
@@ -40,6 +42,11 @@ class JobController extends ActionController
 
     public function newAction(): ResponseInterface
     {
+        $this->moduleTemplate->setTitle(
+            $this->moduleTitle(),
+            LocalizationUtility::translate('new.title', 'nr_repurpose') ?? '',
+        );
+
         return $this->moduleTemplate->renderResponse('Job/New');
     }
 
@@ -47,15 +54,26 @@ class JobController extends ActionController
     {
         $beUser = (int)($GLOBALS['BE_USER']->user['uid'] ?? 0);
         $this->jobSubmissionService->submit($newJob, $beUser);
-        $this->addFlashMessage('Job created and queued.');
+        $this->addFlashMessage(
+            LocalizationUtility::translate('job.created', 'nr_repurpose') ?? 'Job created and queued for generation.',
+        );
 
         return $this->redirect('list');
     }
 
     public function showAction(Job $job): ResponseInterface
     {
+        $this->moduleTemplate->setTitle(
+            $this->moduleTitle(),
+            sprintf(LocalizationUtility::translate('show.title', 'nr_repurpose') ?? 'Job #%d', $job->getUid()),
+        );
         $this->moduleTemplate->assign('job', $job);
 
         return $this->moduleTemplate->renderResponse('Job/Show');
+    }
+
+    private function moduleTitle(): string
+    {
+        return LocalizationUtility::translate('module.title', 'nr_repurpose') ?? 'Content Studio';
     }
 }

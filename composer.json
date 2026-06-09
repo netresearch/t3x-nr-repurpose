@@ -1,12 +1,14 @@
 {
     "name": "netresearch/nr-repurpose",
-    "description": "Turn a webpage or PDF into a podcast, a diagram and an Instagram story — built on netresearch/nr-llm",
+    "description": "Turn a webpage or PDF into a podcast, a diagram and an Instagram story — by Netresearch, built on netresearch/nr-llm",
     "license": "GPL-2.0-or-later",
     "type": "typo3-cms-extension",
     "version": "0.1.0",
+    "homepage": "https://github.com/netresearch/t3x-nr-repurpose",
     "authors": [
         {
             "name": "Netresearch DTT GmbH",
+            "email": "typo3@netresearch.de",
             "homepage": "https://www.netresearch.de/",
             "role": "Developer"
         }
