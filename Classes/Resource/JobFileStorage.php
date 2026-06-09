@@ -28,22 +28,28 @@ class JobFileStorage
         // context with no backend user. ResourceStorage would otherwise evaluate
         // backend-user file permissions and deny the write ("You are not allowed to
         // write to the target folder"). This is a trusted system write, so disable
-        // permission evaluation for this storage instance.
+        // permission evaluation for the write and restore it afterwards — the storage
+        // instance is shared/cached, so leaving it mutated would affect later FAL ops.
+        $previousEvaluatePermissions = $storage->getEvaluatePermissions();
         $storage->setEvaluatePermissions(false);
 
-        $folder = $storage->hasFolder(self::SUBFOLDER)
-            ? $storage->getFolder(self::SUBFOLDER)
-            : $storage->createFolder(self::SUBFOLDER);
+        try {
+            $folder = $storage->hasFolder(self::SUBFOLDER)
+                ? $storage->getFolder(self::SUBFOLDER)
+                : $storage->createFolder(self::SUBFOLDER);
 
-        // Unique target name to avoid collisions across runs.
-        $extension = pathinfo($fileName, PATHINFO_EXTENSION);
-        $unique = pathinfo($fileName, PATHINFO_FILENAME)
-            . '-' . bin2hex(random_bytes(4))
-            . ($extension !== '' ? '.' . $extension : '');
+            // Unique target name to avoid collisions across runs.
+            $extension = pathinfo($fileName, PATHINFO_EXTENSION);
+            $unique = pathinfo($fileName, PATHINFO_FILENAME)
+                . '-' . bin2hex(random_bytes(4))
+                . ($extension !== '' ? '.' . $extension : '');
 
-        $file = $storage->createFile($unique, $folder);
-        $file->setContents($content);
+            $file = $storage->createFile($unique, $folder);
+            $file->setContents($content);
 
-        return $file;
+            return $file;
+        } finally {
+            $storage->setEvaluatePermissions($previousEvaluatePermissions);
+        }
     }
 }
