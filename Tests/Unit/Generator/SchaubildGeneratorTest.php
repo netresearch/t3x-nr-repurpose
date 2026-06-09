@@ -64,6 +64,24 @@ final class SchaubildGeneratorTest extends TestCase
         };
     }
 
+    public function testStripCodeFencesRemovesMarkdownFenceFromLlmHtml(): void
+    {
+        // Bypass the parent constructor: stripCodeFences is a pure static helper.
+        $subject = new class extends SchaubildGenerator {
+            public function __construct() {}
+
+            public function expose(string $html): string
+            {
+                return self::stripCodeFences($html);
+            }
+        };
+
+        self::assertSame('<p>x</p>', $subject->expose("```html\n<p>x</p>\n```"));
+        self::assertSame('<p>x</p>', $subject->expose("```\n<p>x</p>\n```"));
+        // Unfenced input is returned trimmed but otherwise untouched.
+        self::assertSame('<p>x</p>', $subject->expose('  <p>x</p>  '));
+    }
+
     public function testProducesThreeVariantArtifactsWhenBudgetAllows(): void
     {
         $compositor = $this->compositor();

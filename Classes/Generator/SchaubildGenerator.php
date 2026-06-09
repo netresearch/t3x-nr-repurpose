@@ -182,7 +182,7 @@ class SchaubildGenerator extends AbstractGenerator
             beUserUid: $ctx->beUser,
             plannedCost: 0.03,
         );
-        $bodyHtml = $this->stripCodeFences($this->completion->completeMarkdown($prompt, $options));
+        $bodyHtml = self::stripCodeFences($this->completion->completeMarkdown($prompt, $options));
 
         return $this->renderTemplate('Schaubild', $ctx->theme, [
             'title' => $brief->title,
@@ -197,7 +197,7 @@ class SchaubildGenerator extends AbstractGenerator
      * (```html … ```), which would otherwise render as literal text. Plain string ops
      * (no regex) keep this simple and backtracking-safe.
      */
-    private function stripCodeFences(string $html): string
+    protected static function stripCodeFences(string $html): string
     {
         $trimmed = trim($html);
         if (!str_starts_with($trimmed, '```')) {
