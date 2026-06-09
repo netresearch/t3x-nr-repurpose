@@ -150,4 +150,63 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         self::assertFalse($analyzer->called);
         self::assertFalse($generator->called);
     }
+
+    public function testReprocessingClearsPriorArtifacts(): void
+    {
+        $jobUid = $this->seedJob();
+        $jobs = $this->get(JobProcessingRepository::class);
+
+        // A prior (interrupted) run left a stale artifact row for this job.
+        $jobs->insertArtifact($jobUid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Failed);
+
+        $document = new SourceDocument(
+            title: 'Doc',
+            text: 'Body.',
+            sourceLabel: 'https://example.com/',
+            pageCount: 0,
+            languageHint: 'en',
+        );
+        $brief = new ContentBrief('Doc', 'Summary.', ['Point'], [], 'Analysts', 'en');
+
+        $ingestion = new class ($document) implements SourceIngestionServiceInterface {
+            public function __construct(private readonly SourceDocument $document) {}
+
+            public function ingest(array $jobRow): SourceDocument
+            {
+                return $this->document;
+            }
+        };
+        $analyzer = new class ($brief) implements DocumentAnalyzerInterface {
+            public function __construct(private readonly ContentBrief $brief) {}
+
+            public function analyze(SourceDocument $document, array $jobRow): ContentBrief
+            {
+                return $this->brief;
+            }
+        };
+        $generator = new class ($jobs) implements ArtifactGeneratorInterface {
+            public function __construct(private readonly JobProcessingRepository $jobs) {}
+
+            public function supports(GenerationContext $ctx): bool
+            {
+                return true;
+            }
+
+            public function generate(GenerationContext $ctx): bool
+            {
+                $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+
+                return true;
+            }
+        };
+
+        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, [$generator]);
+        $orchestrator->process($jobUid);
+
+        // The stale row is cleared before generation; only the fresh artifact remains (no duplicate).
+        $total = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobUid]);
+        self::assertSame(1, $total);
+    }
 }

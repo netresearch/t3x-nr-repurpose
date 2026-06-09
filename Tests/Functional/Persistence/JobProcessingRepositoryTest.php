@@ -52,4 +52,22 @@ final class JobProcessingRepositoryTest extends AbstractFunctionalTestCase
             ->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $uid]);
         self::assertSame(1, $count);
     }
+
+    public function testDeleteArtifactsForJobRemovesOnlyThatJobsRows(): void
+    {
+        $jobA = $this->seedJob();
+        $jobB = $this->seedJob();
+        $repo = $this->get(JobProcessingRepository::class);
+        // file_uid 0 keeps this DB-only (no FAL files to resolve/delete).
+        $repo->insertArtifact($jobA, ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+        $repo->insertArtifact($jobA, ArtifactType::Stub, 'second', 0, ArtifactStatus::Failed);
+        $repo->insertArtifact($jobB, ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+
+        $repo->deleteArtifactsForJob($jobA);
+
+        $conn = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact');
+        self::assertSame(0, $conn->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobA]));
+        self::assertSame(1, $conn->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobB]));
+    }
 }
