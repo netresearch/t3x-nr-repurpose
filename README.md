@@ -50,15 +50,15 @@ podcast (with subtitles + transcript) and shows/downloads every image.
 
 ## How the OpenAI key is used
 
-nr-llm has two key-resolution paths for the same account, both wired by `ddev install`:
+Since nr-llm v0.10.0 there is a single key-resolution path: the OpenAI key is stored in
+**nr-vault** and every consumer reads it by identifier (`nr_repurpose_openai`). Both the
+chat / vision providers and the Specialized services (TTS, images) authenticate through
+nr-vault's audited secure HTTP client — no plaintext key is ever placed in extension
+configuration (see nr-llm ADR-030).
 
-- **Chat / vision** (analysis): the provider reads the key from **nr-vault** by identifier
-  (`nr_repurpose_openai`), with `defaultProvider = openai`.
-- **Specialized services** (TTS, images): read a plaintext key from
-  `EXTENSIONS/nr_llm/providers/openai/apiKey`.
-
-Production stores secrets via nr-vault; the dev wiring lives in `config/system/additional.php`
-(written by `ddev install`).
+`ddev install` seeds `OPENAI_API_KEY` into the vault under that identifier and sets
+`apiKeyIdentifier = nr_repurpose_openai` + `defaultProvider = openai`. The dev wiring lives
+in `config/system/additional.php` (written by `ddev install`).
 
 ## Configuration
 
