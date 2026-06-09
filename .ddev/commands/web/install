@@ -26,12 +26,9 @@ $GLOBALS['TYPO3_CONF_VARS']['HTTP']['timeout'] = 180;
 $GLOBALS['TYPO3_CONF_VARS']['HTTP']['connect_timeout'] = 15;
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'][\Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage::class] = 'doctrine';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing']['*'] = 'default';
-# nr-llm LLM providers read the key from nr-vault by identifier (seeded below); the Specialized
-# TTS/DALL-E services read a plaintext key from providers.openai.apiKey. Set both.
-$nrLlmOpenAiKey = getenv('OPENAI_API_KEY') ?: '';
-if ($nrLlmOpenAiKey !== '') {
-    $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['apiKey'] = $nrLlmOpenAiKey;
-}
+// nr-llm reads the OpenAI key from nr-vault by identifier (seeded below). Since nr-llm
+// v0.10.0 both the chat/vision providers AND the Specialized TTS/DALL-E services use the
+// identifier — the plaintext providers.openai.apiKey path was removed (nr-llm ADR-030).
 $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['apiKeyIdentifier'] = 'nr_repurpose_openai';
 $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['defaultProvider'] = 'openai';
 $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['defaultModel'] = 'gpt-4o';

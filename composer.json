@@ -14,8 +14,8 @@
     "require": {
         "php": "^8.3",
         "ext-json": "*",
-        "netresearch/nr-llm": "^0.9.0",
-        "netresearch/nr-vault": "^0.7.0",
+        "netresearch/nr-llm": "^0.10.0",
+        "netresearch/nr-vault": "^0.8.0",
         "psr/log": "^3.0",
         "symfony/messenger": "^7.0",
         "symfony/process": "^7.0",
@@ -62,9 +62,5 @@
             "extension-key": "nr_repurpose",
             "web-dir": ".Build/Web"
         }
-    },
-    "repositories": [
-        { "type": "vcs", "url": "https://github.com/netresearch/t3x-nr-llm.git", "no-api": true },
-        { "type": "vcs", "url": "https://github.com/netresearch/t3x-nr-vault.git", "no-api": true }
-    ]
+    }
 }
