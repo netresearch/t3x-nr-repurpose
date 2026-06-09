@@ -56,23 +56,52 @@
             <legend class="form-label">
                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.section.artifacts" />
             </legend>
-            <div class="form-check">
-                <f:form.checkbox property="wantPodcast" value="1" checked="true" id="nrrepurpose-wantPodcast" class="form-check-input" />
-                <label class="form-check-label" for="nrrepurpose-wantPodcast">
-                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.podcast" />
-                </label>
-            </div>
-            <div class="form-check">
-                <f:form.checkbox property="wantSchaubild" value="1" checked="true" id="nrrepurpose-wantSchaubild" class="form-check-input" />
-                <label class="form-check-label" for="nrrepurpose-wantSchaubild">
-                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.schaubild" />
-                </label>
-            </div>
-            <div class="form-check">
-                <f:form.checkbox property="wantStory" value="1" checked="true" id="nrrepurpose-wantStory" class="form-check-input" />
-                <label class="form-check-label" for="nrrepurpose-wantStory">
-                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story" />
-                </label>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <f:form.checkbox property="wantPodcast" value="1" checked="true" id="nrrepurpose-wantPodcast" class="form-check-input" />
+                                <label class="form-check-label fw-bold" for="nrrepurpose-wantPodcast">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.podcast" />
+                                </label>
+                            </div>
+                            <p class="card-text text-muted small mb-0">
+                                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.podcast.desc" />
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <f:form.checkbox property="wantSchaubild" value="1" checked="true" id="nrrepurpose-wantSchaubild" class="form-check-input" />
+                                <label class="form-check-label fw-bold" for="nrrepurpose-wantSchaubild">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.schaubild" />
+                                </label>
+                            </div>
+                            <p class="card-text text-muted small mb-0">
+                                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.schaubild.desc" />
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <f:form.checkbox property="wantStory" value="1" checked="true" id="nrrepurpose-wantStory" class="form-check-input" />
+                                <label class="form-check-label fw-bold" for="nrrepurpose-wantStory">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story" />
+                                </label>
+                            </div>
+                            <p class="card-text text-muted small mb-0">
+                                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story.desc" />
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </fieldset>
 

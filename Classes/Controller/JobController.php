@@ -65,7 +65,8 @@ class JobController extends ActionController
     {
         $this->moduleTemplate->setTitle(
             $this->moduleTitle(),
-            sprintf(LocalizationUtility::translate('show.title', 'nr_repurpose') ?? 'Job #%d', $job->getUid()),
+            LocalizationUtility::translate('show.title', 'nr_repurpose', [$job->getUid()])
+                ?? sprintf('Job #%d', $job->getUid()),
         );
         $this->moduleTemplate->assign('job', $job);
 

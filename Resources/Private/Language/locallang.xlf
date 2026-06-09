@@ -49,8 +49,11 @@
 
       <!-- Artifact types -->
       <trans-unit id="artifact.podcast"><source>Podcast</source></trans-unit>
+      <trans-unit id="artifact.podcast.desc"><source>A narrated audio episode (MP3). An AI host turns the source into a short, listenable conversation — ready to publish or embed.</source></trans-unit>
       <trans-unit id="artifact.schaubild"><source>Schaubild</source></trans-unit>
+      <trans-unit id="artifact.schaubild.desc"><source>An explanatory diagram image in three design variants. Visualises the key points of the source at a glance — pick the variant you like best.</source></trans-unit>
       <trans-unit id="artifact.story"><source>Story</source></trans-unit>
+      <trans-unit id="artifact.story.desc"><source>A vertical 9:16 image made for Instagram / social-media stories — a shareable visual teaser of the content.</source></trans-unit>
 
       <!-- Show view -->
       <trans-unit id="show.title"><source>Job #%d</source></trans-unit>

@@ -22,14 +22,18 @@ enum JobStatus: string
         };
     }
 
-    /** LLL key (locallang.xlf) for the human-readable status label. */
-    public function labelKey(): string
+    /**
+     * LLL key (locallang.xlf) for the human-readable status label.
+     * `get` prefix so Fluid `{job.statusEnum.labelKey}` resolves it (Fluid
+     * property access calls getX()/isX(), never a bare method).
+     */
+    public function getLabelKey(): string
     {
         return 'status.' . $this->value;
     }
 
     /** Bootstrap contextual suffix used for the status badge in the backend module. */
-    public function severity(): string
+    public function getSeverity(): string
     {
         return match ($this) {
             self::Done => 'success',

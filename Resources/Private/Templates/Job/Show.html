@@ -28,7 +28,7 @@
         </f:if>
     </dl>
 
-    <f:if condition="{job.statusEnum.terminal} == 0">
+    <f:if condition="!{job.statusEnum.terminal}">
         <div class="callout callout-info">
             <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.running.notice" />
             <f:link.action action="show" arguments="{job: job}" class="btn btn-sm btn-default ms-2">

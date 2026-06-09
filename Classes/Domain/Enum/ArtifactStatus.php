@@ -10,14 +10,17 @@ enum ArtifactStatus: string
     case Done = 'done';
     case Failed = 'failed';
 
-    /** LLL key (locallang.xlf) for the human-readable status label. */
-    public function labelKey(): string
+    /**
+     * LLL key (locallang.xlf) for the human-readable status label.
+     * `get` prefix so Fluid `{artifact.statusEnum.labelKey}` resolves it.
+     */
+    public function getLabelKey(): string
     {
         return 'artifactStatus.' . $this->value;
     }
 
     /** Bootstrap contextual suffix used for the artifact status badge. */
-    public function severity(): string
+    public function getSeverity(): string
     {
         return match ($this) {
             self::Done => 'success',

@@ -38,6 +38,16 @@ class Job extends AbstractEntity
         $this->sourcePdf = new ObjectStorage();
     }
 
+    public function getSourceType(): string
+    {
+        return $this->sourceType;
+    }
+
+    public function setSourceType(string $sourceType): void
+    {
+        $this->sourceType = $sourceType;
+    }
+
     public function getSourceTypeEnum(): SourceType
     {
         return SourceType::from($this->sourceType);

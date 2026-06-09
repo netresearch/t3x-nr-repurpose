@@ -11,15 +11,15 @@ final class ArtifactStatusTest extends TestCase
 {
     public function testLabelKeyIsNamespacedByBackedValue(): void
     {
-        self::assertSame('artifactStatus.pending', ArtifactStatus::Pending->labelKey());
-        self::assertSame('artifactStatus.done', ArtifactStatus::Done->labelKey());
-        self::assertSame('artifactStatus.failed', ArtifactStatus::Failed->labelKey());
+        self::assertSame('artifactStatus.pending', ArtifactStatus::Pending->getLabelKey());
+        self::assertSame('artifactStatus.done', ArtifactStatus::Done->getLabelKey());
+        self::assertSame('artifactStatus.failed', ArtifactStatus::Failed->getLabelKey());
     }
 
     public function testSeverityMapsEachStatusToAContextualClass(): void
     {
-        self::assertSame('success', ArtifactStatus::Done->severity());
-        self::assertSame('danger', ArtifactStatus::Failed->severity());
-        self::assertSame('warning', ArtifactStatus::Pending->severity());
+        self::assertSame('success', ArtifactStatus::Done->getSeverity());
+        self::assertSame('danger', ArtifactStatus::Failed->getSeverity());
+        self::assertSame('warning', ArtifactStatus::Pending->getSeverity());
     }
 }
