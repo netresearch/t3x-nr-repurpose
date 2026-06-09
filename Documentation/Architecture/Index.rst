@@ -187,7 +187,7 @@ the transparent text layer over it; otherwise it falls back to a flat render.
 .. _architecture-rendering:
 
 Rendering toolchain
-=================
+===================
 
 Three render primitives sit behind interfaces (so they are swappable and
 testable) and shell out through a :php:`ProcessRunnerInterface` (Symfony
@@ -227,7 +227,7 @@ and FAL references, a partially successful run is fully renderable.
 .. _architecture-nr-llm:
 
 How nr-llm capabilities are composed
-==================================
+====================================
 
 nr_repurpose owns no provider code. It depends on three nr-llm surfaces:
 
