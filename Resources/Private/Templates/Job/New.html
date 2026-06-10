@@ -129,10 +129,19 @@
                 return;
             }
             form.addEventListener('submit', function () {
-                button.disabled = true;
-                button.setAttribute('aria-busy', 'true');
-                button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> '
-                    + button.dataset.submittingLabel;
+                // Defer past the submit dispatch: disabling the triggering button
+                // synchronously can cancel the submission in some browsers (Safari).
+                setTimeout(function () {
+                    button.disabled = true;
+                    button.setAttribute('aria-busy', 'true');
+                    const spinner = document.createElement('span');
+                    spinner.className = 'spinner-border spinner-border-sm';
+                    spinner.setAttribute('role', 'status');
+                    spinner.setAttribute('aria-hidden', 'true');
+                    // textContent path (not innerHTML): the label is an overridable
+                    // XLF string and must never become an HTML injection point.
+                    button.replaceChildren(spinner, document.createTextNode(' ' + button.dataset.submittingLabel));
+                }, 0);
             });
         })();
     </script>

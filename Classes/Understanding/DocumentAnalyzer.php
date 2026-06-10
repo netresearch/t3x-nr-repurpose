@@ -62,11 +62,12 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
             // (e.g. localized key names or a bare sections list). One corrective
             // retry that names the offending shape recovers most of these; only
             // a second miss fails the job, now with diagnostic detail.
+            $receivedKeys = self::sanitizeKeyList(array_keys($decoded));
             $this->logger->warning('Analysis synthesis returned an unusable shape, retrying once', [
-                'receivedKeys' => array_keys($decoded),
+                'receivedKeys' => $receivedKeys,
             ]);
             $retryPrompt = $prompt . "\n\nIMPORTANT: Your previous answer used the keys ["
-                . implode(', ', array_map(strval(...), array_keys($decoded)))
+                . $receivedKeys
                 . '] and was rejected. Respond again with EXACTLY the JSON keys '
                 . '"title", "summary", "keyPoints", "sections", "audience", "language" '
                 . '— non-empty "title" and "summary" are mandatory.';
@@ -81,6 +82,25 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
     {
         return is_string($decoded['title'] ?? null) && trim($decoded['title']) !== ''
             && is_string($decoded['summary'] ?? null) && trim($decoded['summary']) !== '';
+    }
+
+    /**
+     * The received key names are model output and therefore document-influenced —
+     * before they are interpolated into a retry prompt, an exception message, or a
+     * log entry, restrict them to a harmless character set and bound their size so
+     * they cannot carry injected instructions or control characters.
+     *
+     * @param list<int|string> $keys
+     */
+    private static function sanitizeKeyList(array $keys): string
+    {
+        $safe = [];
+        foreach (array_slice($keys, 0, 12) as $key) {
+            $clean = (string) preg_replace('/[^A-Za-z0-9_.-]/', '', (string) $key);
+            $safe[] = mb_substr($clean !== '' ? $clean : '(unprintable)', 0, 40);
+        }
+
+        return implode(', ', $safe);
     }
 
     /**
@@ -172,7 +192,7 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
             throw new AnalysisException(
                 sprintf(
                     'Analysis result is missing the required "title" and/or "summary" key (received keys: %s)',
-                    implode(', ', array_map(strval(...), array_keys($decoded))),
+                    self::sanitizeKeyList(array_keys($decoded)),
                 ),
                 1749384100,
             );
