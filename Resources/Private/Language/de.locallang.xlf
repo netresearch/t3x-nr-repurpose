@@ -72,7 +72,7 @@
       <trans-unit id="show.field.error"><source>Error</source><target>Fehler</target></trans-unit>
       <trans-unit id="show.section.artifacts"><source>Artifacts</source><target>Artefakte</target></trans-unit>
       <trans-unit id="show.artifacts.empty"><source>No artifacts have been produced for this job yet.</source><target>Für diesen Auftrag wurden noch keine Artefakte erzeugt.</target></trans-unit>
-      <trans-unit id="show.running.notice"><source>This job is still being processed. Reload the page to see the latest progress.</source><target>Dieser Auftrag wird noch verarbeitet. Laden Sie die Seite neu, um den aktuellen Fortschritt zu sehen.</target></trans-unit>
+      <trans-unit id="show.running.notice"><source>This job is still being processed. The page auto-refreshes every 5 seconds.</source><target>Dieser Auftrag wird noch verarbeitet. Die Seite aktualisiert sich automatisch alle 5 Sekunden.</target></trans-unit>
       <trans-unit id="show.action.reload"><source>Reload</source><target>Neu laden</target></trans-unit>
       <trans-unit id="show.action.back"><source>Back to list</source><target>Zurück zur Liste</target></trans-unit>
       <trans-unit id="show.podcast.transcript"><source>Transcript</source><target>Transkript</target></trans-unit>

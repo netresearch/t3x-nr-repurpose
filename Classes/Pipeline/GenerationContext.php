@@ -11,6 +11,10 @@ use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 /**
  * Bundled, immutable per-run pipeline state. Built by GenerationOrchestrator after ingestion
  * and analysis; consumed unchanged by every ArtifactGeneratorInterface implementation.
+ *
+ * The progress reporter is the only per-generator part: the orchestrator derives one
+ * context per generator via withProgress() so each generator reports into its own
+ * progress band. A null reporter (e.g. in unit tests) makes reporting a no-op.
  */
 final readonly class GenerationContext
 {
@@ -22,10 +26,25 @@ final readonly class GenerationContext
         public string $theme,   // 'nr' | 'neutral'
         public int $beUser,     // for BudgetService::check()
         public ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(),
+        public ?JobProgress $progress = null,
     ) {}
 
     public function jobUid(): int
     {
         return (int) $this->jobRow['uid'];
+    }
+
+    /** Derive the per-generator context carrying that generator's progress reporter. */
+    public function withProgress(JobProgress $progress): self
+    {
+        return new self(
+            $this->jobRow,
+            $this->document,
+            $this->brief,
+            $this->theme,
+            $this->beUser,
+            $this->snippets,
+            $progress,
+        );
     }
 }

@@ -20,8 +20,10 @@ use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
 use Netresearch\NrRepurpose\Generator\Support\WebVttBuilder;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Resource\File;
@@ -359,6 +361,32 @@ final class PodcastGeneratorTest extends TestCase
         $metadata = json_decode((string) $jobs->updates[100]['metadata'], true);
         self::assertSame(['nova', 'onyx'], $metadata['voices']);
         self::assertArrayNotHasKey('personas', $metadata);
+    }
+
+    public function testReportsScriptVoicingAndStitchingProgressSteps(): void
+    {
+        $progressJobs = new StatusRecordingJobRepository();
+        $generator = new PodcastGenerator(
+            $this->jobs(), $this->allowingBudget(), new NullLogger(), $this->completion(), $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+        );
+        $ctx = $this->context()->withProgress(new JobProgress($progressJobs, 7, 30.0, 100.0));
+
+        self::assertTrue($generator->generate($ctx));
+        self::assertSame([
+            'Podcast: writing script',
+            'Podcast: voicing segment 1/3',
+            'Podcast: voicing segment 2/3',
+            'Podcast: voicing segment 3/3',
+            'Podcast: stitching audio',
+        ], $progressJobs->steps());
+
+        // Progress only ever moves forward within the generator's band.
+        $progresses = $progressJobs->progresses();
+        $sorted = $progresses;
+        sort($sorted);
+        self::assertSame($sorted, $progresses);
+        self::assertGreaterThanOrEqual(30, min($progresses));
+        self::assertLessThanOrEqual(100, max($progresses));
     }
 
     public function testSupportsReadsWantPodcastFlag(): void

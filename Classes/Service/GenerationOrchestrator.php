@@ -10,6 +10,7 @@ use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Psr\Log\LoggerInterface;
@@ -112,7 +113,15 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
         $count = count($applicable);
         $ok = 0;
         foreach ($applicable as $i => $generator) {
-            $success = $generator->generate($ctx);
+            // Each generator reports fine-grained steps into its own slice of the
+            // 30..100 generation band; the context is derived per generator.
+            $band = new JobProgress(
+                $this->jobs,
+                $jobUid,
+                30 + 70 * $i / $count,
+                30 + 70 * ($i + 1) / $count,
+            );
+            $success = $generator->generate($ctx->withProgress($band));
             $ok += $success ? 1 : 0;
             $progress = $count > 0 ? (int) (30 + 70 * ($i + 1) / $count) : 100;
             $this->jobs->markStatus($jobUid, JobStatus::Generating, 'generating', $progress);

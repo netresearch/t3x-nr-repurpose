@@ -12,6 +12,7 @@ use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
@@ -104,6 +105,13 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         self::assertSame('', $generator->seen->snippets->schaubildSections);
         self::assertSame('', $generator->seen->snippets->storySections);
 
+        // The orchestrator hands every generator a progress reporter scoped to its band
+        // (one generator -> 30..100); the step is persisted verbatim with the mapped percent.
+        self::assertInstanceOf(JobProgress::class, $generator->seen->progress);
+        self::assertSame('generating', $generator->rowAfterStep['status']);
+        self::assertSame('Stub: halfway there', $generator->rowAfterStep['current_step']);
+        self::assertSame(65, (int) $generator->rowAfterStep['progress']);
+
         $row = $jobs->findRow($jobUid);
         self::assertSame('done', $row['status']);
         self::assertSame(100, (int) $row['progress']);
@@ -190,11 +198,16 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 
 /**
  * Records the context it saw and inserts one Done artifact — shared by the orchestrator tests
- * so the stub is defined once (avoids duplicated test fixtures).
+ * so the stub is defined once (avoids duplicated test fixtures). It also reports one
+ * mid-generation progress step and snapshots the job row right after, so the tests can
+ * assert the fine-grained progress reporting end-to-end (real repository, real DB).
  */
 final class RecordingArtifactGenerator implements ArtifactGeneratorInterface
 {
     public ?GenerationContext $seen = null;
+
+    /** @var array<string, mixed> job row snapshot taken right after the progress step */
+    public array $rowAfterStep = [];
 
     public function __construct(private readonly JobProcessingRepository $jobs) {}
 
@@ -206,6 +219,8 @@ final class RecordingArtifactGenerator implements ArtifactGeneratorInterface
     public function generate(GenerationContext $ctx): bool
     {
         $this->seen = $ctx;
+        $ctx->progress?->step('Stub: halfway there', 0.5);
+        $this->rowAfterStep = $this->jobs->findRow($ctx->jobUid()) ?? [];
         $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
 
         return true;

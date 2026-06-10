@@ -72,7 +72,7 @@
       <trans-unit id="show.field.error"><source>Error</source></trans-unit>
       <trans-unit id="show.section.artifacts"><source>Artifacts</source></trans-unit>
       <trans-unit id="show.artifacts.empty"><source>No artifacts have been produced for this job yet.</source></trans-unit>
-      <trans-unit id="show.running.notice"><source>This job is still being processed. Reload the page to see the latest progress.</source></trans-unit>
+      <trans-unit id="show.running.notice"><source>This job is still being processed. The page auto-refreshes every 5 seconds.</source></trans-unit>
       <trans-unit id="show.action.reload"><source>Reload</source></trans-unit>
       <trans-unit id="show.action.back"><source>Back to list</source></trans-unit>
       <trans-unit id="show.podcast.transcript"><source>Transcript</source></trans-unit>

@@ -81,6 +81,7 @@ final class PodcastGenerator extends AbstractGenerator
         }
 
         try {
+            $ctx->progress?->step('Podcast: writing script', 0.05);
             $personaVoices = $this->personaVoices($ctx->snippets->personas);
             $turns = $this->buildDialogue($ctx, $personaVoices);
             if ($turns === []) {
@@ -94,7 +95,12 @@ final class PodcastGenerator extends AbstractGenerator
             $vttSegments = [];
             $transcriptLines = [];
 
+            $totalTurns = count($turns);
             foreach ($turns as $i => $turn) {
+                $ctx->progress?->step(
+                    sprintf('Podcast: voicing segment %d/%d', $i + 1, $totalTurns),
+                    0.1 + 0.8 * $i / $totalTurns,
+                );
                 $segmentPath = sprintf('%s/turn-%d.mp3', $tmpDir, $i);
                 if (!$this->synthesizeWithRetry($turn['text'], $turn['voice'], $segmentPath, $jobUid, $i)) {
                     continue;
@@ -114,6 +120,7 @@ final class PodcastGenerator extends AbstractGenerator
                 return false;
             }
 
+            $ctx->progress?->step('Podcast: stitching audio', 0.9);
             $mp3Path = $tmpDir . '/podcast.mp3';
             $this->stitcher->concat($segmentPaths, $mp3Path);
 

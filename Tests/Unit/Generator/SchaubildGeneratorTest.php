@@ -18,9 +18,11 @@ use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\SchaubildGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Resource\File;
@@ -171,6 +173,27 @@ final class SchaubildGeneratorTest extends TestCase
             self::assertStringNotContainsString('Visual style:', $prompt);
             self::assertStringNotContainsString('Target audience:', $prompt);
         }
+    }
+
+    public function testReportsHtmlAndVariantProgressSteps(): void
+    {
+        $progressJobs = new StatusRecordingJobRepository();
+        $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget());
+        $ctx = $this->context()->withProgress(new JobProgress($progressJobs, 11, 30.0, 100.0));
+
+        self::assertTrue($generator->generate($ctx));
+        self::assertSame([
+            'Schaubild: building HTML',
+            'Schaubild: variant html (1/3)',
+            'Schaubild: variant html_bg (2/3)',
+            'Schaubild: generating background image',
+            'Schaubild: variant ki_image (3/3)',
+        ], $progressJobs->steps());
+
+        $progresses = $progressJobs->progresses();
+        $sorted = $progresses;
+        sort($sorted);
+        self::assertSame($sorted, $progresses);
     }
 
     public function testSupportsReadsWantSchaubildFlag(): void

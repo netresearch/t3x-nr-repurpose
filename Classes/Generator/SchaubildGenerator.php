@@ -57,11 +57,15 @@ class SchaubildGenerator extends AbstractGenerator
     {
         $jobUid = $ctx->jobUid();
 
+        $ctx->progress?->step('Schaubild: building HTML', 0.05);
         $htmlOpaque = $this->renderDiagramHtml($ctx, false);
         $htmlTransparent = $this->renderDiagramHtml($ctx, true);
 
+        $ctx->progress?->step('Schaubild: variant html (1/3)', 0.4);
         $ok = $this->generateHtmlVariant($jobUid, $htmlOpaque);
+        $ctx->progress?->step('Schaubild: variant html_bg (2/3)', 0.6);
         $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent) || $ok;
+        $ctx->progress?->step('Schaubild: variant ki_image (3/3)', 0.8);
         $ok = $this->generateKiImageVariant($ctx, $jobUid, $htmlOpaque) || $ok;
 
         return $ok;
@@ -101,6 +105,7 @@ class SchaubildGenerator extends AbstractGenerator
         try {
             $tmpDir = $this->makeTempDir();
             $bgPath = $tmpDir . '/bg.png';
+            $ctx->progress?->step('Schaubild: generating background image', 0.65);
             $this->imageGenerator->generateToFile($this->backgroundPrompt($ctx), self::IMAGE_SIZE, $bgPath);
 
             $fgPath = $this->renderer->render($transparentHtml, self::WIDTH, null, 2.0, true);

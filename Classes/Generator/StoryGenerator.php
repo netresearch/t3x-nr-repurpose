@@ -71,6 +71,7 @@ class StoryGenerator extends AbstractGenerator
         $jobUid = $ctx->jobUid();
 
         try {
+            $ctx->progress?->step('Story: writing copy', 0.05);
             $slides = $this->buildSlides($ctx);
         } catch (\Throwable $e) {
             $this->failStoryUpfront($jobUid, 'Story generation error: ' . $e->getMessage());
@@ -84,11 +85,13 @@ class StoryGenerator extends AbstractGenerator
             return false;
         }
 
+        $ctx->progress?->step('Story: background image', 0.3);
         $backgroundPath = $this->generateSharedBackground($ctx);
 
         $total = count($slides);
         $ok = false;
         foreach ($slides as $i => $slide) {
+            $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
             $slideOk = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath);
             $ok = $slideOk || $ok;
         }

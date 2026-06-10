@@ -19,9 +19,11 @@ use Netresearch\NrRepurpose\Generator\StoryGenerator;
 use Netresearch\NrRepurpose\Generator\Support\StorySlide;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Resource\File;
@@ -332,6 +334,27 @@ final class StoryGeneratorTest extends TestCase
         self::assertTrue($generator->generate($this->context()));
         self::assertStringNotContainsString('TONE OF VOICE', $completion->lastPrompt);
         self::assertStringNotContainsString('LAYOUT:', $completion->lastPrompt);
+    }
+
+    public function testReportsCopyBackgroundAndSlideProgressSteps(): void
+    {
+        $progressJobs = new StatusRecordingJobRepository();
+        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(true), $this->jobs(), $this->allowingBudget(), $this->compositor());
+        $ctx = $this->context()->withProgress(new JobProgress($progressJobs, 21, 30.0, 100.0));
+
+        self::assertTrue($generator->generate($ctx));
+        self::assertSame([
+            'Story: writing copy',
+            'Story: background image',
+            'Story: slide 1/3',
+            'Story: slide 2/3',
+            'Story: slide 3/3',
+        ], $progressJobs->steps());
+
+        $progresses = $progressJobs->progresses();
+        $sorted = $progresses;
+        sort($sorted);
+        self::assertSame($sorted, $progresses);
     }
 
     public function testSupportsReadsWantStoryFlag(): void
