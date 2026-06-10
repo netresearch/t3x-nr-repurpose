@@ -14,10 +14,12 @@ final class SymfonyProcessPopplerRunnerTest extends AbstractFunctionalTestCase
     {
         parent::setUp();
         // Same guard pattern as FfmpegAudioStitcherTest: skip where poppler-utils is
-        // not installed (e.g. the core-testing images) instead of erroring.
-        $poppler = new Process(['pdftoppm', '-v']);
-        if ($poppler->run() !== 0) {
-            self::markTestSkipped('poppler-utils (pdftoppm/pdftotext) not available');
+        // not installed (e.g. the core-testing images) instead of erroring. Both
+        // binaries are probed — the tests exercise pdftoppm AND pdftotext.
+        foreach (['pdftoppm', 'pdftotext'] as $binary) {
+            if ((new Process([$binary, '-v']))->run() !== 0) {
+                self::markTestSkipped(sprintf('poppler-utils (%s) not available', $binary));
+            }
         }
     }
 
