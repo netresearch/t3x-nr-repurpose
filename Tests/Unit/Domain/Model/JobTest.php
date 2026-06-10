@@ -52,12 +52,13 @@ final class JobTest extends TestCase
         self::assertSame(ArtifactStatus::Failed, $summaries[0]->status);
     }
 
-    public function testGetStoryArtifactsReturnsOnlyStorySlidesInSlideOrder(): void
+    public function testGetStoryArtifactsReturnsOnlyStorySlidesInSlideIndexOrder(): void
     {
         $job = new Job();
         $job->getArtifacts()->attach($this->storyArtifact('schaubild', 'html', 1));
-        $job->getArtifacts()->attach($this->storyArtifact('story', 'slide-2', 12));
-        $job->getArtifacts()->attach($this->storyArtifact('story', 'slide-1', 11));
+        // uid order (11, 12) contradicts slide order: the slideIndex metadata must win.
+        $job->getArtifacts()->attach($this->storyArtifact('story', 'slide-2', 11, 2));
+        $job->getArtifacts()->attach($this->storyArtifact('story', 'slide-1', 12, 1));
         $job->getArtifacts()->attach($this->storyArtifact('podcast', 'default', 2));
 
         $slides = $job->getStoryArtifacts();
@@ -66,6 +67,18 @@ final class JobTest extends TestCase
         self::assertSame(['slide-1', 'slide-2'], array_map(
             static fn (Artifact $a): string => $a->getVariant(),
             $slides,
+        ));
+    }
+
+    public function testGetStoryArtifactsFallsBackToUidOrderWithoutSlideIndexMetadata(): void
+    {
+        $job = new Job();
+        $job->getArtifacts()->attach($this->storyArtifact('story', 'late', 12));
+        $job->getArtifacts()->attach($this->storyArtifact('story', 'early', 11));
+
+        self::assertSame(['early', 'late'], array_map(
+            static fn (Artifact $a): string => $a->getVariant(),
+            $job->getStoryArtifacts(),
         ));
     }
 
@@ -88,13 +101,17 @@ final class JobTest extends TestCase
         };
     }
 
-    /** Raw-string variant with an explicit uid — getStoryArtifacts() sorts by uid. */
-    private function storyArtifact(string $type, string $variant, int $uid): Artifact
+    /** Raw-string variant with explicit uid + optional slideIndex metadata — getStoryArtifacts() sorts by slideIndex, then uid. */
+    private function storyArtifact(string $type, string $variant, int $uid, ?int $slideIndex = null): Artifact
     {
         $artifact = new Artifact();
         (new \ReflectionProperty(Artifact::class, 'type'))->setValue($artifact, $type);
         (new \ReflectionProperty(Artifact::class, 'variant'))->setValue($artifact, $variant);
         (new \ReflectionProperty(AbstractDomainObject::class, 'uid'))->setValue($artifact, $uid);
+        if ($slideIndex !== null) {
+            (new \ReflectionProperty(Artifact::class, 'metadata'))
+                ->setValue($artifact, json_encode(['slideIndex' => $slideIndex], JSON_THROW_ON_ERROR));
+        }
 
         return $artifact;
     }

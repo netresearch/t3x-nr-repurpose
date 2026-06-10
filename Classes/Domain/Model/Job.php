@@ -224,9 +224,10 @@ class Job extends AbstractEntity
     }
 
     /**
-     * The story-carousel slides in slide order (the generator inserts slide-1…slide-N
-     * sequentially, so ascending uid is the carousel order). Used by the result view to
-     * render the slide strip.
+     * The story-carousel slides in slide order. The explicit slideIndex each slide carries
+     * in its metadata is the source of truth (insertion uids are not guaranteed sequential);
+     * rows without it (legacy single-image "default" artifacts) fall back to ascending uid.
+     * Used by the result view to render the slide strip.
      *
      * @return list<Artifact>
      */
@@ -238,7 +239,11 @@ class Job extends AbstractEntity
                 $slides[] = $artifact;
             }
         }
-        usort($slides, static fn (Artifact $a, Artifact $b): int => ($a->getUid() ?? 0) <=> ($b->getUid() ?? 0));
+        usort($slides, static function (Artifact $a, Artifact $b): int {
+            $bySlideIndex = (int) ($a->getMetadataArray()['slideIndex'] ?? 0) <=> (int) ($b->getMetadataArray()['slideIndex'] ?? 0);
+
+            return $bySlideIndex !== 0 ? $bySlideIndex : ($a->getUid() ?? 0) <=> ($b->getUid() ?? 0);
+        });
 
         return $slides;
     }
