@@ -5,17 +5,20 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Service;
 
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
+use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Drives one job through the real pipeline: findRow -> ingest -> analyze -> build context ->
- * run each applicable generator(ctx) -> final status. Per-artifact isolation and the status
- * transitions are preserved from Plan 1; ingestion/analysis failures abort before any artifact.
+ * Drives one job through the real pipeline: findRow -> ingest -> analyze -> resolve prompt
+ * snippets -> build context -> run each applicable generator(ctx) -> final status. Per-artifact
+ * isolation and the status transitions are preserved from Plan 1; ingestion/analysis/resolution
+ * failures abort before any artifact.
  */
 final class GenerationOrchestrator implements GenerationOrchestratorInterface
 {
@@ -28,6 +31,7 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
         private readonly LoggerInterface $logger,
         private readonly SourceIngestionServiceInterface $ingestion,
         private readonly DocumentAnalyzerInterface $analyzer,
+        private readonly PromptSnippetResolver $snippetResolver,
         iterable $generators,
     ) {
         $this->generators = $generators instanceof \Traversable
@@ -72,16 +76,31 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
         // Record the detected language on the job for the BE result view.
         $this->jobs->setLanguageDetected($jobUid, $brief->language);
 
-        // 3) Build the shared per-run context.
+        // 3) Resolve the editor's prompt-snippet selection ONCE for this run (analysis stays
+        // snippet-free by design — snippets steer generation only). An empty selection
+        // short-circuits inside the resolver without any repository access.
+        try {
+            $snippets = $this->snippetResolver->resolve(
+                PromptSnippetSelection::fromJson((string) ($row['prompt_snippets'] ?? '')),
+            );
+        } catch (\Throwable $e) {
+            $this->logger->error('Prompt snippet resolution failed', ['job' => $jobUid, 'exception' => $e->getMessage()]);
+            $this->jobs->markFailed($jobUid, $e->getMessage());
+
+            return;
+        }
+
+        // 4) Build the shared per-run context.
         $ctx = new GenerationContext(
             jobRow: $row,
             document: $document,
             brief: $brief,
             theme: (string) ($row['theme'] ?? 'nr'),
             beUser: (int) ($row['be_user'] ?? 0),
+            snippets: $snippets,
         );
 
-        // 4) Generation — per-artifact isolation; a single failure does not abort siblings.
+        // 5) Generation — per-artifact isolation; a single failure does not abort siblings.
         // Clear any artifacts from a prior (interrupted or re-queued) run so reprocessing yields
         // a clean set instead of duplicating rows. Terminal jobs never reach here (guarded above).
         $this->jobs->deleteArtifactsForJob($jobUid);
@@ -99,7 +118,7 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
             $this->jobs->markStatus($jobUid, JobStatus::Generating, 'generating', $progress);
         }
 
-        // 5) Final status (Plan 1 logic preserved).
+        // 6) Final status (Plan 1 logic preserved).
         $final = $ok === $count
             ? JobStatus::Done
             : ($ok > 0 ? JobStatus::PartiallyDone : JobStatus::Failed);

@@ -26,6 +26,10 @@ services:
     arguments:
       $generators: !tagged_iterator nr_repurpose.artifact_generator
 
+  # Public so functional tests can fetch the real resolver via $this->get().
+  Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver:
+    public: true
+
   Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface:
     alias: Netresearch\NrRepurpose\Service\GenerationOrchestrator
     public: true
