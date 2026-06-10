@@ -36,8 +36,9 @@ class StoryGenerator extends AbstractGenerator
 {
     private const WIDTH = 1080;
     private const HEIGHT = 1920;
-    // gpt-image-1 portrait (DALL·E's 1024x1792 is no longer a valid size); the 2:3 image is
-    // composited as a background behind the 9:16 story canvas, so the aspect difference is fine.
+    // Default gpt-image portrait size; the 2:3 image is composited as a background behind
+    // the 9:16 story canvas, so the aspect difference is fine. A layout snippet may
+    // override it via its metadata {"imageSize":"WxH"} (AbstractGenerator::resolveImageSize()).
     private const IMAGE_SIZE = '1024x1536';
     private const IMAGE_COST = 0.05;
     private const COPY_COST_PER_SLIDE = 0.01;
@@ -47,6 +48,7 @@ class StoryGenerator extends AbstractGenerator
     // non-compliant copy cannot overflow the fixed 9:16 slide layout.
     private const MAX_HEADLINE_CHARS = 60;
     private const MAX_SUBLINE_CHARS = 110;
+    private const COPY_SYSTEM_PROMPT = 'You are a social-media copywriter. Output ONLY valid JSON.';
 
     public function __construct(
         JobProcessingRepository $jobs,
@@ -71,6 +73,7 @@ class StoryGenerator extends AbstractGenerator
         $jobUid = $ctx->jobUid();
 
         try {
+            $ctx->progress?->step('Story: writing copy', 0.05);
             $slides = $this->buildSlides($ctx);
         } catch (\Throwable $e) {
             $this->failStoryUpfront($jobUid, 'Story generation error: ' . $e->getMessage());
@@ -84,12 +87,17 @@ class StoryGenerator extends AbstractGenerator
             return false;
         }
 
-        $backgroundPath = $this->generateSharedBackground($ctx);
+        // Layout snippets may hint a custom AI-image size; resolved once so an invalid
+        // hint logs a single warning. The slide renders (Chromium) are unaffected.
+        $imageSize = $this->resolveImageSize($ctx->snippets->storyImageSize, self::IMAGE_SIZE);
+        $ctx->progress?->step('Story: background image', 0.3);
+        $backgroundPath = $this->generateSharedBackground($ctx, $imageSize);
 
         $total = count($slides);
         $ok = false;
         foreach ($slides as $i => $slide) {
-            $slideOk = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath);
+            $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
+            $slideOk = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
             $ok = $slideOk || $ok;
         }
 
@@ -97,11 +105,10 @@ class StoryGenerator extends AbstractGenerator
     }
 
     /**
-     * Ask the LLM once for the whole carousel and parse it into usable slides.
-     *
-     * @return list<StorySlide>
+     * The exact user prompt of the carousel-copy LLM call — also recorded verbatim in each
+     * slide's artifact metadata (prompts.user), so build it in one place only.
      */
-    private function buildSlides(GenerationContext $ctx): array
+    private function carouselPrompt(GenerationContext $ctx): string
     {
         $brief = $ctx->brief;
         $keyPoints = array_slice($brief->keyPoints, 0, self::MAX_POINT_SLIDES);
@@ -123,16 +130,28 @@ class StoryGenerator extends AbstractGenerator
         if ($ctx->snippets->storySections !== '') {
             $prompt .= "\n\n" . $ctx->snippets->storySections;
         }
+
+        return $prompt;
+    }
+
+    /**
+     * Ask the LLM once for the whole carousel and parse it into usable slides.
+     *
+     * @return list<StorySlide>
+     */
+    private function buildSlides(GenerationContext $ctx): array
+    {
+        $keyPoints = array_slice($ctx->brief->keyPoints, 0, self::MAX_POINT_SLIDES);
         $options = new ChatOptions(
             temperature: 0.5,
             responseFormat: 'json',
-            systemPrompt: 'You are a social-media copywriter. Output ONLY valid JSON.',
+            systemPrompt: self::COPY_SYSTEM_PROMPT,
             beUserUid: $ctx->beUser,
             // cover + one slide per key point + outro; capped at MAX_SLIDES by the point cap.
             plannedCost: self::COPY_COST_PER_SLIDE * (count($keyPoints) + 2),
         );
 
-        return $this->parseSlides($this->completion->completeJson($prompt, $options));
+        return $this->parseSlides($this->completion->completeJson($this->carouselPrompt($ctx), $options));
     }
 
     /**
@@ -180,7 +199,7 @@ class StoryGenerator extends AbstractGenerator
      * cost). Best-effort: over budget, service unavailable or a generation error all fall
      * back to flat renders (null).
      */
-    private function generateSharedBackground(GenerationContext $ctx): ?string
+    private function generateSharedBackground(GenerationContext $ctx, string $imageSize): ?string
     {
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
             return null;
@@ -188,7 +207,7 @@ class StoryGenerator extends AbstractGenerator
 
         try {
             $backgroundPath = $this->makeTempDir() . '/bg.png';
-            $this->imageGenerator->generateToFile($this->backgroundPrompt($ctx), self::IMAGE_SIZE, $backgroundPath);
+            $this->imageGenerator->generateToFile($this->backgroundPrompt($ctx), $imageSize, $backgroundPath);
 
             return $backgroundPath;
         } catch (\Throwable $e) {
@@ -209,15 +228,26 @@ class StoryGenerator extends AbstractGenerator
         int $index,
         int $total,
         ?string $backgroundPath,
+        string $imageSize,
     ): bool {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Story, 'slide-' . $index, 0, ArtifactStatus::Pending);
+        $hasBackground = $backgroundPath !== null;
         $metadata = [
             'width' => self::WIDTH,
             'height' => self::HEIGHT,
-            'background' => $backgroundPath !== null ? 'ki' : 'flat',
+            'background' => $hasBackground ? 'ki' : 'flat',
             'role' => $slide->role,
             'slideIndex' => $index,
             'slideTotal' => $total,
+            // Every slide carries the full copy prompts; the shared background image
+            // prompt/model/size only when a KI background was actually composited.
+            'prompts' => $this->promptsMetadata(
+                system: self::COPY_SYSTEM_PROMPT,
+                user: $this->carouselPrompt($ctx),
+                image: $hasBackground ? $this->backgroundPrompt($ctx) : null,
+                imageModel: $hasBackground ? $this->imageGenerator->getModel() : null,
+                imageSize: $hasBackground ? $imageSize : null,
+            ),
         ];
 
         try {

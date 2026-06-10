@@ -105,9 +105,61 @@ class JobController extends ActionController
             LocalizationUtility::translate('show.title', 'nr_repurpose', [$job->getUid()])
                 ?? sprintf('Job #%d', $job->getUid()),
         );
-        $this->moduleTemplate->assign('job', $job);
+        $this->moduleTemplate->assignMultiple([
+            'job' => $job,
+            'snippetSelections' => $this->resolveSnippetSelections($job->getPromptSnippetSelection()),
+        ]);
 
         return $this->moduleTemplate->renderResponse('Job/Show');
+    }
+
+    /**
+     * Resolve the job's persisted prompt-snippet selection into display rows for the
+     * Show view's "Creation parameters" panel. Slot order mirrors the New form; a
+     * snippet that was deleted or deactivated since the job was created yields
+     * available=false so the view renders "no longer available" instead of silently
+     * dropping the slot.
+     *
+     * @return list<array{label: string, name: string, description: string, available: bool}>
+     */
+    private function resolveSnippetSelections(PromptSnippetSelection $selection): array
+    {
+        if ($selection->isEmpty()) {
+            return [];
+        }
+
+        $byUid = [];
+        foreach ($this->promptSnippetRepository->findByUids($selection->selectedUids()) as $snippet) {
+            $byUid[(int) $snippet->getUid()] = $snippet;
+        }
+
+        $slots = [
+            ['audience', $selection->audience],
+            ['tone', $selection->tone],
+        ];
+        foreach ($selection->personas as $uid) {
+            $slots[] = ['persona', $uid];
+        }
+        $slots[] = ['schaubildLayout', $selection->schaubildLayout];
+        $slots[] = ['schaubildStyle', $selection->schaubildStyle];
+        $slots[] = ['storyLayout', $selection->storyLayout];
+        $slots[] = ['storyStyle', $selection->storyStyle];
+
+        $rows = [];
+        foreach ($slots as [$label, $uid]) {
+            if ($uid <= 0) {
+                continue;
+            }
+            $snippet = $byUid[$uid] ?? null;
+            $rows[] = [
+                'label' => $label,
+                'name' => $snippet?->getName() ?? '',
+                'description' => $snippet?->getDescription() ?? '',
+                'available' => $snippet !== null,
+            ];
+        }
+
+        return $rows;
     }
 
     private function moduleTitle(): string

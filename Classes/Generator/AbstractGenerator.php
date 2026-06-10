@@ -70,6 +70,88 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         return $dir;
     }
 
+    /**
+     * Canonical shape of the "prompts" object every generator stores in the artifact
+     * metadata JSON for full generation transparency. Texts are verbatim and complete —
+     * never truncated. All keys are optional; an artifact only carries the calls it
+     * actually made:
+     *
+     *   system     LLM system prompt
+     *   user       LLM user prompt
+     *   image      image-generation prompt
+     *   imageModel image model id (ImageGeneratorInterface::getModel())
+     *   imageSize  effective image size used ("WIDTHxHEIGHT")
+     *   ttsModel   TTS model id
+     *   voices     per-speaker TTS voice map {speaker: voice}
+     *
+     * The Show view renders this object in the per-artifact "Generation parameters" panel.
+     *
+     * @param array<string, string>|null $voices
+     *
+     * @return array<string, mixed>
+     */
+    protected function promptsMetadata(
+        ?string $system = null,
+        ?string $user = null,
+        ?string $image = null,
+        ?string $imageModel = null,
+        ?string $imageSize = null,
+        ?string $ttsModel = null,
+        ?array $voices = null,
+    ): array {
+        return array_filter(
+            [
+                'system' => $system,
+                'user' => $user,
+                'image' => $image,
+                'imageModel' => $imageModel,
+                'imageSize' => $imageSize,
+                'ttsModel' => $ttsModel,
+                'voices' => $voices,
+            ],
+            static fn (string|array|null $value): bool => $value !== null,
+        );
+    }
+
+    /**
+     * Resolve the effective AI-image size: a layout prompt snippet may hint a custom size
+     * via its metadata {"imageSize":"WxH"}. The hint is used only when it satisfies the
+     * FULL gpt-image-* contract that nr-llm's ImageGenerationOptions enforces (both
+     * dimensions divisible by 16, at most 3840x2160, aspect ratio between 1:3 and 3:1) —
+     * being exactly as strict here guarantees an accepted hint can never make the
+     * downstream options validation throw and fail the artifact. Anything else falls
+     * back to the generator's default and logs a warning. The Chromium HTML renders
+     * are unaffected; only AI-image calls are.
+     */
+    protected function resolveImageSize(string $hint, string $default): string
+    {
+        if ($hint === '') {
+            return $default;
+        }
+
+        if (preg_match('/^(\d{2,4})x(\d{2,4})$/', $hint, $matches) === 1) {
+            $width = (int) $matches[1];
+            $height = (int) $matches[2];
+
+            // Mirrors ImageGenerationOptions::validateGptImageSize(): divisible by 16,
+            // max 3840x2160, aspect within [1:3, 3:1] via integer math (W<=3H, H<=3W).
+            if ($width % 16 === 0 && $height % 16 === 0
+                && $width >= 16 && $height >= 16
+                && $width <= 3840 && $height <= 2160
+                && $width <= 3 * $height && $height <= 3 * $width
+            ) {
+                return $hint;
+            }
+        }
+
+        $this->logger->warning('Ignoring invalid imageSize hint from layout snippet', [
+            'hint' => $hint,
+            'fallback' => $default,
+        ]);
+
+        return $default;
+    }
+
     /** Record a previously-inserted artifact row as failed and log the reason. */
     protected function failArtifact(int $artifactUid, int $jobUid, string $reason): void
     {

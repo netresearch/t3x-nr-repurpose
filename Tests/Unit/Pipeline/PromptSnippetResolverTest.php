@@ -41,6 +41,8 @@ final class PromptSnippetResolverTest extends TestCase
         self::assertSame('', $resolved->storySections);
         self::assertSame('', $resolved->audienceHint);
         self::assertSame('', $resolved->styleHint);
+        self::assertSame('', $resolved->schaubildImageSize);
+        self::assertSame('', $resolved->storyImageSize);
         self::assertSame([], $resolved->personas);
     }
 
@@ -139,6 +141,34 @@ final class PromptSnippetResolverTest extends TestCase
         self::assertSame(['Anna', 'Anna 2', 'Anna 3'], array_map(static fn ($p) => $p->name, $resolved->personas));
         self::assertSame(['First Anna.', 'Second Anna.', 'Third Anna.'], array_map(static fn ($p) => $p->description, $resolved->personas));
         self::assertSame('fable', $resolved->personas[0]->voice);
+    }
+
+    public function testLayoutSnippetImageSizeMetadataIsSurfacedPerArtifactType(): void
+    {
+        $repository = $this->repository([
+            5 => new StubPromptSnippet(5, 'Grid', 'Strict three-column grid.', ['imageSize' => '1920x1088']),
+            7 => new StubPromptSnippet(7, 'Full-bleed', 'Edge-to-edge imagery.', ['imageSize' => ' 1088x1920 ']),
+        ]);
+        $selection = new PromptSnippetSelection(schaubildLayout: 5, storyLayout: 7);
+
+        $resolved = $this->resolver($repository)->resolve($selection);
+
+        self::assertSame('1920x1088', $resolved->schaubildImageSize);
+        self::assertSame('1088x1920', $resolved->storyImageSize);  // surfaced trimmed
+    }
+
+    public function testMissingOrNonStringImageSizeMetadataDegradesToEmpty(): void
+    {
+        $repository = $this->repository([
+            5 => new StubPromptSnippet(5, 'Grid', 'Strict grid.', ['imageSize' => 1920]),
+            7 => new StubPromptSnippet(7, 'Full-bleed', 'No size hint at all.'),
+        ]);
+        $selection = new PromptSnippetSelection(schaubildLayout: 5, storyLayout: 7);
+
+        $resolved = $this->resolver($repository)->resolve($selection);
+
+        self::assertSame('', $resolved->schaubildImageSize);
+        self::assertSame('', $resolved->storyImageSize);
     }
 
     public function testPersonaNameWhitespaceIsCollapsedAndNamelessSnippetsAreSkipped(): void

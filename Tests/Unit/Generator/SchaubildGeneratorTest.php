@@ -18,9 +18,11 @@ use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\SchaubildGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Resource\File;
@@ -173,6 +175,93 @@ final class SchaubildGeneratorTest extends TestCase
         }
     }
 
+    public function testRecordsFullPromptsAndActualModelInVariantMetadata(): void
+    {
+        $completion = $this->completion();
+        $imageGenerator = $this->imageGenerator();
+        $jobs = $this->jobs();
+        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+
+        // html: the diagram-body LLM call, verbatim and complete.
+        $html = json_decode((string) $jobs->updates[$jobs->uidForVariant('html')]['metadata'], true);
+        self::assertSame(
+            'You are an information designer. Output a raw HTML fragment only — no Markdown, no code fences.',
+            $html['prompts']['system'],
+        );
+        self::assertSame($completion->prompts[0], $html['prompts']['user']);
+        self::assertArrayNotHasKey('image', $html['prompts']);
+
+        // html_bg: LLM prompts AND the background image prompt + the model that actually ran.
+        $htmlBg = json_decode((string) $jobs->updates[$jobs->uidForVariant('html_bg')]['metadata'], true);
+        self::assertSame('stub-image-model', $htmlBg['bgModel']);
+        self::assertSame($completion->prompts[0], $htmlBg['prompts']['user']);
+        self::assertSame($imageGenerator->prompts[0], $htmlBg['prompts']['image']);
+        self::assertSame('stub-image-model', $htmlBg['prompts']['imageModel']);
+        self::assertSame('1536x1024', $htmlBg['prompts']['imageSize']);
+
+        // ki_image: image-call parameters only (its image prompt derives from the brief, not the HTML).
+        $ki = json_decode((string) $jobs->updates[$jobs->uidForVariant('ki_image')]['metadata'], true);
+        self::assertSame('stub-image-model', $ki['model']);
+        self::assertSame($imageGenerator->prompts[1], $ki['prompts']['image']);
+        self::assertSame('stub-image-model', $ki['prompts']['imageModel']);
+        self::assertSame('1536x1024', $ki['prompts']['imageSize']);
+        self::assertArrayNotHasKey('system', $ki['prompts']);
+        self::assertArrayNotHasKey('user', $ki['prompts']);
+    }
+
+    public function testLayoutImageSizeHintDrivesBothAiImageCalls(): void
+    {
+        $imageGenerator = $this->imageGenerator();
+        $jobs = $this->jobs();
+        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget());
+
+        $snippets = new ResolvedPromptSnippets(schaubildImageSize: '1920x1088');
+        self::assertTrue($generator->generate($this->context($snippets)));
+
+        self::assertSame(['1920x1088', '1920x1088'], $imageGenerator->sizes);   // bg + ki_image
+        $htmlBg = json_decode((string) $jobs->updates[$jobs->uidForVariant('html_bg')]['metadata'], true);
+        self::assertSame('1920x1088', $htmlBg['prompts']['imageSize']);   // effective size recorded
+        $ki = json_decode((string) $jobs->updates[$jobs->uidForVariant('ki_image')]['metadata'], true);
+        self::assertSame('1920x1088', $ki['prompts']['imageSize']);
+    }
+
+    public function testInvalidImageSizeHintsFallBackToTheDefaultSize(): void
+    {
+        // Bad syntax, not divisible by 16, and out-of-bounds digit counts must never
+        // fail the artifact — they fall back to the generator default.
+        foreach (['nonsense', '1000x1080', '8x1080', '19200x1080'] as $hint) {
+            $imageGenerator = $this->imageGenerator();
+            $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget());
+
+            $snippets = new ResolvedPromptSnippets(schaubildImageSize: $hint);
+            self::assertTrue($generator->generate($this->context($snippets)));
+            self::assertSame(['1536x1024', '1536x1024'], $imageGenerator->sizes, 'hint: ' . $hint);
+        }
+    }
+
+    public function testReportsHtmlAndVariantProgressSteps(): void
+    {
+        $progressJobs = new StatusRecordingJobRepository();
+        $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget());
+        $ctx = $this->context()->withProgress(new JobProgress($progressJobs, 11, 30.0, 100.0));
+
+        self::assertTrue($generator->generate($ctx));
+        self::assertSame([
+            'Schaubild: building HTML',
+            'Schaubild: variant html (1/3)',
+            'Schaubild: variant html_bg (2/3)',
+            'Schaubild: generating background image',
+            'Schaubild: variant ki_image (3/3)',
+        ], $progressJobs->steps());
+
+        $progresses = $progressJobs->progresses();
+        $sorted = $progresses;
+        sort($sorted);
+        self::assertSame($sorted, $progresses);
+    }
+
     public function testSupportsReadsWantSchaubildFlag(): void
     {
         $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget());
@@ -235,13 +324,18 @@ final class SchaubildGeneratorTest extends TestCase
             public bool $available = true;
             /** @var list<string> */
             public array $prompts = [];
+            /** @var list<string> */
+            public array $sizes = [];
 
             public function isAvailable(): bool { return $this->available; }
+
+            public function getModel(): string { return 'stub-image-model'; }
 
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
                 $this->calls++;
                 $this->prompts[] = $prompt;
+                $this->sizes[] = $size;
                 file_put_contents($outputPath, 'PNG');
             }
         };

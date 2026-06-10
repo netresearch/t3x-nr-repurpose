@@ -20,6 +20,8 @@ final readonly class ResolvedPromptSnippets
         public string $storySections = '',      // same labels, with the story's own layout/style snippets
         public string $audienceHint = '',       // raw audience snippet text for the image prompts
         public string $styleHint = '',          // raw Schaubild style snippet text for the image prompts
+        public string $schaubildImageSize = '', // "WxH" hint from the Schaubild layout snippet metadata ('' = default)
+        public string $storyImageSize = '',     // "WxH" hint from the Story layout snippet metadata ('' = default)
         public array $personas = [],
     ) {}
 }

@@ -20,8 +20,10 @@ use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
 use Netresearch\NrRepurpose\Generator\Support\WebVttBuilder;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Resource\File;
@@ -318,6 +320,9 @@ final class PodcastGeneratorTest extends TestCase
         $metadata = json_decode((string) $update['metadata'], true);
         self::assertSame(['fable', 'onyx', 'nova'], $metadata['voices']);
         self::assertSame(['Anna', 'Ben', 'Cara'], $metadata['personas']);
+        // The prompts object carries the resolved per-speaker voice map.
+        self::assertSame(['Anna' => 'fable', 'Ben' => 'onyx', 'Cara' => 'nova'], $metadata['prompts']['voices']);
+        self::assertSame($completion->seenPrompt, $metadata['prompts']['user']);
     }
 
     public function testPersonaNamesWithQuotesAreJsonEscapedInTheSpeakerConstraint(): void
@@ -359,6 +364,51 @@ final class PodcastGeneratorTest extends TestCase
         $metadata = json_decode((string) $jobs->updates[100]['metadata'], true);
         self::assertSame(['nova', 'onyx'], $metadata['voices']);
         self::assertArrayNotHasKey('personas', $metadata);
+    }
+
+    public function testRecordsDialoguePromptsTtsModelAndVoiceMapInMetadata(): void
+    {
+        $completion = $this->completion();
+        $jobs = $this->jobs();
+
+        $generator = new PodcastGenerator(
+            $jobs, $this->allowingBudget(), new NullLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+        );
+
+        self::assertTrue($generator->generate($this->context()));
+
+        $prompts = json_decode((string) $jobs->updates[100]['metadata'], true)['prompts'];
+        // The exact LLM call, verbatim and complete.
+        self::assertSame($completion->seenPrompt, $prompts['user']);
+        self::assertSame((string) $completion->seenOptions?->getSystemPrompt(), $prompts['system']);
+        self::assertSame('tts-1', $prompts['ttsModel']);
+        self::assertSame(['Host A' => 'nova', 'Host B' => 'onyx'], $prompts['voices']);
+    }
+
+    public function testReportsScriptVoicingAndStitchingProgressSteps(): void
+    {
+        $progressJobs = new StatusRecordingJobRepository();
+        $generator = new PodcastGenerator(
+            $this->jobs(), $this->allowingBudget(), new NullLogger(), $this->completion(), $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+        );
+        $ctx = $this->context()->withProgress(new JobProgress($progressJobs, 7, 30.0, 100.0));
+
+        self::assertTrue($generator->generate($ctx));
+        self::assertSame([
+            'Podcast: writing script',
+            'Podcast: voicing segment 1/3',
+            'Podcast: voicing segment 2/3',
+            'Podcast: voicing segment 3/3',
+            'Podcast: stitching audio',
+        ], $progressJobs->steps());
+
+        // Progress only ever moves forward within the generator's band.
+        $progresses = $progressJobs->progresses();
+        $sorted = $progresses;
+        sort($sorted);
+        self::assertSame($sorted, $progresses);
+        self::assertGreaterThanOrEqual(30, min($progresses));
+        self::assertLessThanOrEqual(100, max($progresses));
     }
 
     public function testSupportsReadsWantPodcastFlag(): void
