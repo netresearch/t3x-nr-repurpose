@@ -37,9 +37,11 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <f:if condition="{job.artifactTypeSummaries}">
+                                    <f:comment><!-- Evaluate the summaries once per row (the getter folds the artifact relation) --></f:comment>
+                                    <f:variable name="summaries" value="{job.artifactTypeSummaries}" />
+                                    <f:if condition="{summaries}">
                                         <f:then>
-                                            <f:for each="{job.artifactTypeSummaries}" as="summary">
+                                            <f:for each="{summaries}" as="summary">
                                                 <f:variable name="summaryLabel"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{summary.type.labelKey}" />: <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{summary.status.labelKey}" /></f:variable>
                                                 <span class="text-{summary.severity}" role="img" title="{summaryLabel}" aria-label="{summaryLabel}">
                                                     <core:icon identifier="{summary.type.iconIdentifier}" size="small" />

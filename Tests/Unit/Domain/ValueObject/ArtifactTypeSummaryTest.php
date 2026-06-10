@@ -73,4 +73,12 @@ final class ArtifactTypeSummaryTest extends TestCase
             (new ArtifactTypeSummary(ArtifactType::Podcast, ArtifactStatus::Pending))->getSeverity(),
         );
     }
+
+    public function testEmptyStatusListIsRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionCode(1749562800);
+
+        ArtifactTypeSummary::fromStatuses(ArtifactType::Podcast, []);
+    }
 }

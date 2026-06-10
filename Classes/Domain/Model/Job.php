@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\Model;
 
+use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
@@ -203,7 +204,13 @@ class Job extends AbstractEntity
     {
         $statusesByType = [];
         foreach ($this->artifacts as $artifact) {
-            $statusesByType[$artifact->getType()][] = $artifact->getStatusEnum();
+            // tryFrom: a corrupted/legacy status string in a single row must not
+            // throw and take down the whole job list view — skip that artifact.
+            $status = ArtifactStatus::tryFrom($artifact->getStatus());
+            if ($status === null) {
+                continue;
+            }
+            $statusesByType[$artifact->getType()][] = $status;
         }
 
         $summaries = [];
