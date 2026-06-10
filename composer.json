@@ -13,16 +13,10 @@
             "role": "Developer"
         }
     ],
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/netresearch/t3x-nr-llm.git"
-        }
-    ],
     "require": {
         "php": "^8.3",
         "ext-json": "*",
-        "netresearch/nr-llm": "dev-feature/prompt-snippets as 0.11.99",
+        "netresearch/nr-llm": "dev-main as 0.11.99",
         "netresearch/nr-vault": "^0.8.0 || ^0.9.0",
         "psr/log": "^3.0",
         "symfony/messenger": "^7.0",
