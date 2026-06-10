@@ -83,6 +83,29 @@
       <trans-unit id="show.preview.alt"><source>Preview of the generated %s (%s variant)</source></trans-unit>
       <trans-unit id="show.story.slide.alt"><source>Story slide %s of %s</source></trans-unit>
 
+      <!-- Show view: job-level creation parameters -->
+      <trans-unit id="show.section.creation"><source>Creation parameters</source></trans-unit>
+      <trans-unit id="show.creation.theme"><source>Theme</source></trans-unit>
+      <trans-unit id="show.creation.artifacts"><source>Requested artifacts</source></trans-unit>
+      <trans-unit id="show.creation.audience"><source>Targeted audience</source></trans-unit>
+      <trans-unit id="show.creation.tone"><source>Tone of voice</source></trans-unit>
+      <trans-unit id="show.creation.persona"><source>Persona</source></trans-unit>
+      <trans-unit id="show.creation.schaubildLayout"><source>Schaubild layout</source></trans-unit>
+      <trans-unit id="show.creation.schaubildStyle"><source>Schaubild style</source></trans-unit>
+      <trans-unit id="show.creation.storyLayout"><source>Story layout</source></trans-unit>
+      <trans-unit id="show.creation.storyStyle"><source>Story style</source></trans-unit>
+      <trans-unit id="show.creation.unavailable"><source>no longer available</source></trans-unit>
+
+      <!-- Show view: per-artifact generation parameters -->
+      <trans-unit id="show.params.summary"><source>Generation parameters</source></trans-unit>
+      <trans-unit id="show.params.system"><source>System prompt</source></trans-unit>
+      <trans-unit id="show.params.user"><source>Prompt</source></trans-unit>
+      <trans-unit id="show.params.image"><source>Image prompt</source></trans-unit>
+      <trans-unit id="show.params.imageModel"><source>Image model</source></trans-unit>
+      <trans-unit id="show.params.imageSize"><source>Image size</source></trans-unit>
+      <trans-unit id="show.params.ttsModel"><source>Speech model</source></trans-unit>
+      <trans-unit id="show.params.voices"><source>Voices</source></trans-unit>
+
       <!-- Job status labels -->
       <trans-unit id="status.queued"><source>Queued</source></trans-unit>
       <trans-unit id="status.ingesting"><source>Ingesting source</source></trans-unit>

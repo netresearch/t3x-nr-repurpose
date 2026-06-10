@@ -37,6 +37,8 @@ final class PodcastGenerator extends AbstractGenerator
 {
     private const VOICE_HOST_A = 'nova';
     private const VOICE_HOST_B = 'onyx';
+    // Mirrors the model OpenAiSpeechSynthesizer passes to nr-llm's TextToSpeechService.
+    private const TTS_MODEL = 'tts-1';
     private const TTS_COST_PER_TURN = 0.015;
     private const SCRIPT_COST = 0.02;
 
@@ -83,7 +85,8 @@ final class PodcastGenerator extends AbstractGenerator
         try {
             $ctx->progress?->step('Podcast: writing script', 0.05);
             $personaVoices = $this->personaVoices($ctx->snippets->personas);
-            $turns = $this->buildDialogue($ctx, $personaVoices);
+            $dialogue = $this->buildDialogue($ctx, $personaVoices);
+            $turns = $dialogue['turns'];
             if ($turns === []) {
                 $this->failArtifact($artifactUid, $jobUid, 'LLM produced no dialogue turns');
 
@@ -134,7 +137,10 @@ final class PodcastGenerator extends AbstractGenerator
                 'file_uid' => $mp3File->getUid(),
                 'subtitle_file_uid' => $vttFile->getUid(),
                 'script_text' => $transcript,
-                'metadata' => json_encode($this->buildMetadata($personaVoices, count($turns)), JSON_THROW_ON_ERROR),
+                'metadata' => json_encode(
+                    $this->buildMetadata($personaVoices, count($turns), $dialogue['system'], $dialogue['user']),
+                    JSON_THROW_ON_ERROR,
+                ),
                 'status' => ArtifactStatus::Done->value,
             ]);
 
@@ -171,9 +177,12 @@ final class PodcastGenerator extends AbstractGenerator
     }
 
     /**
+     * Build the dialogue and hand back the exact prompts used, so the artifact metadata
+     * can record them verbatim (transparency: prompts.system / prompts.user).
+     *
      * @param array<string, string> $personaVoices persona name => TTS voice (empty: two-host mode)
      *
-     * @return list<array{speaker: string, text: string, voice: string}>
+     * @return array{turns: list<array{speaker: string, text: string, voice: string}>, system: string, user: string}
      */
     private function buildDialogue(GenerationContext $ctx, array $personaVoices): array
     {
@@ -185,7 +194,7 @@ final class PodcastGenerator extends AbstractGenerator
     /**
      * The pre-snippet default: Host A / Host B with the configured voices (unchanged).
      *
-     * @return list<array{speaker: string, text: string, voice: string}>
+     * @return array{turns: list<array{speaker: string, text: string, voice: string}>, system: string, user: string}
      */
     private function buildTwoHostDialogue(GenerationContext $ctx): array
     {
@@ -203,14 +212,15 @@ final class PodcastGenerator extends AbstractGenerator
             $keyPoints,
         );
 
+        $systemPrompt = sprintf(
+            'You are a podcast scriptwriter. Write in language code "%s". Output ONLY valid JSON '
+            . 'of the shape {"turns":[{"speaker":"Host A"|"Host B","text":"..."}]}.',
+            $brief->language,
+        );
         $options = new ChatOptions(
             temperature: 0.6,
             responseFormat: 'json',
-            systemPrompt: sprintf(
-                'You are a podcast scriptwriter. Write in language code "%s". Output ONLY valid JSON '
-                . 'of the shape {"turns":[{"speaker":"Host A"|"Host B","text":"..."}]}.',
-                $brief->language,
-            ),
+            systemPrompt: $systemPrompt,
             beUserUid: $ctx->beUser,
             plannedCost: self::SCRIPT_COST,
         );
@@ -232,7 +242,7 @@ final class PodcastGenerator extends AbstractGenerator
             ];
         }
 
-        return $turns;
+        return ['turns' => $turns, 'system' => $systemPrompt, 'user' => $prompt];
     }
 
     /**
@@ -242,7 +252,7 @@ final class PodcastGenerator extends AbstractGenerator
      *
      * @param array<string, string> $personaVoices persona name => TTS voice
      *
-     * @return list<array{speaker: string, text: string, voice: string}>
+     * @return array{turns: list<array{speaker: string, text: string, voice: string}>, system: string, user: string}
      */
     private function buildPersonaDialogue(GenerationContext $ctx, array $personaVoices): array
     {
@@ -276,15 +286,16 @@ final class PodcastGenerator extends AbstractGenerator
             $names,
         ));
 
+        $systemPrompt = sprintf(
+            'You are a podcast scriptwriter. Write in language code "%s". Output ONLY valid JSON '
+            . 'of the shape {"turns":[{"speaker":%s,"text":"..."}]}.',
+            $brief->language,
+            $speakerAlternation,
+        );
         $options = new ChatOptions(
             temperature: 0.6,
             responseFormat: 'json',
-            systemPrompt: sprintf(
-                'You are a podcast scriptwriter. Write in language code "%s". Output ONLY valid JSON '
-                . 'of the shape {"turns":[{"speaker":%s,"text":"..."}]}.',
-                $brief->language,
-                $speakerAlternation,
-            ),
+            systemPrompt: $systemPrompt,
             beUserUid: $ctx->beUser,
             plannedCost: self::SCRIPT_COST,
         );
@@ -309,7 +320,7 @@ final class PodcastGenerator extends AbstractGenerator
             ];
         }
 
-        return $turns;
+        return ['turns' => $turns, 'system' => $systemPrompt, 'user' => $prompt];
     }
 
     /**
@@ -343,12 +354,21 @@ final class PodcastGenerator extends AbstractGenerator
      *
      * @return array<string, mixed>
      */
-    private function buildMetadata(array $personaVoices, int $turnCount): array
+    private function buildMetadata(array $personaVoices, int $turnCount, string $systemPrompt, string $userPrompt): array
     {
+        $voiceMap = $personaVoices === []
+            ? ['Host A' => self::VOICE_HOST_A, 'Host B' => self::VOICE_HOST_B]
+            : $personaVoices;
         $metadata = [
-            'voices' => $personaVoices === [] ? [self::VOICE_HOST_A, self::VOICE_HOST_B] : array_values($personaVoices),
+            'voices' => array_values($voiceMap),
             'turns' => $turnCount,
-            'ttsModel' => 'tts-1',
+            'ttsModel' => self::TTS_MODEL,
+            'prompts' => $this->promptsMetadata(
+                system: $systemPrompt,
+                user: $userPrompt,
+                ttsModel: self::TTS_MODEL,
+                voices: $voiceMap,
+            ),
         ];
         if ($personaVoices !== []) {
             $metadata['personas'] = array_keys($personaVoices);

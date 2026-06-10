@@ -168,6 +168,7 @@ final class StoryGeneratorTest extends TestCase
         $jobs = $this->jobs();
         $imageGenerator = new class implements ImageGeneratorInterface {
             public function isAvailable(): bool { return true; }
+            public function getModel(): string { return 'stub-image-model'; }
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
                 throw new \RuntimeException('image service exploded');
@@ -336,6 +337,40 @@ final class StoryGeneratorTest extends TestCase
         self::assertStringNotContainsString('LAYOUT:', $completion->lastPrompt);
     }
 
+    public function testEverySlideRecordsCopyPromptsAndTheSharedBackgroundImageCall(): void
+    {
+        $completion = $this->completion(self::THREE_SLIDES);
+        $imageGenerator = $this->imageGenerator(true);
+        $jobs = $this->jobs();
+        $generator = $this->generator([], $this->renderer(), $imageGenerator, $jobs, $this->allowingBudget(), $this->compositor(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+
+        foreach (['slide-1', 'slide-2', 'slide-3'] as $variant) {
+            $prompts = json_decode((string) $jobs->updates[$jobs->uidForVariant($variant)]['metadata'], true)['prompts'];
+            self::assertSame('You are a social-media copywriter. Output ONLY valid JSON.', $prompts['system']);
+            self::assertSame($completion->lastPrompt, $prompts['user']);   // the exact copy prompt, verbatim
+            self::assertSame($imageGenerator->prompts[0], $prompts['image']);  // shared background prompt
+            self::assertSame('stub-image-model', $prompts['imageModel']);
+            self::assertSame('1024x1536', $prompts['imageSize']);
+        }
+    }
+
+    public function testFlatSlidesRecordCopyPromptsWithoutImageCallMetadata(): void
+    {
+        $completion = $this->completion(self::THREE_SLIDES);
+        $jobs = $this->jobs();
+        $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+
+        $prompts = json_decode((string) $jobs->updates[$jobs->uidForVariant('slide-1')]['metadata'], true)['prompts'];
+        self::assertSame($completion->lastPrompt, $prompts['user']);
+        self::assertArrayNotHasKey('image', $prompts);
+        self::assertArrayNotHasKey('imageModel', $prompts);
+        self::assertArrayNotHasKey('imageSize', $prompts);
+    }
+
     public function testReportsCopyBackgroundAndSlideProgressSteps(): void
     {
         $progressJobs = new StatusRecordingJobRepository();
@@ -435,14 +470,22 @@ final class StoryGeneratorTest extends TestCase
     {
         return new class($available) implements ImageGeneratorInterface {
             public int $calls = 0;
+            /** @var list<string> */
+            public array $prompts = [];
+            /** @var list<string> */
+            public array $sizes = [];
 
             public function __construct(private readonly bool $available) {}
 
             public function isAvailable(): bool { return $this->available; }
 
+            public function getModel(): string { return 'stub-image-model'; }
+
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
                 $this->calls++;
+                $this->prompts[] = $prompt;
+                $this->sizes[] = $size;
                 file_put_contents($outputPath, 'PNG');
             }
         };

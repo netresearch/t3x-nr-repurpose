@@ -320,6 +320,9 @@ final class PodcastGeneratorTest extends TestCase
         $metadata = json_decode((string) $update['metadata'], true);
         self::assertSame(['fable', 'onyx', 'nova'], $metadata['voices']);
         self::assertSame(['Anna', 'Ben', 'Cara'], $metadata['personas']);
+        // The prompts object carries the resolved per-speaker voice map.
+        self::assertSame(['Anna' => 'fable', 'Ben' => 'onyx', 'Cara' => 'nova'], $metadata['prompts']['voices']);
+        self::assertSame($completion->seenPrompt, $metadata['prompts']['user']);
     }
 
     public function testPersonaNamesWithQuotesAreJsonEscapedInTheSpeakerConstraint(): void
@@ -361,6 +364,25 @@ final class PodcastGeneratorTest extends TestCase
         $metadata = json_decode((string) $jobs->updates[100]['metadata'], true);
         self::assertSame(['nova', 'onyx'], $metadata['voices']);
         self::assertArrayNotHasKey('personas', $metadata);
+    }
+
+    public function testRecordsDialoguePromptsTtsModelAndVoiceMapInMetadata(): void
+    {
+        $completion = $this->completion();
+        $jobs = $this->jobs();
+
+        $generator = new PodcastGenerator(
+            $jobs, $this->allowingBudget(), new NullLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+        );
+
+        self::assertTrue($generator->generate($this->context()));
+
+        $prompts = json_decode((string) $jobs->updates[100]['metadata'], true)['prompts'];
+        // The exact LLM call, verbatim and complete.
+        self::assertSame($completion->seenPrompt, $prompts['user']);
+        self::assertSame((string) $completion->seenOptions?->getSystemPrompt(), $prompts['system']);
+        self::assertSame('tts-1', $prompts['ttsModel']);
+        self::assertSame(['Host A' => 'nova', 'Host B' => 'onyx'], $prompts['voices']);
     }
 
     public function testReportsScriptVoicingAndStitchingProgressSteps(): void

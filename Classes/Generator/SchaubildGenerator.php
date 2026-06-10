@@ -34,6 +34,8 @@ class SchaubildGenerator extends AbstractGenerator
     // gpt-image-1 landscape (DALL·E's 1792x1024 is no longer a valid size).
     private const IMAGE_SIZE = '1536x1024';
     private const IMAGE_COST = 0.05;
+    private const HTML_SYSTEM_PROMPT = 'You are an information designer. Output a raw HTML fragment only — '
+        . 'no Markdown, no code fences.';
 
     public function __construct(
         JobProcessingRepository $jobs,
@@ -61,18 +63,26 @@ class SchaubildGenerator extends AbstractGenerator
         $htmlOpaque = $this->renderDiagramHtml($ctx, false);
         $htmlTransparent = $this->renderDiagramHtml($ctx, true);
 
+        // The exact diagram-body LLM prompts, recorded in every variant's metadata
+        // (transparency: the result view shows what was actually sent).
+        $llmPrompts = ['system' => self::HTML_SYSTEM_PROMPT, 'user' => $this->diagramBodyPrompt($ctx)];
+
         $ctx->progress?->step('Schaubild: variant html (1/3)', 0.4);
-        $ok = $this->generateHtmlVariant($jobUid, $htmlOpaque);
+        $ok = $this->generateHtmlVariant($jobUid, $htmlOpaque, $llmPrompts);
         $ctx->progress?->step('Schaubild: variant html_bg (2/3)', 0.6);
-        $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent) || $ok;
+        $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent, $llmPrompts) || $ok;
         $ctx->progress?->step('Schaubild: variant ki_image (3/3)', 0.8);
         $ok = $this->generateKiImageVariant($ctx, $jobUid, $htmlOpaque) || $ok;
 
         return $ok;
     }
 
-    /** Variant 1 — deterministic Chromium screenshot of the branded HTML. */
-    private function generateHtmlVariant(int $jobUid, string $html): bool
+    /**
+     * Variant 1 — deterministic Chromium screenshot of the branded HTML.
+     *
+     * @param array{system: string, user: string} $llmPrompts
+     */
+    private function generateHtmlVariant(int $jobUid, string $html, array $llmPrompts): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html', 0, ArtifactStatus::Pending);
         try {
@@ -81,7 +91,11 @@ class SchaubildGenerator extends AbstractGenerator
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid' => $file->getUid(),
                 'source_html' => $html,
-                'metadata' => json_encode(['variant' => 'html', 'width' => self::WIDTH], JSON_THROW_ON_ERROR),
+                'metadata' => json_encode([
+                    'variant' => 'html',
+                    'width' => self::WIDTH,
+                    'prompts' => $this->promptsMetadata(system: $llmPrompts['system'], user: $llmPrompts['user']),
+                ], JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,
             ]);
 
@@ -93,8 +107,12 @@ class SchaubildGenerator extends AbstractGenerator
         }
     }
 
-    /** Variant 2 — DALL-E background, transparent HTML overlay composited on top. */
-    private function generateHtmlBgVariant(GenerationContext $ctx, int $jobUid, string $transparentHtml): bool
+    /**
+     * Variant 2 — AI background image, transparent HTML overlay composited on top.
+     *
+     * @param array{system: string, user: string} $llmPrompts
+     */
+    private function generateHtmlBgVariant(GenerationContext $ctx, int $jobUid, string $transparentHtml, array $llmPrompts): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html_bg', 0, ArtifactStatus::Pending);
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
@@ -105,8 +123,9 @@ class SchaubildGenerator extends AbstractGenerator
         try {
             $tmpDir = $this->makeTempDir();
             $bgPath = $tmpDir . '/bg.png';
+            $bgPrompt = $this->backgroundPrompt($ctx);
             $ctx->progress?->step('Schaubild: generating background image', 0.65);
-            $this->imageGenerator->generateToFile($this->backgroundPrompt($ctx), self::IMAGE_SIZE, $bgPath);
+            $this->imageGenerator->generateToFile($bgPrompt, self::IMAGE_SIZE, $bgPath);
 
             $fgPath = $this->renderer->render($transparentHtml, self::WIDTH, null, 2.0, true);
             $outPath = $tmpDir . '/composited.png';
@@ -116,7 +135,17 @@ class SchaubildGenerator extends AbstractGenerator
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid' => $file->getUid(),
                 'source_html' => $transparentHtml,
-                'metadata' => json_encode(['variant' => 'html_bg', 'bgModel' => 'dall-e-3'], JSON_THROW_ON_ERROR),
+                'metadata' => json_encode([
+                    'variant' => 'html_bg',
+                    'bgModel' => $this->imageGenerator->getModel(),
+                    'prompts' => $this->promptsMetadata(
+                        system: $llmPrompts['system'],
+                        user: $llmPrompts['user'],
+                        image: $bgPrompt,
+                        imageModel: $this->imageGenerator->getModel(),
+                        imageSize: self::IMAGE_SIZE,
+                    ),
+                ], JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,
             ]);
 
@@ -140,13 +169,22 @@ class SchaubildGenerator extends AbstractGenerator
         try {
             $tmpDir = $this->makeTempDir();
             $outPath = $tmpDir . '/ki.png';
-            $this->imageGenerator->generateToFile($this->kiImagePrompt($ctx), self::IMAGE_SIZE, $outPath);
+            $kiPrompt = $this->kiImagePrompt($ctx);
+            $this->imageGenerator->generateToFile($kiPrompt, self::IMAGE_SIZE, $outPath);
 
             $file = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-ki.png');
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid' => $file->getUid(),
                 'source_html' => $referenceHtml,
-                'metadata' => json_encode(['variant' => 'ki_image', 'model' => 'dall-e-3'], JSON_THROW_ON_ERROR),
+                'metadata' => json_encode([
+                    'variant' => 'ki_image',
+                    'model' => $this->imageGenerator->getModel(),
+                    'prompts' => $this->promptsMetadata(
+                        image: $kiPrompt,
+                        imageModel: $this->imageGenerator->getModel(),
+                        imageSize: self::IMAGE_SIZE,
+                    ),
+                ], JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,
             ]);
 
@@ -159,10 +197,10 @@ class SchaubildGenerator extends AbstractGenerator
     }
 
     /**
-     * Build the branded diagram HTML: ask the LLM for the diagram BODY (factual content),
-     * then wrap it in the theme template (StandaloneView). Seam isolated for unit testing.
+     * The exact user prompt of the diagram-body LLM call — also recorded verbatim in the
+     * artifact metadata (prompts.user), so build it in one place only.
      */
-    protected function renderDiagramHtml(GenerationContext $ctx, bool $transparent): string
+    private function diagramBodyPrompt(GenerationContext $ctx): string
     {
         $brief = $ctx->brief;
         $keyPoints = implode("\n- ", $brief->keyPoints);
@@ -183,14 +221,24 @@ class SchaubildGenerator extends AbstractGenerator
         if ($ctx->snippets->schaubildSections !== '') {
             $prompt .= "\n\n" . $ctx->snippets->schaubildSections;
         }
+
+        return $prompt;
+    }
+
+    /**
+     * Build the branded diagram HTML: ask the LLM for the diagram BODY (factual content),
+     * then wrap it in the theme template (StandaloneView). Seam isolated for unit testing.
+     */
+    protected function renderDiagramHtml(GenerationContext $ctx, bool $transparent): string
+    {
+        $brief = $ctx->brief;
         $options = new ChatOptions(
             temperature: 0.3,
-            systemPrompt: 'You are an information designer. Output a raw HTML fragment only — '
-                . 'no Markdown, no code fences.',
+            systemPrompt: self::HTML_SYSTEM_PROMPT,
             beUserUid: $ctx->beUser,
             plannedCost: 0.03,
         );
-        $bodyHtml = self::stripCodeFences($this->completion->completeMarkdown($prompt, $options));
+        $bodyHtml = self::stripCodeFences($this->completion->completeMarkdown($this->diagramBodyPrompt($ctx), $options));
 
         return $this->renderTemplate('Schaubild', $ctx->theme, [
             'title' => $brief->title,

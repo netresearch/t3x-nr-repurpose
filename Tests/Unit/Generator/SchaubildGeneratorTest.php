@@ -175,6 +175,42 @@ final class SchaubildGeneratorTest extends TestCase
         }
     }
 
+    public function testRecordsFullPromptsAndActualModelInVariantMetadata(): void
+    {
+        $completion = $this->completion();
+        $imageGenerator = $this->imageGenerator();
+        $jobs = $this->jobs();
+        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+
+        // html: the diagram-body LLM call, verbatim and complete.
+        $html = json_decode((string) $jobs->updates[$jobs->uidForVariant('html')]['metadata'], true);
+        self::assertSame(
+            'You are an information designer. Output a raw HTML fragment only — no Markdown, no code fences.',
+            $html['prompts']['system'],
+        );
+        self::assertSame($completion->prompts[0], $html['prompts']['user']);
+        self::assertArrayNotHasKey('image', $html['prompts']);
+
+        // html_bg: LLM prompts AND the background image prompt + the model that actually ran.
+        $htmlBg = json_decode((string) $jobs->updates[$jobs->uidForVariant('html_bg')]['metadata'], true);
+        self::assertSame('stub-image-model', $htmlBg['bgModel']);
+        self::assertSame($completion->prompts[0], $htmlBg['prompts']['user']);
+        self::assertSame($imageGenerator->prompts[0], $htmlBg['prompts']['image']);
+        self::assertSame('stub-image-model', $htmlBg['prompts']['imageModel']);
+        self::assertSame('1536x1024', $htmlBg['prompts']['imageSize']);
+
+        // ki_image: image-call parameters only (its image prompt derives from the brief, not the HTML).
+        $ki = json_decode((string) $jobs->updates[$jobs->uidForVariant('ki_image')]['metadata'], true);
+        self::assertSame('stub-image-model', $ki['model']);
+        self::assertSame($imageGenerator->prompts[1], $ki['prompts']['image']);
+        self::assertSame('stub-image-model', $ki['prompts']['imageModel']);
+        self::assertSame('1536x1024', $ki['prompts']['imageSize']);
+        self::assertArrayNotHasKey('system', $ki['prompts']);
+        self::assertArrayNotHasKey('user', $ki['prompts']);
+    }
+
     public function testReportsHtmlAndVariantProgressSteps(): void
     {
         $progressJobs = new StatusRecordingJobRepository();
@@ -258,13 +294,18 @@ final class SchaubildGeneratorTest extends TestCase
             public bool $available = true;
             /** @var list<string> */
             public array $prompts = [];
+            /** @var list<string> */
+            public array $sizes = [];
 
             public function isAvailable(): bool { return $this->available; }
+
+            public function getModel(): string { return 'stub-image-model'; }
 
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
                 $this->calls++;
                 $this->prompts[] = $prompt;
+                $this->sizes[] = $size;
                 file_put_contents($outputPath, 'PNG');
             }
         };

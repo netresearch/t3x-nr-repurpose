@@ -39,6 +39,29 @@
         <f:asset.script identifier="nrRepurposeJobAutoRefresh" useNonce="true">setTimeout(() => window.location.reload(), 5000);</f:asset.script>
     </f:if>
 
+    <h2><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.section.creation" /></h2>
+    <dl class="row">
+        <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.creation.theme" /></dt>
+        <dd class="col-sm-10"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:theme.{job.theme}" /></dd>
+
+        <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.creation.artifacts" /></dt>
+        <dd class="col-sm-10">
+            <f:if condition="{job.wantPodcast}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.podcast" /></span></f:if>
+            <f:if condition="{job.wantSchaubild}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.schaubild" /></span></f:if>
+            <f:if condition="{job.wantStory}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story" /></span></f:if>
+        </dd>
+
+        <f:for each="{snippetSelections}" as="selection">
+            <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.creation.{selection.label}" /></dt>
+            <dd class="col-sm-10">
+                <f:if condition="{selection.available}">
+                    <f:then>{selection.name}<f:if condition="{selection.description}"> — {selection.description}</f:if></f:then>
+                    <f:else><em class="text-muted"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.creation.unavailable" /></em></f:else>
+                </f:if>
+            </dd>
+        </f:for>
+    </dl>
+
     <h2><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.section.artifacts" /></h2>
 
     <f:if condition="{job.artifacts}">
@@ -109,6 +132,8 @@
                                 </f:if>
                             </f:if>
                         </f:if>
+
+                        <f:render partial="Job/GenerationParameters" arguments="{prompts: artifact.metadataArray.prompts}" />
                     </div>
                 </div>
                 </f:if>
@@ -161,6 +186,9 @@
                                             </p>
                                         </f:else>
                                     </f:if>
+                                    <div style="max-width: 200px; text-align: left;">
+                                        <f:render partial="Job/GenerationParameters" arguments="{prompts: slide.metadataArray.prompts}" />
+                                    </div>
                                 </div>
                             </f:for>
                         </div>

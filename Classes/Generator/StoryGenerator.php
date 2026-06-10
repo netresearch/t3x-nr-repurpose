@@ -47,6 +47,7 @@ class StoryGenerator extends AbstractGenerator
     // non-compliant copy cannot overflow the fixed 9:16 slide layout.
     private const MAX_HEADLINE_CHARS = 60;
     private const MAX_SUBLINE_CHARS = 110;
+    private const COPY_SYSTEM_PROMPT = 'You are a social-media copywriter. Output ONLY valid JSON.';
 
     public function __construct(
         JobProcessingRepository $jobs,
@@ -100,11 +101,10 @@ class StoryGenerator extends AbstractGenerator
     }
 
     /**
-     * Ask the LLM once for the whole carousel and parse it into usable slides.
-     *
-     * @return list<StorySlide>
+     * The exact user prompt of the carousel-copy LLM call — also recorded verbatim in each
+     * slide's artifact metadata (prompts.user), so build it in one place only.
      */
-    private function buildSlides(GenerationContext $ctx): array
+    private function carouselPrompt(GenerationContext $ctx): string
     {
         $brief = $ctx->brief;
         $keyPoints = array_slice($brief->keyPoints, 0, self::MAX_POINT_SLIDES);
@@ -126,16 +126,28 @@ class StoryGenerator extends AbstractGenerator
         if ($ctx->snippets->storySections !== '') {
             $prompt .= "\n\n" . $ctx->snippets->storySections;
         }
+
+        return $prompt;
+    }
+
+    /**
+     * Ask the LLM once for the whole carousel and parse it into usable slides.
+     *
+     * @return list<StorySlide>
+     */
+    private function buildSlides(GenerationContext $ctx): array
+    {
+        $keyPoints = array_slice($ctx->brief->keyPoints, 0, self::MAX_POINT_SLIDES);
         $options = new ChatOptions(
             temperature: 0.5,
             responseFormat: 'json',
-            systemPrompt: 'You are a social-media copywriter. Output ONLY valid JSON.',
+            systemPrompt: self::COPY_SYSTEM_PROMPT,
             beUserUid: $ctx->beUser,
             // cover + one slide per key point + outro; capped at MAX_SLIDES by the point cap.
             plannedCost: self::COPY_COST_PER_SLIDE * (count($keyPoints) + 2),
         );
 
-        return $this->parseSlides($this->completion->completeJson($prompt, $options));
+        return $this->parseSlides($this->completion->completeJson($this->carouselPrompt($ctx), $options));
     }
 
     /**
@@ -214,13 +226,23 @@ class StoryGenerator extends AbstractGenerator
         ?string $backgroundPath,
     ): bool {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Story, 'slide-' . $index, 0, ArtifactStatus::Pending);
+        $hasBackground = $backgroundPath !== null;
         $metadata = [
             'width' => self::WIDTH,
             'height' => self::HEIGHT,
-            'background' => $backgroundPath !== null ? 'ki' : 'flat',
+            'background' => $hasBackground ? 'ki' : 'flat',
             'role' => $slide->role,
             'slideIndex' => $index,
             'slideTotal' => $total,
+            // Every slide carries the full copy prompts; the shared background image
+            // prompt/model/size only when a KI background was actually composited.
+            'prompts' => $this->promptsMetadata(
+                system: self::COPY_SYSTEM_PROMPT,
+                user: $this->carouselPrompt($ctx),
+                image: $hasBackground ? $this->backgroundPrompt($ctx) : null,
+                imageModel: $hasBackground ? $this->imageGenerator->getModel() : null,
+                imageSize: $hasBackground ? self::IMAGE_SIZE : null,
+            ),
         ];
 
         try {

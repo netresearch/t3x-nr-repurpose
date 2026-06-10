@@ -70,6 +70,49 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         return $dir;
     }
 
+    /**
+     * Canonical shape of the "prompts" object every generator stores in the artifact
+     * metadata JSON for full generation transparency. Texts are verbatim and complete —
+     * never truncated. All keys are optional; an artifact only carries the calls it
+     * actually made:
+     *
+     *   system     LLM system prompt
+     *   user       LLM user prompt
+     *   image      image-generation prompt
+     *   imageModel image model id (ImageGeneratorInterface::getModel())
+     *   imageSize  effective image size used ("WIDTHxHEIGHT")
+     *   ttsModel   TTS model id
+     *   voices     per-speaker TTS voice map {speaker: voice}
+     *
+     * The Show view renders this object in the per-artifact "Generation parameters" panel.
+     *
+     * @param array<string, string>|null $voices
+     *
+     * @return array<string, mixed>
+     */
+    protected function promptsMetadata(
+        ?string $system = null,
+        ?string $user = null,
+        ?string $image = null,
+        ?string $imageModel = null,
+        ?string $imageSize = null,
+        ?string $ttsModel = null,
+        ?array $voices = null,
+    ): array {
+        return array_filter(
+            [
+                'system' => $system,
+                'user' => $user,
+                'image' => $image,
+                'imageModel' => $imageModel,
+                'imageSize' => $imageSize,
+                'ttsModel' => $ttsModel,
+                'voices' => $voices,
+            ],
+            static fn (string|array|null $value): bool => $value !== null,
+        );
+    }
+
     /** Record a previously-inserted artifact row as failed and log the reason. */
     protected function failArtifact(int $artifactUid, int $jobUid, string $reason): void
     {

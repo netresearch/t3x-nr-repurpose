@@ -83,6 +83,29 @@
       <trans-unit id="show.preview.alt"><source>Preview of the generated %s (%s variant)</source><target>Vorschau des generierten %s (Variante %s)</target></trans-unit>
       <trans-unit id="show.story.slide.alt"><source>Story slide %s of %s</source><target>Story-Slide %s von %s</target></trans-unit>
 
+      <!-- Show view: job-level creation parameters -->
+      <trans-unit id="show.section.creation"><source>Creation parameters</source><target>Erstellungsparameter</target></trans-unit>
+      <trans-unit id="show.creation.theme"><source>Theme</source><target>Design</target></trans-unit>
+      <trans-unit id="show.creation.artifacts"><source>Requested artifacts</source><target>Angeforderte Artefakte</target></trans-unit>
+      <trans-unit id="show.creation.audience"><source>Targeted audience</source><target>Zielgruppe</target></trans-unit>
+      <trans-unit id="show.creation.tone"><source>Tone of voice</source><target>Tonalität</target></trans-unit>
+      <trans-unit id="show.creation.persona"><source>Persona</source><target>Persona</target></trans-unit>
+      <trans-unit id="show.creation.schaubildLayout"><source>Schaubild layout</source><target>Schaubild-Layout</target></trans-unit>
+      <trans-unit id="show.creation.schaubildStyle"><source>Schaubild style</source><target>Schaubild-Stil</target></trans-unit>
+      <trans-unit id="show.creation.storyLayout"><source>Story layout</source><target>Story-Layout</target></trans-unit>
+      <trans-unit id="show.creation.storyStyle"><source>Story style</source><target>Story-Stil</target></trans-unit>
+      <trans-unit id="show.creation.unavailable"><source>no longer available</source><target>nicht mehr verfügbar</target></trans-unit>
+
+      <!-- Show view: per-artifact generation parameters -->
+      <trans-unit id="show.params.summary"><source>Generation parameters</source><target>Generierungsparameter</target></trans-unit>
+      <trans-unit id="show.params.system"><source>System prompt</source><target>System-Prompt</target></trans-unit>
+      <trans-unit id="show.params.user"><source>Prompt</source><target>Prompt</target></trans-unit>
+      <trans-unit id="show.params.image"><source>Image prompt</source><target>Bild-Prompt</target></trans-unit>
+      <trans-unit id="show.params.imageModel"><source>Image model</source><target>Bildmodell</target></trans-unit>
+      <trans-unit id="show.params.imageSize"><source>Image size</source><target>Bildgröße</target></trans-unit>
+      <trans-unit id="show.params.ttsModel"><source>Speech model</source><target>Sprachmodell</target></trans-unit>
+      <trans-unit id="show.params.voices"><source>Voices</source><target>Stimmen</target></trans-unit>
+
       <!-- Job status labels -->
       <trans-unit id="status.queued"><source>Queued</source><target>Eingereiht</target></trans-unit>
       <trans-unit id="status.ingesting"><source>Ingesting source</source><target>Quelle wird eingelesen</target></trans-unit>

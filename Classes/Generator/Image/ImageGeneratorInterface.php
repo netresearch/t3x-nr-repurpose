@@ -14,6 +14,12 @@ interface ImageGeneratorInterface
     public function isAvailable(): bool;
 
     /**
+     * The image model id this generator calls (e.g. "gpt-image-2"). Generators record it
+     * in the artifact metadata so the result view shows the model that actually ran.
+     */
+    public function getModel(): string;
+
+    /**
      * Generate an image from $prompt at the given $size (e.g. 1024x1024, 1792x1024, 1024x1792)
      * and write it to $outputPath (PNG).
      *

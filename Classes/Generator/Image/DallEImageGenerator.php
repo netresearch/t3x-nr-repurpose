@@ -25,6 +25,11 @@ final class DallEImageGenerator implements ImageGeneratorInterface
         return $this->dalle->isAvailable();
     }
 
+    public function getModel(): string
+    {
+        return self::MODEL;
+    }
+
     public function generateToFile(string $prompt, string $size, string $outputPath): void
     {
         try {

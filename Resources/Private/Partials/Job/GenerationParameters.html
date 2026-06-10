@@ -1,0 +1,45 @@
+<html data-namespace-typo3-fluid="true"
+      xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
+<f:comment><!--
+    Per-artifact "Generation parameters" disclosure: renders the canonical metadata
+    "prompts" object (see AbstractGenerator::promptsMetadata() for the shape). Prompt
+    texts are untrusted LLM-call inputs — Fluid's default escaping keeps them inert.
+--></f:comment>
+<f:if condition="{prompts}">
+    <details class="mt-2">
+        <summary><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.params.summary" /></summary>
+        <dl class="mt-2 mb-0">
+            <f:if condition="{prompts.system}">
+                <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.params.system" /></dt>
+                <dd><pre style="white-space: pre-wrap;">{prompts.system}</pre></dd>
+            </f:if>
+            <f:if condition="{prompts.user}">
+                <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.params.user" /></dt>
+                <dd><pre style="white-space: pre-wrap;">{prompts.user}</pre></dd>
+            </f:if>
+            <f:if condition="{prompts.image}">
+                <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.params.image" /></dt>
+                <dd><pre style="white-space: pre-wrap;">{prompts.image}</pre></dd>
+            </f:if>
+            <f:if condition="{prompts.imageModel}">
+                <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.params.imageModel" /></dt>
+                <dd>{prompts.imageModel}</dd>
+            </f:if>
+            <f:if condition="{prompts.imageSize}">
+                <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.params.imageSize" /></dt>
+                <dd>{prompts.imageSize}</dd>
+            </f:if>
+            <f:if condition="{prompts.ttsModel}">
+                <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.params.ttsModel" /></dt>
+                <dd>{prompts.ttsModel}</dd>
+            </f:if>
+            <f:if condition="{prompts.voices}">
+                <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.params.voices" /></dt>
+                <dd>
+                    <f:for each="{prompts.voices}" as="voice" key="speaker" iteration="iterator">{speaker}: {voice}<f:if condition="!{iterator.isLast}">, </f:if></f:for>
+                </dd>
+            </f:if>
+        </dl>
+    </details>
+</f:if>
+</html>
