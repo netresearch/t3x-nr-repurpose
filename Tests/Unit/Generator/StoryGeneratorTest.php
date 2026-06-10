@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
+use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\StoryGenerator;
@@ -34,12 +35,12 @@ final class StoryGeneratorTest extends TestCase
     ]];
 
     /** @param list<string> $keyPoints */
-    private function context(bool $wantStory = true, array $keyPoints = ['Point']): GenerationContext
+    private function context(bool $wantStory = true, array $keyPoints = ['Point'], ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets()): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief = new ContentBrief('Report', 'A crisp summary.', $keyPoints, [], 'All', 'en');
 
-        return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0], $document, $brief, 'nr', 5);
+        return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0], $document, $brief, 'nr', 5, $snippets);
     }
 
     /** @param array<mixed>|\Throwable $completionResult */
@@ -310,6 +311,27 @@ final class StoryGeneratorTest extends TestCase
         $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
         $generator->generate($this->context(true, ['A', 'B', 'C', 'D', 'E', 'F']));
         self::assertEqualsWithDelta(0.06, $completion->lastOptions?->getPlannedCost(), 1e-9);
+    }
+
+    public function testSlidesPromptCarriesTheComposedSnippetSections(): void
+    {
+        $completion = $this->completion(self::THREE_SLIDES);
+        $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
+        $snippets = new ResolvedPromptSnippets(storySections: "TONE OF VOICE:\nUpbeat and concise\n\nLAYOUT:\nFull-bleed imagery");
+
+        self::assertTrue($generator->generate($this->context(true, ['Point'], $snippets)));
+        self::assertStringContainsString("TONE OF VOICE:\nUpbeat and concise", $completion->lastPrompt);
+        self::assertStringContainsString("LAYOUT:\nFull-bleed imagery", $completion->lastPrompt);
+    }
+
+    public function testWithoutSnippetsSlidesPromptHasNoSectionBlocks(): void
+    {
+        $completion = $this->completion(self::THREE_SLIDES);
+        $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+        self::assertStringNotContainsString('TONE OF VOICE', $completion->lastPrompt);
+        self::assertStringNotContainsString('LAYOUT:', $completion->lastPrompt);
     }
 
     public function testSupportsReadsWantStoryFlag(): void
