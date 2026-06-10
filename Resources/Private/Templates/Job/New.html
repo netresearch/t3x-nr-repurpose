@@ -52,6 +52,31 @@
                 }" />
         </div>
 
+        <f:comment><!--
+            Prompt-snippet selectors (nr_llm PromptSnippet library). Audience and tone steer
+            every artifact; the per-artifact selectors live inside the artifact cards below.
+            All optional — "(none)" keeps the previous, snippet-free prompts.
+        --></f:comment>
+        <div class="form-group">
+            <label class="form-label" for="nrrepurpose-snippetAudience">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.audience" />
+            </label>
+            <f:form.select name="snippetAudience" id="nrrepurpose-snippetAudience" class="form-select"
+                options="{audienceOptions}"
+                prependOptionLabel="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.none')}"
+                prependOptionValue="0" />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="nrrepurpose-snippetTone">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.tone" />
+            </label>
+            <f:form.select name="snippetTone" id="nrrepurpose-snippetTone" class="form-select"
+                options="{toneOptions}"
+                prependOptionLabel="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.none')}"
+                prependOptionValue="0" />
+        </div>
+
         <fieldset class="form-group">
             <legend class="form-label">
                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.section.artifacts" />
@@ -66,9 +91,20 @@
                                     <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.podcast" />
                                 </label>
                             </div>
-                            <p class="card-text text-muted small mb-0">
+                            <p class="card-text text-muted small">
                                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.podcast.desc" />
                             </p>
+                            <f:for each="{1: '1', 2: '2', 3: '3'}" as="slot" key="slotIndex">
+                                <div class="form-group mb-2">
+                                    <label class="form-label" for="nrrepurpose-snippetPersona{slot}">
+                                        <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.persona" arguments="{0: slot}" />
+                                    </label>
+                                    <f:form.select name="snippetPersona{slot}" id="nrrepurpose-snippetPersona{slot}" class="form-select"
+                                        options="{personaOptions}"
+                                        prependOptionLabel="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.none')}"
+                                        prependOptionValue="0" />
+                                </div>
+                            </f:for>
                         </div>
                     </div>
                 </div>
@@ -81,9 +117,27 @@
                                     <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.schaubild" />
                                 </label>
                             </div>
-                            <p class="card-text text-muted small mb-0">
+                            <p class="card-text text-muted small">
                                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.schaubild.desc" />
                             </p>
+                            <div class="form-group mb-2">
+                                <label class="form-label" for="nrrepurpose-snippetSchaubildLayout">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.layout" />
+                                </label>
+                                <f:form.select name="snippetSchaubildLayout" id="nrrepurpose-snippetSchaubildLayout" class="form-select"
+                                    options="{layoutOptions}"
+                                    prependOptionLabel="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.none')}"
+                                    prependOptionValue="0" />
+                            </div>
+                            <div class="form-group mb-2">
+                                <label class="form-label" for="nrrepurpose-snippetSchaubildStyle">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.style" />
+                                </label>
+                                <f:form.select name="snippetSchaubildStyle" id="nrrepurpose-snippetSchaubildStyle" class="form-select"
+                                    options="{styleOptions}"
+                                    prependOptionLabel="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.none')}"
+                                    prependOptionValue="0" />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -96,9 +150,27 @@
                                     <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story" />
                                 </label>
                             </div>
-                            <p class="card-text text-muted small mb-0">
+                            <p class="card-text text-muted small">
                                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story.desc" />
                             </p>
+                            <div class="form-group mb-2">
+                                <label class="form-label" for="nrrepurpose-snippetStoryLayout">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.layout" />
+                                </label>
+                                <f:form.select name="snippetStoryLayout" id="nrrepurpose-snippetStoryLayout" class="form-select"
+                                    options="{layoutOptions}"
+                                    prependOptionLabel="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.none')}"
+                                    prependOptionValue="0" />
+                            </div>
+                            <div class="form-group mb-2">
+                                <label class="form-label" for="nrrepurpose-snippetStoryStyle">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.style" />
+                                </label>
+                                <f:form.select name="snippetStoryStyle" id="nrrepurpose-snippetStoryStyle" class="form-select"
+                                    options="{styleOptions}"
+                                    prependOptionLabel="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.snippet.none')}"
+                                    prependOptionValue="0" />
+                            </div>
                         </div>
                     </div>
                 </div>

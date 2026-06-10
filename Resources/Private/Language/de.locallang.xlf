@@ -33,6 +33,14 @@
       <trans-unit id="new.submitting"><source>Queuing job …</source><target>Auftrag wird eingereiht …</target></trans-unit>
       <trans-unit id="new.cancel"><source>Cancel</source><target>Abbrechen</target></trans-unit>
 
+      <!-- Prompt-snippet selectors (New form) -->
+      <trans-unit id="new.snippet.none"><source>(none)</source><target>(keine Auswahl)</target></trans-unit>
+      <trans-unit id="new.snippet.audience"><source>Targeted audience</source><target>Zielgruppe</target></trans-unit>
+      <trans-unit id="new.snippet.tone"><source>Tone of voice</source><target>Tonalität</target></trans-unit>
+      <trans-unit id="new.snippet.persona"><source>Persona %s</source><target>Persona %s</target></trans-unit>
+      <trans-unit id="new.snippet.layout"><source>Layout</source><target>Layout</target></trans-unit>
+      <trans-unit id="new.snippet.style"><source>Style</source><target>Stil</target></trans-unit>
+
       <!-- Source types -->
       <trans-unit id="sourceType.url"><source>Webpage URL</source><target>Webseiten-URL</target></trans-unit>
       <trans-unit id="sourceType.pdf_url"><source>PDF URL</source><target>PDF-URL</target></trans-unit>
