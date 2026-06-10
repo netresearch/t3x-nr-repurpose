@@ -42,6 +42,7 @@
     <f:if condition="{job.artifacts}">
         <f:then>
             <f:for each="{job.artifacts}" as="artifact">
+                <f:if condition="{artifact.type} != 'story'">
                 <div class="card mb-3">
                     <div class="card-header">
                         <h3 class="h5 mb-0 d-inline">
@@ -108,7 +109,62 @@
                         </f:if>
                     </div>
                 </div>
+                </f:if>
             </f:for>
+
+            <f:comment><!-- Story: one card with all carousel slides as a horizontal, scrollable strip --></f:comment>
+            <f:if condition="{job.storyArtifacts}">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="h5 mb-0">
+                            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story" />
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <div style="display: flex; flex-direction: row; gap: 16px; overflow-x: auto; padding-bottom: 8px;">
+                            <f:for each="{job.storyArtifacts}" as="slide">
+                                <div style="flex: 0 0 auto; text-align: center;">
+                                    <f:if condition="{slide.status} == 'done'">
+                                        <f:then>
+                                            <f:variable name="img" value="{nr:publicUrl(fileUid: slide.fileUid)}" />
+                                            <f:if condition="{img}">
+                                                <f:comment><!-- Legacy story artifacts carry no slide metadata: fall back to the generic preview alt text --></f:comment>
+                                                <f:variable name="slideAlt" value="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.preview.alt', arguments: {0: slide.type, 1: slide.variant})}" />
+                                                <f:if condition="{slide.metadataArray.slideIndex}">
+                                                    <f:variable name="slideAlt" value="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.story.slide.alt', arguments: {0: slide.metadataArray.slideIndex, 1: slide.metadataArray.slideTotal})}" />
+                                                </f:if>
+                                                <img src="{img}"
+                                                     alt="{slideAlt}"
+                                                     style="height: 320px; width: auto; border: 1px solid #ccc; display: block;" />
+                                                <p class="text-muted mt-1 mb-0">
+                                                    <f:if condition="{slide.metadataArray.slideIndex}">{slide.metadataArray.slideIndex}/{slide.metadataArray.slideTotal} — </f:if>
+                                                    <a href="{img}" download>
+                                                        <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.download.png" />
+                                                    </a>
+                                                </p>
+                                            </f:if>
+                                        </f:then>
+                                        <f:else>
+                                            <div title="{slide.errorMessage}"
+                                                 style="box-sizing: border-box; height: 320px; width: 180px; display: flex; align-items: center; justify-content: center; border: 1px dashed #ccc; padding: 8px;">
+                                                <span class="badge badge-{slide.statusEnum.severity}">
+                                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{slide.statusEnum.labelKey}" />
+                                                </span>
+                                            </div>
+                                            <p class="text-muted mt-1 mb-0">
+                                                <f:if condition="{slide.metadataArray.slideIndex}">
+                                                    <f:then>{slide.metadataArray.slideIndex}/{slide.metadataArray.slideTotal}</f:then>
+                                                    <f:else>{slide.variant}</f:else>
+                                                </f:if>
+                                            </p>
+                                        </f:else>
+                                    </f:if>
+                                </div>
+                            </f:for>
+                        </div>
+                    </div>
+                </div>
+            </f:if>
         </f:then>
         <f:else>
             <div class="callout callout-info">

@@ -16,6 +16,7 @@
             </f:if>
         }
         .story {
+            position: relative;
             box-sizing: border-box;
             width: 1080px;
             height: 1920px;
@@ -26,16 +27,37 @@
             color: #ffffff;
             font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
         }
+        .story__indicator {
+            position: absolute;
+            top: 96px;
+            right: 96px;
+            font-weight: 600;
+            font-size: 32px;
+            letter-spacing: 1px;
+            opacity: 0.85;
+        }
         .story__accent { width: 120px; height: 12px; background: #3b6ef5; margin-bottom: 40px; }
-        .story__headline { font-weight: 700; font-size: 96px; line-height: 1.1; margin: 0 0 32px; }
+        .story__headline {
+            font-weight: 700;
+            font-size: <f:if condition="{role} == 'cover'"><f:then>116px</f:then><f:else>88px</f:else></f:if>;
+            line-height: 1.1;
+            margin: 0 0 32px;
+        }
         .story__subline { font-size: 40px; line-height: 1.4; font-weight: 400; margin: 0; }
+        .story__source { font-size: 30px; line-height: 1.4; font-weight: 400; margin: 48px 0 0; opacity: 0.8; word-break: break-all; }
     </style>
 </head>
 <body>
     <div class="story">
+        <f:if condition="{role} != 'cover'">
+            <div class="story__indicator">{slideIndex}/{slideTotal}</div>
+        </f:if>
         <div class="story__accent"></div>
         <h1 class="story__headline">{headline}</h1>
         <p class="story__subline">{subline}</p>
+        <f:if condition="{role} == 'outro'">
+            <p class="story__source">{sourceLabel}</p>
+        </f:if>
     </div>
 </body>
 </html>

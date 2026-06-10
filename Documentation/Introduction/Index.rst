@@ -16,7 +16,7 @@ PDF — into three AI-generated media artifacts, all from the TYPO3 backend:
 
 #. a two-host **podcast** (audio),
 #. a **Schaubild** (diagram/infographic), rendered in three variants, and
-#. a 9:16 **Instagram story** image.
+#. a 9:16 **Instagram story** carousel (one image per slide).
 
 It is a thin orchestration layer on top of :composer:`netresearch/nr-llm`: the
 LLM access (chat/vision completions, text-to-speech, image generation) and the
@@ -67,11 +67,15 @@ The branded (``nr``) or neutral theme is chosen per job.
 Instagram story
 ---------------
 
-A single 1080×1920 (9:16) slide condensed to a headline and subline. When the
-image service is available and within budget, an AI background is generated and
-scaled to *cover* the canvas (centre-cropped, never distorted), with the
-transparent text layer composited over it; otherwise a flat branded render is
-used.
+A multi-slide 1080×1920 (9:16) carousel: a cover slide (hook/title), one slide
+per key point (at most four), and an outro slide with the takeaway and the
+source attribution — at most six slides per run. One LLM call writes the copy
+for all slides; each slide becomes its own artifact (variant ``slide-1`` …
+``slide-N``), so a failing slide does not affect its siblings. When the image
+service is available and within budget, a single AI background is generated
+once and shared by every slide (visual coherence, one image cost) — scaled to
+*cover* the canvas (centre-cropped, never distorted), with the transparent
+text layer composited over it; otherwise flat branded renders are used.
 
 Each artifact type is opt-in per run (``want_podcast`` / ``want_schaubild`` /
 ``want_story``). Per-artifact failures are isolated — one failing generator does

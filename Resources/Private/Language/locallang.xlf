@@ -53,7 +53,7 @@
       <trans-unit id="artifact.schaubild"><source>Schaubild</source></trans-unit>
       <trans-unit id="artifact.schaubild.desc"><source>An explanatory diagram image in three design variants. Visualises the key points of the source at a glance — pick the variant you like best.</source></trans-unit>
       <trans-unit id="artifact.story"><source>Story</source></trans-unit>
-      <trans-unit id="artifact.story.desc"><source>A vertical 9:16 image made for Instagram / social-media stories — a shareable visual teaser of the content.</source></trans-unit>
+      <trans-unit id="artifact.story.desc"><source>A vertical 9:16 slide carousel made for Instagram / social-media stories — a cover hook, one slide per key point and an outro with the source attribution.</source></trans-unit>
 
       <!-- Show view -->
       <trans-unit id="show.title"><source>Job #%d</source></trans-unit>
@@ -72,6 +72,7 @@
       <trans-unit id="show.download.vtt"><source>Download subtitles (VTT)</source></trans-unit>
       <trans-unit id="show.download.png"><source>Download PNG</source></trans-unit>
       <trans-unit id="show.preview.alt"><source>Preview of the generated %s (%s variant)</source></trans-unit>
+      <trans-unit id="show.story.slide.alt"><source>Story slide %s of %s</source></trans-unit>
 
       <!-- Job status labels -->
       <trans-unit id="status.queued"><source>Queued</source></trans-unit>

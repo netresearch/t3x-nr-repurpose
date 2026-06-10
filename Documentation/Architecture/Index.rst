@@ -179,10 +179,15 @@ The diagram is rendered at 1200 px wide, auto-height.
 Instagram story
 ---------------
 
-:php:`StoryGenerator` condenses the brief into a headline and subline and
-renders the branded 9:16 template (1080×1920). When the image service is
-available and within budget it generates a portrait AI background and composites
-the transparent text layer over it; otherwise it falls back to a flat render.
+:php:`StoryGenerator` asks the completion service once for the whole carousel —
+a cover slide, one slide per key point (at most four) and an outro with the
+source attribution, capped at six slides; the planned cost scales with the
+expected slide count. Each slide is rendered from the branded 9:16 template
+(1080×1920) into its own artifact row (variant ``slide-N``; slide role, index
+and total in the metadata), so a failed slide render fails only that slide.
+When the image service is available and within budget one portrait AI
+background is generated and composited behind every slide; otherwise the
+slides fall back to flat renders.
 
 .. _architecture-rendering:
 

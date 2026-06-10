@@ -222,4 +222,29 @@ class Job extends AbstractEntity
 
         return $summaries;
     }
+
+    /**
+     * The story-carousel slides in slide order. The explicit slideIndex each slide carries
+     * in its metadata is the authoritative order; rows without it (legacy single-image
+     * "default" artifacts) fall back to ascending uid. Used by the result view to render
+     * the slide strip.
+     *
+     * @return list<Artifact>
+     */
+    public function getStoryArtifacts(): array
+    {
+        $slides = [];
+        foreach ($this->artifacts as $artifact) {
+            if ($artifact->getType() === ArtifactType::Story->value) {
+                $slides[] = $artifact;
+            }
+        }
+        usort($slides, static function (Artifact $a, Artifact $b): int {
+            $bySlideIndex = (int) ($a->getMetadataArray()['slideIndex'] ?? 0) <=> (int) ($b->getMetadataArray()['slideIndex'] ?? 0);
+
+            return $bySlideIndex !== 0 ? $bySlideIndex : ($a->getUid() ?? 0) <=> ($b->getUid() ?? 0);
+        });
+
+        return $slides;
+    }
 }
