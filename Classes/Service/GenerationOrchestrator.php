@@ -123,7 +123,9 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
             );
             $success = $generator->generate($ctx->withProgress($band));
             $ok += $success ? 1 : 0;
-            $progress = $count > 0 ? (int) (30 + 70 * ($i + 1) / $count) : 100;
+            // round(), not truncation: JobProgress::step() rounds into the band, so the
+            // band-end write must agree or progress could step back by one percent.
+            $progress = $count > 0 ? (int) round(30 + 70 * ($i + 1) / $count) : 100;
             // currentStep null on purpose: keep the generator's last human-readable
             // detail visible instead of overwriting it with the generic slug.
             $this->jobs->markStatus($jobUid, JobStatus::Generating, null, $progress);
