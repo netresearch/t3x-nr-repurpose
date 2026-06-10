@@ -113,6 +113,34 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         );
     }
 
+    /**
+     * Resolve the effective AI-image size: a layout prompt snippet may hint a custom size
+     * via its metadata {"imageSize":"WxH"}. The hint is used when it is syntactically valid
+     * and both dimensions are divisible by 16 (the gpt-image-* contract); anything else
+     * falls back to the generator's default and logs a warning — a size hint must never
+     * fail an artifact. The Chromium HTML renders are unaffected; only AI-image calls are.
+     */
+    protected function resolveImageSize(string $hint, string $default): string
+    {
+        if ($hint === '') {
+            return $default;
+        }
+
+        if (preg_match('/^(\d{2,4})x(\d{2,4})$/', $hint, $matches) === 1
+            && (int) $matches[1] % 16 === 0
+            && (int) $matches[2] % 16 === 0
+        ) {
+            return $hint;
+        }
+
+        $this->logger->warning('Ignoring invalid imageSize hint from layout snippet', [
+            'hint' => $hint,
+            'fallback' => $default,
+        ]);
+
+        return $default;
+    }
+
     /** Record a previously-inserted artifact row as failed and log the reason. */
     protected function failArtifact(int $artifactUid, int $jobUid, string $reason): void
     {

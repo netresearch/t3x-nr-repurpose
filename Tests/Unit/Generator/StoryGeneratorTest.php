@@ -371,6 +371,31 @@ final class StoryGeneratorTest extends TestCase
         self::assertArrayNotHasKey('imageSize', $prompts);
     }
 
+    public function testLayoutImageSizeHintDrivesTheSharedBackgroundCall(): void
+    {
+        $imageGenerator = $this->imageGenerator(true);
+        $jobs = $this->jobs();
+        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $imageGenerator, $jobs, $this->allowingBudget(), $this->compositor());
+
+        $snippets = new ResolvedPromptSnippets(storyImageSize: '1088x1920');
+        self::assertTrue($generator->generate($this->context(true, ['Point'], $snippets)));
+
+        self::assertSame(['1088x1920'], $imageGenerator->sizes);
+        $prompts = json_decode((string) $jobs->updates[$jobs->uidForVariant('slide-1')]['metadata'], true)['prompts'];
+        self::assertSame('1088x1920', $prompts['imageSize']);   // effective size recorded
+    }
+
+    public function testInvalidImageSizeHintFallsBackToTheDefaultSize(): void
+    {
+        $imageGenerator = $this->imageGenerator(true);
+        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $imageGenerator, $this->jobs(), $this->allowingBudget(), $this->compositor());
+
+        $snippets = new ResolvedPromptSnippets(storyImageSize: '999x1920');   // not divisible by 16
+        self::assertTrue($generator->generate($this->context(true, ['Point'], $snippets)));
+
+        self::assertSame(['1024x1536'], $imageGenerator->sizes);
+    }
+
     public function testReportsCopyBackgroundAndSlideProgressSteps(): void
     {
         $progressJobs = new StatusRecordingJobRepository();

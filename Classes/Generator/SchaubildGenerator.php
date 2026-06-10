@@ -31,7 +31,8 @@ use Psr\Log\LoggerInterface;
 class SchaubildGenerator extends AbstractGenerator
 {
     private const WIDTH = 1200;
-    // gpt-image-1 landscape (DALL·E's 1792x1024 is no longer a valid size).
+    // Default gpt-image landscape size; a layout snippet may override it via its
+    // metadata {"imageSize":"WxH"} (see AbstractGenerator::resolveImageSize()).
     private const IMAGE_SIZE = '1536x1024';
     private const IMAGE_COST = 0.05;
     private const HTML_SYSTEM_PROMPT = 'You are an information designer. Output a raw HTML fragment only — '
@@ -66,13 +67,16 @@ class SchaubildGenerator extends AbstractGenerator
         // The exact diagram-body LLM prompts, recorded in every variant's metadata
         // (transparency: the result view shows what was actually sent).
         $llmPrompts = ['system' => self::HTML_SYSTEM_PROMPT, 'user' => $this->diagramBodyPrompt($ctx)];
+        // Layout snippets may hint a custom AI-image size; resolved once so an invalid
+        // hint logs a single warning. The html variant (Chromium render) is unaffected.
+        $imageSize = $this->resolveImageSize($ctx->snippets->schaubildImageSize, self::IMAGE_SIZE);
 
         $ctx->progress?->step('Schaubild: variant html (1/3)', 0.4);
         $ok = $this->generateHtmlVariant($jobUid, $htmlOpaque, $llmPrompts);
         $ctx->progress?->step('Schaubild: variant html_bg (2/3)', 0.6);
-        $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent, $llmPrompts) || $ok;
+        $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent, $llmPrompts, $imageSize) || $ok;
         $ctx->progress?->step('Schaubild: variant ki_image (3/3)', 0.8);
-        $ok = $this->generateKiImageVariant($ctx, $jobUid, $htmlOpaque) || $ok;
+        $ok = $this->generateKiImageVariant($ctx, $jobUid, $htmlOpaque, $imageSize) || $ok;
 
         return $ok;
     }
@@ -112,7 +116,7 @@ class SchaubildGenerator extends AbstractGenerator
      *
      * @param array{system: string, user: string} $llmPrompts
      */
-    private function generateHtmlBgVariant(GenerationContext $ctx, int $jobUid, string $transparentHtml, array $llmPrompts): bool
+    private function generateHtmlBgVariant(GenerationContext $ctx, int $jobUid, string $transparentHtml, array $llmPrompts, string $imageSize): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html_bg', 0, ArtifactStatus::Pending);
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
@@ -125,7 +129,7 @@ class SchaubildGenerator extends AbstractGenerator
             $bgPath = $tmpDir . '/bg.png';
             $bgPrompt = $this->backgroundPrompt($ctx);
             $ctx->progress?->step('Schaubild: generating background image', 0.65);
-            $this->imageGenerator->generateToFile($bgPrompt, self::IMAGE_SIZE, $bgPath);
+            $this->imageGenerator->generateToFile($bgPrompt, $imageSize, $bgPath);
 
             $fgPath = $this->renderer->render($transparentHtml, self::WIDTH, null, 2.0, true);
             $outPath = $tmpDir . '/composited.png';
@@ -143,7 +147,7 @@ class SchaubildGenerator extends AbstractGenerator
                         user: $llmPrompts['user'],
                         image: $bgPrompt,
                         imageModel: $this->imageGenerator->getModel(),
-                        imageSize: self::IMAGE_SIZE,
+                        imageSize: $imageSize,
                     ),
                 ], JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,
@@ -157,8 +161,8 @@ class SchaubildGenerator extends AbstractGenerator
         }
     }
 
-    /** Variant 3 — full DALL-E text-to-image from a content-derived prompt (no img2img in DALL-E). */
-    private function generateKiImageVariant(GenerationContext $ctx, int $jobUid, string $referenceHtml): bool
+    /** Variant 3 — full AI text-to-image from a content-derived prompt (no img2img available). */
+    private function generateKiImageVariant(GenerationContext $ctx, int $jobUid, string $referenceHtml, string $imageSize): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'ki_image', 0, ArtifactStatus::Pending);
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
@@ -170,7 +174,7 @@ class SchaubildGenerator extends AbstractGenerator
             $tmpDir = $this->makeTempDir();
             $outPath = $tmpDir . '/ki.png';
             $kiPrompt = $this->kiImagePrompt($ctx);
-            $this->imageGenerator->generateToFile($kiPrompt, self::IMAGE_SIZE, $outPath);
+            $this->imageGenerator->generateToFile($kiPrompt, $imageSize, $outPath);
 
             $file = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-ki.png');
             $this->jobs->updateArtifact($artifactUid, [
@@ -182,7 +186,7 @@ class SchaubildGenerator extends AbstractGenerator
                     'prompts' => $this->promptsMetadata(
                         image: $kiPrompt,
                         imageModel: $this->imageGenerator->getModel(),
-                        imageSize: self::IMAGE_SIZE,
+                        imageSize: $imageSize,
                     ),
                 ], JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,

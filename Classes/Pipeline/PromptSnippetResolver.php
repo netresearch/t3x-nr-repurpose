@@ -45,6 +45,8 @@ final class PromptSnippetResolver
         $audience = $byUid[$selection->audience] ?? null;
         $tone = $byUid[$selection->tone] ?? null;
         $schaubildStyle = $byUid[$selection->schaubildStyle] ?? null;
+        $schaubildLayout = $byUid[$selection->schaubildLayout] ?? null;
+        $storyLayout = $byUid[$selection->storyLayout] ?? null;
 
         $personas = [];
         $seenNames = [];
@@ -80,18 +82,33 @@ final class PromptSnippetResolver
             schaubildSections: $this->composer->composeSections([
                 self::LABEL_AUDIENCE => $audience,
                 self::LABEL_TONE => $tone,
-                self::LABEL_LAYOUT => $byUid[$selection->schaubildLayout] ?? null,
+                self::LABEL_LAYOUT => $schaubildLayout,
                 self::LABEL_STYLE => $schaubildStyle,
             ]),
             storySections: $this->composer->composeSections([
                 self::LABEL_AUDIENCE => $audience,
                 self::LABEL_TONE => $tone,
-                self::LABEL_LAYOUT => $byUid[$selection->storyLayout] ?? null,
+                self::LABEL_LAYOUT => $storyLayout,
                 self::LABEL_STYLE => $byUid[$selection->storyStyle] ?? null,
             ]),
             audienceHint: $audience?->getSnippet() ?? '',
             styleHint: $schaubildStyle?->getSnippet() ?? '',
+            schaubildImageSize: self::imageSizeHint($schaubildLayout),
+            storyImageSize: self::imageSizeHint($storyLayout),
             personas: $personas,
         );
+    }
+
+    /**
+     * Surface a layout snippet's optional {"imageSize":"WxH"} metadata hint as a plain
+     * trimmed string ('' when absent or not a string). Validation of the value happens
+     * in the generators (AbstractGenerator::resolveImageSize), which fall back to their
+     * default size and log a warning — a bad hint never fails the run.
+     */
+    private static function imageSizeHint(?PromptSnippet $layout): string
+    {
+        $size = $layout?->getMetadataArray()['imageSize'] ?? null;
+
+        return is_string($size) ? trim($size) : '';
     }
 }

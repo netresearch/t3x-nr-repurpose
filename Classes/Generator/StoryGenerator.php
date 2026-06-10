@@ -36,8 +36,9 @@ class StoryGenerator extends AbstractGenerator
 {
     private const WIDTH = 1080;
     private const HEIGHT = 1920;
-    // gpt-image-1 portrait (DALL·E's 1024x1792 is no longer a valid size); the 2:3 image is
-    // composited as a background behind the 9:16 story canvas, so the aspect difference is fine.
+    // Default gpt-image portrait size; the 2:3 image is composited as a background behind
+    // the 9:16 story canvas, so the aspect difference is fine. A layout snippet may
+    // override it via its metadata {"imageSize":"WxH"} (AbstractGenerator::resolveImageSize()).
     private const IMAGE_SIZE = '1024x1536';
     private const IMAGE_COST = 0.05;
     private const COPY_COST_PER_SLIDE = 0.01;
@@ -86,14 +87,17 @@ class StoryGenerator extends AbstractGenerator
             return false;
         }
 
+        // Layout snippets may hint a custom AI-image size; resolved once so an invalid
+        // hint logs a single warning. The slide renders (Chromium) are unaffected.
+        $imageSize = $this->resolveImageSize($ctx->snippets->storyImageSize, self::IMAGE_SIZE);
         $ctx->progress?->step('Story: background image', 0.3);
-        $backgroundPath = $this->generateSharedBackground($ctx);
+        $backgroundPath = $this->generateSharedBackground($ctx, $imageSize);
 
         $total = count($slides);
         $ok = false;
         foreach ($slides as $i => $slide) {
             $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
-            $slideOk = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath);
+            $slideOk = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
             $ok = $slideOk || $ok;
         }
 
@@ -195,7 +199,7 @@ class StoryGenerator extends AbstractGenerator
      * cost). Best-effort: over budget, service unavailable or a generation error all fall
      * back to flat renders (null).
      */
-    private function generateSharedBackground(GenerationContext $ctx): ?string
+    private function generateSharedBackground(GenerationContext $ctx, string $imageSize): ?string
     {
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
             return null;
@@ -203,7 +207,7 @@ class StoryGenerator extends AbstractGenerator
 
         try {
             $backgroundPath = $this->makeTempDir() . '/bg.png';
-            $this->imageGenerator->generateToFile($this->backgroundPrompt($ctx), self::IMAGE_SIZE, $backgroundPath);
+            $this->imageGenerator->generateToFile($this->backgroundPrompt($ctx), $imageSize, $backgroundPath);
 
             return $backgroundPath;
         } catch (\Throwable $e) {
@@ -224,6 +228,7 @@ class StoryGenerator extends AbstractGenerator
         int $index,
         int $total,
         ?string $backgroundPath,
+        string $imageSize,
     ): bool {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Story, 'slide-' . $index, 0, ArtifactStatus::Pending);
         $hasBackground = $backgroundPath !== null;
@@ -241,7 +246,7 @@ class StoryGenerator extends AbstractGenerator
                 user: $this->carouselPrompt($ctx),
                 image: $hasBackground ? $this->backgroundPrompt($ctx) : null,
                 imageModel: $hasBackground ? $this->imageGenerator->getModel() : null,
-                imageSize: $hasBackground ? self::IMAGE_SIZE : null,
+                imageSize: $hasBackground ? $imageSize : null,
             ),
         ];
 

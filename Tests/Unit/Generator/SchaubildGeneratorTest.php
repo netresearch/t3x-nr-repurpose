@@ -211,6 +211,36 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertArrayNotHasKey('user', $ki['prompts']);
     }
 
+    public function testLayoutImageSizeHintDrivesBothAiImageCalls(): void
+    {
+        $imageGenerator = $this->imageGenerator();
+        $jobs = $this->jobs();
+        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget());
+
+        $snippets = new ResolvedPromptSnippets(schaubildImageSize: '1920x1088');
+        self::assertTrue($generator->generate($this->context($snippets)));
+
+        self::assertSame(['1920x1088', '1920x1088'], $imageGenerator->sizes);   // bg + ki_image
+        $htmlBg = json_decode((string) $jobs->updates[$jobs->uidForVariant('html_bg')]['metadata'], true);
+        self::assertSame('1920x1088', $htmlBg['prompts']['imageSize']);   // effective size recorded
+        $ki = json_decode((string) $jobs->updates[$jobs->uidForVariant('ki_image')]['metadata'], true);
+        self::assertSame('1920x1088', $ki['prompts']['imageSize']);
+    }
+
+    public function testInvalidImageSizeHintsFallBackToTheDefaultSize(): void
+    {
+        // Bad syntax, not divisible by 16, and out-of-bounds digit counts must never
+        // fail the artifact — they fall back to the generator default.
+        foreach (['nonsense', '1000x1080', '8x1080', '19200x1080'] as $hint) {
+            $imageGenerator = $this->imageGenerator();
+            $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget());
+
+            $snippets = new ResolvedPromptSnippets(schaubildImageSize: $hint);
+            self::assertTrue($generator->generate($this->context($snippets)));
+            self::assertSame(['1536x1024', '1536x1024'], $imageGenerator->sizes, 'hint: ' . $hint);
+        }
+    }
+
     public function testReportsHtmlAndVariantProgressSteps(): void
     {
         $progressJobs = new StatusRecordingJobRepository();
