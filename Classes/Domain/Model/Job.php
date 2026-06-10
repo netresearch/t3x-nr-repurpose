@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\Model;
 
+use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
+use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
+use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
@@ -188,5 +191,35 @@ class Job extends AbstractEntity
     public function getArtifacts(): ObjectStorage
     {
         return $this->artifacts;
+    }
+
+    /**
+     * One aggregate summary per artifact type this job has artifacts for,
+     * in enum order. `get` prefix so Fluid `{job.artifactTypeSummaries}`
+     * resolves it.
+     *
+     * @return list<ArtifactTypeSummary>
+     */
+    public function getArtifactTypeSummaries(): array
+    {
+        $statusesByType = [];
+        foreach ($this->artifacts as $artifact) {
+            // tryFrom: a corrupted/legacy status string in a single row must not
+            // throw and take down the whole job list view — skip that artifact.
+            $status = ArtifactStatus::tryFrom($artifact->getStatus());
+            if ($status === null) {
+                continue;
+            }
+            $statusesByType[$artifact->getType()][] = $status;
+        }
+
+        $summaries = [];
+        foreach (ArtifactType::cases() as $type) {
+            if (isset($statusesByType[$type->value])) {
+                $summaries[] = ArtifactTypeSummary::fromStatuses($type, $statusesByType[$type->value]);
+            }
+        }
+
+        return $summaries;
     }
 }

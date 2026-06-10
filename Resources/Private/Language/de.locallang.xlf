@@ -86,6 +86,10 @@
       <trans-unit id="artifactStatus.pending"><source>Pending</source><target>Ausstehend</target></trans-unit>
       <trans-unit id="artifactStatus.done"><source>Done</source><target>Fertig</target></trans-unit>
       <trans-unit id="artifactStatus.failed"><source>Failed</source><target>Fehlgeschlagen</target></trans-unit>
+
+      <!-- List view: artifact icons -->
+      <trans-unit id="list.column.artifacts"><source>Artifacts</source><target>Artefakte</target></trans-unit>
+      <trans-unit id="artifact.stub"><source>Stub</source><target>Platzhalter</target></trans-unit>
     </body>
   </file>
 </xliff>

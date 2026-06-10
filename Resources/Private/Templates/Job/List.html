@@ -21,6 +21,7 @@
                             <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.id" /></th>
                             <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.source" /></th>
                             <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.status" /></th>
+                            <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.artifacts" /></th>
                             <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.progress" /></th>
                             <th scope="col"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.actions" /></span></th>
                         </tr>
@@ -34,6 +35,21 @@
                                     <span class="badge badge-{job.statusEnum.severity}">
                                         <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{job.statusEnum.labelKey}" />
                                     </span>
+                                </td>
+                                <td>
+                                    <f:comment><!-- Evaluate the summaries once per row (the getter folds the artifact relation) --></f:comment>
+                                    <f:variable name="summaries" value="{job.artifactTypeSummaries}" />
+                                    <f:if condition="{summaries}">
+                                        <f:then>
+                                            <f:for each="{summaries}" as="summary">
+                                                <f:variable name="summaryLabel"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{summary.type.labelKey}" />: <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{summary.status.labelKey}" /></f:variable>
+                                                <span class="text-{summary.severity}" role="img" title="{summaryLabel}" aria-label="{summaryLabel}">
+                                                    <core:icon identifier="{summary.type.iconIdentifier}" size="small" />
+                                                </span>
+                                            </f:for>
+                                        </f:then>
+                                        <f:else>—</f:else>
+                                    </f:if>
                                 </td>
                                 <td>
                                     <div class="progress" role="progressbar" aria-valuenow="{job.progress}" aria-valuemin="0" aria-valuemax="100" aria-label="{job.progress}%">
