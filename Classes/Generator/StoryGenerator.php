@@ -43,6 +43,10 @@ class StoryGenerator extends AbstractGenerator
     private const COPY_COST_PER_SLIDE = 0.01;
     private const MAX_POINT_SLIDES = 4;
     private const MAX_SLIDES = 6;
+    // Copy limits the prompt asks the LLM for; the parser enforces the same limits so
+    // non-compliant copy cannot overflow the fixed 9:16 slide layout.
+    private const MAX_HEADLINE_CHARS = 60;
+    private const MAX_SUBLINE_CHARS = 110;
 
     public function __construct(
         JobProcessingRepository $jobs,
@@ -85,7 +89,8 @@ class StoryGenerator extends AbstractGenerator
         $total = count($slides);
         $ok = false;
         foreach ($slides as $i => $slide) {
-            $ok = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath) || $ok;
+            $slideOk = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath);
+            $ok = $slideOk || $ok;
         }
 
         return $ok;
@@ -104,13 +109,15 @@ class StoryGenerator extends AbstractGenerator
             "Title: %s\nSummary: %s\nKey points:\n- %s\nSource: %s\n\n"
             . 'Write an Instagram story carousel for this content: first a "cover" slide with a punchy '
             . 'hook/title, then one "point" slide per key point, and finally an "outro" slide with the '
-            . 'main takeaway and the source attribution. Headline <=60 chars and subline <=110 chars '
+            . 'main takeaway and the source attribution. Headline <=%d chars and subline <=%d chars '
             . 'per slide. Write in language code "%s". Output ONLY JSON '
             . '{"slides":[{"role":"cover|point|outro","headline":"...","subline":"..."}]}.',
             $brief->title,
             $brief->summary,
             implode("\n- ", $keyPoints),
             $ctx->document->sourceLabel,
+            self::MAX_HEADLINE_CHARS,
+            self::MAX_SUBLINE_CHARS,
             $brief->language,
         );
         $options = new ChatOptions(
@@ -152,7 +159,11 @@ class StoryGenerator extends AbstractGenerator
             if (!in_array($role, [StorySlide::ROLE_COVER, StorySlide::ROLE_POINT, StorySlide::ROLE_OUTRO], true)) {
                 $role = StorySlide::ROLE_POINT;
             }
-            $slides[] = new StorySlide($role, mb_substr($headline, 0, 120), mb_substr($subline, 0, 220));
+            $slides[] = new StorySlide(
+                $role,
+                mb_substr($headline, 0, self::MAX_HEADLINE_CHARS),
+                mb_substr($subline, 0, self::MAX_SUBLINE_CHARS),
+            );
             if (count($slides) >= self::MAX_SLIDES) {
                 break;
             }
@@ -228,7 +239,9 @@ class StoryGenerator extends AbstractGenerator
             return true;
         } catch (\Throwable $e) {
             // Keep the slide identity on the failed row so the result view can still place it.
-            $this->jobs->updateArtifact($artifactUid, ['metadata' => (string) json_encode($metadata)]);
+            // JSON_THROW_ON_ERROR matches the success path; $metadata is a fixed shape of
+            // local scalars, so encoding cannot actually fail here.
+            $this->jobs->updateArtifact($artifactUid, ['metadata' => json_encode($metadata, JSON_THROW_ON_ERROR)]);
             $this->failArtifact($artifactUid, $jobUid, sprintf('Story slide %d/%d error: %s', $index, $total, $e->getMessage()));
 
             return false;

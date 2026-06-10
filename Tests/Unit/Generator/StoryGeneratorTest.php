@@ -88,7 +88,7 @@ final class StoryGeneratorTest extends TestCase
 
             protected function renderSlideHtml(GenerationContext $ctx, StorySlide $slide, int $index, int $total, bool $transparent): string
             {
-                return sprintf('<html><body>SLIDE %d/%d %s</body></html>', $index, $total, $slide->role);
+                return sprintf('<html><body>SLIDE %d/%d %s | %s | %s</body></html>', $index, $total, $slide->role, $slide->headline, $slide->subline);
             }
         };
     }
@@ -276,6 +276,27 @@ final class StoryGeneratorTest extends TestCase
         self::assertSame(3, $metadata['slideTotal']);
     }
 
+    public function testPromptAsksForTheCopyLimitsTheParserEnforces(): void
+    {
+        $completion = $this->completion(['slides' => [[
+            'role' => 'cover',
+            'headline' => str_repeat('H', 80),
+            'subline' => str_repeat('s', 150),
+        ]]]);
+        $jobs = $this->jobs();
+        $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+        // The prompt asks the LLM for the same limits the parser enforces below.
+        self::assertStringContainsString('Headline <=60 chars and subline <=110 chars', $completion->lastPrompt);
+
+        $html = (string) $jobs->updates[$jobs->uidForVariant('slide-1')]['source_html'];
+        self::assertStringContainsString(str_repeat('H', 60), $html);
+        self::assertStringNotContainsString(str_repeat('H', 61), $html);
+        self::assertStringContainsString(str_repeat('s', 110), $html);
+        self::assertStringNotContainsString(str_repeat('s', 111), $html);
+    }
+
     public function testPlannedCostScalesWithExpectedSlideCount(): void
     {
         // 1 key point -> cover + 1 point + outro = 3 slides planned.
@@ -303,6 +324,7 @@ final class StoryGeneratorTest extends TestCase
     {
         return new class($result) implements CompletionServiceInterface {
             public ?ChatOptions $lastOptions = null;
+            public string $lastPrompt = '';
 
             /** @param array<mixed>|\Throwable $result */
             public function __construct(private readonly array|\Throwable $result) {}
@@ -311,6 +333,7 @@ final class StoryGeneratorTest extends TestCase
 
             public function completeJson(string $p, ?ChatOptions $o = null): array
             {
+                $this->lastPrompt = $p;
                 $this->lastOptions = $o;
                 if ($this->result instanceof \Throwable) {
                     throw $this->result;
