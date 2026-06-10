@@ -39,7 +39,7 @@ final class StubPromptSnippet extends PromptSnippet
 
     public function getTags(): string
     {
-        return '';
+        return implode(',', $this->getTagList());
     }
 
     /** @return list<string> */

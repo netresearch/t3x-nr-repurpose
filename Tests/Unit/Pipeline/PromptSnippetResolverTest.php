@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
+use Netresearch\NrRepurpose\Tests\Unit\Pipeline\Fixture\InMemoryPromptSnippetRepository;
 use Netresearch\NrRepurpose\Tests\Unit\Pipeline\Fixture\StubPromptSnippet;
 use PHPUnit\Framework\TestCase;
 
@@ -18,37 +19,10 @@ use PHPUnit\Framework\TestCase;
  */
 final class PromptSnippetResolverTest extends TestCase
 {
-    /**
-     * @param array<int, PromptSnippet> $byUid
-     *
-     * @return PromptSnippetRepository&object{seenUidBatches: list<list<int>>}
-     */
-    private function repository(array $byUid): PromptSnippetRepository
+    /** @param array<int, PromptSnippet> $byUid */
+    private function repository(array $byUid): InMemoryPromptSnippetRepository
     {
-        return new class($byUid) extends PromptSnippetRepository {
-            /** @var list<list<int>> */
-            public array $seenUidBatches = [];
-
-            /** @param array<int, PromptSnippet> $byUid */
-            public function __construct(private readonly array $byUid)
-            {
-            }
-
-            public function findByUids(array $uids): array
-            {
-                $this->seenUidBatches[] = $uids;
-
-                // Contract: input order, unknown uids skipped.
-                $found = [];
-                foreach ($uids as $uid) {
-                    if (isset($this->byUid[$uid])) {
-                        $found[] = $this->byUid[$uid];
-                    }
-                }
-
-                return $found;
-            }
-        };
+        return new InMemoryPromptSnippetRepository($byUid);
     }
 
     private function resolver(PromptSnippetRepository $repository): PromptSnippetResolver
@@ -151,4 +125,5 @@ final class PromptSnippetResolverTest extends TestCase
         self::assertNull($resolved->personas[0]->voice);
         self::assertNull($resolved->personas[1]->voice);
     }
+
 }
