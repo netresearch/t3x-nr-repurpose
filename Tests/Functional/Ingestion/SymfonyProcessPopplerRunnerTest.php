@@ -6,9 +6,23 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Ingestion;
 
 use Netresearch\NrRepurpose\Ingestion\Poppler\SymfonyProcessPopplerRunner;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Symfony\Component\Process\Process;
 
 final class SymfonyProcessPopplerRunnerTest extends AbstractFunctionalTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Same guard pattern as FfmpegAudioStitcherTest: skip where poppler-utils is
+        // not installed (e.g. the core-testing images) instead of erroring. Both
+        // binaries are probed — the tests exercise pdftoppm AND pdftotext.
+        foreach (['pdftoppm', 'pdftotext'] as $binary) {
+            if ((new Process([$binary, '-v']))->run() !== 0) {
+                self::markTestSkipped(sprintf('poppler-utils (%s) not available', $binary));
+            }
+        }
+    }
+
     private function fixture(): string
     {
         return dirname(__DIR__, 2) . '/Fixtures/Pdf/sample-text.pdf';

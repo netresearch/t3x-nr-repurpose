@@ -116,7 +116,9 @@ class JobController extends ActionController
     }
 
     /**
-     * uid => name map of the active snippets carrying one tag, for a form select.
+     * uid => label map of the active snippets carrying one tag, for a form select.
+     * The label carries the description ("Name — description") so editors can make
+     * an informed choice — the bare name (e.g. a persona's first name) says nothing.
      *
      * @return array<int, string>
      */
@@ -124,7 +126,11 @@ class JobController extends ActionController
     {
         $options = [];
         foreach ($this->promptSnippetRepository->findActiveByTag($tag) as $snippet) {
-            $options[(int) $snippet->getUid()] = $snippet->getName();
+            $label = $snippet->getName();
+            if ($snippet->getDescription() !== '') {
+                $label .= ' — ' . $snippet->getDescription();
+            }
+            $options[(int) $snippet->getUid()] = $label;
         }
 
         return $options;
