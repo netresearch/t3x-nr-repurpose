@@ -26,10 +26,13 @@ final class FfmpegAudioStitcherTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
-        foreach (glob($this->tmpDir . '/*') ?: [] as $f) {
-            @unlink($f);
+        // $tmpDir stays uninitialized when setUp() skipped (ffmpeg not available).
+        if (isset($this->tmpDir)) {
+            foreach (glob($this->tmpDir . '/*') ?: [] as $f) {
+                @unlink($f);
+            }
+            @rmdir($this->tmpDir);
         }
-        @rmdir($this->tmpDir);
         parent::tearDown();
     }
 
