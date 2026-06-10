@@ -160,12 +160,31 @@ final class DocumentAnalyzerTest extends TestCase
         self::assertStringContainsString('Chunk summary.', $fake->jsonCalls[3]['prompt']);
     }
 
-    public function testThrowsWhenRequiredKeysMissing(): void
+    public function testRetriesOnceWhenRequiredKeysMissingAndRecovers(): void
     {
-        $fake = new FakeCompletionService([['keyPoints' => ['x'], 'language' => 'en']]);
+        // First synthesis answer has the wrong shape, the corrective retry succeeds.
+        $fake = new FakeCompletionService([
+            ['keyPoints' => ['x'], 'language' => 'en'],
+            $this->briefResult('en'),
+        ]);
+        $analyzer = new DocumentAnalyzer($fake, new NullLogger());
+
+        $brief = $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 0]);
+
+        self::assertSame('Quarterly report', $brief->title);
+        self::assertCount(2, $fake->jsonCalls);
+        // The retry prompt names the rejected keys so the model can self-correct.
+        self::assertStringContainsString('keyPoints, language', $fake->jsonCalls[1]['prompt']);
+    }
+
+    public function testThrowsWhenRequiredKeysMissingTwice(): void
+    {
+        $badShape = ['keyPoints' => ['x'], 'language' => 'en'];
+        $fake = new FakeCompletionService([$badShape, $badShape]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
         $this->expectException(AnalysisException::class);
+        $this->expectExceptionMessageMatches('/received keys: keyPoints, language/');
         $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 0]);
     }
 }

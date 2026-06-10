@@ -57,7 +57,30 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
         $prompt = $this->buildSynthesisPrompt($document, $synthesisInput);
         $decoded = $this->completion->completeJson($prompt, $this->jsonOptions(self::SYSTEM_PROMPT, $beUser));
 
+        if (!$this->hasRequiredBriefKeys($decoded)) {
+            // The model occasionally answers with a differently-shaped object
+            // (e.g. localized key names or a bare sections list). One corrective
+            // retry that names the offending shape recovers most of these; only
+            // a second miss fails the job, now with diagnostic detail.
+            $this->logger->warning('Analysis synthesis returned an unusable shape, retrying once', [
+                'receivedKeys' => array_keys($decoded),
+            ]);
+            $retryPrompt = $prompt . "\n\nIMPORTANT: Your previous answer used the keys ["
+                . implode(', ', array_map(strval(...), array_keys($decoded)))
+                . '] and was rejected. Respond again with EXACTLY the JSON keys '
+                . '"title", "summary", "keyPoints", "sections", "audience", "language" '
+                . '— non-empty "title" and "summary" are mandatory.';
+            $decoded = $this->completion->completeJson($retryPrompt, $this->jsonOptions(self::SYSTEM_PROMPT, $beUser));
+        }
+
         return $this->toContentBrief($decoded, $document);
+    }
+
+    /** @param array<string,mixed> $decoded */
+    private function hasRequiredBriefKeys(array $decoded): bool
+    {
+        return is_string($decoded['title'] ?? null) && trim($decoded['title']) !== ''
+            && is_string($decoded['summary'] ?? null) && trim($decoded['summary']) !== '';
     }
 
     /**
@@ -147,7 +170,10 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
 
         if ($title === '' || $summary === '') {
             throw new AnalysisException(
-                'Analysis result is missing the required "title" and/or "summary" key',
+                sprintf(
+                    'Analysis result is missing the required "title" and/or "summary" key (received keys: %s)',
+                    implode(', ', array_map(strval(...), array_keys($decoded))),
+                ),
                 1749384100,
             );
         }
