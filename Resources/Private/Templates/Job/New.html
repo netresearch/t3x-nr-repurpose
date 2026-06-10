@@ -106,11 +106,35 @@
         </fieldset>
 
         <p>
-            <f:form.submit value="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.submit')}" class="btn btn-primary" />
+            <button type="submit" class="btn btn-primary" id="nrrepurpose-submit"
+                    data-submitting-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.submitting')}">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.submit" />
+            </button>
             <f:link.action action="list" class="btn btn-default">
                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.cancel" />
             </f:link.action>
         </p>
     </f:form>
+
+    <f:comment><!--
+        Immediate click feedback: disable the submit button and show a busy label
+        while the form posts, so the editor sees the click registered even when
+        the round-trip takes a moment. Plain inline module, no dependencies.
+    --></f:comment>
+    <script>
+        (function () {
+            const form = document.querySelector('form[name="newJob"]');
+            const button = document.getElementById('nrrepurpose-submit');
+            if (!form || !button) {
+                return;
+            }
+            form.addEventListener('submit', function () {
+                button.disabled = true;
+                button.setAttribute('aria-busy', 'true');
+                button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> '
+                    + button.dataset.submittingLabel;
+            });
+        })();
+    </script>
 </f:section>
 </html>
