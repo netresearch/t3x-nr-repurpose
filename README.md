@@ -2,7 +2,7 @@
 
 Turn a webpage (URL) or PDF into three AI-generated media artifacts — a two-host
 **podcast** (with transcript + WebVTT subtitles), a **diagram** (Schaubild, in three
-variants), and a 9:16 **Instagram story** — from the TYPO3 backend. Built on
+variants), and a 9:16 **Instagram-story carousel** — from the TYPO3 backend. Built on
 [`netresearch/nr-llm`](https://github.com/netresearch/t3x-nr-llm).
 
 ## What it produces
@@ -16,8 +16,10 @@ From one source (URL or PDF) the pipeline derives a single faithful `ContentBrie
 - **Schaubild** — three variants for comparison: pure HTML (Fluid → headless Chromium →
   PNG), HTML with an AI-generated background, and a full AI image. Branded NR or neutral
   theme.
-- **Story** — a single 1080×1920 (9:16) slide; optional AI background is scaled to *cover*
-  the design canvas so the layout is never distorted.
+- **Story** — a multi-slide 1080×1920 (9:16) carousel: a cover hook, one slide per key
+  point (at most four) and an outro with the source attribution — up to six slides, one
+  artifact per slide. A single optional AI background is shared by all slides and scaled
+  to *cover* the design canvas so the layout is never distorted.
 
 Each artifact type can be selected per run. Long-running generation runs asynchronously
 via Symfony Messenger (doctrine transport).
@@ -102,4 +104,4 @@ so their symlinked classes autoload.
 See the rendered documentation under `Documentation/` (Introduction, Installation,
 Configuration, Usage, Architecture, and the Architecture Decision Records). Pipeline:
 ingest (web/PDF) → analyze (one `ContentBrief` via nr-llm) → generate (podcast /
-schaubild×3 / story) → store in the TYPO3 File Abstraction Layer (FAL).
+schaubild×3 / story×N slides) → store in the TYPO3 File Abstraction Layer (FAL).

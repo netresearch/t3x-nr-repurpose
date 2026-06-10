@@ -32,7 +32,7 @@ nr_repurpose
 
 Turn a webpage (URL) or PDF into three AI-generated media artifacts — a
 two-host **podcast**, a **diagram** (Schaubild) in three variants, and a 9:16
-**Instagram story** — straight from the TYPO3 backend. Built on
+**Instagram-story carousel** — straight from the TYPO3 backend. Built on
 :composer:`netresearch/nr-llm` for AI access and :composer:`netresearch/nr-vault`
 for key storage.
 

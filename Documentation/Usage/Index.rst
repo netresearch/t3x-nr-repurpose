@@ -82,8 +82,9 @@ Result view
 The result view (``show``) renders the finished job: it plays the podcast MP3
 with its WebVTT subtitles and shows the speaker-tagged transcript, and it
 displays — and lets you download — every generated image (the three Schaubild
-variants and the story). Each artifact carries its own status, so a partially
-successful run still shows whatever was produced.
+variants and the story slides, shown as a horizontal, scrollable strip in
+slide order). Each artifact carries its own status, so a partially successful
+run still shows whatever was produced.
 
 .. _usage-cli:
 
