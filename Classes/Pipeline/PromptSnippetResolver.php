@@ -47,14 +47,30 @@ final class PromptSnippetResolver
         $schaubildStyle = $byUid[$selection->schaubildStyle] ?? null;
 
         $personas = [];
+        $seenNames = [];
         foreach ($selection->personas as $uid) {
             $snippet = $byUid[$uid] ?? null;
             if ($snippet === null) {
                 continue;
             }
+            // Persona names become dialogue speaker labels: one "- name: description" prompt
+            // line and one name-keyed voice-map/JSON-shape entry each. Collapse whitespace
+            // runs (a newline would break the prompt line), skip nameless records and
+            // disambiguate duplicates ("Anna", "Anna 2") so two personas can never collapse
+            // into one speaker. Generators may rely on names being non-empty and unique.
+            $name = trim((string) preg_replace('/\s+/', ' ', $snippet->getName()));
+            if ($name === '') {
+                continue;
+            }
+            $uniqueName = $name;
+            for ($suffix = 2; in_array($uniqueName, $seenNames, true); $suffix++) {
+                $uniqueName = $name . ' ' . $suffix;
+            }
+            $seenNames[] = $uniqueName;
+
             $voice = $snippet->getMetadataArray()['voice'] ?? null;
             $personas[] = new Persona(
-                $snippet->getName(),
+                $uniqueName,
                 $snippet->getSnippet(),
                 is_string($voice) && $voice !== '' ? $voice : null,
             );

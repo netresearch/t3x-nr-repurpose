@@ -320,6 +320,29 @@ final class PodcastGeneratorTest extends TestCase
         self::assertSame(['Anna', 'Ben', 'Cara'], $metadata['personas']);
     }
 
+    public function testPersonaNamesWithQuotesAreJsonEscapedInTheSpeakerConstraint(): void
+    {
+        $personas = [
+            new Persona('Jo "The Quant" Lee', 'Numbers person.', 'fable'),
+            new Persona('Back\\slash', 'Edge-case fan.'),
+        ];
+        $completion = $this->completion([
+            ['speaker' => 'Jo "The Quant" Lee', 'text' => 'Numbers first.'],
+        ]);
+
+        $generator = new PodcastGenerator(
+            $this->jobs(), $this->allowingBudget(), new NullLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+        );
+
+        self::assertTrue($generator->generate($this->context(1, $personas)));
+
+        // Each name is JSON-encoded, so quotes/backslashes cannot malform the shape constraint.
+        self::assertStringContainsString(
+            '{"turns":[{"speaker":"Jo \"The Quant\" Lee"|"Back\\\\slash","text":"..."}]}',
+            (string) $completion->seenOptions?->getSystemPrompt(),
+        );
+    }
+
     public function testWithoutPersonasDialogueKeepsTheTwoHostShape(): void
     {
         $completion = $this->completion();

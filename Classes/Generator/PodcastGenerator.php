@@ -261,6 +261,14 @@ final class PodcastGenerator extends AbstractGenerator
             implode("\n", $personaLines),
         );
 
+        // JSON-encode each speaker name: a quote/backslash in a persona name must not be able
+        // to malform the JSON-shape constraint or the "|" alternation between the names. The
+        // int side of the union covers PHP's array-key casting of numeric persona names.
+        $speakerAlternation = implode('|', array_map(
+            static fn (string|int $name): string => json_encode((string) $name, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            $names,
+        ));
+
         $options = new ChatOptions(
             temperature: 0.6,
             responseFormat: 'json',
@@ -268,7 +276,7 @@ final class PodcastGenerator extends AbstractGenerator
                 'You are a podcast scriptwriter. Write in language code "%s". Output ONLY valid JSON '
                 . 'of the shape {"turns":[{"speaker":%s,"text":"..."}]}.',
                 $brief->language,
-                '"' . implode('"|"', $names) . '"',
+                $speakerAlternation,
             ),
             beUserUid: $ctx->beUser,
             plannedCost: self::SCRIPT_COST,
@@ -300,6 +308,10 @@ final class PodcastGenerator extends AbstractGenerator
     /**
      * Map each persona to its TTS voice: the snippet's metadata voice when it is one of the
      * synthesizer's known voices, otherwise the configured host voices round-robin (A, B, A).
+     *
+     * Keying by name is safe: PromptSnippetResolver guarantees persona names are non-empty
+     * and unique (duplicates are suffixed), so no entry can overwrite another and the keys
+     * match the prompt's host list one-to-one, in order.
      *
      * @param list<Persona> $personas
      *

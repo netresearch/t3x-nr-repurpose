@@ -126,4 +126,31 @@ final class PromptSnippetResolverTest extends TestCase
         self::assertNull($resolved->personas[1]->voice);
     }
 
+    public function testDuplicatePersonaNamesAreSuffixedSoSpeakersStayDistinct(): void
+    {
+        $repository = $this->repository([
+            3 => new StubPromptSnippet(3, 'Anna', 'First Anna.', ['voice' => 'fable']),
+            4 => new StubPromptSnippet(4, 'Anna', 'Second Anna.'),
+            5 => new StubPromptSnippet(5, 'Anna', 'Third Anna.'),
+        ]);
+
+        $resolved = $this->resolver($repository)->resolve(new PromptSnippetSelection(personas: [3, 4, 5]));
+
+        self::assertSame(['Anna', 'Anna 2', 'Anna 3'], array_map(static fn ($p) => $p->name, $resolved->personas));
+        self::assertSame(['First Anna.', 'Second Anna.', 'Third Anna.'], array_map(static fn ($p) => $p->description, $resolved->personas));
+        self::assertSame('fable', $resolved->personas[0]->voice);
+    }
+
+    public function testPersonaNameWhitespaceIsCollapsedAndNamelessSnippetsAreSkipped(): void
+    {
+        $repository = $this->repository([
+            3 => new StubPromptSnippet(3, "  Dr.\nMaria   Vogel\t ", 'Analyst.'),
+            4 => new StubPromptSnippet(4, "  \n\t ", 'No usable speaker name.'),
+        ]);
+
+        $resolved = $this->resolver($repository)->resolve(new PromptSnippetSelection(personas: [3, 4]));
+
+        self::assertCount(1, $resolved->personas);
+        self::assertSame('Dr. Maria Vogel', $resolved->personas[0]->name);
+    }
 }
