@@ -115,10 +115,13 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
 
     /**
      * Resolve the effective AI-image size: a layout prompt snippet may hint a custom size
-     * via its metadata {"imageSize":"WxH"}. The hint is used when it is syntactically valid
-     * and both dimensions are divisible by 16 (the gpt-image-* contract); anything else
-     * falls back to the generator's default and logs a warning — a size hint must never
-     * fail an artifact. The Chromium HTML renders are unaffected; only AI-image calls are.
+     * via its metadata {"imageSize":"WxH"}. The hint is used only when it satisfies the
+     * FULL gpt-image-* contract that nr-llm's ImageGenerationOptions enforces (both
+     * dimensions divisible by 16, at most 3840x2160, aspect ratio between 1:3 and 3:1) —
+     * being exactly as strict here guarantees an accepted hint can never make the
+     * downstream options validation throw and fail the artifact. Anything else falls
+     * back to the generator's default and logs a warning. The Chromium HTML renders
+     * are unaffected; only AI-image calls are.
      */
     protected function resolveImageSize(string $hint, string $default): string
     {
@@ -126,11 +129,19 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
             return $default;
         }
 
-        if (preg_match('/^(\d{2,4})x(\d{2,4})$/', $hint, $matches) === 1
-            && (int) $matches[1] % 16 === 0
-            && (int) $matches[2] % 16 === 0
-        ) {
-            return $hint;
+        if (preg_match('/^(\d{2,4})x(\d{2,4})$/', $hint, $matches) === 1) {
+            $width = (int) $matches[1];
+            $height = (int) $matches[2];
+
+            // Mirrors ImageGenerationOptions::validateGptImageSize(): divisible by 16,
+            // max 3840x2160, aspect within [1:3, 3:1] via integer math (W<=3H, H<=3W).
+            if ($width % 16 === 0 && $height % 16 === 0
+                && $width >= 16 && $height >= 16
+                && $width <= 3840 && $height <= 2160
+                && $width <= 3 * $height && $height <= 3 * $width
+            ) {
+                return $hint;
+            }
         }
 
         $this->logger->warning('Ignoring invalid imageSize hint from layout snippet', [

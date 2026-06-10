@@ -86,6 +86,7 @@ final class AbstractGeneratorTest extends TestCase
         self::assertSame('1920x1088', $subject->expose('1920x1088', '1536x1024'));
         self::assertSame('32x96', $subject->expose('32x96', '1536x1024'));
         self::assertSame('3840x2160', $subject->expose('3840x2160', '1536x1024'));
+        self::assertSame('2304x768', $subject->expose('2304x768', '1536x1024'));
         self::assertSame([], $logger->records);
     }
 
@@ -99,6 +100,10 @@ final class AbstractGeneratorTest extends TestCase
             '19200x1080',      // width above the 4-digit maximum
             '1000x1088',       // width not divisible by 16
             '1920x1080',       // height not divisible by 16 (1080 = 67.5 * 16)
+            '4000x2160',       // width above the 3840 maximum
+            '3840x3008',       // height above the 2160 maximum
+            '2160x3840',       // portrait beyond the 2160 height maximum
+            '16x4096',         // aspect ratio steeper than 1:3
         ];
 
         foreach ($invalid as $hint) {
