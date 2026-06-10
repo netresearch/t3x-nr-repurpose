@@ -225,9 +225,9 @@ class Job extends AbstractEntity
 
     /**
      * The story-carousel slides in slide order. The explicit slideIndex each slide carries
-     * in its metadata is the source of truth (insertion uids are not guaranteed sequential);
-     * rows without it (legacy single-image "default" artifacts) fall back to ascending uid.
-     * Used by the result view to render the slide strip.
+     * in its metadata is the authoritative order; rows without it (legacy single-image
+     * "default" artifacts) fall back to ascending uid. Used by the result view to render
+     * the slide strip.
      *
      * @return list<Artifact>
      */
