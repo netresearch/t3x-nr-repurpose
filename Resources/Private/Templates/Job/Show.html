@@ -128,8 +128,13 @@
                                         <f:then>
                                             <f:variable name="img" value="{nr:publicUrl(fileUid: slide.fileUid)}" />
                                             <f:if condition="{img}">
+                                                <f:comment><!-- Legacy story artifacts carry no slide metadata: fall back to the generic preview alt text --></f:comment>
+                                                <f:variable name="slideAlt" value="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.preview.alt', arguments: {0: slide.type, 1: slide.variant})}" />
+                                                <f:if condition="{slide.metadataArray.slideIndex}">
+                                                    <f:variable name="slideAlt" value="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.story.slide.alt', arguments: {0: slide.metadataArray.slideIndex, 1: slide.metadataArray.slideTotal})}" />
+                                                </f:if>
                                                 <img src="{img}"
-                                                     alt="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.story.slide.alt', arguments: {0: slide.metadataArray.slideIndex, 1: slide.metadataArray.slideTotal})}"
+                                                     alt="{slideAlt}"
                                                      style="height: 320px; width: auto; border: 1px solid #ccc; display: block;" />
                                                 <p class="text-muted mt-1 mb-0">
                                                     <f:if condition="{slide.metadataArray.slideIndex}">{slide.metadataArray.slideIndex}/{slide.metadataArray.slideTotal} — </f:if>
