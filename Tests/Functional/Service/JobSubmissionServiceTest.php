@@ -11,6 +11,7 @@ use Netresearch\NrRepurpose\Service\JobSubmissionService;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
@@ -19,12 +20,12 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
     {
         $dispatched = [];
         $bus = new class($dispatched) implements MessageBusInterface {
-            /** @param array<int, object> $sink */
+            /** @param array<int, array{message: object, stamps: array<int, object>}> $sink */
             public function __construct(private array &$sink) {}
 
             public function dispatch(object $message, array $stamps = []): Envelope
             {
-                $this->sink[] = $message;
+                $this->sink[] = ['message' => $message, 'stamps' => $stamps];
 
                 return new Envelope($message);
             }
@@ -42,7 +43,18 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
 
         self::assertGreaterThan(0, $uid);
         self::assertCount(1, $dispatched);
-        self::assertInstanceOf(GenerateArtifactsMessage::class, $dispatched[0]);
-        self::assertSame($uid, $dispatched[0]->jobUid);
+        self::assertInstanceOf(GenerateArtifactsMessage::class, $dispatched[0]['message']);
+        self::assertSame($uid, $dispatched[0]['message']->jobUid);
+
+        // The transport MUST be pinned: TYPO3's TransportLocator sends to every
+        // matching routing entry (the '*' => sync default included), so without
+        // this stamp the generation would ALSO run synchronously in the web
+        // request — twice per job, racing each other.
+        $stamps = array_filter(
+            $dispatched[0]['stamps'],
+            static fn (object $stamp): bool => $stamp instanceof TransportNamesStamp,
+        );
+        self::assertCount(1, $stamps);
+        self::assertSame(['doctrine'], array_values($stamps)[0]->getTransportNames());
     }
 }

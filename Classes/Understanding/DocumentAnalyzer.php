@@ -57,7 +57,50 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
         $prompt = $this->buildSynthesisPrompt($document, $synthesisInput);
         $decoded = $this->completion->completeJson($prompt, $this->jsonOptions(self::SYSTEM_PROMPT, $beUser));
 
+        if (!$this->hasRequiredBriefKeys($decoded)) {
+            // The model occasionally answers with a differently-shaped object
+            // (e.g. localized key names or a bare sections list). One corrective
+            // retry that names the offending shape recovers most of these; only
+            // a second miss fails the job, now with diagnostic detail.
+            $receivedKeys = self::sanitizeKeyList(array_keys($decoded));
+            $this->logger->warning('Analysis synthesis returned an unusable shape, retrying once', [
+                'receivedKeys' => $receivedKeys,
+            ]);
+            $retryPrompt = $prompt . "\n\nIMPORTANT: Your previous answer used the keys ["
+                . $receivedKeys
+                . '] and was rejected. Respond again with EXACTLY the JSON keys '
+                . '"title", "summary", "keyPoints", "sections", "audience", "language" '
+                . '— non-empty "title" and "summary" are mandatory.';
+            $decoded = $this->completion->completeJson($retryPrompt, $this->jsonOptions(self::SYSTEM_PROMPT, $beUser));
+        }
+
         return $this->toContentBrief($decoded, $document);
+    }
+
+    /** @param array<string,mixed> $decoded */
+    private function hasRequiredBriefKeys(array $decoded): bool
+    {
+        return is_string($decoded['title'] ?? null) && trim($decoded['title']) !== ''
+            && is_string($decoded['summary'] ?? null) && trim($decoded['summary']) !== '';
+    }
+
+    /**
+     * The received key names are model output and therefore document-influenced —
+     * before they are interpolated into a retry prompt, an exception message, or a
+     * log entry, restrict them to a harmless character set and bound their size so
+     * they cannot carry injected instructions or control characters.
+     *
+     * @param list<int|string> $keys
+     */
+    private static function sanitizeKeyList(array $keys): string
+    {
+        $safe = [];
+        foreach (array_slice($keys, 0, 12) as $key) {
+            $clean = (string) preg_replace('/[^A-Za-z0-9_.-]/', '', (string) $key);
+            $safe[] = mb_substr($clean !== '' ? $clean : '(unprintable)', 0, 40);
+        }
+
+        return implode(', ', $safe);
     }
 
     /**
@@ -147,7 +190,10 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
 
         if ($title === '' || $summary === '') {
             throw new AnalysisException(
-                'Analysis result is missing the required "title" and/or "summary" key',
+                sprintf(
+                    'Analysis result is missing the required "title" and/or "summary" key (received keys: %s)',
+                    self::sanitizeKeyList(array_keys($decoded)),
+                ),
                 1749384100,
             );
         }

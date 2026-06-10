@@ -30,6 +30,7 @@
       <trans-unit id="new.section.artifacts"><source>Artifacts to generate</source></trans-unit>
       <trans-unit id="new.hint.pdfFal"><source>For "PDF file (FAL)" upload the PDF as a sys_file and attach it via the record edit view; the New form sets type, URL and extraction mode.</source></trans-unit>
       <trans-unit id="new.submit"><source>Create &amp; queue</source></trans-unit>
+      <trans-unit id="new.submitting"><source>Queuing job …</source></trans-unit>
       <trans-unit id="new.cancel"><source>Cancel</source></trans-unit>
 
       <!-- Source types -->
