@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Pipeline;
 
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
+use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 
 /**
@@ -20,6 +21,7 @@ final readonly class GenerationContext
         public ContentBrief $brief,
         public string $theme,   // 'nr' | 'neutral'
         public int $beUser,     // for BudgetService::check()
+        public ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(),
     ) {}
 
     public function jobUid(): int

@@ -12,6 +12,7 @@ use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
@@ -89,6 +90,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             new NullLogger(),
             $this->stubIngestion($document),
             $this->stubAnalyzer($brief),
+            $this->get(PromptSnippetResolver::class),
             [$generator],
         );
         $orchestrator->process($jobUid);
@@ -97,6 +99,10 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         self::assertSame('nr', $generator->seen->theme);
         self::assertSame('Quarterly report', $generator->seen->brief->title);
         self::assertSame('Revenue grew across all regions.', $generator->seen->document->text);
+        // A job without a prompt-snippet selection resolves to the empty default (real resolver).
+        self::assertSame([], $generator->seen->snippets->personas);
+        self::assertSame('', $generator->seen->snippets->schaubildSections);
+        self::assertSame('', $generator->seen->snippets->storySections);
 
         $row = $jobs->findRow($jobUid);
         self::assertSame('done', $row['status']);
@@ -146,7 +152,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             }
         };
 
-        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, [$generator]);
+        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, $this->get(PromptSnippetResolver::class), [$generator]);
         $orchestrator->process($jobUid);
 
         $row = $jobs->findRow($jobUid);
@@ -169,6 +175,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             new NullLogger(),
             $this->stubIngestion($this->stubDocument()),
             $this->stubAnalyzer($this->stubBrief()),
+            $this->get(PromptSnippetResolver::class),
             [new RecordingArtifactGenerator($jobs)],
         );
         $orchestrator->process($jobUid);

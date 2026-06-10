@@ -120,6 +120,9 @@ class StoryGenerator extends AbstractGenerator
             self::MAX_SUBLINE_CHARS,
             $brief->language,
         );
+        if ($ctx->snippets->storySections !== '') {
+            $prompt .= "\n\n" . $ctx->snippets->storySections;
+        }
         $options = new ChatOptions(
             temperature: 0.5,
             responseFormat: 'json',

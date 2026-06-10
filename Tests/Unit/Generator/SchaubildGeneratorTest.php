@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
+use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\SchaubildGenerator;
@@ -26,14 +27,18 @@ use TYPO3\CMS\Core\Resource\File;
 
 final class SchaubildGeneratorTest extends TestCase
 {
-    private function context(): GenerationContext
+    private function context(ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets()): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief = new ContentBrief('Report', 'Summary', ['A', 'B'], [['heading' => 'H', 'body' => 'B']], 'All', 'en');
 
-        return new GenerationContext(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1], $document, $brief, 'nr', 4);
+        return new GenerationContext(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1], $document, $brief, 'nr', 4, $snippets);
     }
 
+    /**
+     * Real prompt building and code-fence stripping stay active; only the Fluid theme-template
+     * seam (renderTemplate needs a booted TYPO3 view factory) is stubbed out.
+     */
     private function generator(
         HtmlToImageRendererInterface $renderer,
         ImageCompositorInterface $compositor,
@@ -41,8 +46,11 @@ final class SchaubildGeneratorTest extends TestCase
         JobFileStorage $storage,
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
+        ?CompletionServiceInterface $completion = null,
     ): SchaubildGenerator {
-        return new class($jobs, $budget, $this->completion(), $renderer, $compositor, $imageGenerator, $storage) extends SchaubildGenerator {
+        $completion ??= $this->completion();
+
+        return new class($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage) extends SchaubildGenerator {
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
@@ -55,11 +63,13 @@ final class SchaubildGeneratorTest extends TestCase
                 parent::__construct($jobs, $budget, new NullLogger(), $completion, $renderer, $compositor, $imageGenerator, $storage);
             }
 
-            protected function renderDiagramHtml(GenerationContext $ctx, bool $transparent): string
+            protected function renderTemplate(string $area, string $theme, array $variables): string
             {
-                return $transparent
-                    ? '<html><body style="background:transparent">DIAGRAM</body></html>'
-                    : '<html><body>DIAGRAM</body></html>';
+                return sprintf(
+                    '<html data-transparent="%d"><body>%s</body></html>',
+                    ($variables['transparent'] ?? false) ? 1 : 0,
+                    (string) ($variables['bodyHtml'] ?? ''),
+                );
             }
         };
     }
@@ -120,6 +130,49 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertSame(0, $imageGenerator->calls);
     }
 
+    public function testSnippetSectionsAndHintsFlowIntoTheLlmAndImagePrompts(): void
+    {
+        $completion = $this->completion();
+        $imageGenerator = $this->imageGenerator();
+        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget(), $completion);
+
+        $snippets = new ResolvedPromptSnippets(
+            schaubildSections: "TARGET AUDIENCE:\nInvestors\n\nSTYLE:\nHand-drawn sketch look",
+            audienceHint: 'Investors',
+            styleHint: 'Hand-drawn sketch look',
+        );
+        self::assertTrue($generator->generate($this->context($snippets)));
+
+        // Composed sections are appended to the diagram-body LLM prompt (both render passes).
+        foreach ($completion->prompts as $prompt) {
+            self::assertStringContainsString("TARGET AUDIENCE:\nInvestors", $prompt);
+            self::assertStringContainsString("STYLE:\nHand-drawn sketch look", $prompt);
+        }
+        // Style/audience hints are woven into both image prompts (background + ki_image).
+        self::assertCount(2, $imageGenerator->prompts);
+        foreach ($imageGenerator->prompts as $prompt) {
+            self::assertStringContainsString('Visual style: Hand-drawn sketch look', $prompt);
+            self::assertStringContainsString('Target audience: Investors', $prompt);
+        }
+    }
+
+    public function testWithoutSnippetsPromptsCarryNoSectionOrHintBlocks(): void
+    {
+        $completion = $this->completion();
+        $imageGenerator = $this->imageGenerator();
+        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+
+        foreach ($completion->prompts as $prompt) {
+            self::assertStringNotContainsString('TARGET AUDIENCE', $prompt);
+        }
+        foreach ($imageGenerator->prompts as $prompt) {
+            self::assertStringNotContainsString('Visual style:', $prompt);
+            self::assertStringNotContainsString('Target audience:', $prompt);
+        }
+    }
+
     public function testSupportsReadsWantSchaubildFlag(): void
     {
         $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget());
@@ -129,9 +182,19 @@ final class SchaubildGeneratorTest extends TestCase
     private function completion(): CompletionServiceInterface
     {
         return new class implements CompletionServiceInterface {
+            /** @var list<string> */
+            public array $prompts = [];
+
             public function complete(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
             public function completeJson(string $p, ?ChatOptions $o = null): array { throw new \LogicException('x'); }
-            public function completeMarkdown(string $p, ?ChatOptions $o = null): string { return '<p>body</p>'; }
+
+            public function completeMarkdown(string $p, ?ChatOptions $o = null): string
+            {
+                $this->prompts[] = $p;
+
+                return '<p>body</p>';
+            }
+
             public function completeFactual(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
             public function completeCreative(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
         };
@@ -170,12 +233,15 @@ final class SchaubildGeneratorTest extends TestCase
         return new class implements ImageGeneratorInterface {
             public int $calls = 0;
             public bool $available = true;
+            /** @var list<string> */
+            public array $prompts = [];
 
             public function isAvailable(): bool { return $this->available; }
 
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
                 $this->calls++;
+                $this->prompts[] = $prompt;
                 file_put_contents($outputPath, 'PNG');
             }
         };

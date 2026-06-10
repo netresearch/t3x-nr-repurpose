@@ -69,6 +69,9 @@ return [
         'want_podcast' => ['label' => 'Podcast', 'config' => ['type' => 'check', 'default' => 1]],
         'want_schaubild' => ['label' => 'Schaubild', 'config' => ['type' => 'check', 'default' => 1]],
         'want_story' => ['label' => 'Story', 'config' => ['type' => 'check', 'default' => 1]],
+        // JSON snapshot of the New-form prompt-snippet selection (PromptSnippetSelection);
+        // written by the module form only, hence passthrough (not editable in the record view).
+        'prompt_snippets' => ['config' => ['type' => 'passthrough']],
         'status' => ['label' => 'Status', 'config' => ['type' => 'input', 'readOnly' => true]],
         'progress' => ['label' => 'Progress', 'config' => ['type' => 'number', 'readOnly' => true]],
         'current_step' => ['label' => 'Step', 'config' => ['type' => 'input', 'readOnly' => true]],

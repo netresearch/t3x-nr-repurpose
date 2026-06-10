@@ -12,6 +12,8 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
+use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
+use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\PodcastGenerator;
 use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
@@ -26,7 +28,8 @@ use TYPO3\CMS\Core\Resource\File;
 
 final class PodcastGeneratorTest extends TestCase
 {
-    private function context(int $wantPodcast = 1): GenerationContext
+    /** @param list<Persona> $personas */
+    private function context(int $wantPodcast = 1, array $personas = []): GenerationContext
     {
         $document = new SourceDocument('Quarterly Report', 'Revenue grew. Costs fell.', 'https://example.com/report', 0, 'en');
         $brief = new ContentBrief(
@@ -44,14 +47,25 @@ final class PodcastGeneratorTest extends TestCase
             $brief,
             'nr',
             3,
+            new ResolvedPromptSnippets(personas: $personas),
         );
     }
 
-    private function completion(): CompletionServiceInterface
+    /** @param list<array{speaker: string, text: string}>|null $turns */
+    private function completion(?array $turns = null): CompletionServiceInterface
     {
-        return new class implements CompletionServiceInterface {
+        $turns ??= [
+            ['speaker' => 'Host A', 'text' => 'Welcome to the show.'],
+            ['speaker' => 'Host B', 'text' => 'Glad to be here.'],
+            ['speaker' => 'Host A', 'text' => 'Lets dig in.'],
+        ];
+
+        return new class($turns) implements CompletionServiceInterface {
             public ?ChatOptions $seenOptions = null;
             public string $seenPrompt = '';
+
+            /** @param list<array{speaker: string, text: string}> $turns */
+            public function __construct(private readonly array $turns) {}
 
             public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
             {
@@ -63,11 +77,7 @@ final class PodcastGeneratorTest extends TestCase
                 $this->seenPrompt = $prompt;
                 $this->seenOptions = $options;
 
-                return ['turns' => [
-                    ['speaker' => 'Host A', 'text' => 'Welcome to the show.'],
-                    ['speaker' => 'Host B', 'text' => 'Glad to be here.'],
-                    ['speaker' => 'Host A', 'text' => 'Lets dig in.'],
-                ]];
+                return ['turns' => $this->turns];
             }
 
             public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
@@ -268,6 +278,87 @@ final class PodcastGeneratorTest extends TestCase
         self::assertFalse($generator->generate($this->context()));
         self::assertSame([], $speech->calls);
         self::assertSame('failed', $jobs->updates[100]['status']);
+    }
+
+    public function testPersonaDialogueUsesPersonaNamesMetadataVoicesAndRoundRobinFallback(): void
+    {
+        $personas = [
+            new Persona('Anna', 'Curious analyst who asks sharp questions.', 'fable'),
+            new Persona('Ben', 'Skeptic who challenges every claim.', 'definitely-not-a-voice'),
+            new Persona('Cara', 'Moderator keeping the pace.'),
+        ];
+        $completion = $this->completion([
+            ['speaker' => 'Anna', 'text' => 'Welcome everyone.'],
+            ['speaker' => 'Ben', 'text' => 'I have my doubts.'],
+            ['speaker' => 'Cara', 'text' => 'Let us structure this.'],
+            ['speaker' => 'Dave', 'text' => 'Not on the guest list.'],
+        ]);
+        $speech = $this->speech();
+        $jobs = $this->jobs();
+
+        $generator = new PodcastGenerator(
+            $jobs, $this->allowingBudget(), new NullLogger(), $completion, $speech, $this->stitcher(), $this->storage(), new WebVttBuilder(),
+        );
+
+        self::assertTrue($generator->generate($this->context(1, $personas)));
+
+        // The dialogue prompt describes each persona; the JSON shape pins the persona names as speakers.
+        self::assertStringContainsString('- Anna: Curious analyst who asks sharp questions.', $completion->seenPrompt);
+        self::assertStringContainsString('- Cara: Moderator keeping the pace.', $completion->seenPrompt);
+        self::assertStringContainsString('"Anna"|"Ben"|"Cara"', (string) $completion->seenOptions?->getSystemPrompt());
+
+        // Voice mapping: valid metadata voice wins (Anna); invalid/missing fall back to the host
+        // voices round-robin (Ben = index 1 -> onyx, Cara = index 2 -> nova). The unknown speaker
+        // "Dave" is attributed to the first persona and synthesized with its voice.
+        self::assertSame(['fable', 'onyx', 'nova', 'fable'], array_column($speech->calls, 'voice'));
+
+        $update = $jobs->updates[100];
+        self::assertStringContainsString('Anna: Welcome everyone.', $update['script_text']);
+        self::assertStringContainsString('Anna: Not on the guest list.', $update['script_text']);
+        $metadata = json_decode((string) $update['metadata'], true);
+        self::assertSame(['fable', 'onyx', 'nova'], $metadata['voices']);
+        self::assertSame(['Anna', 'Ben', 'Cara'], $metadata['personas']);
+    }
+
+    public function testPersonaNamesWithQuotesAreJsonEscapedInTheSpeakerConstraint(): void
+    {
+        $personas = [
+            new Persona('Jo "The Quant" Lee', 'Numbers person.', 'fable'),
+            new Persona('Back\\slash', 'Edge-case fan.'),
+        ];
+        $completion = $this->completion([
+            ['speaker' => 'Jo "The Quant" Lee', 'text' => 'Numbers first.'],
+        ]);
+
+        $generator = new PodcastGenerator(
+            $this->jobs(), $this->allowingBudget(), new NullLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+        );
+
+        self::assertTrue($generator->generate($this->context(1, $personas)));
+
+        // Each name is JSON-encoded, so quotes/backslashes cannot malform the shape constraint.
+        self::assertStringContainsString(
+            '{"turns":[{"speaker":"Jo \"The Quant\" Lee"|"Back\\\\slash","text":"..."}]}',
+            (string) $completion->seenOptions?->getSystemPrompt(),
+        );
+    }
+
+    public function testWithoutPersonasDialogueKeepsTheTwoHostShape(): void
+    {
+        $completion = $this->completion();
+        $jobs = $this->jobs();
+
+        $generator = new PodcastGenerator(
+            $jobs, $this->allowingBudget(), new NullLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+        );
+
+        self::assertTrue($generator->generate($this->context()));
+        self::assertStringNotContainsString('Hosts:', $completion->seenPrompt);
+        self::assertStringContainsString('"speaker":"Host A"|"Host B"', (string) $completion->seenOptions?->getSystemPrompt());
+
+        $metadata = json_decode((string) $jobs->updates[100]['metadata'], true);
+        self::assertSame(['nova', 'onyx'], $metadata['voices']);
+        self::assertArrayNotHasKey('personas', $metadata);
     }
 
     public function testSupportsReadsWantPodcastFlag(): void

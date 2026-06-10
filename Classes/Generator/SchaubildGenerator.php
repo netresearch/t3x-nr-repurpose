@@ -175,6 +175,9 @@ class SchaubildGenerator extends AbstractGenerator
             $keyPoints,
             $brief->language,
         );
+        if ($ctx->snippets->schaubildSections !== '') {
+            $prompt .= "\n\n" . $ctx->snippets->schaubildSections;
+        }
         $options = new ChatOptions(
             temperature: 0.3,
             systemPrompt: 'You are an information designer. Output a raw HTML fragment only — '
@@ -231,7 +234,7 @@ class SchaubildGenerator extends AbstractGenerator
             . 'leave the center calm for an overlay. Theme: %s.',
             $ctx->brief->title,
             $ctx->theme === 'nr' ? 'teal and orange corporate' : 'neutral light',
-        );
+        ) . $this->imageHints($ctx);
     }
 
     private function kiImagePrompt(GenerationContext $ctx): string
@@ -243,6 +246,23 @@ class SchaubildGenerator extends AbstractGenerator
             . 'Flat modern style, clear sections and arrows.',
             $ctx->brief->title,
             $keyPoints,
-        );
+        ) . $this->imageHints($ctx);
+    }
+
+    /**
+     * Style/audience guidance for the image prompts, woven in from the job's resolved
+     * prompt snippets. Empty without snippets, keeping the prompts byte-identical.
+     */
+    private function imageHints(GenerationContext $ctx): string
+    {
+        $hints = '';
+        if ($ctx->snippets->styleHint !== '') {
+            $hints .= ' Visual style: ' . $ctx->snippets->styleHint;
+        }
+        if ($ctx->snippets->audienceHint !== '') {
+            $hints .= ' Target audience: ' . $ctx->snippets->audienceHint;
+        }
+
+        return $hints;
     }
 }
