@@ -19,7 +19,7 @@ use Netresearch\NrRepurpose\Rendering\RenderingException;
  */
 final class DallEImageGenerator implements ImageGeneratorInterface
 {
-    private const MODEL = 'gpt-image-2';
+    public const MODEL = 'gpt-image-2';
 
     public function __construct(private readonly DallEImageService $dalle) {}
 

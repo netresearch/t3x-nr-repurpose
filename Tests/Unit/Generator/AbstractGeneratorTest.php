@@ -39,7 +39,11 @@ final class AbstractGeneratorTest extends TestCase
     private function subject(AbstractLogger $logger): object
     {
         $jobs = new class extends JobProcessingRepository {
-            public function __construct() {}
+            public function __construct()
+            {
+                // Intentionally empty: bypasses the parent's ConnectionPool wiring —
+                // this test never touches the database.
+            }
         };
         $budget = new class implements BudgetServiceInterface {
             public function check(int $beUserUid, float $plannedCost = 0.0): BudgetCheckResult

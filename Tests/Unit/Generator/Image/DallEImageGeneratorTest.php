@@ -9,12 +9,10 @@ use PHPUnit\Framework\TestCase;
 
 final class DallEImageGeneratorTest extends TestCase
 {
-    public function testGetModelReportsTheGptImage2Model(): void
+    public function testModelConstantPinsTheGptImage2Model(): void
     {
-        // getModel() only reads the class constant; bypass the constructor so the test
-        // does not need a (final) nr-llm DallEImageService instance.
-        $generator = (new \ReflectionClass(DallEImageGenerator::class))->newInstanceWithoutConstructor();
-
-        self::assertSame('gpt-image-2', $generator->getModel());
+        // getModel() returns this constant verbatim; asserting the constant pins the
+        // model without reflection (nr-llm's DallEImageService is final, not mockable).
+        self::assertSame('gpt-image-2', DallEImageGenerator::MODEL);
     }
 }

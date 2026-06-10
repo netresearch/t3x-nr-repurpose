@@ -17,7 +17,11 @@ final class StatusRecordingJobRepository extends JobProcessingRepository
     /** @var list<array{jobUid: int, status: JobStatus, step: string|null, progress: int|null}> */
     public array $calls = [];
 
-    public function __construct() {}
+    public function __construct()
+    {
+        // Intentionally empty: bypasses the parent's ConnectionPool wiring —
+        // the fixture only records markStatus() calls in memory.
+    }
 
     public function markStatus(int $jobUid, JobStatus $status, ?string $currentStep = null, ?int $progress = null): void
     {
