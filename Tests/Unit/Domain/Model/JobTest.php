@@ -10,6 +10,7 @@ use Netresearch\NrRepurpose\Domain\Model\Artifact;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Extbase\DomainObject\AbstractDomainObject;
 
 final class JobTest extends TestCase
 {
@@ -51,6 +52,31 @@ final class JobTest extends TestCase
         self::assertSame(ArtifactStatus::Failed, $summaries[0]->status);
     }
 
+    public function testGetStoryArtifactsReturnsOnlyStorySlidesInSlideOrder(): void
+    {
+        $job = new Job();
+        $job->getArtifacts()->attach($this->storyArtifact('schaubild', 'html', 1));
+        $job->getArtifacts()->attach($this->storyArtifact('story', 'slide-2', 12));
+        $job->getArtifacts()->attach($this->storyArtifact('story', 'slide-1', 11));
+        $job->getArtifacts()->attach($this->storyArtifact('podcast', 'default', 2));
+
+        $slides = $job->getStoryArtifacts();
+
+        self::assertCount(2, $slides);
+        self::assertSame(['slide-1', 'slide-2'], array_map(
+            static fn (Artifact $a): string => $a->getVariant(),
+            $slides,
+        ));
+    }
+
+    public function testGetStoryArtifactsIsEmptyWithoutStorySlides(): void
+    {
+        $job = new Job();
+        $job->getArtifacts()->attach($this->storyArtifact('podcast', 'default', 1));
+
+        self::assertSame([], $job->getStoryArtifacts());
+    }
+
     private static function artifact(ArtifactType $type, ArtifactStatus $status): Artifact
     {
         return new class($type, $status) extends Artifact {
@@ -60,5 +86,16 @@ final class JobTest extends TestCase
                 $this->status = $status->value;
             }
         };
+    }
+
+    /** Raw-string variant with an explicit uid — getStoryArtifacts() sorts by uid. */
+    private function storyArtifact(string $type, string $variant, int $uid): Artifact
+    {
+        $artifact = new Artifact();
+        (new \ReflectionProperty(Artifact::class, 'type'))->setValue($artifact, $type);
+        (new \ReflectionProperty(Artifact::class, 'variant'))->setValue($artifact, $variant);
+        (new \ReflectionProperty(AbstractDomainObject::class, 'uid'))->setValue($artifact, $uid);
+
+        return $artifact;
     }
 }
