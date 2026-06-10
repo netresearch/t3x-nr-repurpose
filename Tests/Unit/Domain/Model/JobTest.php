@@ -9,6 +9,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Model\Artifact;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
+use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Extbase\DomainObject\AbstractDomainObject;
 
@@ -88,6 +89,32 @@ final class JobTest extends TestCase
         $job->getArtifacts()->attach($this->storyArtifact('podcast', 'default', 1));
 
         self::assertSame([], $job->getStoryArtifacts());
+    }
+
+    public function testPromptSnippetSelectionIsEmptyByDefault(): void
+    {
+        $job = new Job();
+
+        self::assertSame('', $job->getPromptSnippets());
+        self::assertTrue($job->getPromptSnippetSelection()->isEmpty());
+    }
+
+    public function testPromptSnippetSelectionRoundTripsThroughTheJsonColumn(): void
+    {
+        $job = new Job();
+        $job->setPromptSnippetSelection(new PromptSnippetSelection(audience: 5, tone: 6, personas: [7, 8], storyStyle: 9));
+
+        // Persisted as the agreed JSON shape ...
+        self::assertSame(
+            ['audience' => 5, 'tone' => 6, 'personas' => [7, 8], 'schaubild' => ['layout' => 0, 'style' => 0], 'story' => ['layout' => 0, 'style' => 9]],
+            json_decode($job->getPromptSnippets(), true),
+        );
+
+        // ... and read back as an equal value object.
+        $restored = $job->getPromptSnippetSelection();
+        self::assertSame(5, $restored->audience);
+        self::assertSame([7, 8], $restored->personas);
+        self::assertSame(9, $restored->storyStyle);
     }
 
     private static function artifact(ArtifactType $type, ArtifactStatus $status): Artifact

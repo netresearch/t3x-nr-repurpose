@@ -10,6 +10,7 @@ use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
+use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
@@ -22,6 +23,7 @@ class Job extends AbstractEntity
     protected bool $wantPodcast = true;
     protected bool $wantSchaubild = true;
     protected bool $wantStory = true;
+    protected string $promptSnippets = '';
     protected string $status = 'queued';
     protected int $progress = 0;
     protected string $currentStep = '';
@@ -150,6 +152,26 @@ class Job extends AbstractEntity
     public function setWantStory(bool $wantStory): void
     {
         $this->wantStory = $wantStory;
+    }
+
+    public function getPromptSnippets(): string
+    {
+        return $this->promptSnippets;
+    }
+
+    public function setPromptSnippets(string $promptSnippets): void
+    {
+        $this->promptSnippets = $promptSnippets;
+    }
+
+    public function getPromptSnippetSelection(): PromptSnippetSelection
+    {
+        return PromptSnippetSelection::fromJson($this->promptSnippets);
+    }
+
+    public function setPromptSnippetSelection(PromptSnippetSelection $selection): void
+    {
+        $this->promptSnippets = $selection->toJson();
     }
 
     public function getStatus(): string

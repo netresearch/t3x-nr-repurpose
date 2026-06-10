@@ -8,6 +8,7 @@ CREATE TABLE tx_nrrepurpose_domain_model_job (
     want_podcast smallint unsigned DEFAULT 1 NOT NULL,
     want_schaubild smallint unsigned DEFAULT 1 NOT NULL,
     want_story smallint unsigned DEFAULT 1 NOT NULL,
+    prompt_snippets text,
     status varchar(16) DEFAULT 'queued' NOT NULL,
     progress int unsigned DEFAULT 0 NOT NULL,
     current_step varchar(255) DEFAULT '' NOT NULL,
