@@ -80,4 +80,17 @@ class Artifact extends AbstractEntity
     {
         return $this->metadata;
     }
+
+    /**
+     * The decoded metadata JSON for Fluid (e.g. slide role/index/total on story slides).
+     * Empty or invalid metadata decodes to an empty array.
+     *
+     * @return array<string, mixed>
+     */
+    public function getMetadataArray(): array
+    {
+        $decoded = json_decode($this->metadata, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
 }

@@ -53,7 +53,7 @@
       <trans-unit id="artifact.schaubild"><source>Schaubild</source><target>Schaubild</target></trans-unit>
       <trans-unit id="artifact.schaubild.desc"><source>An explanatory diagram image in three design variants. Visualises the key points of the source at a glance — pick the variant you like best.</source><target>Ein erklärendes Schaubild in drei Gestaltungsvarianten. Visualisiert die Kernpunkte der Quelle auf einen Blick — wählen Sie die passende Variante.</target></trans-unit>
       <trans-unit id="artifact.story"><source>Story</source><target>Story</target></trans-unit>
-      <trans-unit id="artifact.story.desc"><source>A vertical 9:16 image made for Instagram / social-media stories — a shareable visual teaser of the content.</source><target>Ein vertikales 9:16-Bild für Instagram- / Social-Media-Storys — ein teilbarer visueller Vorgeschmack auf den Inhalt.</target></trans-unit>
+      <trans-unit id="artifact.story.desc"><source>A vertical 9:16 slide carousel made for Instagram / social-media stories — a cover hook, one slide per key point and an outro with the source attribution.</source><target>Eine vertikale 9:16-Slide-Strecke für Instagram- / Social-Media-Storys — ein Cover als Einstieg, eine Slide je Kernpunkt und ein Abschluss mit Quellenangabe.</target></trans-unit>
 
       <!-- Show view -->
       <trans-unit id="show.title"><source>Job #%d</source><target>Auftrag #%d</target></trans-unit>
@@ -72,6 +72,7 @@
       <trans-unit id="show.download.vtt"><source>Download subtitles (VTT)</source><target>Untertitel herunterladen (VTT)</target></trans-unit>
       <trans-unit id="show.download.png"><source>Download PNG</source><target>PNG herunterladen</target></trans-unit>
       <trans-unit id="show.preview.alt"><source>Preview of the generated %s (%s variant)</source><target>Vorschau des generierten %s (Variante %s)</target></trans-unit>
+      <trans-unit id="show.story.slide.alt"><source>Story slide %s of %s</source><target>Story-Slide %s von %s</target></trans-unit>
 
       <!-- Job status labels -->
       <trans-unit id="status.queued"><source>Queued</source><target>Eingereiht</target></trans-unit>

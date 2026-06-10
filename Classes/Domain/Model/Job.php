@@ -222,4 +222,24 @@ class Job extends AbstractEntity
 
         return $summaries;
     }
+
+    /**
+     * The story-carousel slides in slide order (the generator inserts slide-1…slide-N
+     * sequentially, so ascending uid is the carousel order). Used by the result view to
+     * render the slide strip.
+     *
+     * @return list<Artifact>
+     */
+    public function getStoryArtifacts(): array
+    {
+        $slides = [];
+        foreach ($this->artifacts as $artifact) {
+            if ($artifact->getType() === ArtifactType::Story->value) {
+                $slides[] = $artifact;
+            }
+        }
+        usort($slides, static fn (Artifact $a, Artifact $b): int => ($a->getUid() ?? 0) <=> ($b->getUid() ?? 0));
+
+        return $slides;
+    }
 }
