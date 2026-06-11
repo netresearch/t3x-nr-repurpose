@@ -307,11 +307,17 @@ class StoryGenerator extends AbstractGenerator
 
     private function backgroundPrompt(GenerationContext $ctx): string
     {
-        return sprintf(
+        $prompt = sprintf(
             'Vertical 9:16 abstract background for an Instagram story about "%s". No text, soft '
             . 'gradients, leave space top and bottom for overlaid copy. Theme: %s.',
             $ctx->brief->title,
             $ctx->theme === 'nr' ? 'teal and orange corporate' : 'neutral light',
         );
+
+        // Prepend the editor-maintained style preamble (the steering nr-llm Configuration's
+        // system prompt) so it is part of the exact prompt sent AND recorded in the metadata.
+        $preamble = $this->imageGenerator->getPromptPreamble();
+
+        return $preamble !== '' ? $preamble . "\n\n" . $prompt : $prompt;
     }
 }

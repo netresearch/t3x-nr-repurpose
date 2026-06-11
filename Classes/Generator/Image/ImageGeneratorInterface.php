@@ -20,6 +20,14 @@ interface ImageGeneratorInterface
     public function getModel(): string;
 
     /**
+     * Editor-maintained style preamble for every image prompt ('' when none) — the system
+     * prompt of the steering nr-llm Configuration record. Generators prepend it when
+     * building their image prompts, BEFORE recording the prompt in artifact metadata,
+     * so the recorded prompt stays the exact text that was sent.
+     */
+    public function getPromptPreamble(): string;
+
+    /**
      * Generate an image from $prompt at the given $size (e.g. 1024x1024, 1792x1024, 1024x1792)
      * and write it to $outputPath (PNG).
      *

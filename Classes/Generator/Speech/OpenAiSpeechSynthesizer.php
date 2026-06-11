@@ -10,14 +10,18 @@ use Netresearch\NrRepurpose\Rendering\RenderingException;
 
 /**
  * Default SpeechSynthesizerInterface: delegates to nr-llm's TextToSpeechService (OpenAI TTS).
- * The effective model comes from nr-llm's Model registry (the active text-to-speech model,
- * preferring the default record) and falls back to tts-1 when the registry has none, so
- * editors switch models in the nr-llm backend module without code changes.
- * Turns are short (one dialogue line), so synthesizeToFile (<=4096 chars) is sufficient.
+ * The effective model resolves through nr-llm's three-tier system: the "nr_repurpose_tts"
+ * Configuration record decides (editors swap the model there without touching any
+ * consumer), falling back to the registry's active text-to-speech model and finally to
+ * tts-1. Turns are short (one dialogue line), so synthesizeToFile (<=4096 chars) is
+ * sufficient.
  */
 final class OpenAiSpeechSynthesizer implements SpeechSynthesizerInterface
 {
-    /** Documented fallback when nr-llm's Model registry has no active text-to-speech model. */
+    /** The nr-llm Configuration record (identifier) steering speech synthesis. */
+    public const CONFIGURATION = 'nr_repurpose_tts';
+
+    /** Documented fallback when neither the Configuration nor the Model registry resolves. */
     public const MODEL = 'tts-1';
 
     /** Effective model, resolved lazily once per instance by getModel(). */
@@ -31,18 +35,23 @@ final class OpenAiSpeechSynthesizer implements SpeechSynthesizerInterface
     }
 
     /**
-     * The effective model: the active text-to-speech model from nr-llm's Model registry,
-     * falling back to self::MODEL. synthesizeToFile() uses the same resolved value, so the
-     * podcast metadata recorded from this method always names the model that actually ran.
+     * The effective model: the "nr_repurpose_tts" Configuration's model, else the active
+     * text-to-speech model from nr-llm's Model registry, else self::MODEL.
+     * synthesizeToFile() uses the same resolved value, so the podcast metadata recorded
+     * from this method always names the model that actually ran.
      */
     public function getModel(): string
     {
-        // The method_exists() guard keeps the extension installable against an nr-llm
-        // dev-main without resolveDefaultModel(); drop it once nr-llm's specialized
-        // model registry change is merged and required here.
-        $this->model ??= method_exists($this->tts, 'resolveDefaultModel')
-            ? $this->tts->resolveDefaultModel(self::MODEL)
-            : self::MODEL;
+        // The method_exists() guards keep the extension installable against an nr-llm
+        // dev-main without the configuration-resolution layer; drop them once nr-llm's
+        // specialized configuration change is merged and required here.
+        $this->model ??= match (true) {
+            method_exists($this->tts, 'resolveModelForConfiguration')
+                => $this->tts->resolveModelForConfiguration(self::CONFIGURATION, self::MODEL),
+            method_exists($this->tts, 'resolveDefaultModel')
+                => $this->tts->resolveDefaultModel(self::MODEL),
+            default => self::MODEL,
+        };
 
         return $this->model;
     }
@@ -53,10 +62,26 @@ final class OpenAiSpeechSynthesizer implements SpeechSynthesizerInterface
             $this->tts->synthesizeToFile(
                 mb_substr($text, 0, 4096),
                 $outputPath,
-                new SpeechSynthesisOptions(model: $this->getModel(), voice: $voice, format: 'mp3'),
+                $this->buildOptions($voice),
             );
         } catch (\Throwable $e) {
             throw RenderingException::because('TTS synthesis failed: ' . $e->getMessage(), 1749410000, $e);
         }
+    }
+
+    /**
+     * The 'configuration' option is pure usage-attribution metadata in nr-llm (per-
+     * configuration cost breakdowns); pass it only when the installed options class
+     * already carries the property — a named argument unknown to the constructor
+     * would be a fatal, not a graceful degradation.
+     */
+    private function buildOptions(string $voice): SpeechSynthesisOptions
+    {
+        $arguments = ['model' => $this->getModel(), 'voice' => $voice, 'format' => 'mp3'];
+        if (property_exists(SpeechSynthesisOptions::class, 'configuration')) {
+            $arguments['configuration'] = self::CONFIGURATION;
+        }
+
+        return new SpeechSynthesisOptions(...$arguments);
     }
 }
