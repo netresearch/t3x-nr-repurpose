@@ -110,4 +110,38 @@ final class GdImageCompositorTest extends TestCase
         $this->expectException(RenderingException::class);
         (new GdImageCompositor())->overlay($this->tmpDir . '/does-not-exist.png', $fg, $this->tmpDir . '/o.png');
     }
+
+    public function testRequiredBytesBudgetsBackgroundPlusTwoForegroundSizedImages(): void
+    {
+        // background + (foreground + canvas at foreground size), 8 bytes/pixel.
+        self::assertSame((100 * 50 + 2 * 200 * 80) * 8, GdImageCompositor::requiredBytes(100, 50, 200, 80));
+    }
+
+    public function testMemoryLimitParsesIniShorthandAndUnlimited(): void
+    {
+        self::assertSame(256 * 1024 ** 2, GdImageCompositor::memoryLimitBytes('256M'));
+        self::assertSame(1024 ** 3, GdImageCompositor::memoryLimitBytes('1G'));
+        self::assertSame(64 * 1024, GdImageCompositor::memoryLimitBytes('64K'));
+        self::assertSame(123456, GdImageCompositor::memoryLimitBytes('123456'));
+        self::assertSame(PHP_INT_MAX, GdImageCompositor::memoryLimitBytes('-1'));
+    }
+
+    public function testOversizedCompositeFailsTheArtifactInsteadOfFatallingTheWorker(): void
+    {
+        // A 1536x1024 background onto a 2400x3696 render (real gpt-image-2 +
+        // 2x-scaled HTML sizes) projects ~148MB — more than the 64MB budget here.
+        // The guard throws the catchable RenderingException instead of letting GD
+        // fatal the worker mid-message (the phpunit runtime is unlimited, so the
+        // budget is injected; overlay() wires the real ini-based budget).
+        try {
+            GdImageCompositor::assertFits(1536, 1024, 2400, 3696, 64 * 1024 ** 2);
+            self::fail('Expected the memory guard to reject the oversized composite');
+        } catch (RenderingException $e) {
+            self::assertStringContainsString('memory', $e->getMessage());
+        }
+
+        // The same pair fits comfortably into a 1G budget — no exception.
+        GdImageCompositor::assertFits(1536, 1024, 2400, 3696, 1024 ** 3);
+        self::assertTrue(true);
+    }
 }
