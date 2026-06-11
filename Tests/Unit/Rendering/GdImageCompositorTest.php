@@ -124,6 +124,11 @@ final class GdImageCompositorTest extends TestCase
         self::assertSame(64 * 1024, GdImageCompositor::memoryLimitBytes('64K'));
         self::assertSame(123456, GdImageCompositor::memoryLimitBytes('123456'));
         self::assertSame(PHP_INT_MAX, GdImageCompositor::memoryLimitBytes('-1'));
+        // Unavailable (ini_get false → ''), zero, or garbage limits must read as
+        // unlimited — a zero/negative budget would falsely reject every composite.
+        self::assertSame(PHP_INT_MAX, GdImageCompositor::memoryLimitBytes(''));
+        self::assertSame(PHP_INT_MAX, GdImageCompositor::memoryLimitBytes('0'));
+        self::assertSame(PHP_INT_MAX, GdImageCompositor::memoryLimitBytes('nonsense'));
     }
 
     public function testOversizedCompositeFailsTheArtifactInsteadOfFatallingTheWorker(): void

@@ -108,17 +108,25 @@ final class GdImageCompositor implements ImageCompositorInterface
     public static function memoryLimitBytes(string $limit): int
     {
         $limit = trim($limit);
-        if ($limit === '-1') {
+        // Unlimited (-1), unavailable (ini_get false → ''), or nonsense values
+        // must never produce a zero/negative budget — that would reject EVERY
+        // composite as a false positive. Unlimited is the safe interpretation.
+        if ($limit === '-1' || $limit === '') {
             return PHP_INT_MAX;
         }
         $value = (int) $limit;
+        if ($value <= 0) {
+            return PHP_INT_MAX;
+        }
 
-        return match (strtoupper(substr($limit, -1))) {
+        $bytes = match (strtoupper(substr($limit, -1))) {
             'G' => $value * 1024 ** 3,
             'M' => $value * 1024 ** 2,
             'K' => $value * 1024,
             default => $value,
         };
+
+        return $bytes <= 0 ? PHP_INT_MAX : $bytes;
     }
 
     /**
