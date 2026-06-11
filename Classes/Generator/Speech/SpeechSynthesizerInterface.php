@@ -14,6 +14,12 @@ interface SpeechSynthesizerInterface
     public function isAvailable(): bool;
 
     /**
+     * The TTS model id this synthesizer calls (e.g. "tts-1"). The podcast generator records
+     * it in the artifact metadata so the result view shows the model that actually ran.
+     */
+    public function getModel(): string;
+
+    /**
      * Synthesize $text in the given voice and write the audio to $outputPath (mp3).
      *
      * @throws \Netresearch\NrRepurpose\Rendering\RenderingException on synthesis failure

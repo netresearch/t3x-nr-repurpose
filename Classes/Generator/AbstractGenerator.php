@@ -81,7 +81,7 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
      *   image      image-generation prompt
      *   imageModel image model id (ImageGeneratorInterface::getModel())
      *   imageSize  effective image size used ("WIDTHxHEIGHT")
-     *   ttsModel   TTS model id
+     *   ttsModel   TTS model id (SpeechSynthesizerInterface::getModel())
      *   voices     per-speaker TTS voice map {speaker: voice}
      *
      * The Show view renders this object in the per-artifact "Generation parameters" panel.

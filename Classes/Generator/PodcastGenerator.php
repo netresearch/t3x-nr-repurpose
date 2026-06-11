@@ -37,8 +37,6 @@ final class PodcastGenerator extends AbstractGenerator
 {
     private const VOICE_HOST_A = 'nova';
     private const VOICE_HOST_B = 'onyx';
-    // Mirrors the model OpenAiSpeechSynthesizer passes to nr-llm's TextToSpeechService.
-    private const TTS_MODEL = 'tts-1';
     private const TTS_COST_PER_TURN = 0.015;
     private const SCRIPT_COST = 0.02;
 
@@ -359,14 +357,17 @@ final class PodcastGenerator extends AbstractGenerator
         $voiceMap = $personaVoices === []
             ? ['Host A' => self::VOICE_HOST_A, 'Host B' => self::VOICE_HOST_B]
             : $personaVoices;
+        // The synthesizer resolves the effective model (nr-llm Model registry, with a
+        // hardcoded fallback), so the metadata names the model that actually ran.
+        $ttsModel = $this->speech->getModel();
         $metadata = [
             'voices' => array_values($voiceMap),
             'turns' => $turnCount,
-            'ttsModel' => self::TTS_MODEL,
+            'ttsModel' => $ttsModel,
             'prompts' => $this->promptsMetadata(
                 system: $systemPrompt,
                 user: $userPrompt,
-                ttsModel: self::TTS_MODEL,
+                ttsModel: $ttsModel,
                 voices: $voiceMap,
             ),
         ];
