@@ -169,6 +169,10 @@ final class StoryGeneratorTest extends TestCase
         $imageGenerator = new class implements ImageGeneratorInterface {
             public function isAvailable(): bool { return true; }
             public function getModel(): string { return 'stub-image-model'; }
+
+            public string $promptPreamble = '';
+
+            public function getPromptPreamble(): string { return $this->promptPreamble; }
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
                 throw new \RuntimeException('image service exploded');
@@ -505,6 +509,10 @@ final class StoryGeneratorTest extends TestCase
             public function isAvailable(): bool { return $this->available; }
 
             public function getModel(): string { return 'stub-image-model'; }
+
+            public string $promptPreamble = '';
+
+            public function getPromptPreamble(): string { return $this->promptPreamble; }
 
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {

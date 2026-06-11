@@ -286,24 +286,36 @@ class SchaubildGenerator extends AbstractGenerator
 
     private function backgroundPrompt(GenerationContext $ctx): string
     {
-        return sprintf(
+        return $this->withImagePreamble(sprintf(
             'Abstract, subtle background for an infographic about "%s". Soft gradients, no text, '
             . 'leave the center calm for an overlay. Theme: %s.',
             $ctx->brief->title,
             $ctx->theme === 'nr' ? 'teal and orange corporate' : 'neutral light',
-        ) . $this->imageHints($ctx);
+        ) . $this->imageHints($ctx));
     }
 
     private function kiImagePrompt(GenerationContext $ctx): string
     {
         $keyPoints = implode('; ', $ctx->brief->keyPoints);
 
-        return sprintf(
+        return $this->withImagePreamble(sprintf(
             'A polished infographic/diagram illustrating "%s". Key points: %s. '
             . 'Flat modern style, clear sections and arrows.',
             $ctx->brief->title,
             $keyPoints,
-        ) . $this->imageHints($ctx);
+        ) . $this->imageHints($ctx));
+    }
+
+    /**
+     * Prepend the editor-maintained style preamble (the steering nr-llm Configuration's
+     * system prompt) so it is part of the exact prompt sent AND recorded in the metadata.
+     * Empty preamble keeps the prompt byte-identical.
+     */
+    private function withImagePreamble(string $prompt): string
+    {
+        $preamble = $this->imageGenerator->getPromptPreamble();
+
+        return $preamble !== '' ? $preamble . "\n\n" . $prompt : $prompt;
     }
 
     /**

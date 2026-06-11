@@ -132,6 +132,22 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertSame(0, $imageGenerator->calls);
     }
 
+    public function testImagePromptPreambleIsPrependedToBothAiImagePrompts(): void
+    {
+        $imageGenerator = $this->imageGenerator();
+        $imageGenerator->promptPreamble = 'Always use the corporate teal palette.';
+        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget(), $this->completion());
+
+        self::assertTrue($generator->generate($this->context(new ResolvedPromptSnippets())));
+
+        // The editor-maintained preamble leads both image prompts (background + ki_image),
+        // so the exact sent text — preamble included — is what lands in the metadata.
+        self::assertCount(2, $imageGenerator->prompts);
+        foreach ($imageGenerator->prompts as $prompt) {
+            self::assertStringStartsWith("Always use the corporate teal palette.\n\n", $prompt);
+        }
+    }
+
     public function testSnippetSectionsAndHintsFlowIntoTheLlmAndImagePrompts(): void
     {
         $completion = $this->completion();
@@ -330,6 +346,10 @@ final class SchaubildGeneratorTest extends TestCase
             public function isAvailable(): bool { return $this->available; }
 
             public function getModel(): string { return 'stub-image-model'; }
+
+            public string $promptPreamble = '';
+
+            public function getPromptPreamble(): string { return $this->promptPreamble; }
 
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
