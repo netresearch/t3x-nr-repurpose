@@ -112,6 +112,11 @@ final class PodcastGeneratorTest extends TestCase
                 return $this->available;
             }
 
+            public function getModel(): string
+            {
+                return 'stub-tts-model';
+            }
+
             public function synthesizeToFile(string $text, string $voice, string $outputPath): void
             {
                 file_put_contents($outputPath, 'AUDIO:' . $text);
@@ -377,11 +382,15 @@ final class PodcastGeneratorTest extends TestCase
 
         self::assertTrue($generator->generate($this->context()));
 
-        $prompts = json_decode((string) $jobs->updates[100]['metadata'], true)['prompts'];
+        $metadata = json_decode((string) $jobs->updates[100]['metadata'], true);
+        $prompts = $metadata['prompts'];
         // The exact LLM call, verbatim and complete.
         self::assertSame($completion->seenPrompt, $prompts['user']);
         self::assertSame((string) $completion->seenOptions?->getSystemPrompt(), $prompts['system']);
-        self::assertSame('tts-1', $prompts['ttsModel']);
+        // Both surfaces carry whatever model the synthesizer resolves (here: the stub's),
+        // so a registry-switched model shows up in the artifact metadata, not a hardcoded id.
+        self::assertSame('stub-tts-model', $metadata['ttsModel']);
+        self::assertSame('stub-tts-model', $prompts['ttsModel']);
         self::assertSame(['Host A' => 'nova', 'Host B' => 'onyx'], $prompts['voices']);
     }
 
