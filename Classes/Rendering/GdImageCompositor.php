@@ -16,8 +16,21 @@ namespace Netresearch\NrRepurpose\Rendering;
  */
 final class GdImageCompositor implements ImageCompositorInterface
 {
+    /**
+     * GD holds roughly this many bytes per pixel for a truecolor image (4 channel
+     * bytes plus internal row/struct overhead; empirically 5–8 — we budget high).
+     */
+    private const GD_BYTES_PER_PIXEL = 8;
+
     public function overlay(string $backgroundPng, string $foregroundPng, string $outPath): string
     {
+        // Pre-flight from the PNG headers (no decode): background + foreground +
+        // output canvas live in memory simultaneously. Without this guard an
+        // oversized pair fatals the PHP worker mid-message — unreachable by any
+        // try/catch — and leaves the job in an hourly crash-redeliver loop.
+        // Failing here surfaces as a regular failed artifact instead.
+        $this->assertEnoughMemory($backgroundPng, $foregroundPng);
+
         // GdImage instances are freed by the garbage collector when they go out of scope
         // (imagedestroy() is a deprecated no-op since PHP 8.0).
         $background = $this->load($backgroundPng);
@@ -77,6 +90,82 @@ final class GdImageCompositor implements ImageCompositorInterface
         $cropH = (int) round($srcW * $targetH / $targetW);
 
         return [0, (int) round(($srcH - $cropH) / 2), $srcW, max(1, $cropH)];
+    }
+
+    /**
+     * Projected GD memory for compositing the two images (background + foreground
+     * + a canvas at foreground size), in bytes. Pure so it is unit-testable.
+     */
+    public static function requiredBytes(int $bgW, int $bgH, int $fgW, int $fgH): int
+    {
+        return ($bgW * $bgH + 2 * $fgW * $fgH) * self::GD_BYTES_PER_PIXEL;
+    }
+
+    /**
+     * Parse a php.ini memory_limit value ('256M', '1G', bytes, or -1) into bytes;
+     * -1 (unlimited) returns PHP_INT_MAX. Pure so it is unit-testable.
+     */
+    public static function memoryLimitBytes(string $limit): int
+    {
+        $limit = trim($limit);
+        // Unlimited (-1), unavailable (ini_get false → ''), or nonsense values
+        // must never produce a zero/negative budget — that would reject EVERY
+        // composite as a false positive. Unlimited is the safe interpretation.
+        if ($limit === '-1' || $limit === '') {
+            return PHP_INT_MAX;
+        }
+        $value = (int) $limit;
+        if ($value <= 0) {
+            return PHP_INT_MAX;
+        }
+
+        $bytes = match (strtoupper(substr($limit, -1))) {
+            'G' => $value * 1024 ** 3,
+            'M' => $value * 1024 ** 2,
+            'K' => $value * 1024,
+            default => $value,
+        };
+
+        return $bytes <= 0 ? PHP_INT_MAX : $bytes;
+    }
+
+    /**
+     * Throw the catchable RenderingException when the projected composite does not
+     * fit the given memory budget. Pure (budget injected) so it is unit-testable —
+     * the worker's real budget comes from assertEnoughMemory().
+     */
+    public static function assertFits(int $bgW, int $bgH, int $fgW, int $fgH, int $availableBytes): void
+    {
+        $needed = self::requiredBytes($bgW, $bgH, $fgW, $fgH);
+        if ($needed > $availableBytes) {
+            throw RenderingException::because(sprintf(
+                'Compositing %dx%d onto %dx%d needs ~%dMB but only ~%dMB PHP memory is free '
+                . '— raise the worker memory_limit or reduce the image/render size',
+                $bgW,
+                $bgH,
+                $fgW,
+                $fgH,
+                (int) ceil($needed / 1024 ** 2),
+                max(0, (int) floor($availableBytes / 1024 ** 2)),
+            ), 1749400208);
+        }
+    }
+
+    private function assertEnoughMemory(string $backgroundPng, string $foregroundPng): void
+    {
+        $bg = @getimagesize($backgroundPng);
+        $fg = @getimagesize($foregroundPng);
+        if ($bg === false || $fg === false) {
+            return; // not a readable image — load() raises the precise error
+        }
+
+        self::assertFits(
+            $bg[0],
+            $bg[1],
+            $fg[0],
+            $fg[1],
+            self::memoryLimitBytes((string) ini_get('memory_limit')) - memory_get_usage(true),
+        );
     }
 
     private function load(string $path): \GdImage
