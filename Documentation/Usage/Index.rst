@@ -63,8 +63,9 @@ record:
    * - Audience / Tone of voice / Persona / Layout / Style
      - selects, populated from nr-llm prompt snippets
      - Optional prompt steering; each option shows the snippet's description.
-       *Persona* shapes the podcast hosts, *layout* and *style* shape the AI
-       imagery — a layout's ``imageSize`` metadata sets the image dimensions
+       Up to three *personas* define the podcast speakers (name, character,
+       optional own voice); *layout* and *style* shape the AI imagery — a
+       layout's ``imageSize`` metadata sets the image dimensions
        (see :ref:`configuration-snippets`).
    * - Podcast / Schaubild / Story
      - checkboxes (all on by default)

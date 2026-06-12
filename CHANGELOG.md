@@ -16,7 +16,8 @@ First tagged release.
   uploaded PDF; the document is analyzed via nr-llm structured completion
   (map-reduce over long content) into a single content brief that drives all
   generators.
-- **Podcast generator.** Two-voice dialogue script, per-turn text-to-speech,
+- **Podcast generator.** Persona-aware dialogue script (one to three speakers
+  from persona snippets; two-host default), per-turn text-to-speech,
   ffmpeg stitching into one audio file, plus transcript and WebVTT captions.
   Transient TTS failures are retried.
 - **Schaubild generator.** Three diagram variants rendered from branded HTML

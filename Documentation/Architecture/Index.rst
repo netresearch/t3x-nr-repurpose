@@ -148,8 +148,10 @@ HTML Schaubild) while skipping the AI-image variants.
 Podcast
 -------
 
-:php:`PodcastGenerator` asks the completion service for a two-host dialogue
-script (Host A = ``nova``, Host B = ``onyx``) sized to the document scope. Each
+:php:`PodcastGenerator` asks the completion service for a dialogue script sized
+to the document scope, spoken by the job's selected personas (one to three, each
+with its name, character description and optional own TTS voice) or by the
+default hosts (Host A = ``nova``, Host B = ``onyx``). Each
 turn is one specialized TTS call producing an MP3 segment, with a single retry
 on a transient failure and a skip (rather than a whole-episode failure) if a
 turn still fails. The segments are concatenated by
