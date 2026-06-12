@@ -10,7 +10,8 @@ namespace Netresearch\NrRepurpose\Rendering;
  *
  * The FOREGROUND defines the output canvas: it is the layout designed at an exact aspect ratio
  * (e.g. the 1080x1920 9:16 story, or a rendered diagram). The background image — whose aspect
- * ratio rarely matches (gpt-image-1 only emits 1:1, 3:2, 2:3) — is scaled to COVER that canvas
+ * ratio may still differ (layout-driven sizes are requested, but models clamp to their own
+ * limits and fallbacks stay generic) — is scaled to COVER that canvas
  * (centre-cropped, no distortion), then the foreground is alpha-composited on top so transparent
  * areas reveal the background. The result is written as a PNG at the foreground's dimensions.
  */

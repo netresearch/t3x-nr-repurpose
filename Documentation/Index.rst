@@ -60,16 +60,16 @@ Getting started
 
       Install via Composer, meet the runtime requirements
       (poppler, ffmpeg, chromium, a worker), and seed the
-      OpenAI key into nr-vault.
+      provider API key into nr-vault.
 
       .. card-footer:: :ref:`Read more <installation>`
          :button-style: btn btn-primary stretched-link
 
    .. card:: 🔧 Configuration
 
-      Wire the nr-llm provider, route the generation message
-      to the async transport, and tune the extension's own
-      options.
+      Wire the nr-llm provider, models and Configurations,
+      route the generation message to the async transport,
+      and steer prompts via snippets.
 
       .. card-footer:: :ref:`Read more <configuration>`
          :button-style: btn btn-secondary stretched-link

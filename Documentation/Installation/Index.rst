@@ -22,9 +22,10 @@ Requirements
    * - TYPO3
      - ``^14.3`` (v14.3 LTS only)
    * - :composer:`netresearch/nr-llm`
-     - ``^0.10.0`` — AI access (completion, TTS, image) and budget enforcement.
+     - ``^0.12.0`` — AI access (completion, TTS, image) and budget enforcement.
    * - :composer:`netresearch/nr-vault`
-     - ``^0.8.0`` — stores the OpenAI key; nr-llm authenticates through it.
+     - ``^0.10.0`` — stores the provider API keys; nr-llm authenticates through
+       it.
    * - ``poppler-utils``
      - ``pdftoppm`` / ``pdftotext`` for PDF ingestion (Vision OCR and layout
        tiers).
@@ -98,14 +99,16 @@ The renderer locates Chromium via the ``CHROMIUM_PATH`` environment variable
 
 .. _installation-openai-key:
 
-Store the OpenAI key in nr-vault
-===============================
+Store the provider key in nr-vault
+==================================
 
-nr_repurpose never reads a plaintext OpenAI key. Store the key in nr-vault under
-the identifier nr-llm is configured to read (``nr_repurpose_openai``):
+nr_repurpose never reads a plaintext API key. Store your provider's key (the
+examples use OpenAI, the tested default) in nr-vault under the identifier the
+nr-llm Provider record references (``nr_repurpose_openai`` in the bundled
+setup):
 
 .. code-block:: bash
-   :caption: Seed the OpenAI key into nr-vault
+   :caption: Seed the provider key into nr-vault
 
    printf '%s' "sk-…" | vendor/bin/typo3 vault:store nr_repurpose_openai --stdin
 
@@ -126,17 +129,26 @@ host that has the system binaries and the Node renderer installed:
 .. code-block:: bash
    :caption: Consume the generation transport
 
-   vendor/bin/typo3 messenger:consume doctrine --time-limit=3600 --memory-limit=256M
+   php -d memory_limit=1G vendor/bin/typo3 messenger:consume doctrine --time-limit=3600 --memory-limit=512M
 
 Restart the consumer in a loop (systemd, a container restart policy, or a
 supervisor) so it survives the deliberate time/memory limits that recycle the
 process. The transport routing is configured in :ref:`configuration-messenger`.
 
+.. important::
+
+   The PHP ``memory_limit`` must exceed Messenger's ``--memory-limit`` soft
+   restart threshold, with headroom for GD image compositing — otherwise PHP
+   fatals before Messenger can recycle the process, and the unacknowledged
+   message is redelivered into the same crash (re-running paid AI calls). The
+   compositor pre-flights its memory need and fails the single artifact
+   gracefully, but only within the limit PHP actually has.
+
 .. note::
 
-   The worker host runs ``chromium`` and ``ffmpeg`` and reaches OpenAI — bound
-   the outbound HTTP timeout (see :ref:`configuration-http`) so a stalled
-   provider response cannot hang the worker indefinitely.
+   The worker host runs ``chromium`` and ``ffmpeg`` and reaches the configured
+   AI providers — bound the outbound HTTP timeout (see :ref:`configuration-http`)
+   so a stalled provider response cannot hang the worker indefinitely.
 
 .. _installation-ddev:
 

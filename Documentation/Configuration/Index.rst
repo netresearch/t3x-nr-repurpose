@@ -6,35 +6,78 @@
 Configuration
 =============
 
-nr_repurpose has a small amount of its own configuration
-(:ref:`configuration-ext-conf`), but most of what it needs is wiring it shares
-with the host instance: the nr-llm provider, the Symfony Messenger routing, and
-the outbound HTTP timeouts. In the bundled DDEV environment all of the
-instance-level settings below are written to
+nr_repurpose has no configuration of its own — everything it needs is wiring it
+shares with the host instance: the nr-llm provider, model and Configuration
+records, the Symfony Messenger routing, and the outbound HTTP timeouts. In the
+bundled DDEV environment the instance-level settings below are written to
 :path:`config/system/additional.php` by ``ddev install``; in a real deployment
 you place them in your instance configuration.
 
 .. _configuration-nr-llm:
 
-nr-llm provider wiring
-=====================
+nr-llm wiring: providers, models, Configurations
+================================================
 
-nr_repurpose calls OpenAI exclusively through nr-llm, so nr-llm must have an
-OpenAI provider configured that resolves its key from nr-vault by identifier.
-The key was stored under ``nr_repurpose_openai`` during installation (see
-:ref:`installation-openai-key`).
+nr_repurpose never talks to an AI provider directly and never picks one itself.
+It names nr-llm **Configuration** records (use cases) and lets nr-llm resolve
+the model, the provider, the API key, the system prompt, and the usage/cost
+attribution. Set everything up in nr-llm's backend module
+(:guilabel:`Admin Tools > LLM Management`):
 
-.. code-block:: php
-   :caption: config/system/additional.php — nr-llm OpenAI provider
+#.  Create a **Provider** whose API key references the nr-vault identifier you
+    stored during installation (see :ref:`installation-openai-key`).
+#.  Create the **Models** you want to use (or fetch them via nr-llm's model
+    discovery), including the specialized ones (image, text-to-speech).
+#.  Create the **Configuration** records nr_repurpose consumes:
 
-   $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['apiKeyIdentifier'] = 'nr_repurpose_openai';
-   $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['defaultProvider'] = 'openai';
-   $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['defaultModel'] = 'gpt-4o';
+.. list-table::
+   :header-rows: 1
+   :widths: 26 30 44
 
-Since nr-llm ``0.10.0`` there is a single key-resolution path: both the
-chat/vision providers and the specialized services (TTS, images) authenticate
-through nr-vault's secure HTTP client by identifier — no plaintext
-``providers.openai.apiKey`` is set. See :ref:`adr-003`.
+   * - Configuration identifier
+     - Used for
+     - Model choice
+   * - *(the default Configuration)*
+     - Analysis and copy: the brief, the podcast script, the diagram body, the
+       story copy.
+     - Any chat model of any nr-llm provider — OpenAI, Anthropic Claude,
+       Google Gemini, Groq, Mistral, Ollama, OpenRouter.
+   * - ``nr_repurpose_image``
+     - AI imagery (Schaubild backgrounds and full images, story backgrounds).
+     - Any model accepted by nr-llm's image services; falls back to
+       ``gpt-image-2`` when the record is absent. The record's system prompt
+       acts as a style preamble for every image prompt.
+   * - ``nr_repurpose_tts``
+     - Podcast speech synthesis.
+     - Any model of nr-llm's text-to-speech service (currently OpenAI ``tts-1``
+       / ``tts-1-hd``); falls back to ``tts-1``.
+
+Swapping a model — or, for text, the provider — is a backend-only change: edit
+the Configuration record, no code or deployment involved. Per-model and
+per-configuration usage and cost appear in nr-llm's analytics module.
+
+Image and speech calls go through nr-llm's *specialized* services, which
+currently cover OpenAI (images, TTS) and fal.ai (images). The extension-side
+seam for additional backends is the
+:php:`ImageGeneratorInterface` / :php:`SpeechSynthesizerInterface` DI alias in
+:path:`Configuration/Services.yaml`.
+
+Key resolution is vault-only: both the chat providers and the specialized
+services authenticate through nr-vault's secure HTTP client by identifier — no
+plaintext key is ever set. See :ref:`adr-003`.
+
+.. _configuration-snippets:
+
+Prompt snippets
+===============
+
+The *New job* form's *audience*, *tone of voice*, *persona*, *layout* and
+*style* selectors are populated from nr-llm's prompt-snippet library (snippets
+tagged ``audience``, ``tone_of_voice``, ``persona``, ``layout``, ``style``).
+Editors maintain them in nr-llm's backend module; each snippet's description is
+shown in the form so the choice is informed. A ``layout`` snippet may carry an
+``imageSize`` metadata key (``"WIDTHxHEIGHT"``) that sets the AI-image
+dimensions for that channel — e.g. skyscraper ``768x2160``, wide ``2160x768``.
 
 .. _configuration-messenger:
 
@@ -67,16 +110,21 @@ HTTP request that created the job returns immediately and the
 HTTP timeouts
 ============
 
-The generator worker makes outbound calls to OpenAI (script, TTS, image) and
-fetches source URLs. TYPO3's shared Guzzle client defaults to ``timeout = 0``
-(no read timeout), so a stalled provider response would hang the worker. Bound
-it:
+The generator worker makes outbound calls to the configured AI providers
+(script, TTS, image) and fetches source URLs. TYPO3's shared Guzzle client
+defaults to ``timeout = 0`` (no read timeout), so a stalled provider response
+would hang the worker. Bound it:
 
 .. code-block:: php
    :caption: config/system/additional.php — bound outbound HTTP
 
-   $GLOBALS['TYPO3_CONF_VARS']['HTTP']['timeout'] = 180;
+   $GLOBALS['TYPO3_CONF_VARS']['HTTP']['timeout'] = 300;
    $GLOBALS['TYPO3_CONF_VARS']['HTTP']['connect_timeout'] = 15;
+
+Since nr-llm ``0.12.0`` the specialized image/TTS calls carry their own
+per-request timeout (image default 300 s), so a long-running image generation
+is not cut off by a shorter global value; the global timeout still governs the
+chat calls and source-URL fetches.
 
 .. _configuration-rendering:
 
@@ -89,56 +137,6 @@ The HTML-to-PNG renderer shells out to ``node`` running the bundled
 ``/usr/bin/chromium``. ``ffmpeg`` and ``ffprobe`` are expected on ``PATH``.
 These defaults are baked into the service definitions and need no scalars in a
 standard install; override them only if your binaries live elsewhere.
-
-.. _configuration-ext-conf:
-
-Extension configuration
-======================
-
-The extension's own options live in :path:`ext_conf_template.txt` and are read
-through the typed :php:`Netresearch\\NrRepurpose\\Configuration\\RepurposeConfiguration`
-accessor. Set them under
-:guilabel:`Admin Tools > Settings > Extension Configuration > nr_repurpose`.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 28 18 54
-
-   * - Key
-     - Default
-     - Purpose
-   * - ``voices.hostA``
-     - ``nova``
-     - Podcast Host A voice (OpenAI TTS voice name).
-   * - ``voices.hostB``
-     - ``onyx``
-     - Podcast Host B voice.
-   * - ``tts.model``
-     - ``tts-1-hd``
-     - Text-to-speech model (``tts-1`` or ``tts-1-hd``).
-   * - ``image.provider``
-     - ``dalle``
-     - Image generation service (``dalle`` = OpenAI images, or ``fal``).
-   * - ``image.model``
-     - ``gpt-image-1``
-     - Image model. DALL·E-3 was retired by OpenAI; ``gpt-image-1`` is the
-       default.
-   * - ``diagram.viewportWidth``
-     - ``1200``
-     - Schaubild render viewport width, in pixels.
-   * - ``story.width``
-     - ``1080``
-     - Instagram story width, in pixels.
-   * - ``story.height``
-     - ``1920``
-     - Instagram story height, in pixels.
-   * - ``defaultTheme``
-     - ``nr``
-     - Default theme for new jobs: ``nr`` (Netresearch branded) or ``neutral``.
-   * - ``mapReduce.charThreshold``
-     - ``12000``
-     - Source-text character count above which the analyzer switches to chunked
-       map-reduce analysis.
 
 .. _configuration-permissions:
 

@@ -60,6 +60,12 @@ record:
    * - Theme
      - Netresearch CI / Neutral
      - The branded or neutral look of the rendered diagram and story.
+   * - Audience / Tone of voice / Persona / Layout / Style
+     - selects, populated from nr-llm prompt snippets
+     - Optional prompt steering; each option shows the snippet's description.
+       *Persona* shapes the podcast hosts, *layout* and *style* shape the AI
+       imagery — a layout's ``imageSize`` metadata sets the image dimensions
+       (see :ref:`configuration-snippets`).
    * - Podcast / Schaubild / Story
      - checkboxes (all on by default)
      - Which artifacts to generate this run.
@@ -79,12 +85,20 @@ asynchronously.
 Result view
 -----------
 
+While a job is still running, the view shows fine-grained per-step progress
+(which generator is working and what it is doing) and refreshes itself
+automatically.
+
 The result view (``show``) renders the finished job: it plays the podcast MP3
 with its WebVTT subtitles and shows the speaker-tagged transcript, and it
 displays — and lets you download — every generated image (the three Schaubild
 variants and the story slides, shown as a horizontal, scrollable strip in
 slide order). Each artifact carries its own status, so a partially successful
 run still shows whatever was produced.
+
+For transparency, every artifact lists its complete creation parameters: the
+exact system, user and image prompts that produced it, the models, the image
+sizes and the voices used.
 
 .. _usage-cli:
 
