@@ -24,8 +24,23 @@ Added
 -   **Three artifact generators.** From one source (URL or PDF) the pipeline
     derives a single :php:`ContentBrief` via nr-llm and generates a two-host
     podcast (TTS + ffmpeg stitch + WebVTT subtitles), a Schaubild diagram in
-    three variants (HTML, HTML-with-AI-background, full AI image), and a 9:16
-    Instagram story image.
+    three variants (HTML, HTML-with-AI-background, full AI image), and a
+    multi-slide 9:16 Instagram story carousel.
+
+-   **Prompt-snippet steering.** Persona, tone, audience, image-style and
+    layout selectors in the job form, backed by nr-llm's prompt-snippet
+    library; layout snippets carry an ``imageSize`` metadata key that drives
+    gpt-image-2 output dimensions per channel.
+
+-   **Live progress and prompt transparency.** The job detail view shows
+    fine-grained per-step progress with auto-refresh while a job runs and,
+    for every artifact, the complete creation parameters: the exact system,
+    user and image prompts, models, image sizes and voices.
+
+-   **Central usage and cost tracking.** Image and speech models resolve
+    through nr-llm Configuration records (``nr_repurpose_image``,
+    ``nr_repurpose_tts``), so every call is attributed per model and per
+    configuration in the nr-llm analytics module.
 
 -   **Ingestion.** URL fetch with deterministic DOM main-content extraction, and
     a tiered PDF reader (embedded text → Vision OCR for sparse pages → poppler
