@@ -22,8 +22,9 @@ Added
 -----
 
 -   **Three artifact generators.** From one source (URL or PDF) the pipeline
-    derives a single :php:`ContentBrief` via nr-llm and generates a two-host
-    podcast (TTS + ffmpeg stitch + WebVTT subtitles), a Schaubild diagram in
+    derives a single :php:`ContentBrief` via nr-llm and generates a
+    persona-aware podcast with one to three speakers (TTS + ffmpeg stitch +
+    WebVTT subtitles), a Schaubild diagram in
     three variants (HTML, HTML-with-AI-background, full AI image), and a
     multi-slide 9:16 Instagram story carousel.
 

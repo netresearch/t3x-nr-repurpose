@@ -14,7 +14,7 @@ What does it do?
 Content Repurpose (``nr_repurpose``) turns a single source — a webpage URL or a
 PDF — into three AI-generated media artifacts, all from the TYPO3 backend:
 
-#. a two-host **podcast** (audio),
+#. a **podcast** (audio) with one to three persona-driven speakers,
 #. a **Schaubild** (diagram/infographic), rendered in three variants, and
 #. a 9:16 **Instagram story** carousel (one image per slide).
 
@@ -41,11 +41,15 @@ The three artifacts
 Podcast
 -------
 
-A lively two-host dialogue. nr-llm's :php:`CompletionService` writes the script
-as turns spoken by *Host A* (voice ``nova``) and *Host B* (voice ``onyx``); each
-turn is synthesized to an MP3 segment via nr-llm's text-to-speech service, the
-segments are concatenated with ``ffmpeg``, and a speaker-tagged transcript plus
-a WebVTT subtitle file (whose cue times come from the measured segment
+A lively dialogue between one to three speakers. When the job selects *persona*
+prompt snippets (up to three), each persona contributes its speaker name, a
+character description woven into the script prompt, and optionally its own TTS
+voice from the snippet metadata; without personas the classic default applies —
+*Host A* (voice ``nova``) and *Host B* (voice ``onyx``). nr-llm's
+:php:`CompletionService` writes the script as turns spoken by these speakers;
+each turn is synthesized to an MP3 segment via nr-llm's text-to-speech service,
+the segments are concatenated with ``ffmpeg``, and a speaker-tagged transcript
+plus a WebVTT subtitle file (whose cue times come from the measured segment
 durations, read with ``ffprobe``) are produced alongside the audio.
 
 .. _introduction-schaubild:
@@ -75,9 +79,10 @@ source attribution — at most six slides per run. One LLM call writes the copy
 for all slides; each slide becomes its own artifact (variant ``slide-1`` …
 ``slide-N``), so a failing slide does not affect its siblings. When the image
 service is available and within budget, a single AI background is generated
-once and shared by every slide (visual coherence, one image cost) — scaled to
-*cover* the canvas (centre-cropped, never distorted), with the transparent
-text layer composited over it; otherwise flat branded renders are used.
+once — at the dimensions the selected *layout* snippet defines — and shared by
+every slide (visual coherence, one image cost), scaled to *cover* the canvas
+(centre-cropped, never distorted), with the transparent text layer composited
+over it; otherwise flat branded renders are used.
 
 Each artifact type is opt-in per run (``want_podcast`` / ``want_schaubild`` /
 ``want_story``). Per-artifact failures are isolated — one failing generator does
@@ -108,6 +113,32 @@ The provider keys are held by nr-vault and resolved by nr-llm by identifier
 (e.g. ``nr_repurpose_openai``); the secret is injected, audited, and
 memory-scrubbed inside the vault and never surfaces in nr_repurpose. See
 :ref:`adr-003`.
+
+.. _introduction-control:
+
+Full control — no black box
+===========================
+
+nr_repurpose is not a SaaS pipeline you feed content into: it runs entirely
+inside the TYPO3 instance, and through nr-llm every aspect of the AI usage
+stays under the operator's control —
+
+-   **Provider sovereignty.** Decide per use case which provider serves it: a
+    US cloud, an EU provider (e.g. Mistral), or fully self-hosted models via
+    Ollama, where content never leaves your infrastructure. Switching is a
+    backend record edit, not a deployment.
+-   **Costs.** Per-user budgets are enforced by nr-llm's middleware; every call
+    is metered and attributed per model and per configuration in nr-llm's
+    analytics module; image and speech calls are pre-gated against the budget
+    with a planned cost before any spend.
+-   **Prompts.** System prompts live centrally on Configuration records,
+    editorial steering on reviewable prompt snippets, and every artifact stores
+    the exact prompts, models, sizes and voices that produced it.
+-   **Auditing.** Keys are envelope-encrypted in nr-vault; every key use goes
+    through its audited secure HTTP client — a who/what/when trail for every
+    outbound AI call.
+-   **Permissions.** Backend group permissions gate who may spend on audio and
+    AI imagery (see :ref:`configuration-permissions`).
 
 .. _introduction-requirements:
 

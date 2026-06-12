@@ -1,8 +1,9 @@
 # nr_repurpose — Content Repurpose for TYPO3
 
-Turn a webpage (URL) or PDF into three AI-generated media artifacts — a two-host
-**podcast** (with transcript + WebVTT subtitles), a **diagram** (Schaubild, in three
-variants), and a 9:16 **Instagram-story carousel** — from the TYPO3 backend.
+Turn a webpage (URL) or PDF into three AI-generated media artifacts — a **podcast**
+with one to three persona-driven speakers (with transcript + WebVTT subtitles), a
+**diagram** (Schaubild, in three variants), and an **Instagram-story carousel** —
+from the TYPO3 backend.
 
 Every AI call goes through [`netresearch/nr-llm`](https://github.com/netresearch/t3x-nr-llm):
 nr_repurpose contains no provider code. Any LLM, image or TTS provider works — if
@@ -13,17 +14,20 @@ nr-llm supports it (see [Providers, models and prompts](#providers-models-and-pr
 From one source (URL or PDF) the pipeline derives a single faithful `ContentBrief`
 (via nr-llm, source language auto-detected) and generates:
 
-- **Podcast** — a two-host dialogue, synthesized turn-by-turn via nr-llm's
-  text-to-speech service, stitched with ffmpeg into one MP3, plus a speaker-tagged
-  transcript and a WebVTT subtitle file whose cue times come from the measured
-  segment durations.
+- **Podcast** — a dialogue between one to three speakers: select up to three
+  *persona* snippets, each contributing a speaker name, a character description for
+  the script and optionally its own TTS voice — or get the classic two-host default.
+  Synthesized turn-by-turn via nr-llm's text-to-speech service, stitched with ffmpeg
+  into one MP3, plus a speaker-tagged transcript and a WebVTT subtitle file whose cue
+  times come from the measured segment durations.
 - **Schaubild** — three variants for comparison: pure HTML (Fluid → headless Chromium →
-  PNG), HTML with an AI-generated background, and a full AI image. Branded NR or neutral
-  theme.
-- **Story** — a multi-slide 1080×1920 (9:16) carousel: a cover hook, one slide per key
+  PNG), HTML with an AI-generated background, and a full AI image at the dimensions the
+  selected *layout* snippet defines. Branded NR or neutral theme.
+- **Story** — a multi-slide carousel (9:16 slides): a cover hook, one slide per key
   point (at most four) and an outro with the source attribution — up to six slides, one
-  artifact per slide. A single optional AI background is shared by all slides and scaled
-  to *cover* the design canvas so the layout is never distorted.
+  artifact per slide. A single optional AI background is shared by all slides — generated
+  at the layout-selected dimensions and scaled to *cover* the design canvas so the
+  layout is never distorted.
 
 Each artifact type can be selected per run. Long-running generation runs asynchronously
 via Symfony Messenger (doctrine transport).
@@ -50,7 +54,7 @@ prompt and cost tracking:
 |------|----------------------|----------------------------------|
 | Analysis + copy (brief, podcast script, diagram body, story copy) | the instance **default** Configuration | any chat model of any nr-llm provider: OpenAI, Anthropic Claude, Google Gemini, Groq, Mistral, Ollama, OpenRouter |
 | Image generation | `nr_repurpose_image` (fallback `gpt-image-2`) | any model of nr-llm's image services (OpenAI `gpt-image-*` / `dall-e-*`; nr-llm also ships a fal.ai service — see below) |
-| Text-to-speech | `nr_repurpose_tts` (fallback `tts-1`, voices `nova` + `onyx`) | any model of nr-llm's TTS service (currently OpenAI `tts-1`/`tts-1-hd`) |
+| Text-to-speech | `nr_repurpose_tts` (fallback `tts-1`; default voices `nova` + `onyx`, persona snippets can set their own voice per speaker) | any model of nr-llm's TTS service (currently OpenAI `tts-1`/`tts-1-hd`) |
 
 System prompts (e.g. the image-style preamble) are maintained on the Configuration
 records; per-model and per-configuration usage and cost show up in nr-llm's
@@ -64,6 +68,30 @@ TTS) and fal.ai (images). The extension-side seam is in place —
 `ImageGeneratorInterface` / `SpeechSynthesizerInterface` with a DI alias in
 `Configuration/Services.yaml` — so a fal.ai image backend is a small adapter class
 away, and additional providers become available as nr-llm grows them.
+
+## Full control — no black box
+
+nr_repurpose is not a SaaS pipeline you feed content into and hope for the best.
+It runs entirely inside your TYPO3 instance, and through nr-llm every aspect of
+the AI usage stays under the operator's control:
+
+- **Provider sovereignty** — decide per use case which provider serves it: a US
+  cloud, an EU provider (e.g. Mistral), or fully self-hosted models via Ollama,
+  where content never leaves your infrastructure. Switching is a backend record
+  edit, not a deployment.
+- **Costs** — per-user budgets are enforced by nr-llm's middleware; every call is
+  metered and attributed per model and per configuration in nr-llm's analytics
+  module; image and speech calls are additionally pre-gated against the budget
+  with a planned cost before any money is spent.
+- **Prompts** — system prompts are maintained centrally on Configuration records,
+  editorial steering on reviewable prompt snippets, and every artifact stores the
+  exact prompts, models, sizes and voices that produced it — reproducible and
+  reviewable after the fact.
+- **Auditing** — API keys are envelope-encrypted in nr-vault and every key use
+  goes through its audited secure HTTP client: a who/what/when trail exists for
+  every outbound AI call.
+- **Permissions** — backend group permissions gate which editors may spend on
+  audio (`generate_audio`) and AI imagery (`generate_vision`).
 
 ## Requirements
 
