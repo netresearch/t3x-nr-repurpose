@@ -5,3 +5,4 @@
 /.ddev/.env
 /Resources/Private/NodeRenderer/node_modules/
 /packages/
+/.agents/
