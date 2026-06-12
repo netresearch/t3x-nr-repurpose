@@ -108,7 +108,8 @@ source language (an ISO-639-1 code returned by the model, with the document
 language hint as fallback). The detected language is recorded on the job for the
 result view, and every downstream generator writes its copy in that language.
 
-For large documents (above ``mapReduce.charThreshold``) the analyzer uses
+For large documents (above the analyzer's chunk threshold, 24 000 characters
+by default) the analyzer uses
 map-reduce: it splits the text on paragraph boundaries into chunks, summarizes
 each chunk (map), and synthesizes one brief from the concatenated summaries
 (reduce), to stay within provider token limits. Each completion call carries the
@@ -207,10 +208,11 @@ Process):
 -   **Compositing** — :php:`GdImageCompositor` overlays a transparent foreground
     PNG (the exact text/label layer) onto a background PNG (the AI image) using
     GD (Imagick is not in the stack). The **foreground** defines the output
-    canvas; the background — whose aspect ratio rarely matches, since
-    ``gpt-image-1`` only emits 1:1 / 3:2 / 2:3 — is scaled to *cover*
-    (centre-cropped, no distortion), then the foreground is alpha-composited on
-    top so transparent areas reveal the background.
+    canvas; the background is requested at a layout-matching size where the
+    image model allows it (``gpt-image-2`` accepts arbitrary dimensions within
+    its aspect limits), but whenever the aspect ratios still differ it is
+    scaled to *cover* (centre-cropped, no distortion), then the foreground is
+    alpha-composited on top so transparent areas reveal the background.
 -   **Audio** — :php:`FfmpegAudioStitcher` (concat demuxer + ``ffprobe`` for
     durations), described above.
 
@@ -239,13 +241,16 @@ nr_repurpose owns no provider code. It depends on three nr-llm surfaces:
 -   :php:`CompletionService` — the brief, the podcast script, the diagram body,
     and the story copy (JSON or Markdown responses, budget-middleware guarded).
 -   :php:`TextToSpeechService` — wrapped by :php:`OpenAiSpeechSynthesizer` behind
-    a local :php:`SpeechSynthesizerInterface`.
+    a local :php:`SpeechSynthesizerInterface` (model resolved through the
+    ``nr_repurpose_tts`` nr-llm Configuration, fallback ``tts-1``).
 -   :php:`DallEImageService` — wrapped by :php:`DallEImageGenerator` behind a
-    local :php:`ImageGeneratorInterface` (model ``gpt-image-1``).
+    local :php:`ImageGeneratorInterface` (model resolved through the
+    ``nr_repurpose_image`` nr-llm Configuration, fallback ``gpt-image-2``).
 
 The two specialized wrappers are thin adapters: they expose ``isAvailable()``
 and a single ``…ToFile()`` method, and translate nr-llm exceptions into the
 extension's :php:`RenderingException`. This keeps the generators independent of
-nr-llm's concrete service shapes and lets unit tests substitute fakes. The
-OpenAI key behind all of these is resolved from nr-vault by identifier (see
-:ref:`adr-003`).
+nr-llm's concrete service shapes, lets unit tests substitute fakes, and is the
+seam for additional image/speech backends (the DI aliases live in
+:path:`Configuration/Services.yaml`). The provider keys behind all of these are
+resolved from nr-vault by identifier (see :ref:`adr-003`).
