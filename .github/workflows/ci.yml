@@ -15,7 +15,7 @@ permissions: {}
 # refs are pinned to a commit SHA (this repo enforces sha_pinning_required).
 jobs:
   ci:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@f61237eecfafb5559d8eb37e8007389cf65bc5f9 # main
+    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@0a46c761fc0d7628721e1650206e7b36671004b7 # main
     permissions:
       contents: read
     with:
@@ -33,12 +33,12 @@ jobs:
       run-functional-tests: false
 
   security:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/security.yml@f61237eecfafb5559d8eb37e8007389cf65bc5f9 # main
+    uses: netresearch/typo3-ci-workflows/.github/workflows/security.yml@0a46c761fc0d7628721e1650206e7b36671004b7 # main
     permissions:
       contents: read
       security-events: write
 
   license-check:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/license-check.yml@f61237eecfafb5559d8eb37e8007389cf65bc5f9 # main
+    uses: netresearch/typo3-ci-workflows/.github/workflows/license-check.yml@0a46c761fc0d7628721e1650206e7b36671004b7 # main
     permissions:
       contents: read
