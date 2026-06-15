@@ -9,7 +9,7 @@ permissions: {}
 
 jobs:
   release:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/release-typo3-extension.yml@0a46c761fc0d7628721e1650206e7b36671004b7 # main
+    uses: netresearch/typo3-ci-workflows/.github/workflows/release-typo3-extension.yml@7c7adf87f1cf3bfdfcd91b3aab01d755d51a7e48 # main
     permissions:
       contents: write
       id-token: write
