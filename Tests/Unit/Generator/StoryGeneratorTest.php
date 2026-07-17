@@ -6,6 +6,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -564,7 +565,7 @@ final class StoryGeneratorTest extends TestCase
             /** @var list<float> */
             public array $checkedCosts = [];
 
-            public function check(int $u, float $c = 0.0): BudgetCheckResult
+            public function check(int $u, float $c = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
             {
                 $this->checkedCosts[] = $c;
 
@@ -576,7 +577,7 @@ final class StoryGeneratorTest extends TestCase
     private function denyingBudget(): BudgetServiceInterface
     {
         return new class implements BudgetServiceInterface {
-            public function check(int $u, float $c = 0.0): BudgetCheckResult { return BudgetCheckResult::denied('LIMIT_DAILY', 9.0, 9.0, 'no'); }
+            public function check(int $u, float $c = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult { return BudgetCheckResult::denied('LIMIT_DAILY', 9.0, 9.0, 'no'); }
         };
     }
 }
