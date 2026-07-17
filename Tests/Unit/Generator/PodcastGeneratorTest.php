@@ -6,6 +6,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -198,7 +199,7 @@ final class PodcastGeneratorTest extends TestCase
     private function allowingBudget(): BudgetServiceInterface
     {
         return new class implements BudgetServiceInterface {
-            public function check(int $beUserUid, float $plannedCost = 0.0): BudgetCheckResult
+            public function check(int $beUserUid, float $plannedCost = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
             {
                 return BudgetCheckResult::allowed();
             }
@@ -208,7 +209,7 @@ final class PodcastGeneratorTest extends TestCase
     private function denyingBudget(): BudgetServiceInterface
     {
         return new class implements BudgetServiceInterface {
-            public function check(int $beUserUid, float $plannedCost = 0.0): BudgetCheckResult
+            public function check(int $beUserUid, float $plannedCost = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
             {
                 return BudgetCheckResult::denied('LIMIT_DAILY', 10.0, 10.0, 'exhausted');
             }
