@@ -42,16 +42,7 @@ final class OpenAiSpeechSynthesizer implements SpeechSynthesizerInterface
      */
     public function getModel(): string
     {
-        // The method_exists() guards keep the extension installable against an nr-llm
-        // dev-main without the configuration-resolution layer; drop them once nr-llm's
-        // specialized configuration change is merged and required here.
-        $this->model ??= match (true) {
-            method_exists($this->tts, 'resolveModelForConfiguration')
-                => $this->tts->resolveModelForConfiguration(self::CONFIGURATION, self::MODEL),
-            method_exists($this->tts, 'resolveDefaultModel')
-                => $this->tts->resolveDefaultModel(self::MODEL),
-            default => self::MODEL,
-        };
+        $this->model ??= $this->tts->resolveModelForConfiguration(self::CONFIGURATION, self::MODEL);
 
         return $this->model;
     }
@@ -70,18 +61,16 @@ final class OpenAiSpeechSynthesizer implements SpeechSynthesizerInterface
     }
 
     /**
-     * The 'configuration' option is pure usage-attribution metadata in nr-llm (per-
-     * configuration cost breakdowns); pass it only when the installed options class
-     * already carries the property — a named argument unknown to the constructor
-     * would be a fatal, not a graceful degradation.
+     * The 'configuration' option is pure usage-attribution metadata in nr-llm
+     * (per-configuration cost breakdowns), naming the record this call is billed to.
      */
     private function buildOptions(string $voice): SpeechSynthesisOptions
     {
-        $arguments = ['model' => $this->getModel(), 'voice' => $voice, 'format' => 'mp3'];
-        if (property_exists(SpeechSynthesisOptions::class, 'configuration')) {
-            $arguments['configuration'] = self::CONFIGURATION;
-        }
-
-        return new SpeechSynthesisOptions(...$arguments);
+        return new SpeechSynthesisOptions(
+            model: $this->getModel(),
+            voice: $voice,
+            format: 'mp3',
+            configuration: self::CONFIGURATION,
+        );
     }
 }

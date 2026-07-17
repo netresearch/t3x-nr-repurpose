@@ -49,32 +49,20 @@ final class DallEImageGenerator implements ImageGeneratorInterface
      */
     public function getModel(): string
     {
-        // The method_exists() guards keep the extension installable against an nr-llm
-        // dev-main without the configuration-resolution layer; drop them once nr-llm's
-        // specialized configuration change is merged and required here.
-        $this->model ??= match (true) {
-            method_exists($this->dalle, 'resolveModelForConfiguration')
-                => $this->dalle->resolveModelForConfiguration(self::CONFIGURATION, self::MODEL),
-            method_exists($this->dalle, 'resolveDefaultModel')
-                => $this->dalle->resolveDefaultModel(self::MODEL),
-            default => self::MODEL,
-        };
+        $this->model ??= $this->dalle->resolveModelForConfiguration(self::CONFIGURATION, self::MODEL);
 
         return $this->model;
     }
 
     /**
      * Style preamble for every image prompt, maintained as the system prompt of the
-     * "nr_repurpose_image" Configuration record. '' when unset or the installed nr-llm
-     * does not expose the configuration layer yet. Generators prepend it to their image
-     * prompts BEFORE recording the prompt in the artifact metadata, so the recorded
-     * prompt stays the exact text that was sent.
+     * "nr_repurpose_image" Configuration record. '' when the record has no system prompt.
+     * Generators prepend it to their image prompts BEFORE recording the prompt in the
+     * artifact metadata, so the recorded prompt stays the exact text that was sent.
      */
     public function getPromptPreamble(): string
     {
-        $this->promptPreamble ??= method_exists($this->dalle, 'getConfigurationSystemPrompt')
-            ? $this->dalle->getConfigurationSystemPrompt(self::CONFIGURATION)
-            : '';
+        $this->promptPreamble ??= $this->dalle->getConfigurationSystemPrompt(self::CONFIGURATION);
 
         return $this->promptPreamble;
     }
@@ -94,18 +82,15 @@ final class DallEImageGenerator implements ImageGeneratorInterface
     }
 
     /**
-     * The 'configuration' option is pure usage-attribution metadata in nr-llm (per-
-     * configuration cost breakdowns); pass it only when the installed options class
-     * already carries the property — a named argument unknown to the constructor
-     * would be a fatal, not a graceful degradation.
+     * The 'configuration' option is pure usage-attribution metadata in nr-llm
+     * (per-configuration cost breakdowns), naming the record this call is billed to.
      */
     private function buildOptions(string $size): ImageGenerationOptions
     {
-        $arguments = ['model' => $this->getModel(), 'size' => $size];
-        if (property_exists(ImageGenerationOptions::class, 'configuration')) {
-            $arguments['configuration'] = self::CONFIGURATION;
-        }
-
-        return new ImageGenerationOptions(...$arguments);
+        return new ImageGenerationOptions(
+            model: $this->getModel(),
+            size: $size,
+            configuration: self::CONFIGURATION,
+        );
     }
 }
