@@ -22,7 +22,8 @@ Requirements
    * - TYPO3
      - ``^14.3`` (v14.3 LTS only)
    * - :composer:`netresearch/nr-llm`
-     - ``^0.12.0`` — AI access (completion, TTS, image) and budget enforcement.
+     - ``^0.21.0`` — AI access (completion, TTS, image), budget enforcement and
+       one-click configuration presets.
    * - :composer:`netresearch/nr-vault`
      - ``^0.10.0`` — stores the provider API keys; nr-llm authenticates through
        it.

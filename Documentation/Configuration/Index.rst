@@ -28,7 +28,15 @@ attribution. Set everything up in nr-llm's backend module
     stored during installation (see :ref:`installation-openai-key`).
 #.  Create the **Models** you want to use (or fetch them via nr-llm's model
     discovery), including the specialized ones (image, text-to-speech).
-#.  Create the **Configuration** records nr_repurpose consumes:
+#.  Import the **Configuration** records nr_repurpose declares as presets.
+    nr_repurpose ships the three records below as *configuration presets*
+    (nr-llm ADR-056): open nr-llm's :guilabel:`Configurations` module and each
+    appears as a *pending preset* with its required capabilities — import it with
+    a single click. Each imports as a criteria-mode configuration that resolves
+    against the models you created; no provider, model or key is baked into the
+    preset. Mark the imported ``nr_repurpose_text`` record as the instance
+    default. (You may still create the records by hand instead — the identifiers
+    below are what the extension looks up.)
 
 .. list-table::
    :header-rows: 1
@@ -37,9 +45,9 @@ attribution. Set everything up in nr-llm's backend module
    * - Configuration identifier
      - Used for
      - Model choice
-   * - *(the default Configuration)*
+   * - ``nr_repurpose_text`` *(mark as default)*
      - Analysis and copy: the brief, the podcast script, the diagram body, the
-       story copy.
+       story copy. The pipeline resolves the instance-default Configuration.
      - Any chat model of any nr-llm provider — OpenAI, Anthropic Claude,
        Google Gemini, Groq, Mistral, Ollama, OpenRouter.
    * - ``nr_repurpose_image``
