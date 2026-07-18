@@ -18,5 +18,11 @@ jobs:
       archive-prefix: 'nr-repurpose'
       package-name: 'netresearch/nr-repurpose'
       extension-key: 'nr_repurpose'
+      # Not published to TER/Packagist/docs yet — build + sign the GitHub release only.
+      # (Restored after the CI-template adoption dropped these; the token preflight
+      # otherwise hard-fails the release when no TER token is configured.)
+      skip-ter: true
+      skip-packagist: true
+      skip-docs: true
     secrets:
       TYPO3_TER_ACCESS_TOKEN: ${{ secrets.TYPO3_TER_ACCESS_TOKEN }}
