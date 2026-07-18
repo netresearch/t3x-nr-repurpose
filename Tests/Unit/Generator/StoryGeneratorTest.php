@@ -455,6 +455,11 @@ final class StoryGeneratorTest extends TestCase
             public function completeMarkdown(string $p, ?ChatOptions $o = null): string { throw new \LogicException('x'); }
             public function completeFactual(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
             public function completeCreative(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
+            public function completeForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
+            public function completeJsonForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): array { throw new \LogicException('x'); }
+            public function completeMarkdownForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): string { throw new \LogicException('x'); }
+            public function completeFactualForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
+            public function completeCreativeForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
         };
     }
 
