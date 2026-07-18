@@ -97,6 +97,31 @@ final class PodcastGeneratorTest extends TestCase
             {
                 throw new \LogicException('not used');
             }
+
+            public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+            {
+                throw new \LogicException('not used');
+            }
+
+            public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
+            {
+                throw new \LogicException('not used');
+            }
+
+            public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
+            {
+                throw new \LogicException('not used');
+            }
+
+            public function completeFactualForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+            {
+                throw new \LogicException('not used');
+            }
+
+            public function completeCreativeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+            {
+                throw new \LogicException('not used');
+            }
         };
     }
 

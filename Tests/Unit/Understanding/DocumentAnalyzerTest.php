@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Understanding;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
@@ -52,6 +53,31 @@ final class FakeCompletionService implements CompletionServiceInterface
     }
 
     public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
+    {
+        throw new \BadMethodCallException('not used in this test');
+    }
+
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    {
+        throw new \BadMethodCallException('not used in this test');
+    }
+
+    public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
+    {
+        throw new \BadMethodCallException('not used in this test');
+    }
+
+    public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
+    {
+        throw new \BadMethodCallException('not used in this test');
+    }
+
+    public function completeFactualForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    {
+        throw new \BadMethodCallException('not used in this test');
+    }
+
+    public function completeCreativeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
         throw new \BadMethodCallException('not used in this test');
     }
