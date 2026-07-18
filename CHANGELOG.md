@@ -6,6 +6,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-18
+
+### Added
+
+- **One-click nr-llm configuration presets.** The extension declares the three
+  Configuration records it needs — `nr_repurpose_text`, `nr_repurpose_image`
+  and `nr_repurpose_tts` — as nr-llm configuration presets (ADR-056). An
+  administrator imports each with a single click from nr-llm's Configurations
+  module instead of hand-creating the records.
+- **Named text configuration.** Text generation (content brief, podcast script,
+  diagram body, story copy) routes through the `nr_repurpose_text`
+  configuration, so provider, model, system prompt, budget and cost attribution
+  steer from one record exactly like image (`nr_repurpose_image`) and speech
+  (`nr_repurpose_tts`) already did. Falls back to the instance-default
+  configuration when the record is not imported.
+
+### Changed
+
+- **Require nr-llm `^0.22.0`.** Now that nr-llm's specialized
+  configuration-resolution layer is guaranteed, the forward-compat
+  `method_exists()`/`property_exists()` shims in the image and speech generators
+  are removed and their calls are direct.
+
 ## [0.1.0] - 2026-06-12
 
 First tagged release.
