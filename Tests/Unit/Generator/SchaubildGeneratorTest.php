@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
-use Netresearch\NrLlm\Domain\Model\CompletionResponse;
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
-use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Testing\FakeBudgetService;
+use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
@@ -163,7 +162,7 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertTrue($generator->generate($this->context($snippets)));
 
         // Composed sections are appended to the diagram-body LLM prompt (both render passes).
-        foreach ($completion->prompts as $prompt) {
+        foreach (array_column($completion->completeMarkdownCalls, 'prompt') as $prompt) {
             self::assertStringContainsString("TARGET AUDIENCE:\nInvestors", $prompt);
             self::assertStringContainsString("STYLE:\nHand-drawn sketch look", $prompt);
         }
@@ -183,7 +182,7 @@ final class SchaubildGeneratorTest extends TestCase
 
         self::assertTrue($generator->generate($this->context()));
 
-        foreach ($completion->prompts as $prompt) {
+        foreach (array_column($completion->completeMarkdownCalls, 'prompt') as $prompt) {
             self::assertStringNotContainsString('TARGET AUDIENCE', $prompt);
         }
         foreach ($imageGenerator->prompts as $prompt) {
@@ -207,13 +206,13 @@ final class SchaubildGeneratorTest extends TestCase
             'You are an information designer. Output a raw HTML fragment only — no Markdown, no code fences.',
             $html['prompts']['system'],
         );
-        self::assertSame($completion->prompts[0], $html['prompts']['user']);
+        self::assertSame($completion->completeMarkdownCalls[0]['prompt'], $html['prompts']['user']);
         self::assertArrayNotHasKey('image', $html['prompts']);
 
         // html_bg: LLM prompts AND the background image prompt + the model that actually ran.
         $htmlBg = json_decode((string) $jobs->updates[$jobs->uidForVariant('html_bg')]['metadata'], true);
         self::assertSame('stub-image-model', $htmlBg['bgModel']);
-        self::assertSame($completion->prompts[0], $htmlBg['prompts']['user']);
+        self::assertSame($completion->completeMarkdownCalls[0]['prompt'], $htmlBg['prompts']['user']);
         self::assertSame($imageGenerator->prompts[0], $htmlBg['prompts']['image']);
         self::assertSame('stub-image-model', $htmlBg['prompts']['imageModel']);
         self::assertSame('1536x1024', $htmlBg['prompts']['imageSize']);
@@ -285,30 +284,12 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertTrue($generator->supports($this->context()));
     }
 
-    private function completion(): CompletionServiceInterface
+    private function completion(): FakeCompletionService
     {
-        return new class implements CompletionServiceInterface {
-            /** @var list<string> */
-            public array $prompts = [];
+        $completion = new FakeCompletionService();
+        $completion->markdownResult = '<p>body</p>';
 
-            public function complete(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-            public function completeJson(string $p, ?ChatOptions $o = null): array { throw new \LogicException('x'); }
-
-            public function completeMarkdown(string $p, ?ChatOptions $o = null): string
-            {
-                $this->prompts[] = $p;
-
-                return '<p>body</p>';
-            }
-
-            public function completeFactual(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-            public function completeCreative(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-            public function completeForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-            public function completeJsonForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): array { throw new \LogicException('x'); }
-            public function completeMarkdownForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): string { throw new \LogicException('x'); }
-            public function completeFactualForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-            public function completeCreativeForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-        };
+        return $completion;
     }
 
     private function renderer(): HtmlToImageRendererInterface
@@ -419,17 +400,16 @@ final class SchaubildGeneratorTest extends TestCase
         };
     }
 
-    private function allowingBudget(): BudgetServiceInterface
+    private function allowingBudget(): FakeBudgetService
     {
-        return new class implements BudgetServiceInterface {
-            public function check(int $u, float $c = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult { return BudgetCheckResult::allowed(); }
-        };
+        return new FakeBudgetService();
     }
 
-    private function denyingBudget(): BudgetServiceInterface
+    private function denyingBudget(): FakeBudgetService
     {
-        return new class implements BudgetServiceInterface {
-            public function check(int $u, float $c = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult { return BudgetCheckResult::denied('LIMIT_DAILY', 9.0, 9.0, 'no'); }
-        };
+        $budget = new FakeBudgetService();
+        $budget->checkResult = BudgetCheckResult::denied('LIMIT_DAILY', 9.0, 9.0, 'no');
+
+        return $budget;
     }
 }

@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
-use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
-use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
@@ -46,12 +44,7 @@ final class AbstractGeneratorTest extends TestCase
                 // this test never touches the database.
             }
         };
-        $budget = new class implements BudgetServiceInterface {
-            public function check(int $beUserUid, float $plannedCost = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
-            {
-                return BudgetCheckResult::allowed();
-            }
-        };
+        $budget = new FakeBudgetService();
 
         return new class($jobs, $budget, $logger) extends AbstractGenerator {
             public function supports(GenerationContext $ctx): bool
