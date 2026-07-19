@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
-use Netresearch\NrLlm\Domain\Model\CompletionResponse;
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
-use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
-use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Testing\FakeBudgetService;
+use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
@@ -55,7 +52,7 @@ final class PodcastGeneratorTest extends TestCase
     }
 
     /** @param list<array{speaker: string, text: string}>|null $turns */
-    private function completion(?array $turns = null): CompletionServiceInterface
+    private function completion(?array $turns = null): FakeCompletionService
     {
         $turns ??= [
             ['speaker' => 'Host A', 'text' => 'Welcome to the show.'],
@@ -63,66 +60,10 @@ final class PodcastGeneratorTest extends TestCase
             ['speaker' => 'Host A', 'text' => 'Lets dig in.'],
         ];
 
-        return new class($turns) implements CompletionServiceInterface {
-            public ?ChatOptions $seenOptions = null;
-            public string $seenPrompt = '';
+        $completion = new FakeCompletionService();
+        $completion->jsonResult = ['turns' => $turns];
 
-            /** @param list<array{speaker: string, text: string}> $turns */
-            public function __construct(private readonly array $turns) {}
-
-            public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
-            {
-                throw new \LogicException('not used');
-            }
-
-            public function completeJson(string $prompt, ?ChatOptions $options = null): array
-            {
-                $this->seenPrompt = $prompt;
-                $this->seenOptions = $options;
-
-                return ['turns' => $this->turns];
-            }
-
-            public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
-            {
-                throw new \LogicException('not used');
-            }
-
-            public function completeFactual(string $prompt, ?ChatOptions $options = null): CompletionResponse
-            {
-                throw new \LogicException('not used');
-            }
-
-            public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
-            {
-                throw new \LogicException('not used');
-            }
-
-            public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
-            {
-                throw new \LogicException('not used');
-            }
-
-            public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
-            {
-                throw new \LogicException('not used');
-            }
-
-            public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
-            {
-                throw new \LogicException('not used');
-            }
-
-            public function completeFactualForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
-            {
-                throw new \LogicException('not used');
-            }
-
-            public function completeCreativeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
-            {
-                throw new \LogicException('not used');
-            }
-        };
+        return $completion;
     }
 
     /** @return SpeechSynthesizerInterface */
@@ -221,24 +162,17 @@ final class PodcastGeneratorTest extends TestCase
         };
     }
 
-    private function allowingBudget(): BudgetServiceInterface
+    private function allowingBudget(): FakeBudgetService
     {
-        return new class implements BudgetServiceInterface {
-            public function check(int $beUserUid, float $plannedCost = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
-            {
-                return BudgetCheckResult::allowed();
-            }
-        };
+        return new FakeBudgetService();
     }
 
-    private function denyingBudget(): BudgetServiceInterface
+    private function denyingBudget(): FakeBudgetService
     {
-        return new class implements BudgetServiceInterface {
-            public function check(int $beUserUid, float $plannedCost = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
-            {
-                return BudgetCheckResult::denied('LIMIT_DAILY', 10.0, 10.0, 'exhausted');
-            }
-        };
+        $budget = new FakeBudgetService();
+        $budget->checkResult = BudgetCheckResult::denied('LIMIT_DAILY', 10.0, 10.0, 'exhausted');
+
+        return $budget;
     }
 
     public function testHappyPathSynthesizesAlternatingVoicesStitchesAndRecordsArtifact(): void
@@ -265,8 +199,8 @@ final class PodcastGeneratorTest extends TestCase
         self::assertStringContainsString('Host A: Welcome to the show.', $update['script_text']);
         self::assertStringContainsString('Host B: Glad to be here.', $update['script_text']);
         self::assertSame('done', $update['status']);
-        self::assertSame('json', $completion->seenOptions->getResponseFormat());
-        self::assertSame(3, $completion->seenOptions->getBeUserUid());
+        self::assertSame('json', $completion->completeJsonCalls[0]['options']?->getResponseFormat());
+        self::assertSame(3, $completion->completeJsonCalls[0]['options']?->getBeUserUid());
     }
 
     public function testWebVttCuesUseProbedDurations(): void
@@ -336,9 +270,9 @@ final class PodcastGeneratorTest extends TestCase
         self::assertTrue($generator->generate($this->context(1, $personas)));
 
         // The dialogue prompt describes each persona; the JSON shape pins the persona names as speakers.
-        self::assertStringContainsString('- Anna: Curious analyst who asks sharp questions.', $completion->seenPrompt);
-        self::assertStringContainsString('- Cara: Moderator keeping the pace.', $completion->seenPrompt);
-        self::assertStringContainsString('"Anna"|"Ben"|"Cara"', (string) $completion->seenOptions?->getSystemPrompt());
+        self::assertStringContainsString('- Anna: Curious analyst who asks sharp questions.', $completion->completeJsonCalls[0]['prompt']);
+        self::assertStringContainsString('- Cara: Moderator keeping the pace.', $completion->completeJsonCalls[0]['prompt']);
+        self::assertStringContainsString('"Anna"|"Ben"|"Cara"', (string) $completion->completeJsonCalls[0]['options']?->getSystemPrompt());
 
         // Voice mapping: valid metadata voice wins (Anna); invalid/missing fall back to the host
         // voices round-robin (Ben = index 1 -> onyx, Cara = index 2 -> nova). The unknown speaker
@@ -353,7 +287,7 @@ final class PodcastGeneratorTest extends TestCase
         self::assertSame(['Anna', 'Ben', 'Cara'], $metadata['personas']);
         // The prompts object carries the resolved per-speaker voice map.
         self::assertSame(['Anna' => 'fable', 'Ben' => 'onyx', 'Cara' => 'nova'], $metadata['prompts']['voices']);
-        self::assertSame($completion->seenPrompt, $metadata['prompts']['user']);
+        self::assertSame($completion->completeJsonCalls[0]['prompt'], $metadata['prompts']['user']);
     }
 
     public function testPersonaNamesWithQuotesAreJsonEscapedInTheSpeakerConstraint(): void
@@ -375,7 +309,7 @@ final class PodcastGeneratorTest extends TestCase
         // Each name is JSON-encoded, so quotes/backslashes cannot malform the shape constraint.
         self::assertStringContainsString(
             '{"turns":[{"speaker":"Jo \"The Quant\" Lee"|"Back\\\\slash","text":"..."}]}',
-            (string) $completion->seenOptions?->getSystemPrompt(),
+            (string) $completion->completeJsonCalls[0]['options']?->getSystemPrompt(),
         );
     }
 
@@ -389,8 +323,8 @@ final class PodcastGeneratorTest extends TestCase
         );
 
         self::assertTrue($generator->generate($this->context()));
-        self::assertStringNotContainsString('Hosts:', $completion->seenPrompt);
-        self::assertStringContainsString('"speaker":"Host A"|"Host B"', (string) $completion->seenOptions?->getSystemPrompt());
+        self::assertStringNotContainsString('Hosts:', $completion->completeJsonCalls[0]['prompt']);
+        self::assertStringContainsString('"speaker":"Host A"|"Host B"', (string) $completion->completeJsonCalls[0]['options']?->getSystemPrompt());
 
         $metadata = json_decode((string) $jobs->updates[100]['metadata'], true);
         self::assertSame(['nova', 'onyx'], $metadata['voices']);
@@ -411,8 +345,8 @@ final class PodcastGeneratorTest extends TestCase
         $metadata = json_decode((string) $jobs->updates[100]['metadata'], true);
         $prompts = $metadata['prompts'];
         // The exact LLM call, verbatim and complete.
-        self::assertSame($completion->seenPrompt, $prompts['user']);
-        self::assertSame((string) $completion->seenOptions?->getSystemPrompt(), $prompts['system']);
+        self::assertSame($completion->completeJsonCalls[0]['prompt'], $prompts['user']);
+        self::assertSame((string) $completion->completeJsonCalls[0]['options']?->getSystemPrompt(), $prompts['system']);
         // Both surfaces carry whatever model the synthesizer resolves (here: the stub's),
         // so a registry-switched model shows up in the artifact metadata, not a hardcoded id.
         self::assertSame('stub-tts-model', $metadata['ttsModel']);

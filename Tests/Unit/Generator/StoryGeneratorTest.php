@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
-use Netresearch\NrLlm\Domain\Model\CompletionResponse;
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
-use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Testing\FakeBudgetService;
+use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
@@ -140,7 +139,7 @@ final class StoryGeneratorTest extends TestCase
         self::assertSame(1, $imageGenerator->calls);
         self::assertSame(3, $compositor->overlayCalls);
         self::assertSame([true, true, true], $renderer->transparents);
-        self::assertSame([0.05], $budget->checkedCosts);
+        self::assertSame([0.05], array_column($budget->checkCalls, 'plannedCost'));
         foreach ($jobs->updates as $update) {
             $metadata = json_decode((string) $update['metadata'], true);
             self::assertSame('ki', $metadata['background']);
@@ -297,7 +296,7 @@ final class StoryGeneratorTest extends TestCase
 
         self::assertTrue($generator->generate($this->context()));
         // The prompt asks the LLM for the same limits the parser enforces below.
-        self::assertStringContainsString('Headline <=60 chars and subline <=110 chars', $completion->lastPrompt);
+        self::assertStringContainsString('Headline <=60 chars and subline <=110 chars', $completion->completeJsonCalls[0]['prompt']);
 
         $html = (string) $jobs->updates[$jobs->uidForVariant('slide-1')]['source_html'];
         self::assertStringContainsString(str_repeat('H', 60), $html);
@@ -312,13 +311,13 @@ final class StoryGeneratorTest extends TestCase
         $completion = $this->completion(self::THREE_SLIDES);
         $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
         $generator->generate($this->context(true, ['Point']));
-        self::assertEqualsWithDelta(0.03, $completion->lastOptions?->getPlannedCost(), 1e-9);
+        self::assertEqualsWithDelta(0.03, $completion->completeJsonCalls[0]['options']?->getPlannedCost(), 1e-9);
 
         // 6 key points -> capped at 4 point slides -> 6 slides planned.
         $completion = $this->completion(self::THREE_SLIDES);
         $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
         $generator->generate($this->context(true, ['A', 'B', 'C', 'D', 'E', 'F']));
-        self::assertEqualsWithDelta(0.06, $completion->lastOptions?->getPlannedCost(), 1e-9);
+        self::assertEqualsWithDelta(0.06, $completion->completeJsonCalls[0]['options']?->getPlannedCost(), 1e-9);
     }
 
     public function testSlidesPromptCarriesTheComposedSnippetSections(): void
@@ -328,8 +327,8 @@ final class StoryGeneratorTest extends TestCase
         $snippets = new ResolvedPromptSnippets(storySections: "TONE OF VOICE:\nUpbeat and concise\n\nLAYOUT:\nFull-bleed imagery");
 
         self::assertTrue($generator->generate($this->context(true, ['Point'], $snippets)));
-        self::assertStringContainsString("TONE OF VOICE:\nUpbeat and concise", $completion->lastPrompt);
-        self::assertStringContainsString("LAYOUT:\nFull-bleed imagery", $completion->lastPrompt);
+        self::assertStringContainsString("TONE OF VOICE:\nUpbeat and concise", $completion->completeJsonCalls[0]['prompt']);
+        self::assertStringContainsString("LAYOUT:\nFull-bleed imagery", $completion->completeJsonCalls[0]['prompt']);
     }
 
     public function testWithoutSnippetsSlidesPromptHasNoSectionBlocks(): void
@@ -338,8 +337,8 @@ final class StoryGeneratorTest extends TestCase
         $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
 
         self::assertTrue($generator->generate($this->context()));
-        self::assertStringNotContainsString('TONE OF VOICE', $completion->lastPrompt);
-        self::assertStringNotContainsString('LAYOUT:', $completion->lastPrompt);
+        self::assertStringNotContainsString('TONE OF VOICE', $completion->completeJsonCalls[0]['prompt']);
+        self::assertStringNotContainsString('LAYOUT:', $completion->completeJsonCalls[0]['prompt']);
     }
 
     public function testEverySlideRecordsCopyPromptsAndTheSharedBackgroundImageCall(): void
@@ -354,7 +353,7 @@ final class StoryGeneratorTest extends TestCase
         foreach (['slide-1', 'slide-2', 'slide-3'] as $variant) {
             $prompts = json_decode((string) $jobs->updates[$jobs->uidForVariant($variant)]['metadata'], true)['prompts'];
             self::assertSame('You are a social-media copywriter. Output ONLY valid JSON.', $prompts['system']);
-            self::assertSame($completion->lastPrompt, $prompts['user']);   // the exact copy prompt, verbatim
+            self::assertSame($completion->completeJsonCalls[0]['prompt'], $prompts['user']);   // the exact copy prompt, verbatim
             self::assertSame($imageGenerator->prompts[0], $prompts['image']);  // shared background prompt
             self::assertSame('stub-image-model', $prompts['imageModel']);
             self::assertSame('1024x1536', $prompts['imageSize']);
@@ -370,7 +369,7 @@ final class StoryGeneratorTest extends TestCase
         self::assertTrue($generator->generate($this->context()));
 
         $prompts = json_decode((string) $jobs->updates[$jobs->uidForVariant('slide-1')]['metadata'], true)['prompts'];
-        self::assertSame($completion->lastPrompt, $prompts['user']);
+        self::assertSame($completion->completeJsonCalls[0]['prompt'], $prompts['user']);
         self::assertArrayNotHasKey('image', $prompts);
         self::assertArrayNotHasKey('imageModel', $prompts);
         self::assertArrayNotHasKey('imageSize', $prompts);
@@ -430,37 +429,16 @@ final class StoryGeneratorTest extends TestCase
     }
 
     /** @param array<mixed>|\Throwable $result */
-    private function completion(array|\Throwable $result): CompletionServiceInterface
+    private function completion(array|\Throwable $result): FakeCompletionService
     {
-        return new class($result) implements CompletionServiceInterface {
-            public ?ChatOptions $lastOptions = null;
-            public string $lastPrompt = '';
+        $completion = new FakeCompletionService();
+        if ($result instanceof \Throwable) {
+            $completion->throwable = $result;
+        } else {
+            $completion->jsonResult = $result;
+        }
 
-            /** @param array<mixed>|\Throwable $result */
-            public function __construct(private readonly array|\Throwable $result) {}
-
-            public function complete(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-
-            public function completeJson(string $p, ?ChatOptions $o = null): array
-            {
-                $this->lastPrompt = $p;
-                $this->lastOptions = $o;
-                if ($this->result instanceof \Throwable) {
-                    throw $this->result;
-                }
-
-                return $this->result;
-            }
-
-            public function completeMarkdown(string $p, ?ChatOptions $o = null): string { throw new \LogicException('x'); }
-            public function completeFactual(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-            public function completeCreative(string $p, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-            public function completeForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-            public function completeJsonForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): array { throw new \LogicException('x'); }
-            public function completeMarkdownForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): string { throw new \LogicException('x'); }
-            public function completeFactualForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-            public function completeCreativeForConfiguration(string $p, LlmConfiguration $c, ?ChatOptions $o = null): CompletionResponse { throw new \LogicException('x'); }
-        };
+        return $completion;
     }
 
     private function renderer(): HtmlToImageRendererInterface
@@ -564,25 +542,16 @@ final class StoryGeneratorTest extends TestCase
         };
     }
 
-    private function allowingBudget(): BudgetServiceInterface
+    private function allowingBudget(): FakeBudgetService
     {
-        return new class implements BudgetServiceInterface {
-            /** @var list<float> */
-            public array $checkedCosts = [];
-
-            public function check(int $u, float $c = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
-            {
-                $this->checkedCosts[] = $c;
-
-                return BudgetCheckResult::allowed();
-            }
-        };
+        return new FakeBudgetService();
     }
 
-    private function denyingBudget(): BudgetServiceInterface
+    private function denyingBudget(): FakeBudgetService
     {
-        return new class implements BudgetServiceInterface {
-            public function check(int $u, float $c = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult { return BudgetCheckResult::denied('LIMIT_DAILY', 9.0, 9.0, 'no'); }
-        };
+        $budget = new FakeBudgetService();
+        $budget->checkResult = BudgetCheckResult::denied('LIMIT_DAILY', 9.0, 9.0, 'no');
+
+        return $budget;
     }
 }
