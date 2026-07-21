@@ -73,6 +73,20 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
             : $this->inner->completeJson($prompt, $options);
     }
 
+    /**
+     * @param array<string, mixed> $schema
+     *
+     * @return array<string, mixed>
+     */
+    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
+    {
+        $configuration = $this->resolveConfiguration();
+
+        return $configuration !== null
+            ? $this->inner->completeStructuredForConfiguration($prompt, $configuration, $schema, $options)
+            : $this->inner->completeStructured($prompt, $schema, $options);
+    }
+
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
     {
         $configuration = $this->resolveConfiguration();
@@ -111,6 +125,16 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
     public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
     {
         return $this->inner->completeJsonForConfiguration($prompt, $configuration, $options);
+    }
+
+    /**
+     * @param array<string, mixed> $schema
+     *
+     * @return array<string, mixed>
+     */
+    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
+    {
+        return $this->inner->completeStructuredForConfiguration($prompt, $configuration, $schema, $options);
     }
 
     public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
