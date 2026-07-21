@@ -9,6 +9,7 @@ return [
         'tstamp' => 'tstamp',
         'crdate' => 'crdate',
         'hideTable' => true,
+        'iconfile' => 'EXT:nr_repurpose/Resources/Public/Icons/artifact.svg',
     ],
     'columns' => [
         'job' => ['config' => ['type' => 'passthrough']],
