@@ -20,7 +20,7 @@
         "netresearch/nr-vault": "^0.10.0 || ^0.11.0",
         "psr/log": "^3.0",
         "symfony/messenger": "^7.0 || ^8.0",
-        "symfony/process": "^7.0",
+        "symfony/process": "^7.0 || ^8.0",
         "typo3/cms-backend": "^14.3",
         "typo3/cms-core": "^14.3",
         "typo3/cms-extbase": "^14.3",
