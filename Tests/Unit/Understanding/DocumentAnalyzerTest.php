@@ -42,6 +42,16 @@ final class FakeCompletionService implements CompletionServiceInterface
         throw new \BadMethodCallException('not used in this test');
     }
 
+    /**
+     * @param array<string, mixed> $schema
+     *
+     * @return array<string, mixed>
+     */
+    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
+    {
+        throw new \BadMethodCallException('not used in this test');
+    }
+
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
     {
         throw new \BadMethodCallException('not used in this test');
@@ -63,6 +73,16 @@ final class FakeCompletionService implements CompletionServiceInterface
     }
 
     public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
+    {
+        throw new \BadMethodCallException('not used in this test');
+    }
+
+    /**
+     * @param array<string, mixed> $schema
+     *
+     * @return array<string, mixed>
+     */
+    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
     {
         throw new \BadMethodCallException('not used in this test');
     }
