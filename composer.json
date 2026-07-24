@@ -15,7 +15,7 @@
     "require": {
         "php": "^8.3",
         "ext-json": "*",
-        "netresearch/nr-llm": "^0.22.0 || ^0.23.0",
+        "netresearch/nr-llm": "^0.25",
         "netresearch/nr-vault": "^0.10.0 || ^0.11.0",
         "psr/log": "^3.0",
         "symfony/messenger": "^7.0 || ^8.0",
