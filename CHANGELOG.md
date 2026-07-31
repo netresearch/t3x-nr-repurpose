@@ -6,6 +6,46 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-31
+
+### Changed
+
+- **`netresearch/nr-vault` constraint widened to `^0.10.0 || ^0.11.0 || ^0.12.0`.**
+  nr-vault 0.12.0 is a security release whose highest-severity fix stops
+  `%vault()%` site-configuration references from being resolved eagerly and
+  persisted into TYPO3's on-disk cache in cleartext. Consumers that pin this
+  extension could not take that fix, because 0.3.0 excluded `^0.12`.
+
+  This extension holds no nr-vault code path of its own — every AI call and the
+  key behind it go through nr-llm (ADR-003) — so neither behaviour change in
+  0.12.0 reaches it: it implements no `AuditLogServiceInterface` and reads no
+  site configuration. Verified against nr-vault 0.12.2 with nr-llm 0.25.1
+  installed: 152 unit tests, 596 assertions, all passing.
+
+- `playwright-core` development dependency updated to 1.62.0.
+
+### Fixed
+
+- `Documentation/guides.xml` declared `version="0.2"` alongside `release="0.3.0"`;
+  both now track the released version.
+
+## [0.3.0] - 2026-07-23
+
+Released without a changelog entry; recorded here from the tag range for
+completeness.
+
+### Changed
+
+- **Migrated to nr-llm `^0.25`**, including `completeStructured()` for the
+  nr-llm 0.23 provider interface.
+- `symfony/process` and `symfony/messenger` updated to 8.x.
+- Backend icons redrawn in TYPO3 v14 style, artifact record icon added.
+- Templates use a themable border token instead of a hardcoded `#ccc`.
+
+### Fixed
+
+- `guides.xml` repaired and documentation CI added.
+
 ## [0.2.0] - 2026-07-18
 
 ### Added
