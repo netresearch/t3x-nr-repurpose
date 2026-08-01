@@ -1,0 +1,22 @@
+# Gitleaks / betterleaks configuration for nr_repurpose
+# See: https://github.com/gitleaks/gitleaks#configuration
+#
+# Auto-discovered by the shared secret-scanning workflow, which runs
+# `betterleaks git` against the repo root without an explicit --config.
+
+# Extend the default ruleset rather than replacing it.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Local DDEV development TLS material (mkcert, never a real credential)"
+# The DDEV scaffold once carried an mkcert-generated development certificate.
+# It was issued by a per-developer local CA and is valid only for *.ddev.site,
+# localhost and 127.0.0.1, so it grants access to nothing. The file is already
+# gone from the working tree, but betterleaks scans the full history, so the
+# finding persists and has to be allowlisted by path.
+paths = [
+    '''^\.ddev/traefik/certs/''',
+]
+# NOTE: no regex allowlists on purpose — a repo-wide value regex would mask a
+# real private key committed elsewhere.
