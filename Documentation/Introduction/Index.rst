@@ -22,8 +22,8 @@ It is a thin orchestration layer on top of :composer:`netresearch/nr-llm`: the
 LLM access (chat/vision completions, text-to-speech, image generation) and the
 per-user budget enforcement all come from nr-llm — any provider nr-llm supports
 can be used, selected in nr-llm's backend module rather than in code. The
-provider API keys are stored in :composer:`netresearch/nr-vault` and read by
-identifier, so no plaintext key lives in this extension. nr_repurpose adds the
+provider API keys belong to nr-llm and are referenced only by identifier, so no
+plaintext key lives in this extension. nr_repurpose adds the
 ingestion, the prompting, the local rendering toolchain, and the backend module
 that ties them together.
 
@@ -90,8 +90,8 @@ not abort its siblings.
 
 .. _introduction-foundation:
 
-The nr-llm / nr-vault foundation
-================================
+The nr-llm foundation
+=====================
 
 nr_repurpose never talks to an AI provider directly. Every AI call goes through
 nr-llm:
@@ -109,10 +109,9 @@ nr-llm:
     gates them manually with nr-llm's :php:`BudgetService` and each service's
     ``isAvailable()`` check before spending.
 
-The provider keys are held by nr-vault and resolved by nr-llm by identifier
-(e.g. ``nr_repurpose_openai``); the secret is injected, audited, and
-memory-scrubbed inside the vault and never surfaces in nr_repurpose. See
-:ref:`adr-003`.
+The provider keys belong to nr-llm, which resolves them by identifier (e.g.
+``nr_repurpose_openai``) and injects them into the outbound call. No secret
+surfaces in nr_repurpose. See :ref:`adr-003`.
 
 .. _introduction-control:
 
@@ -134,9 +133,9 @@ stays under the operator's control —
 -   **Prompts.** System prompts live centrally on Configuration records,
     editorial steering on reviewable prompt snippets, and every artifact stores
     the exact prompts, models, sizes and voices that produced it.
--   **Auditing.** Keys are envelope-encrypted in nr-vault; every key use goes
-    through its audited secure HTTP client — a who/what/when trail for every
-    outbound AI call.
+-   **Auditing.** nr-llm keeps the provider keys encrypted and routes every
+    outbound AI call through an audited client — a who/what/when trail for
+    each one.
 -   **Permissions.** Backend group permissions gate who may spend on audio and
     AI imagery (see :ref:`configuration-permissions`).
 
@@ -147,8 +146,8 @@ Requirements
 
 -   **PHP** 8.3 or higher.
 -   **TYPO3** v14.3 LTS.
--   :composer:`netresearch/nr-llm` (installed via Composer; it brings
-    :composer:`netresearch/nr-vault` with it).
+-   :composer:`netresearch/nr-llm` (installed via Composer, with its own
+    dependencies).
 -   An **API key for at least one nr-llm-supported provider**. The tested
     default stack uses a single OpenAI key for everything (chat/vision
     analysis, TTS, ``gpt-image-2`` images); text generation can equally use any

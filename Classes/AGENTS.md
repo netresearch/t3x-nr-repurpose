@@ -29,7 +29,7 @@ TYPO3 extension following TYPO3 CGL and PSR-12
 
 <!-- AGENTS-GENERATED:START setup -->
 ## Setup & environment
-- PHP ^8.3, TYPO3 ^14.3, nr-llm ^0.25 (nr-vault arrives through nr-llm)
+- PHP ^8.3, TYPO3 ^14.3, nr-llm ^0.25
 - Local dev: `ddev start && ddev install` (seeds vault key + nr-llm wiring)
 - Tests/static analysis: see root `AGENTS.md` Commands — Docker runner only
 <!-- AGENTS-GENERATED:END setup -->

@@ -255,4 +255,4 @@ extension's :php:`RenderingException`. This keeps the generators independent of
 nr-llm's concrete service shapes, lets unit tests substitute fakes, and is the
 seam for additional image/speech backends (the DI aliases live in
 :path:`Configuration/Services.yaml`). The provider keys behind all of these are
-resolved from nr-vault by identifier (see :ref:`adr-003`).
+resolved by nr-llm from an identifier (see :ref:`adr-003`).

@@ -33,8 +33,7 @@ nr_repurpose
 Turn a webpage (URL) or PDF into three AI-generated media artifacts — a
 persona-driven **podcast**, a **diagram** (Schaubild) in three variants, and a 9:16
 **Instagram-story carousel** — straight from the TYPO3 backend. Built on
-:composer:`netresearch/nr-llm` for AI access and :composer:`netresearch/nr-vault`
-for key storage.
+:composer:`netresearch/nr-llm` for AI access and provider credentials.
 
 ----
 
@@ -50,8 +49,7 @@ Getting started
    .. card:: 📘 Introduction
 
       Learn what nr_repurpose is, which three artifacts it
-      produces, and how it builds on the nr-llm / nr-vault
-      foundation.
+      produces, and how it builds on the nr-llm foundation.
 
       .. card-footer:: :ref:`Read more <introduction>`
          :button-style: btn btn-secondary stretched-link
@@ -59,8 +57,8 @@ Getting started
    .. card:: 📦 Installation
 
       Install via Composer, meet the runtime requirements
-      (poppler, ffmpeg, chromium, a worker), and seed the
-      provider API key into nr-vault.
+      (poppler, ffmpeg, chromium, a worker), and hand the
+      provider API key to nr-llm.
 
       .. card-footer:: :ref:`Read more <installation>`
          :button-style: btn btn-primary stretched-link
@@ -93,7 +91,7 @@ Getting started
    .. card:: 📐 Decision records
 
       The architectural decisions behind the async pipeline,
-      the Node renderer, and the vault-backed key.
+      the Node renderer, and the delegated provider credentials.
 
       .. card-footer:: :ref:`Read more <adr>`
          :button-style: btn btn-secondary stretched-link

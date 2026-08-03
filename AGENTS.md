@@ -135,8 +135,8 @@ completion, map-reduce above 24k chars) → generate (`Classes/Generator/`:
 podcast with 1–3 persona speakers, Schaubild ×3 variants, story ×N slides;
 async via Symfony Messenger doctrine transport, worker needs ffmpeg +
 chromium + poppler) → store in FAL (`repurpose/` folder). ALL AI calls go
-through nr-llm — this extension contains zero provider code; keys live in
-nr-vault (identifier `nr_repurpose_openai` on the live instance).
+through nr-llm — this extension contains zero provider code; the keys belong to
+nr-llm (identifier `nr_repurpose_openai` on the live instance).
 <!-- AGENTS-GENERATED:END codebase-state -->
 
 ## Scoped AGENTS.md (MUST read when working in these directories)

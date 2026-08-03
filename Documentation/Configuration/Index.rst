@@ -24,8 +24,8 @@ the model, the provider, the API key, the system prompt, and the usage/cost
 attribution. Set everything up in nr-llm's backend module
 (:guilabel:`Admin Tools > LLM Management`):
 
-#.  Create a **Provider** whose API key references the nr-vault identifier you
-    stored during installation (see :ref:`installation-openai-key`).
+#.  Create a **Provider** whose API key references the key identifier nr-llm
+    issued during installation (see :ref:`installation-openai-key`).
 #.  Create the **Models** you want to use (or fetch them via nr-llm's model
     discovery), including the specialized ones (image, text-to-speech).
 #.  Import the **Configuration** records nr_repurpose declares as presets.
@@ -70,9 +70,9 @@ seam for additional backends is the
 :php:`ImageGeneratorInterface` / :php:`SpeechSynthesizerInterface` DI alias in
 :path:`Configuration/Services.yaml`.
 
-Key resolution is vault-only: both the chat providers and the specialized
-services authenticate through nr-vault's secure HTTP client by identifier — no
-plaintext key is ever set. See :ref:`adr-003`.
+Keys are always referenced by identifier: both the chat providers and the
+specialized services let nr-llm resolve and inject the key — no plaintext key
+is ever set here. See :ref:`adr-003`.
 
 .. _configuration-snippets:
 
