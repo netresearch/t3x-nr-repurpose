@@ -64,9 +64,9 @@ Consequences
 
 - No plaintext OpenAI key exists anywhere in nr_repurpose's configuration, code,
   or runtime memory; upstream calls are audited centrally by nr-llm.
-- Installation gains a mandatory step: hand the key to nr-llm and point the
-  provider and Configuration records at the resulting identifier (see
-  :ref:`installation-openai-key` and :ref:`configuration-nr-llm`). nr-llm's
+- Installation gains a mandatory step: hand the key to nr-llm and point its
+  Provider record and its extension configuration at the resulting identifier
+  (see :ref:`installation-openai-key` and :ref:`configuration-nr-llm`). nr-llm's
   backend setup wizard takes the key and issues the identifier; scripted
   installs that cannot drive a wizard fill nr-llm's store from the command line
   instead, which is what the bundled DDEV setup does.

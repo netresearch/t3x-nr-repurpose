@@ -108,8 +108,11 @@ The normal route is nr-llm's setup wizard in the TYPO3 backend: enter the key,
 and nr-llm stores it securely and generates the key identifier for you. How it
 keeps the secret is nr-llm's business and documented there.
 
-The identifier is what nr_repurpose needs: it goes into the nr-llm
-Configuration records the generation pipeline uses, described in
+Two places then refer to that identifier, both of them nr-llm's: the **Provider**
+record carries it for the chat and vision completions, and nr-llm's extension
+configuration carries it as ``providers.openai.apiKeyIdentifier`` for the
+specialized text-to-speech and image services. The Configuration records
+nr_repurpose ships as presets bake in no provider, model or key at all. See
 :ref:`configuration-nr-llm`.
 
 .. note::
