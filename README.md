@@ -65,7 +65,7 @@ configuration that resolves against the models you have. Mark the imported
 
 System prompts (e.g. the image-style preamble) are maintained on the Configuration
 records; per-model and per-configuration usage and cost show up in nr-llm's
-analytics module. API keys are stored in **nr-vault** and referenced by identifier
+analytics module. API keys belong to **nr-llm** and are referenced by identifier
 (e.g. `nr_repurpose_openai`) — no plaintext key ever lives in extension
 configuration (nr-llm ADR-030).
 
@@ -94,17 +94,16 @@ the AI usage stays under the operator's control:
   editorial steering on reviewable prompt snippets, and every artifact stores the
   exact prompts, models, sizes and voices that produced it — reproducible and
   reviewable after the fact.
-- **Auditing** — API keys are envelope-encrypted in nr-vault and every key use
-  goes through its audited secure HTTP client: a who/what/when trail exists for
-  every outbound AI call.
+- **Auditing** — nr-llm keeps the API keys encrypted and routes every outbound
+  AI call through an audited client: a who/what/when trail exists for each one.
 - **Permissions** — backend group permissions gate which editors may spend on
   audio (`generate_audio`) and AI imagery (`generate_vision`).
 
 ## Requirements
 
 - TYPO3 v14.3 LTS, PHP 8.3+
-- nr-llm `^0.25` (installed automatically via Composer, and it pulls in nr-vault,
-  where the API key is stored)
+- nr-llm `^0.25` (installed automatically via Composer; it owns the provider
+  credentials)
 - An API key for at least one nr-llm-supported provider. The tested default stack
   uses a single OpenAI key for everything (analysis, TTS, images).
 - `ffmpeg`, `poppler-utils` and `chromium` (+ Node.js for the renderer) on the

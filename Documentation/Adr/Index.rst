@@ -38,10 +38,10 @@ Decision records
       .. card-footer:: :ref:`Read <adr-002>`
          :button-style: btn btn-secondary stretched-link
 
-   .. card:: ADR-003: Vault-backed OpenAI key via nr-llm
+   .. card:: ADR-003: Provider credentials delegated to nr-llm
 
-      Why the OpenAI key lives in nr-vault and is reached
-      only through nr-llm, never as plaintext here.
+      Why this extension owns no provider code and no API key,
+      and reaches every provider only through nr-llm.
 
       .. card-footer:: :ref:`Read <adr-003>`
          :button-style: btn btn-secondary stretched-link
@@ -51,4 +51,4 @@ Decision records
 
    Adr001AsyncGenerationViaSymfonyMessenger
    Adr002NodePlaywrightRenderer
-   Adr003VaultBackedKeyViaNrLlm
+   Adr003ProviderCredentialsViaNrLlm

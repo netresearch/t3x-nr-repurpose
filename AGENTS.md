@@ -69,7 +69,7 @@ Build/           → project files
 | Steering generation | nr-llm prompt snippets, tags `audience` / `tone_of_voice` / `persona` / `layout` / `style`; layout metadata `{"imageSize":"WxH"}` drives AI-image dimensions |
 | Committing | Conventional Commits + `git commit -S -s` (DCO + SSH signing enforced) |
 | Merging a PR | `--merge`, directly — this repo has NO merge queue; gate: threads resolved + checks green + no in-flight review |
-| Running locally | `ddev start` + `ddev install` (seeds vault key, see README) |
+| Running locally | `ddev start` + `ddev install` (seeds the provider key, see README) |
 | Adding dependency | Ask first — we minimize deps |
 <!-- AGENTS-GENERATED:END heuristics -->
 
@@ -135,8 +135,8 @@ completion, map-reduce above 24k chars) → generate (`Classes/Generator/`:
 podcast with 1–3 persona speakers, Schaubild ×3 variants, story ×N slides;
 async via Symfony Messenger doctrine transport, worker needs ffmpeg +
 chromium + poppler) → store in FAL (`repurpose/` folder). ALL AI calls go
-through nr-llm — this extension contains zero provider code; keys live in
-nr-vault (identifier `nr_repurpose_openai` on the live instance).
+through nr-llm — this extension contains zero provider code; the keys belong to
+nr-llm (identifier `nr_repurpose_openai` on the live instance).
 <!-- AGENTS-GENERATED:END codebase-state -->
 
 ## Scoped AGENTS.md (MUST read when working in these directories)

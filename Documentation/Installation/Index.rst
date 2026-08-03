@@ -24,10 +24,6 @@ Requirements
    * - :composer:`netresearch/nr-llm`
      - ``^0.25`` — AI access (completion, TTS, image), budget enforcement and
        one-click configuration presets.
-   * - :composer:`netresearch/nr-vault`
-     - Not required directly — nr-llm depends on it and states the supported
-       version range. It stores the provider API keys, nr-llm authenticates
-       through it, and it provides the ``vault:*`` commands used below.
    * - ``poppler-utils``
      - ``pdftoppm`` / ``pdftotext`` for PDF ingestion (Vision OCR and layout
        tiers).
@@ -56,7 +52,7 @@ Composer installation
 
    composer require netresearch/nr-repurpose
 
-This pulls in nr-llm, and nr-vault along with it. After installation, set up the
+This pulls in nr-llm and its own dependencies. After installation, set up the
 extension's database tables and activate it:
 
 .. code-block:: bash
@@ -101,23 +97,30 @@ The renderer locates Chromium via the ``CHROMIUM_PATH`` environment variable
 
 .. _installation-openai-key:
 
-Store the provider key in nr-vault
-==================================
+Hand the provider key to nr-llm
+===============================
 
-nr_repurpose never reads a plaintext API key. Store your provider's key (the
-examples use OpenAI, the tested default) in nr-vault under the identifier the
-nr-llm Provider record references (``nr_repurpose_openai`` in the bundled
-setup):
+nr_repurpose never reads an API key — it owns no provider credentials at all.
+Give the key (the examples use OpenAI, the tested default) to nr-llm, which
+stores it and hands back the identifier its records reference.
 
-.. code-block:: bash
-   :caption: Seed the provider key into nr-vault
+The normal route is nr-llm's setup wizard in the TYPO3 backend: enter the key,
+and nr-llm stores it securely and generates the key identifier for you. How it
+keeps the secret is nr-llm's business and documented there.
 
-   printf '%s' "sk-…" | vendor/bin/typo3 vault:store nr_repurpose_openai --stdin
+Two places then refer to that identifier, both of them nr-llm's: the **Provider**
+record carries it for the chat and vision completions, and nr-llm's extension
+configuration carries it as ``providers.openai.apiKeyIdentifier`` for the
+specialized text-to-speech and image services. The Configuration records
+nr_repurpose ships as presets bake in no provider, model or key at all. See
+:ref:`configuration-nr-llm`.
 
-To rotate an existing secret use ``vault:rotate nr_repurpose_openai --stdin``.
-nr-vault uses the TYPO3 encryption key as its master key by default
-(``masterKeyProvider=typo3``), so no extra vault setup is required. The matching
-nr-llm provider configuration is described in :ref:`configuration-nr-llm`.
+.. note::
+
+   For scripted installs where no one can operate the wizard, nr-llm's storage
+   backend can also be filled from the command line — that is what the bundled
+   DDEV setup does, seeding the identifier ``nr_repurpose_openai``. See
+   :ref:`installation-ddev`.
 
 .. _installation-worker:
 
