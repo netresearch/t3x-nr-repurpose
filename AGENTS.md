@@ -69,7 +69,7 @@ Build/           → project files
 | Steering generation | nr-llm prompt snippets, tags `audience` / `tone_of_voice` / `persona` / `layout` / `style`; layout metadata `{"imageSize":"WxH"}` drives AI-image dimensions |
 | Committing | Conventional Commits + `git commit -S -s` (DCO + SSH signing enforced) |
 | Merging a PR | `--merge`, directly — this repo has NO merge queue; gate: threads resolved + checks green + no in-flight review |
-| Running locally | `ddev start` + `ddev install` (seeds vault key, see README) |
+| Running locally | `ddev start` + `ddev install` (seeds the provider key, see README) |
 | Adding dependency | Ask first — we minimize deps |
 <!-- AGENTS-GENERATED:END heuristics -->
 
