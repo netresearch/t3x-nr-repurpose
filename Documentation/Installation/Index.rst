@@ -22,11 +22,12 @@ Requirements
    * - TYPO3
      - ``^14.3`` (v14.3 LTS only)
    * - :composer:`netresearch/nr-llm`
-     - ``^0.21.0`` — AI access (completion, TTS, image), budget enforcement and
+     - ``^0.25`` — AI access (completion, TTS, image), budget enforcement and
        one-click configuration presets.
    * - :composer:`netresearch/nr-vault`
-     - ``^0.10.0`` — stores the provider API keys; nr-llm authenticates through
-       it.
+     - Not required directly — nr-llm depends on it and states the supported
+       version range. It stores the provider API keys, nr-llm authenticates
+       through it, and it provides the ``vault:*`` commands used below.
    * - ``poppler-utils``
      - ``pdftoppm`` / ``pdftotext`` for PDF ingestion (Vision OCR and layout
        tiers).
@@ -55,7 +56,7 @@ Composer installation
 
    composer require netresearch/nr-repurpose
 
-This pulls in nr-llm and nr-vault automatically. After installation, set up the
+This pulls in nr-llm, and nr-vault along with it. After installation, set up the
 extension's database tables and activate it:
 
 .. code-block:: bash

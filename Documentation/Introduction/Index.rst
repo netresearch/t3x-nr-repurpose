@@ -147,8 +147,8 @@ Requirements
 
 -   **PHP** 8.3 or higher.
 -   **TYPO3** v14.3 LTS.
--   :composer:`netresearch/nr-llm` and :composer:`netresearch/nr-vault`
-    (installed via Composer).
+-   :composer:`netresearch/nr-llm` (installed via Composer; it brings
+    :composer:`netresearch/nr-vault` with it).
 -   An **API key for at least one nr-llm-supported provider**. The tested
     default stack uses a single OpenAI key for everything (chat/vision
     analysis, TTS, ``gpt-image-2`` images); text generation can equally use any

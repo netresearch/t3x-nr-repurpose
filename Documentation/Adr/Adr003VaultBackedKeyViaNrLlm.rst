@@ -51,9 +51,12 @@ Hold the OpenAI key in nr-vault and reach it only through nr-llm by identifier.
 
 3. **The secret never surfaces here.** nr-vault resolves, injects, audits, and
    memory-scrubs the secret inside its secure HTTP client. nr_repurpose holds no
-   key, logs no key, and has no provider HTTP code; it requires
-   :composer:`netresearch/nr-vault` ``^0.8.0`` (the version nr-llm ``0.10.0``
-   depends on).
+   key, logs no key, has no provider HTTP code — and does not depend on
+   :composer:`netresearch/nr-vault` itself. The vault is nr-llm's dependency and
+   is installed through it. Naming it a second time in this extension's
+   ``composer.json`` pinned a version range that no code here is written
+   against, and made every nr-vault release show up as a dependency update in a
+   repository that cannot judge it.
 
 .. _adr-003-consequences:
 
@@ -64,11 +67,15 @@ Consequences
   or runtime memory; upstream calls are audited centrally by nr-vault.
 - Installation gains a mandatory step: seed the key into the vault under the
   expected identifier and configure the nr-llm provider to read it (see
-  :ref:`installation-openai-key` and :ref:`configuration-nr-llm`).
+  :ref:`installation-openai-key` and :ref:`configuration-nr-llm`). Seeding uses
+  nr-vault's own CLI (``vault:store`` / ``vault:rotate``) because nr-llm exposes
+  no command that writes a secret; the commands are available because nr-llm
+  brings the vault along.
 - nr_repurpose inherits nr-llm's budget enforcement for free on completion
   calls; the specialized TTS/image calls are gated manually against nr-llm's
   :php:`BudgetService` because nr-llm does not run them through its budget
   middleware (see :ref:`architecture-generation-budget`).
-- The extension is bound to nr-llm ``^0.10.0`` and nr-vault ``^0.8.0``. Adopting
-  a different account or provider is a configuration change in nr-llm and the
-  vault, not a code change here.
+- The extension is bound to nr-llm ``^0.25`` alone; which nr-vault versions back
+  it is nr-llm's contract to state and to widen. Adopting a different account or
+  provider is a configuration change in nr-llm and the vault, not a code change
+  here.
