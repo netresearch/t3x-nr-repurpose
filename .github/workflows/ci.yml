@@ -22,7 +22,7 @@ jobs:
       typo3-versions: '["^14.3"]'
       run-cgl: false
       run-phpstan: false
-      run-rector: false
+      run-rector: true
       run-unit-tests: true
       unit-test-command: '.Build/bin/phpunit -c Build/phpunit/UnitTests.xml'
       run-functional-tests: false

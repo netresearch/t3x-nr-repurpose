@@ -13,14 +13,14 @@ use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
  * duration via `ffprobe -show_entries format=duration` for WebVTT cue timing. All binaries
  * (ffmpeg/ffprobe) are baked into the DDEV web-build image (Plan 1 Task 2).
  */
-final class FfmpegAudioStitcher implements AudioStitcherInterface
+final readonly class FfmpegAudioStitcher implements AudioStitcherInterface
 {
     public function __construct(
-        private readonly ProcessRunnerInterface $processRunner,
-        private readonly string $ffmpegBinary = 'ffmpeg',
-        private readonly string $ffprobeBinary = 'ffprobe',
-        private readonly string $workDir = '',
-        private readonly float $timeoutSeconds = 120.0,
+        private ProcessRunnerInterface $processRunner,
+        private string $ffmpegBinary = 'ffmpeg',
+        private string $ffprobeBinary = 'ffprobe',
+        private string $workDir = '',
+        private float $timeoutSeconds = 120.0,
     ) {}
 
     public function concat(array $mp3Paths, string $outPath): string
@@ -33,6 +33,7 @@ final class FfmpegAudioStitcher implements AudioStitcherInterface
         if ($dir === '') {
             $dir = sys_get_temp_dir();
         }
+
         if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) {
             throw RenderingException::because('Audio work dir not writable: ' . $dir, 1749400302);
         }
@@ -43,6 +44,7 @@ final class FfmpegAudioStitcher implements AudioStitcherInterface
             // ffmpeg concat-list syntax escapes a single quote as: '\''
             $lines[] = "file '" . str_replace("'", "'\\''", $path) . "'";
         }
+
         if (file_put_contents($listPath, implode("\n", $lines) . "\n") === false) {
             throw RenderingException::because('Could not write ffmpeg concat list', 1749400303);
         }
@@ -72,6 +74,7 @@ final class FfmpegAudioStitcher implements AudioStitcherInterface
                 1749400304,
             );
         }
+
         if (!is_file($outPath)) {
             throw RenderingException::because('ffmpeg produced no output at ' . $outPath, 1749400305);
         }

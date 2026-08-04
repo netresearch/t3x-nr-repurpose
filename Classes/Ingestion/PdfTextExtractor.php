@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion;
 
+use Throwable;
 use Smalot\PdfParser\Config;
 use Smalot\PdfParser\Parser;
 
@@ -34,7 +35,7 @@ class PdfTextExtractor
         try {
             $document = $parser->parseFile($absPath);
             $pageObjects = $document->getPages();
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // smalot throws \Exception('Secured pdf file are currently not supported.') on real encryption.
             throw new IngestionException(
                 'PDF could not be parsed (possibly encrypted): ' . $e->getMessage(),

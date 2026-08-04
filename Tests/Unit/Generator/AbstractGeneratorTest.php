@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
+use Stringable;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -28,7 +29,7 @@ final class AbstractGeneratorTest extends TestCase
             /** @var list<array{level: mixed, message: string}> */
             public array $records = [];
 
-            public function log($level, \Stringable|string $message, array $context = []): void
+            public function log($level, Stringable|string $message, array $context = []): void
             {
                 $this->records[] = ['level' => $level, 'message' => (string) $message];
             }

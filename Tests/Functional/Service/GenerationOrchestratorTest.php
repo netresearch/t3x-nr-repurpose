@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
+use RuntimeException;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
@@ -131,7 +132,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $ingestion = new class implements SourceIngestionServiceInterface {
             public function ingest(array $jobRow): SourceDocument
             {
-                throw new \RuntimeException('source unreachable');
+                throw new RuntimeException('source unreachable');
             }
         };
         $analyzer = new class implements DocumentAnalyzerInterface {

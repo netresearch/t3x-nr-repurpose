@@ -14,15 +14,15 @@ use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
  * a fixed $height clips the screenshot to the viewport. $transparent uses omitBackground —
  * the supplied CSS must set html,body{background:transparent} for it to take effect.
  */
-final class PlaywrightHtmlToImageRenderer implements HtmlToImageRendererInterface
+final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendererInterface
 {
     public function __construct(
-        private readonly ProcessRunnerInterface $processRunner,
-        private readonly string $nodeBinary = 'node',
-        private readonly string $scriptPath = '',
-        private readonly string $outputDir = '',
-        private readonly string $chromiumPath = '/usr/bin/chromium',
-        private readonly float $timeoutSeconds = 60.0,
+        private ProcessRunnerInterface $processRunner,
+        private string $nodeBinary = 'node',
+        private string $scriptPath = '',
+        private string $outputDir = '',
+        private string $chromiumPath = '/usr/bin/chromium',
+        private float $timeoutSeconds = 60.0,
     ) {}
 
     public function render(
@@ -36,6 +36,7 @@ final class PlaywrightHtmlToImageRenderer implements HtmlToImageRendererInterfac
         if ($dir === '') {
             $dir = sys_get_temp_dir();
         }
+
         if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) {
             throw RenderingException::because('Render output dir not writable: ' . $dir, 1749400100);
         }
@@ -73,6 +74,7 @@ final class PlaywrightHtmlToImageRenderer implements HtmlToImageRendererInterfac
                 1749400101,
             );
         }
+
         if (!is_file($out)) {
             throw RenderingException::because('Renderer produced no PNG at ' . $out, 1749400102);
         }

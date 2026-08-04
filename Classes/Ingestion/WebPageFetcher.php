@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion;
 
+use DOMDocument;
+use DOMXPath;
+use DOMNode;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
@@ -63,9 +66,9 @@ class WebPageFetcher
         );
     }
 
-    private function loadDom(string $html): \DOMDocument
+    private function loadDom(string $html): DOMDocument
     {
-        $dom = new \DOMDocument();
+        $dom = new DOMDocument();
         $previous = libxml_use_internal_errors(true);
         // Force UTF-8 interpretation regardless of a missing/late <meta charset>.
         $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
@@ -82,6 +85,7 @@ class WebPageFetcher
         if ($titles->length > 0) {
             return trim((string) $titles->item(0)?->textContent);
         }
+
         $h1 = $dom->getElementsByTagName('h1');
 
         return $h1->length > 0 ? trim((string) $h1->item(0)?->textContent) : '';
@@ -108,26 +112,27 @@ class WebPageFetcher
             foreach ($nodes as $node) {
                 $toRemove[] = $node;
             }
+
             foreach ($toRemove as $node) {
                 $node->parentNode?->removeChild($node);
             }
         }
 
         // 2) Drop HTML comments.
-        $xpath = new \DOMXPath($dom);
+        $xpath = new DOMXPath($dom);
         foreach (iterator_to_array($xpath->query('//comment()') ?: []) as $comment) {
             $comment->parentNode?->removeChild($comment);
         }
 
         // 3) Prefer the densest of <article>/<main>, else <body>.
         $candidate = $this->densestNode($dom, ['article', 'main']) ?? $dom->getElementsByTagName('body')->item(0);
-        $raw = $candidate !== null ? (string) $candidate->textContent : (string) $dom->textContent;
+        $raw = $candidate !== null ? (string) $candidate->textContent : $dom->textContent;
 
         return $this->collapseWhitespace($raw);
     }
 
     /** @param list<string> $tagNames */
-    private function densestNode(\DOMDocument $dom, array $tagNames): ?\DOMNode
+    private function densestNode(DOMDocument $dom, array $tagNames): ?DOMNode
     {
         $best = null;
         $bestLength = 0;

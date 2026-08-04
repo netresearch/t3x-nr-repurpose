@@ -15,12 +15,12 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * Persists a new Job (Extbase, request context) and dispatches the generation message.
  * Extracted from the controller so the create flow is testable without an Extbase request.
  */
-final class JobSubmissionService
+final readonly class JobSubmissionService
 {
     public function __construct(
-        private readonly JobRepository $jobRepository,
-        private readonly PersistenceManagerInterface $persistenceManager,
-        private readonly MessageBusInterface $bus,
+        private JobRepository $jobRepository,
+        private PersistenceManagerInterface $persistenceManager,
+        private MessageBusInterface $bus,
     ) {}
 
     /** @return int the new job uid */

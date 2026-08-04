@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
+use ReflectionClass;
+use ReflectionProperty;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
@@ -72,6 +74,7 @@ final class PodcastGeneratorTest extends TestCase
         return new class implements SpeechSynthesizerInterface {
             /** @var list<array{voice: string, path: string}> */
             public array $calls = [];
+
             public bool $available = true;
 
             public function isAvailable(): bool
@@ -118,8 +121,10 @@ final class PodcastGeneratorTest extends TestCase
         return new class extends JobFileStorage {
             /** @var array<string, string> */
             public array $contentByName = [];
+
             /** @var list<string> */
             public array $order = [];
+
             private int $uid = 0;
 
             public function __construct() {}
@@ -129,8 +134,8 @@ final class PodcastGeneratorTest extends TestCase
                 $this->contentByName[$fileName] = $content;
                 $this->order[] = $fileName;
                 $this->uid++;
-                $file = (new \ReflectionClass(File::class))->newInstanceWithoutConstructor();
-                $ref = new \ReflectionProperty(File::class, 'properties');
+                $file = (new ReflectionClass(File::class))->newInstanceWithoutConstructor();
+                $ref = new ReflectionProperty(File::class, 'properties');
                 $ref->setValue($file, ['uid' => $this->uid]);
 
                 return $file;
@@ -142,8 +147,10 @@ final class PodcastGeneratorTest extends TestCase
     {
         return new class extends JobProcessingRepository {
             public int $nextUid = 100;
+
             /** @var array<int, array<string, mixed>> */
             public array $updates = [];
+
             public ?string $insertedType = null;
 
             public function __construct() {}
@@ -236,6 +243,7 @@ final class PodcastGeneratorTest extends TestCase
     {
         $speech = $this->speech();
         $speech->available = false;
+
         $jobs = $this->jobs();
 
         $generator = new PodcastGenerator(

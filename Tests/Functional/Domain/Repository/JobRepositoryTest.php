@@ -20,6 +20,7 @@ final class JobRepositoryTest extends AbstractFunctionalTestCase
         $job = new Job();
         $job->setSourceValue('https://example.com/');
         $job->setStatusEnum(JobStatus::Queued);
+
         $repo->add($job);
         $pm->persistAll();
 

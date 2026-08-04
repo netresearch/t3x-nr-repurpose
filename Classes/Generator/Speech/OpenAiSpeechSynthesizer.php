@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator\Speech;
 
+use Throwable;
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
@@ -55,7 +56,7 @@ final class OpenAiSpeechSynthesizer implements SpeechSynthesizerInterface
                 $outputPath,
                 $this->buildOptions($voice),
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw RenderingException::because('TTS synthesis failed: ' . $e->getMessage(), 1749410000, $e);
         }
     }

@@ -29,11 +29,11 @@ final readonly class SourceDocument
         // mis-declared-charset or truncated-multibyte bytes; left unsanitised they
         // make the downstream LLM request fail in json_encode() with
         // "Malformed UTF-8 characters, possibly incorrectly encoded".
-        $this->title = self::toValidUtf8($title);
-        $this->text  = self::toValidUtf8($text);
+        $this->title = $this->toValidUtf8($title);
+        $this->text  = $this->toValidUtf8($text);
     }
 
-    private static function toValidUtf8(string $value): string
+    private function toValidUtf8(string $value): string
     {
         return mb_convert_encoding($value, 'UTF-8', 'UTF-8');
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Domain\Model;
 
+use ReflectionProperty;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Model\Artifact;
@@ -23,9 +24,9 @@ final class JobTest extends TestCase
     public function testArtifactTypeSummariesGroupArtifactsByTypeInEnumOrder(): void
     {
         $job = new Job();
-        $job->getArtifacts()->attach(self::artifact(ArtifactType::Story, ArtifactStatus::Failed));
-        $job->getArtifacts()->attach(self::artifact(ArtifactType::Podcast, ArtifactStatus::Done));
-        $job->getArtifacts()->attach(self::artifact(ArtifactType::Schaubild, ArtifactStatus::Pending));
+        $job->getArtifacts()->attach($this->artifact(ArtifactType::Story, ArtifactStatus::Failed));
+        $job->getArtifacts()->attach($this->artifact(ArtifactType::Podcast, ArtifactStatus::Done));
+        $job->getArtifacts()->attach($this->artifact(ArtifactType::Schaubild, ArtifactStatus::Pending));
 
         $summaries = $job->getArtifactTypeSummaries();
 
@@ -42,9 +43,9 @@ final class JobTest extends TestCase
     public function testArtifactTypeSummariesAggregateAllVariantsOfOneType(): void
     {
         $job = new Job();
-        $job->getArtifacts()->attach(self::artifact(ArtifactType::Schaubild, ArtifactStatus::Done));
-        $job->getArtifacts()->attach(self::artifact(ArtifactType::Schaubild, ArtifactStatus::Failed));
-        $job->getArtifacts()->attach(self::artifact(ArtifactType::Schaubild, ArtifactStatus::Done));
+        $job->getArtifacts()->attach($this->artifact(ArtifactType::Schaubild, ArtifactStatus::Done));
+        $job->getArtifacts()->attach($this->artifact(ArtifactType::Schaubild, ArtifactStatus::Failed));
+        $job->getArtifacts()->attach($this->artifact(ArtifactType::Schaubild, ArtifactStatus::Done));
 
         $summaries = $job->getArtifactTypeSummaries();
 
@@ -117,7 +118,7 @@ final class JobTest extends TestCase
         self::assertSame(9, $restored->storyStyle);
     }
 
-    private static function artifact(ArtifactType $type, ArtifactStatus $status): Artifact
+    private function artifact(ArtifactType $type, ArtifactStatus $status): Artifact
     {
         return new class($type, $status) extends Artifact {
             public function __construct(ArtifactType $type, ArtifactStatus $status)
@@ -132,11 +133,11 @@ final class JobTest extends TestCase
     private function storyArtifact(string $type, string $variant, int $uid, ?int $slideIndex = null): Artifact
     {
         $artifact = new Artifact();
-        (new \ReflectionProperty(Artifact::class, 'type'))->setValue($artifact, $type);
-        (new \ReflectionProperty(Artifact::class, 'variant'))->setValue($artifact, $variant);
-        (new \ReflectionProperty(AbstractDomainObject::class, 'uid'))->setValue($artifact, $uid);
+        (new ReflectionProperty(Artifact::class, 'type'))->setValue($artifact, $type);
+        (new ReflectionProperty(Artifact::class, 'variant'))->setValue($artifact, $variant);
+        (new ReflectionProperty(AbstractDomainObject::class, 'uid'))->setValue($artifact, $uid);
         if ($slideIndex !== null) {
-            (new \ReflectionProperty(Artifact::class, 'metadata'))
+            (new ReflectionProperty(Artifact::class, 'metadata'))
                 ->setValue($artifact, json_encode(['slideIndex' => $slideIndex], JSON_THROW_ON_ERROR));
         }
 

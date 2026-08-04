@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Resource;
 
+use TYPO3\CMS\Core\Resource\ResourceStorage;
+use RuntimeException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
@@ -20,8 +22,8 @@ class JobFileStorage
     public function store(string $content, string $fileName): File
     {
         $storage = $this->storageRepository->getDefaultStorage();
-        if ($storage === null) {
-            throw new \RuntimeException('No default FAL storage available', 1749379300);
+        if (!$storage instanceof ResourceStorage) {
+            throw new RuntimeException('No default FAL storage available', 1749379300);
         }
 
         // Artifacts are written by the async messenger worker, which runs in a CLI

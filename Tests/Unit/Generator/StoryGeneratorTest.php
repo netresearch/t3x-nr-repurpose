@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
+use Throwable;
+use ReflectionClass;
+use ReflectionProperty;
+use RuntimeException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
@@ -45,9 +49,9 @@ final class StoryGeneratorTest extends TestCase
         return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0], $document, $brief, 'nr', 5, $snippets);
     }
 
-    /** @param array<mixed>|\Throwable $completionResult */
+    /** @param array<mixed>|Throwable $completionResult */
     private function generator(
-        array|\Throwable $completionResult,
+        array|Throwable $completionResult,
         HtmlToImageRendererInterface $renderer,
         ImageGeneratorInterface $imageGenerator,
         JobProcessingRepository $jobs,
@@ -76,12 +80,14 @@ final class StoryGeneratorTest extends TestCase
                     $imageGenerator,
                     new class extends JobFileStorage {
                         private int $uid = 0;
+
                         public function __construct() {}
+
                         public function store(string $content, string $fileName): File
                         {
                             $this->uid++;
-                            $file = (new \ReflectionClass(File::class))->newInstanceWithoutConstructor();
-                            (new \ReflectionProperty(File::class, 'properties'))->setValue($file, ['uid' => $this->uid]);
+                            $file = (new ReflectionClass(File::class))->newInstanceWithoutConstructor();
+                            (new ReflectionProperty(File::class, 'properties'))->setValue($file, ['uid' => $this->uid]);
 
                             return $file;
                         }
@@ -168,14 +174,16 @@ final class StoryGeneratorTest extends TestCase
         $jobs = $this->jobs();
         $imageGenerator = new class implements ImageGeneratorInterface {
             public function isAvailable(): bool { return true; }
+
             public function getModel(): string { return 'stub-image-model'; }
 
             public string $promptPreamble = '';
 
             public function getPromptPreamble(): string { return $this->promptPreamble; }
+
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
-                throw new \RuntimeException('image service exploded');
+                throw new RuntimeException('image service exploded');
             }
         };
 
@@ -241,7 +249,7 @@ final class StoryGeneratorTest extends TestCase
     {
         $jobs = $this->jobs();
 
-        $generator = $this->generator(new \RuntimeException('LLM down'), $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor());
+        $generator = $this->generator(new RuntimeException('LLM down'), $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor());
 
         self::assertFalse($generator->generate($this->context()));
         self::assertSame([['story', 'default']], $jobs->inserted);
@@ -260,8 +268,9 @@ final class StoryGeneratorTest extends TestCase
             {
                 $this->call++;
                 if ($this->call === 2) {
-                    throw new \RuntimeException('chromium crashed');
+                    throw new RuntimeException('chromium crashed');
                 }
+
                 $path = sys_get_temp_dir() . '/story_' . bin2hex(random_bytes(4)) . '.png';
                 file_put_contents($path, 'PNG');
 
@@ -428,11 +437,11 @@ final class StoryGeneratorTest extends TestCase
         self::assertFalse($generator->supports($this->context(false)));
     }
 
-    /** @param array<mixed>|\Throwable $result */
-    private function completion(array|\Throwable $result): FakeCompletionService
+    /** @param array<mixed>|Throwable $result */
+    private function completion(array|Throwable $result): FakeCompletionService
     {
         $completion = new FakeCompletionService();
-        if ($result instanceof \Throwable) {
+        if ($result instanceof Throwable) {
             $completion->throwable = $result;
         } else {
             $completion->jsonResult = $result;
@@ -446,8 +455,10 @@ final class StoryGeneratorTest extends TestCase
         return new class implements HtmlToImageRendererInterface {
             /** @var list<int> */
             public array $widths = [];
+
             /** @var list<int|null> */
             public array $heights = [];
+
             /** @var list<bool> */
             public array $transparents = [];
 
@@ -483,8 +494,10 @@ final class StoryGeneratorTest extends TestCase
     {
         return new class($available) implements ImageGeneratorInterface {
             public int $calls = 0;
+
             /** @var list<string> */
             public array $prompts = [];
+
             /** @var list<string> */
             public array $sizes = [];
 
@@ -512,10 +525,13 @@ final class StoryGeneratorTest extends TestCase
     {
         return new class extends JobProcessingRepository {
             private int $nextUid = 300;
+
             /** @var list<array{0: string, 1: string}> */
             public array $inserted = [];
+
             /** @var array<int, array<string, mixed>> */
             public array $updates = [];
+
             /** @var array<string, int> */
             private array $variantUid = [];
 

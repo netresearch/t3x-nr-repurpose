@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Queue;
 
+use RuntimeException;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Queue\Handler\GenerateArtifactsHandler;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
@@ -67,7 +68,7 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
         $orchestrator = new class implements GenerationOrchestratorInterface {
             public function process(int $jobUid): void
             {
-                throw new \RuntimeException('worker exploded');
+                throw new RuntimeException('worker exploded');
             }
         };
 

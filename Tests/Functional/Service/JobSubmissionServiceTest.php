@@ -39,6 +39,7 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
 
         $job = new Job();
         $job->setSourceValue('https://example.com/');
+
         $uid = $service->submit($job, 1);
 
         self::assertGreaterThan(0, $uid);

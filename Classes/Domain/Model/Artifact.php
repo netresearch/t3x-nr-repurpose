@@ -11,14 +11,23 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 class Artifact extends AbstractEntity
 {
     protected int $job = 0;
+
     protected string $type = '';
+
     protected string $variant = 'default';
+
     protected int $fileUid = 0;
+
     protected int $subtitleFileUid = 0;
+
     protected string $sourceHtml = '';
+
     protected string $scriptText = '';
+
     protected string $status = 'pending';
+
     protected string $errorMessage = '';
+
     protected string $metadata = '';
 
     public function getTypeEnum(): ArtifactType

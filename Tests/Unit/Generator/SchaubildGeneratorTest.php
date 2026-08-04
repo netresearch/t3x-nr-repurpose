@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
+use ReflectionClass;
+use ReflectionProperty;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
@@ -114,6 +116,7 @@ final class SchaubildGeneratorTest extends TestCase
             self::assertArrayHasKey('source_html', $update);
             self::assertGreaterThan(0, (int) $update['file_uid']);
         }
+
         self::assertSame(1, $compositor->overlayCalls);     // html_bg composited
         self::assertSame(2, $imageGenerator->calls);        // bg (html_bg) + full (ki_image)
     }
@@ -136,6 +139,7 @@ final class SchaubildGeneratorTest extends TestCase
     {
         $imageGenerator = $this->imageGenerator();
         $imageGenerator->promptPreamble = 'Always use the corporate teal palette.';
+
         $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget(), $this->completion());
 
         self::assertTrue($generator->generate($this->context(new ResolvedPromptSnippets())));
@@ -166,6 +170,7 @@ final class SchaubildGeneratorTest extends TestCase
             self::assertStringContainsString("TARGET AUDIENCE:\nInvestors", $prompt);
             self::assertStringContainsString("STYLE:\nHand-drawn sketch look", $prompt);
         }
+
         // Style/audience hints are woven into both image prompts (background + ki_image).
         self::assertCount(2, $imageGenerator->prompts);
         foreach ($imageGenerator->prompts as $prompt) {
@@ -185,6 +190,7 @@ final class SchaubildGeneratorTest extends TestCase
         foreach (array_column($completion->completeMarkdownCalls, 'prompt') as $prompt) {
             self::assertStringNotContainsString('TARGET AUDIENCE', $prompt);
         }
+
         foreach ($imageGenerator->prompts as $prompt) {
             self::assertStringNotContainsString('Visual style:', $prompt);
             self::assertStringNotContainsString('Target audience:', $prompt);
@@ -324,9 +330,12 @@ final class SchaubildGeneratorTest extends TestCase
     {
         return new class implements ImageGeneratorInterface {
             public int $calls = 0;
+
             public bool $available = true;
+
             /** @var list<string> */
             public array $prompts = [];
+
             /** @var list<string> */
             public array $sizes = [];
 
@@ -358,8 +367,8 @@ final class SchaubildGeneratorTest extends TestCase
             public function store(string $content, string $fileName): File
             {
                 $this->uid++;
-                $file = (new \ReflectionClass(File::class))->newInstanceWithoutConstructor();
-                (new \ReflectionProperty(File::class, 'properties'))->setValue($file, ['uid' => $this->uid]);
+                $file = (new ReflectionClass(File::class))->newInstanceWithoutConstructor();
+                (new ReflectionProperty(File::class, 'properties'))->setValue($file, ['uid' => $this->uid]);
 
                 return $file;
             }
@@ -370,10 +379,13 @@ final class SchaubildGeneratorTest extends TestCase
     {
         return new class extends JobProcessingRepository {
             private int $nextUid = 200;
+
             /** @var list<array{0: string, 1: string}> */
             public array $inserted = [];
+
             /** @var array<int, array<string, mixed>> */
             public array $updates = [];
+
             /** @var array<string, int> */
             private array $variantUid = [];
 

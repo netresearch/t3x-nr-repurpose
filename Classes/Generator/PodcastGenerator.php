@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
+use Throwable;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -36,8 +37,11 @@ use Psr\Log\LoggerInterface;
 final class PodcastGenerator extends AbstractGenerator
 {
     private const VOICE_HOST_A = 'nova';
+
     private const VOICE_HOST_B = 'onyx';
+
     private const TTS_COST_PER_TURN = 0.015;
+
     private const SCRIPT_COST = 0.02;
 
     /**
@@ -106,6 +110,7 @@ final class PodcastGenerator extends AbstractGenerator
                 if (!$this->synthesizeWithRetry($turn['text'], $turn['voice'], $segmentPath, $jobUid, $i)) {
                     continue;
                 }
+
                 $segmentPaths[] = $segmentPath;
                 $vttSegments[] = [
                     'speaker' => $turn['speaker'],
@@ -143,7 +148,7 @@ final class PodcastGenerator extends AbstractGenerator
             ]);
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->failArtifact($artifactUid, $jobUid, 'Podcast generation error: ' . $e->getMessage());
 
             return false;
@@ -161,7 +166,7 @@ final class PodcastGenerator extends AbstractGenerator
                 $this->speech->synthesizeToFile($text, $voice, $segmentPath);
 
                 return true;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $this->logger->warning('Podcast TTS turn failed', [
                     'job' => $jobUid,
                     'turn' => $turnIndex,
@@ -233,6 +238,7 @@ final class PodcastGenerator extends AbstractGenerator
             if ($text === '') {
                 continue;
             }
+
             $turns[] = [
                 'speaker' => $speaker,
                 'text' => mb_substr($text, 0, 4096),
@@ -307,10 +313,12 @@ final class PodcastGenerator extends AbstractGenerator
             if (!isset($personaVoices[$speaker])) {
                 $speaker = $names[0];
             }
+
             $text = trim((string) ($raw['text'] ?? ''));
             if ($text === '') {
                 continue;
             }
+
             $turns[] = [
                 'speaker' => $speaker,
                 'text' => mb_substr($text, 0, 4096),

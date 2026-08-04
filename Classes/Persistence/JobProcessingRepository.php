@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Persistence;
 
+use Throwable;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
@@ -17,6 +18,7 @@ use TYPO3\CMS\Core\Resource\ResourceFactory;
 class JobProcessingRepository
 {
     private const JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
+
     private const ARTIFACT_TABLE = 'tx_nrrepurpose_domain_model_artifact';
 
     public function __construct(
@@ -40,9 +42,11 @@ class JobProcessingRepository
         if ($currentStep !== null) {
             $fields['current_step'] = $currentStep;
         }
+
         if ($progress !== null) {
             $fields['progress'] = $progress;
         }
+
         $this->connectionPool->getConnectionForTable(self::JOB_TABLE)
             ->update(self::JOB_TABLE, $fields, ['uid' => $jobUid]);
     }
@@ -137,7 +141,7 @@ class JobProcessingRepository
             } finally {
                 $storage->setEvaluatePermissions($previousEvaluatePermissions);
             }
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // File already deleted or unresolvable — the artifact row delete still cleans up.
         }
     }
@@ -161,9 +165,11 @@ class JobProcessingRepository
                 $update[$column] = $fields[$column];
             }
         }
+
         if ($update === []) {
             return;
         }
+
         $update['tstamp'] = time();
 
         $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)

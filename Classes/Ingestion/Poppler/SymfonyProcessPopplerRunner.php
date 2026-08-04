@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion\Poppler;
 
+use RuntimeException;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 
@@ -34,12 +35,12 @@ final class SymfonyProcessPopplerRunner implements PopplerRunnerInterface
             $process->mustRun();
             $bytes = file_get_contents($pngPath);
             if ($bytes === false || $bytes === '') {
-                throw new \RuntimeException('pdftoppm produced no PNG for page ' . $page, 1749379430);
+                throw new RuntimeException('pdftoppm produced no PNG for page ' . $page, 1749379430);
             }
 
             return $bytes;
         } catch (ProcessFailedException $e) {
-            throw new \RuntimeException('pdftoppm failed for page ' . $page . ': ' . $e->getMessage(), 1749379431, $e);
+            throw new RuntimeException('pdftoppm failed for page ' . $page . ': ' . $e->getMessage(), 1749379431, $e);
         } finally {
             // $pngPath is an internally-generated temp render path (makeTempDir), never user input.
             if (is_file($pngPath)) {
@@ -65,7 +66,7 @@ final class SymfonyProcessPopplerRunner implements PopplerRunnerInterface
         try {
             $process->mustRun();
         } catch (ProcessFailedException $e) {
-            throw new \RuntimeException('pdftotext -layout failed for page ' . $page . ': ' . $e->getMessage(), 1749379432, $e);
+            throw new RuntimeException('pdftotext -layout failed for page ' . $page . ': ' . $e->getMessage(), 1749379432, $e);
         }
 
         return rtrim($process->getOutput());

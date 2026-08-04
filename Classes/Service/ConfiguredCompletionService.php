@@ -56,7 +56,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
     {
         $configuration = $this->resolveConfiguration();
 
-        return $configuration !== null
+        return $configuration instanceof LlmConfiguration
             ? $this->inner->completeForConfiguration($prompt, $configuration, $options)
             : $this->inner->complete($prompt, $options);
     }
@@ -68,7 +68,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
     {
         $configuration = $this->resolveConfiguration();
 
-        return $configuration !== null
+        return $configuration instanceof LlmConfiguration
             ? $this->inner->completeJsonForConfiguration($prompt, $configuration, $options)
             : $this->inner->completeJson($prompt, $options);
     }
@@ -82,7 +82,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
     {
         $configuration = $this->resolveConfiguration();
 
-        return $configuration !== null
+        return $configuration instanceof LlmConfiguration
             ? $this->inner->completeStructuredForConfiguration($prompt, $configuration, $schema, $options)
             : $this->inner->completeStructured($prompt, $schema, $options);
     }
@@ -91,7 +91,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
     {
         $configuration = $this->resolveConfiguration();
 
-        return $configuration !== null
+        return $configuration instanceof LlmConfiguration
             ? $this->inner->completeMarkdownForConfiguration($prompt, $configuration, $options)
             : $this->inner->completeMarkdown($prompt, $options);
     }
@@ -100,7 +100,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
     {
         $configuration = $this->resolveConfiguration();
 
-        return $configuration !== null
+        return $configuration instanceof LlmConfiguration
             ? $this->inner->completeFactualForConfiguration($prompt, $configuration, $options)
             : $this->inner->completeFactual($prompt, $options);
     }
@@ -109,7 +109,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
     {
         $configuration = $this->resolveConfiguration();
 
-        return $configuration !== null
+        return $configuration instanceof LlmConfiguration
             ? $this->inner->completeCreativeForConfiguration($prompt, $configuration, $options)
             : $this->inner->completeCreative($prompt, $options);
     }

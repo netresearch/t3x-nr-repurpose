@@ -28,7 +28,7 @@ class JobController extends ActionController
         protected readonly PromptSnippetRepository $promptSnippetRepository,
     ) {}
 
-    public function initializeAction(): void
+    protected function initializeAction(): void
     {
         // Build the ModuleTemplate here, not in __construct (controller is reused across actions).
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
@@ -140,6 +140,7 @@ class JobController extends ActionController
         foreach ($selection->personas as $uid) {
             $slots[] = ['persona', $uid];
         }
+
         $slots[] = ['schaubildLayout', $selection->schaubildLayout];
         $slots[] = ['schaubildStyle', $selection->schaubildStyle];
         $slots[] = ['storyLayout', $selection->storyLayout];
@@ -150,6 +151,7 @@ class JobController extends ActionController
             if ($uid <= 0) {
                 continue;
             }
+
             $snippet = $byUid[$uid] ?? null;
             $rows[] = [
                 'label' => $label,
@@ -182,6 +184,7 @@ class JobController extends ActionController
             if ($snippet->getDescription() !== '') {
                 $label .= ' — ' . $snippet->getDescription();
             }
+
             $options[(int) $snippet->getUid()] = $label;
         }
 
