@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
+use Throwable;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -31,10 +32,13 @@ use Psr\Log\LoggerInterface;
 class SchaubildGenerator extends AbstractGenerator
 {
     private const WIDTH = 1200;
+
     // Default gpt-image landscape size; a layout snippet may override it via its
     // metadata {"imageSize":"WxH"} (see AbstractGenerator::resolveImageSize()).
     private const IMAGE_SIZE = '1536x1024';
+
     private const IMAGE_COST = 0.05;
+
     private const HTML_SYSTEM_PROMPT = 'You are an information designer. Output a raw HTML fragment only — '
         . 'no Markdown, no code fences.';
 
@@ -76,7 +80,9 @@ class SchaubildGenerator extends AbstractGenerator
         $ctx->progress?->step('Schaubild: variant html_bg (2/3)', 0.6);
         $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent, $llmPrompts, $imageSize) || $ok;
         $ctx->progress?->step('Schaubild: variant ki_image (3/3)', 0.8);
-        $ok = $this->generateKiImageVariant($ctx, $jobUid, $htmlOpaque, $imageSize) || $ok;
+        if ($this->generateKiImageVariant($ctx, $jobUid, $htmlOpaque, $imageSize)) {
+            return true;
+        }
 
         return $ok;
     }
@@ -104,7 +110,7 @@ class SchaubildGenerator extends AbstractGenerator
             ]);
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->failArtifact($artifactUid, $jobUid, 'Schaubild html variant error: ' . $e->getMessage());
 
             return false;
@@ -124,6 +130,7 @@ class SchaubildGenerator extends AbstractGenerator
 
             return false;
         }
+
         try {
             $tmpDir = $this->makeTempDir();
             $bgPath = $tmpDir . '/bg.png';
@@ -154,7 +161,7 @@ class SchaubildGenerator extends AbstractGenerator
             ]);
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->failArtifact($artifactUid, $jobUid, 'Schaubild html_bg variant error: ' . $e->getMessage());
 
             return false;
@@ -170,6 +177,7 @@ class SchaubildGenerator extends AbstractGenerator
 
             return false;
         }
+
         try {
             $tmpDir = $this->makeTempDir();
             $outPath = $tmpDir . '/ki.png';
@@ -193,7 +201,7 @@ class SchaubildGenerator extends AbstractGenerator
             ]);
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->failArtifact($artifactUid, $jobUid, 'Schaubild ki_image variant error: ' . $e->getMessage());
 
             return false;
@@ -328,6 +336,7 @@ class SchaubildGenerator extends AbstractGenerator
         if ($ctx->snippets->styleHint !== '') {
             $hints .= ' Visual style: ' . $ctx->snippets->styleHint;
         }
+
         if ($ctx->snippets->audienceHint !== '') {
             $hints .= ' Target audience: ' . $ctx->snippets->audienceHint;
         }

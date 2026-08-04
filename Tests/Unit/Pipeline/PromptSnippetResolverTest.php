@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Pipeline;
 
+use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
@@ -138,8 +139,8 @@ final class PromptSnippetResolverTest extends TestCase
 
         $resolved = $this->resolver($repository)->resolve(new PromptSnippetSelection(personas: [3, 4, 5]));
 
-        self::assertSame(['Anna', 'Anna 2', 'Anna 3'], array_map(static fn ($p) => $p->name, $resolved->personas));
-        self::assertSame(['First Anna.', 'Second Anna.', 'Third Anna.'], array_map(static fn ($p) => $p->description, $resolved->personas));
+        self::assertSame(['Anna', 'Anna 2', 'Anna 3'], array_map(static fn (Persona $p): string => $p->name, $resolved->personas));
+        self::assertSame(['First Anna.', 'Second Anna.', 'Third Anna.'], array_map(static fn (Persona $p): string => $p->description, $resolved->personas));
         self::assertSame('fable', $resolved->personas[0]->voice);
     }
 

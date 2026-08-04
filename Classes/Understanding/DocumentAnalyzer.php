@@ -20,7 +20,7 @@ use Psr\Log\LoggerInterface;
  * - Every completion call carries a beUserUid on ChatOptions, opting it into nr-llm's
  *   BudgetMiddleware; an over-budget run throws BudgetExceededException.
  */
-final class DocumentAnalyzer implements DocumentAnalyzerInterface
+final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
 {
     private const SYSTEM_PROMPT =
         'You are a precise editorial analyst. You read a source document and produce a faithful '
@@ -33,10 +33,10 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
         . 'Preserve numbers, names and labels exactly. Output ONLY valid JSON.';
 
     public function __construct(
-        private readonly CompletionServiceInterface $completion,
-        private readonly LoggerInterface $logger,
-        private readonly int $chunkThreshold = 24000,
-        private readonly int $chunkSize = 12000,
+        private CompletionServiceInterface $completion,
+        private LoggerInterface $logger,
+        private int $chunkThreshold = 24000,
+        private int $chunkSize = 12000,
     ) {}
 
     public function analyze(SourceDocument $document, array $jobRow): ContentBrief
@@ -62,7 +62,7 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
             // (e.g. localized key names or a bare sections list). One corrective
             // retry that names the offending shape recovers most of these; only
             // a second miss fails the job, now with diagnostic detail.
-            $receivedKeys = self::sanitizeKeyList(array_keys($decoded));
+            $receivedKeys = $this->sanitizeKeyList(array_keys($decoded));
             $this->logger->warning('Analysis synthesis returned an unusable shape, retrying once', [
                 'receivedKeys' => $receivedKeys,
             ]);
@@ -92,7 +92,7 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
      *
      * @param list<int|string> $keys
      */
-    private static function sanitizeKeyList(array $keys): string
+    private function sanitizeKeyList(array $keys): string
     {
         $safe = [];
         foreach (array_slice($keys, 0, 12) as $key) {
@@ -192,7 +192,7 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
             throw new AnalysisException(
                 sprintf(
                     'Analysis result is missing the required "title" and/or "summary" key (received keys: %s)',
-                    self::sanitizeKeyList(array_keys($decoded)),
+                    $this->sanitizeKeyList(array_keys($decoded)),
                 ),
                 1749384100,
             );
@@ -247,11 +247,13 @@ final class DocumentAnalyzer implements DocumentAnalyzerInterface
             if (!is_array($section)) {
                 continue;
             }
+
             $heading = is_string($section['heading'] ?? null) ? trim($section['heading']) : '';
             $body = is_string($section['body'] ?? null) ? trim($section['body']) : '';
             if ($heading === '' && $body === '') {
                 continue;
             }
+
             $out[] = ['heading' => $heading, 'body' => $body];
         }
 

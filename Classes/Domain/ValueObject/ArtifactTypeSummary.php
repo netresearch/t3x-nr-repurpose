@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\ValueObject;
 
+use InvalidArgumentException;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 
@@ -24,13 +25,13 @@ final readonly class ArtifactTypeSummary
      *
      * @param non-empty-list<ArtifactStatus> $statuses
      *
-     * @throws \InvalidArgumentException when $statuses is empty — an empty list
+     * @throws InvalidArgumentException when $statuses is empty — an empty list
      *                                   would silently aggregate to Done
      */
     public static function fromStatuses(ArtifactType $type, array $statuses): self
     {
         if ($statuses === []) {
-            throw new \InvalidArgumentException('Cannot aggregate an empty status list', 1749562800);
+            throw new InvalidArgumentException('Cannot aggregate an empty status list', 1749562800);
         }
 
         return new self($type, self::aggregate($statuses));

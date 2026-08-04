@@ -18,16 +18,19 @@ use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
  * created before this feature (or with nothing selected) behave exactly as before.
  * Unknown or meanwhile-deactivated snippet uids are skipped, never failing the run.
  */
-final class PromptSnippetResolver
+final readonly class PromptSnippetResolver
 {
     private const LABEL_AUDIENCE = 'TARGET AUDIENCE';
+
     private const LABEL_TONE = 'TONE OF VOICE';
+
     private const LABEL_LAYOUT = 'LAYOUT';
+
     private const LABEL_STYLE = 'STYLE';
 
     public function __construct(
-        private readonly PromptSnippetRepository $snippets,
-        private readonly PromptSnippetComposer $composer,
+        private PromptSnippetRepository $snippets,
+        private PromptSnippetComposer $composer,
     ) {}
 
     public function resolve(PromptSnippetSelection $selection): ResolvedPromptSnippets
@@ -55,6 +58,7 @@ final class PromptSnippetResolver
             if ($snippet === null) {
                 continue;
             }
+
             // Persona names become dialogue speaker labels: one "- name: description" prompt
             // line and one name-keyed voice-map/JSON-shape entry each. Collapse whitespace
             // runs (a newline would break the prompt line), skip nameless records and
@@ -64,10 +68,12 @@ final class PromptSnippetResolver
             if ($name === '') {
                 continue;
             }
+
             $uniqueName = $name;
             for ($suffix = 2; in_array($uniqueName, $seenNames, true); $suffix++) {
                 $uniqueName = $name . ' ' . $suffix;
             }
+
             $seenNames[] = $uniqueName;
 
             $voice = $snippet->getMetadataArray()['voice'] ?? null;
@@ -93,8 +99,8 @@ final class PromptSnippetResolver
             ]),
             audienceHint: $audience?->getSnippet() ?? '',
             styleHint: $schaubildStyle?->getSnippet() ?? '',
-            schaubildImageSize: self::imageSizeHint($schaubildLayout),
-            storyImageSize: self::imageSizeHint($storyLayout),
+            schaubildImageSize: $this->imageSizeHint($schaubildLayout),
+            storyImageSize: $this->imageSizeHint($storyLayout),
             personas: $personas,
         );
     }
@@ -105,7 +111,7 @@ final class PromptSnippetResolver
      * in the generators (AbstractGenerator::resolveImageSize), which fall back to their
      * default size and log a warning — a bad hint never fails the run.
      */
-    private static function imageSizeHint(?PromptSnippet $layout): string
+    private function imageSizeHint(?PromptSnippet $layout): string
     {
         $size = $layout?->getMetadataArray()['imageSize'] ?? null;
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Domain\ValueObject;
 
+use InvalidArgumentException;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
@@ -76,7 +77,7 @@ final class ArtifactTypeSummaryTest extends TestCase
 
     public function testEmptyStatusListIsRejected(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1749562800);
 
         ArtifactTypeSummary::fromStatuses(ArtifactType::Podcast, []);

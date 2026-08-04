@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
+use Throwable;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -16,12 +17,12 @@ use Psr\Log\LoggerInterface;
  * `stub` artifact. Now consumes the GenerationContext (Plan 3). Replaced by the real
  * podcast/schaubild/story generators in Plan 5.
  */
-final class StubArtifactGenerator implements ArtifactGeneratorInterface
+final readonly class StubArtifactGenerator implements ArtifactGeneratorInterface
 {
     public function __construct(
-        private readonly JobFileStorage $fileStorage,
-        private readonly JobProcessingRepository $jobs,
-        private readonly LoggerInterface $logger,
+        private JobFileStorage $fileStorage,
+        private JobProcessingRepository $jobs,
+        private LoggerInterface $logger,
     ) {}
 
     public function supports(GenerationContext $ctx): bool
@@ -45,7 +46,7 @@ final class StubArtifactGenerator implements ArtifactGeneratorInterface
             $this->jobs->insertArtifact($jobUid, ArtifactType::Stub, 'default', $file->getUid(), ArtifactStatus::Done);
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('Stub artifact failed', ['job' => $jobUid, 'exception' => $e->getMessage()]);
             $this->jobs->insertArtifact($jobUid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Failed, $e->getMessage());
 

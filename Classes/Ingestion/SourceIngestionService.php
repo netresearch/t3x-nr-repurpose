@@ -16,21 +16,21 @@ use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
  *   - vision: tier 2 for every page
  *   - tables: tier 3 for every page
  */
-final class SourceIngestionService implements SourceIngestionServiceInterface
+final readonly class SourceIngestionService implements SourceIngestionServiceInterface
 {
     public function __construct(
-        private readonly WebPageFetcher $webPageFetcher,
-        private readonly PdfFileResolver $pdfFileResolver,
-        private readonly PdfTextExtractor $textExtractor,
-        private readonly PdfVisionExtractor $visionExtractor,
-        private readonly PdfLayoutExtractor $layoutExtractor,
+        private WebPageFetcher $webPageFetcher,
+        private PdfFileResolver $pdfFileResolver,
+        private PdfTextExtractor $textExtractor,
+        private PdfVisionExtractor $visionExtractor,
+        private PdfLayoutExtractor $layoutExtractor,
     ) {}
 
     public function ingest(array $jobRow): SourceDocument
     {
         $type = SourceType::tryFrom((string) ($jobRow['source_type'] ?? ''));
         if ($type === null) {
-            throw new IngestionException('Unknown source_type: ' . (string) ($jobRow['source_type'] ?? ''), 1749379450);
+            throw new IngestionException('Unknown source_type: ' . ($jobRow['source_type'] ?? ''), 1749379450);
         }
 
         return match ($type) {
@@ -105,6 +105,7 @@ final class SourceIngestionService implements SourceIngestionServiceInterface
         if ($page['isSparse']) {
             return [$this->visionExtractor->ocrPage($absPath, $page['page'], $beUser), 'vision'];
         }
+
         if ($this->looksTabular($page['text'])) {
             return [$this->layoutExtractor->extractPage($absPath, $page['page']), 'tables'];
         }

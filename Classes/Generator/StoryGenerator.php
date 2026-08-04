@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
+use Throwable;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -35,19 +36,28 @@ use Psr\Log\LoggerInterface;
 class StoryGenerator extends AbstractGenerator
 {
     private const WIDTH = 1080;
+
     private const HEIGHT = 1920;
+
     // Default gpt-image portrait size; the 2:3 image is composited as a background behind
     // the 9:16 story canvas, so the aspect difference is fine. A layout snippet may
     // override it via its metadata {"imageSize":"WxH"} (AbstractGenerator::resolveImageSize()).
     private const IMAGE_SIZE = '1024x1536';
+
     private const IMAGE_COST = 0.05;
+
     private const COPY_COST_PER_SLIDE = 0.01;
+
     private const MAX_POINT_SLIDES = 4;
+
     private const MAX_SLIDES = 6;
+
     // Copy limits the prompt asks the LLM for; the parser enforces the same limits so
     // non-compliant copy cannot overflow the fixed 9:16 slide layout.
     private const MAX_HEADLINE_CHARS = 60;
+
     private const MAX_SUBLINE_CHARS = 110;
+
     private const COPY_SYSTEM_PROMPT = 'You are a social-media copywriter. Output ONLY valid JSON.';
 
     public function __construct(
@@ -75,7 +85,7 @@ class StoryGenerator extends AbstractGenerator
         try {
             $ctx->progress?->step('Story: writing copy', 0.05);
             $slides = $this->buildSlides($ctx);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->failStoryUpfront($jobUid, 'Story generation error: ' . $e->getMessage());
 
             return false;
@@ -172,15 +182,18 @@ class StoryGenerator extends AbstractGenerator
             if (!is_array($raw)) {
                 continue;
             }
+
             $headline = is_scalar($raw['headline'] ?? null) ? trim((string) $raw['headline']) : '';
             if ($headline === '') {
                 continue;
             }
+
             $subline = is_scalar($raw['subline'] ?? null) ? trim((string) $raw['subline']) : '';
             $role = is_scalar($raw['role'] ?? null) ? (string) $raw['role'] : '';
             if (!in_array($role, [StorySlide::ROLE_COVER, StorySlide::ROLE_POINT, StorySlide::ROLE_OUTRO], true)) {
                 $role = StorySlide::ROLE_POINT;
             }
+
             $slides[] = new StorySlide(
                 $role,
                 mb_substr($headline, 0, self::MAX_HEADLINE_CHARS),
@@ -210,7 +223,7 @@ class StoryGenerator extends AbstractGenerator
             $this->imageGenerator->generateToFile($this->backgroundPrompt($ctx), $imageSize, $backgroundPath);
 
             return $backgroundPath;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->warning('Story background generation failed, falling back to flat slides', [
                 'job' => $ctx->jobUid(),
                 'reason' => $e->getMessage(),
@@ -270,7 +283,7 @@ class StoryGenerator extends AbstractGenerator
             ]);
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Keep the slide identity on the failed row so the result view can still place it.
             // JSON_THROW_ON_ERROR matches the success path; $metadata is a fixed shape of
             // local scalars, so encoding cannot actually fail here.

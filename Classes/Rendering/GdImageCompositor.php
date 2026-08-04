@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Rendering;
 
+use GdImage;
+
 /**
  * Overlays a transparent foreground PNG (the exact HTML-rendered text/label layer) onto a
  * background PNG (an AI-generated image) using GD — Imagick is NOT installed in this stack.
@@ -64,6 +66,7 @@ final class GdImageCompositor implements ImageCompositorInterface
         if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) {
             throw RenderingException::because('Compositor output dir not writable: ' . $dir, 1749400202);
         }
+
         if (imagepng($canvas, $outPath) === false) {
             throw RenderingException::because('GD could not write PNG to ' . $outPath, 1749400203);
         }
@@ -115,6 +118,7 @@ final class GdImageCompositor implements ImageCompositorInterface
         if ($limit === '-1' || $limit === '') {
             return PHP_INT_MAX;
         }
+
         $value = (int) $limit;
         if ($value <= 0) {
             return PHP_INT_MAX;
@@ -165,19 +169,25 @@ final class GdImageCompositor implements ImageCompositorInterface
             $bg[1],
             $fg[0],
             $fg[1],
-            self::memoryLimitBytes((string) ini_get('memory_limit')) - memory_get_usage(true),
+            // `?: ''` keeps the documented fallback reachable: ini_get() returns
+            // false for an unavailable directive, and memoryLimitBytes() reads ''
+            // as "unlimited". A (string) cast would express the same thing, but
+            // Rector's RecastingRemovalRector strips it as redundant.
+            self::memoryLimitBytes(ini_get('memory_limit') ?: '') - memory_get_usage(true),
         );
     }
 
-    private function load(string $path): \GdImage
+    private function load(string $path): GdImage
     {
         if (!is_file($path)) {
             throw RenderingException::because('Compositor input PNG not found: ' . $path, 1749400204);
         }
+
         $bytes = file_get_contents($path);
         if ($bytes === false) {
             throw RenderingException::because('Compositor input PNG unreadable: ' . $path, 1749400205);
         }
+
         $image = @imagecreatefromstring($bytes);
         if ($image === false) {
             throw RenderingException::because('Compositor input is not a valid image: ' . $path, 1749400206);

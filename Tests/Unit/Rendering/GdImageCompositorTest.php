@@ -17,6 +17,7 @@ final class GdImageCompositorTest extends TestCase
         if (!\extension_loaded('gd')) {
             self::markTestSkipped('ext-gd is required for the compositor');
         }
+
         $this->tmpDir = sys_get_temp_dir() . '/nrrepurpose-gd-' . bin2hex(random_bytes(4));
         mkdir($this->tmpDir, 0o775, true);
     }
@@ -26,6 +27,7 @@ final class GdImageCompositorTest extends TestCase
         foreach (glob($this->tmpDir . '/*') ?: [] as $f) {
             @unlink($f);
         }
+
         @rmdir($this->tmpDir);
     }
 

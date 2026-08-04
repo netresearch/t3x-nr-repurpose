@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator\Image;
 
+use Throwable;
 use Netresearch\NrLlm\Specialized\Image\DallEImageService;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
@@ -76,7 +77,7 @@ final class DallEImageGenerator implements ImageGeneratorInterface
             }
         } catch (RenderingException $e) {
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw RenderingException::because('DALL-E image generation failed: ' . $e->getMessage(), 1749411001, $e);
         }
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\Model;
 
+use TYPO3\CMS\Extbase\Domain\Model\FileReference;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
@@ -17,24 +18,37 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 class Job extends AbstractEntity
 {
     protected string $sourceType = 'url';
+
     protected string $sourceValue = '';
+
     protected string $theme = 'nr';
+
     protected string $pdfMode = 'auto';
+
     protected bool $wantPodcast = true;
+
     protected bool $wantSchaubild = true;
+
     protected bool $wantStory = true;
+
     protected string $promptSnippets = '';
+
     protected string $status = 'queued';
+
     protected int $progress = 0;
+
     protected string $currentStep = '';
+
     protected string $errorMessage = '';
+
     protected string $languageDetected = '';
+
     protected int $beUser = 0;
 
     /** @var ObjectStorage<Artifact> */
     protected ObjectStorage $artifacts;
 
-    /** @var ObjectStorage<\TYPO3\CMS\Extbase\Domain\Model\FileReference> */
+    /** @var ObjectStorage<FileReference> */
     protected ObjectStorage $sourcePdf;
 
     public function __construct()
@@ -113,7 +127,7 @@ class Job extends AbstractEntity
         $this->pdfMode = $mode->value;
     }
 
-    /** @return ObjectStorage<\TYPO3\CMS\Extbase\Domain\Model\FileReference> */
+    /** @return ObjectStorage<FileReference> */
     public function getSourcePdf(): ObjectStorage
     {
         return $this->sourcePdf;
@@ -232,6 +246,7 @@ class Job extends AbstractEntity
             if ($status === null) {
                 continue;
             }
+
             $statusesByType[$artifact->getType()][] = $status;
         }
 
@@ -261,6 +276,7 @@ class Job extends AbstractEntity
                 $slides[] = $artifact;
             }
         }
+
         usort($slides, static function (Artifact $a, Artifact $b): int {
             $bySlideIndex = (int) ($a->getMetadataArray()['slideIndex'] ?? 0) <=> (int) ($b->getMetadataArray()['slideIndex'] ?? 0);
 

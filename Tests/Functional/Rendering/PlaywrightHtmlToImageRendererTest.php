@@ -16,6 +16,7 @@ final class PlaywrightHtmlToImageRendererTest extends AbstractFunctionalTestCase
         if (!is_file($script) || !is_dir(dirname($script) . '/node_modules')) {
             self::markTestSkipped('NodeRenderer not installed (run npm ci in Resources/Private/NodeRenderer)');
         }
+
         if (!is_file('/usr/bin/chromium')) {
             self::markTestSkipped('apt chromium not present at /usr/bin/chromium');
         }

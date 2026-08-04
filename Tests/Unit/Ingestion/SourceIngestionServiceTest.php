@@ -36,6 +36,7 @@ final class SourceIngestionServiceTest extends TestCase
 
         $runner = new class implements PopplerRunnerInterface {
             public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string { return 'PNG'; }
+
             public function extractLayout(string $absPdfPath, int $page): string { return 'LAYOUT-P' . $page; }
         };
 

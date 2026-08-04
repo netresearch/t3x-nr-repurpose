@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Domain\ValueObject;
 
+use Error;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use PHPUnit\Framework\TestCase;
 
@@ -36,7 +37,7 @@ final class ContentBriefTest extends TestCase
     {
         $brief = new ContentBrief('t', 's', [], [], 'a', 'de');
 
-        $this->expectException(\Error::class);
+        $this->expectException(Error::class);
         /** @phpstan-ignore-next-line intentional readonly violation */
         $brief->title = 'mutated';
     }

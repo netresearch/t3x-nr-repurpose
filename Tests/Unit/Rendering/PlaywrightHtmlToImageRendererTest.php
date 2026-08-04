@@ -13,8 +13,11 @@ use PHPUnit\Framework\TestCase;
 final class PlaywrightHtmlToImageRendererTest extends TestCase
 {
     private const NODE = '/usr/bin/node';
+
     private const SCRIPT = '/app/Resources/Private/NodeRenderer/render.cjs';
+
     private const OUT_DIR = '/tmp/nrrepurpose-render';
+
     private const CHROMIUM = '/usr/bin/chromium';
 
     private function renderer(RecordingProcessRunner $runner): PlaywrightHtmlToImageRenderer

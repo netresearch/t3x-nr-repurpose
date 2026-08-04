@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Generator;
 
+use ReflectionClass;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\PodcastGenerator;
 use Netresearch\NrRepurpose\Generator\SchaubildGenerator;
@@ -25,7 +26,7 @@ final class GeneratorRegistrationTest extends AbstractFunctionalTestCase
     {
         $orchestrator = $this->get(GenerationOrchestratorInterface::class);
 
-        $prop = (new \ReflectionClass($orchestrator))->getProperty('generators');
+        $prop = (new ReflectionClass($orchestrator))->getProperty('generators');
         /** @var list<ArtifactGeneratorInterface> $generators */
         $generators = $prop->getValue($orchestrator);
 

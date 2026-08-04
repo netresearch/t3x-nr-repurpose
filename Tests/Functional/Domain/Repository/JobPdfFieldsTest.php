@@ -22,6 +22,7 @@ final class JobPdfFieldsTest extends AbstractFunctionalTestCase
         $job->setSourceTypeEnum(SourceType::PdfUrl);
         $job->setSourceValue('https://example.com/report.pdf');
         $job->setPdfModeEnum(PdfMode::Vision);
+
         $repo->add($job);
         $pm->persistAll();
         $pm->clearState();

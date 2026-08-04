@@ -20,6 +20,7 @@ final class FfmpegAudioStitcherTest extends AbstractFunctionalTestCase
         if ($ffmpeg->run() !== 0) {
             self::markTestSkipped('ffmpeg not available');
         }
+
         $this->tmpDir = sys_get_temp_dir() . '/nrrepurpose-func-stitch-' . bin2hex(random_bytes(4));
         mkdir($this->tmpDir, 0o775, true);
     }
@@ -31,8 +32,10 @@ final class FfmpegAudioStitcherTest extends AbstractFunctionalTestCase
             foreach (glob($this->tmpDir . '/*') ?: [] as $f) {
                 @unlink($f);
             }
+
             @rmdir($this->tmpDir);
         }
+
         parent::tearDown();
     }
 

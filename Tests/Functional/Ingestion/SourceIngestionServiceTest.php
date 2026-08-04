@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Ingestion;
 
+use LogicException;
 use GuzzleHttp\Psr7\HttpFactory;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
@@ -54,7 +55,7 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
 
             public function ocrPage(string $absPdfPath, int $page, int $beUser, int $dpi = 200): string
             {
-                throw new \LogicException('Vision must not be called for a text PDF in auto mode');
+                throw new LogicException('Vision must not be called for a text PDF in auto mode');
             }
         };
     }

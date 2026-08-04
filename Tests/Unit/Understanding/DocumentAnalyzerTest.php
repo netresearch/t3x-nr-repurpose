@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Understanding;
 
+use LogicException;
+use BadMethodCallException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
@@ -31,7 +33,7 @@ final class FakeCompletionService implements CompletionServiceInterface
     {
         $this->jsonCalls[] = ['prompt' => $prompt, 'options' => $options];
         if ($this->jsonResults === []) {
-            throw new \LogicException('FakeCompletionService ran out of scripted results');
+            throw new LogicException('FakeCompletionService ran out of scripted results');
         }
 
         return array_shift($this->jsonResults);
@@ -39,7 +41,7 @@ final class FakeCompletionService implements CompletionServiceInterface
 
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 
     /**
@@ -49,32 +51,32 @@ final class FakeCompletionService implements CompletionServiceInterface
      */
     public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 
     public function completeFactual(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 
     public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 
     public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 
     public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 
     /**
@@ -84,22 +86,22 @@ final class FakeCompletionService implements CompletionServiceInterface
      */
     public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 
     public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 
     public function completeFactualForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 
     public function completeCreativeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new \BadMethodCallException('not used in this test');
+        throw new BadMethodCallException('not used in this test');
     }
 }
 

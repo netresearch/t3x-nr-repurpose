@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Service\Feature\VisionServiceInterface;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
@@ -17,6 +18,7 @@ final class PdfVisionExtractorTest extends TestCase
     {
         $runner = new class implements PopplerRunnerInterface {
             public string $lastPdf = '';
+
             public int $lastPage = 0;
 
             public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
@@ -35,13 +37,16 @@ final class PdfVisionExtractorTest extends TestCase
 
         $vision = new class implements VisionServiceInterface {
             public string $receivedImageUrl = '';
+
             public string $receivedPrompt = '';
 
-            public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string|array { return ''; }
-            public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string|array { return ''; }
-            public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string|array { return ''; }
+            public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
 
-            public function analyzeImage(string|array $imageUrl, string $customPrompt, ?VisionOptions $options = null): string|array
+            public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+
+            public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+
+            public function analyzeImage(string|array $imageUrl, string $customPrompt, ?VisionOptions $options = null): string
             {
                 $this->receivedImageUrl = (string) $imageUrl;
                 $this->receivedPrompt = $customPrompt;
@@ -51,7 +56,7 @@ final class PdfVisionExtractorTest extends TestCase
 
             public function analyzeImageFull(string $imageUrl, string $prompt, ?VisionOptions $options = null): VisionResponse
             {
-                throw new \LogicException('not used in this test');
+                throw new LogicException('not used in this test');
             }
         };
 
@@ -72,19 +77,24 @@ final class PdfVisionExtractorTest extends TestCase
     {
         $runner = new class implements PopplerRunnerInterface {
             public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string { return 'PNG'; }
+
             public function extractLayout(string $absPdfPath, int $page): string { return ''; }
         };
         $vision = new class implements VisionServiceInterface {
-            public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string|array { return ''; }
-            public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string|array { return ''; }
-            public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string|array { return ''; }
-            public function analyzeImage(string|array $imageUrl, string $customPrompt, ?VisionOptions $options = null): string|array
+            public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+
+            public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+
+            public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+
+            public function analyzeImage(string|array $imageUrl, string $customPrompt, ?VisionOptions $options = null): array
             {
                 return ['line one', 'line two'];
             }
+
             public function analyzeImageFull(string $imageUrl, string $prompt, ?VisionOptions $options = null): VisionResponse
             {
-                throw new \LogicException('not used in this test');
+                throw new LogicException('not used in this test');
             }
         };
 

@@ -21,10 +21,11 @@ final class SymfonyProcessRunner implements ProcessRunnerInterface
         if ($stdin !== null) {
             $process->setInput($stdin);
         }
+
         $exitCode = $process->run();
 
         return new ProcessResult(
-            (int) $exitCode,
+            $exitCode,
             $process->getOutput(),
             $process->getErrorOutput(),
         );

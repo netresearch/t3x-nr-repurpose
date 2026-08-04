@@ -33,6 +33,7 @@ final readonly class PromptSnippetSelection
                 $unique[] = $uid;
             }
         }
+
         $this->personas = $unique;
     }
 

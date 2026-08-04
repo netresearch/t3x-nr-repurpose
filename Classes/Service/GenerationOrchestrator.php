@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Service;
 
+use Traversable;
+use Throwable;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
@@ -21,21 +23,21 @@ use Psr\Log\LoggerInterface;
  * isolation and the status transitions are preserved from Plan 1; ingestion/analysis/resolution
  * failures abort before any artifact.
  */
-final class GenerationOrchestrator implements GenerationOrchestratorInterface
+final readonly class GenerationOrchestrator implements GenerationOrchestratorInterface
 {
     /** @var list<ArtifactGeneratorInterface> */
     private array $generators;
 
     /** @param iterable<ArtifactGeneratorInterface> $generators */
     public function __construct(
-        private readonly JobProcessingRepository $jobs,
-        private readonly LoggerInterface $logger,
-        private readonly SourceIngestionServiceInterface $ingestion,
-        private readonly DocumentAnalyzerInterface $analyzer,
-        private readonly PromptSnippetResolver $snippetResolver,
+        private JobProcessingRepository $jobs,
+        private LoggerInterface $logger,
+        private SourceIngestionServiceInterface $ingestion,
+        private DocumentAnalyzerInterface $analyzer,
+        private PromptSnippetResolver $snippetResolver,
         iterable $generators,
     ) {
-        $this->generators = $generators instanceof \Traversable
+        $this->generators = $generators instanceof Traversable
             ? iterator_to_array($generators, false)
             : array_values($generators);
     }
@@ -48,6 +50,7 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
 
             return;
         }
+
         if (JobStatus::from((string) $row['status'])->isTerminal()) {
             return; // idempotent: never reprocess a finished job
         }
@@ -56,7 +59,7 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
         $this->jobs->markStatus($jobUid, JobStatus::Ingesting, 'ingesting', 5);
         try {
             $document = $this->ingestion->ingest($row);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('Ingestion failed', ['job' => $jobUid, 'exception' => $e->getMessage()]);
             $this->jobs->markFailed($jobUid, $e->getMessage());
 
@@ -67,7 +70,7 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
         $this->jobs->markStatus($jobUid, JobStatus::Analyzing, 'analyzing', 20);
         try {
             $brief = $this->analyzer->analyze($document, $row);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('Analysis failed', ['job' => $jobUid, 'exception' => $e->getMessage()]);
             $this->jobs->markFailed($jobUid, $e->getMessage());
 
@@ -84,7 +87,7 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
             $snippets = $this->snippetResolver->resolve(
                 PromptSnippetSelection::fromJson((string) ($row['prompt_snippets'] ?? '')),
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('Prompt snippet resolution failed', ['job' => $jobUid, 'exception' => $e->getMessage()]);
             $this->jobs->markFailed($jobUid, $e->getMessage());
 
@@ -106,6 +109,7 @@ final class GenerationOrchestrator implements GenerationOrchestratorInterface
         // a clean set instead of duplicating rows. Terminal jobs never reach here (guarded above).
         $this->jobs->deleteArtifactsForJob($jobUid);
         $this->jobs->markStatus($jobUid, JobStatus::Generating, 'generating', 30);
+
         $applicable = array_values(array_filter(
             $this->generators,
             static fn (ArtifactGeneratorInterface $g): bool => $g->supports($ctx),

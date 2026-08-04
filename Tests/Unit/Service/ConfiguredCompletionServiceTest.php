@@ -104,6 +104,7 @@ final class ConfiguredCompletionServiceTest extends TestCase
 
         $inner = new FakeCompletionService();
         $inner->jsonResult = [];
+
         $subject = new ConfiguredCompletionService($inner, new ConfigurationResolver($repository), new NullLogger());
 
         $subject->completeJson('a');

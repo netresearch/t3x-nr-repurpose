@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\ViewHelpers;
 
+use Throwable;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\PathUtility;
@@ -32,7 +33,7 @@ final class PublicUrlViewHelper extends AbstractViewHelper
         try {
             $file = GeneralUtility::makeInstance(ResourceFactory::class)->getFileObject($fileUid);
             $publicUrl = $file->getPublicUrl();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return '';
         }
 
