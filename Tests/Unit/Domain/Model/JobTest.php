@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Domain\Model;
 
-use ReflectionProperty;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Model\Artifact;
@@ -12,7 +11,6 @@ use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use PHPUnit\Framework\TestCase;
-use TYPO3\CMS\Extbase\DomainObject\AbstractDomainObject;
 
 final class JobTest extends TestCase
 {
@@ -133,12 +131,11 @@ final class JobTest extends TestCase
     private function storyArtifact(string $type, string $variant, int $uid, ?int $slideIndex = null): Artifact
     {
         $artifact = new Artifact();
-        (new ReflectionProperty(Artifact::class, 'type'))->setValue($artifact, $type);
-        (new ReflectionProperty(Artifact::class, 'variant'))->setValue($artifact, $variant);
-        (new ReflectionProperty(AbstractDomainObject::class, 'uid'))->setValue($artifact, $uid);
+        $artifact->_setProperty('type', $type);
+        $artifact->_setProperty('variant', $variant);
+        $artifact->_setProperty('uid', $uid);
         if ($slideIndex !== null) {
-            (new ReflectionProperty(Artifact::class, 'metadata'))
-                ->setValue($artifact, json_encode(['slideIndex' => $slideIndex], JSON_THROW_ON_ERROR));
+            $artifact->_setProperty('metadata', json_encode(['slideIndex' => $slideIndex], JSON_THROW_ON_ERROR));
         }
 
         return $artifact;

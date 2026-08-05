@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
-use ReflectionClass;
-use ReflectionProperty;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
@@ -27,6 +25,7 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Resource\File;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
 
 final class PodcastGeneratorTest extends TestCase
 {
@@ -118,7 +117,7 @@ final class PodcastGeneratorTest extends TestCase
 
     private function storage(): JobFileStorage
     {
-        return new class extends JobFileStorage {
+        return new class($this->createStub(ResourceStorage::class)) extends JobFileStorage {
             /** @var array<string, string> */
             public array $contentByName = [];
 
@@ -127,18 +126,15 @@ final class PodcastGeneratorTest extends TestCase
 
             private int $uid = 0;
 
-            public function __construct() {}
+            public function __construct(private readonly ResourceStorage $falStorage) {}
 
             public function store(string $content, string $fileName): File
             {
                 $this->contentByName[$fileName] = $content;
                 $this->order[] = $fileName;
                 $this->uid++;
-                $file = (new ReflectionClass(File::class))->newInstanceWithoutConstructor();
-                $ref = new ReflectionProperty(File::class, 'properties');
-                $ref->setValue($file, ['uid' => $this->uid]);
 
-                return $file;
+                return new File(['uid' => $this->uid], $this->falStorage);
             }
         };
     }

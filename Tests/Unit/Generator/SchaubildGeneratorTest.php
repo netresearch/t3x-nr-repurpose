@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
-use ReflectionClass;
-use ReflectionProperty;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
@@ -28,6 +26,7 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Resource\File;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
 
 final class SchaubildGeneratorTest extends TestCase
 {
@@ -359,18 +358,16 @@ final class SchaubildGeneratorTest extends TestCase
 
     private function storage(): JobFileStorage
     {
-        return new class extends JobFileStorage {
+        return new class($this->createStub(ResourceStorage::class)) extends JobFileStorage {
             private int $uid = 0;
 
-            public function __construct() {}
+            public function __construct(private readonly ResourceStorage $falStorage) {}
 
             public function store(string $content, string $fileName): File
             {
                 $this->uid++;
-                $file = (new ReflectionClass(File::class))->newInstanceWithoutConstructor();
-                (new ReflectionProperty(File::class, 'properties'))->setValue($file, ['uid' => $this->uid]);
 
-                return $file;
+                return new File(['uid' => $this->uid], $this->falStorage);
             }
         };
     }

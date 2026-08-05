@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Throwable;
-use ReflectionClass;
-use ReflectionProperty;
 use RuntimeException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
@@ -26,11 +24,13 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
+use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Resource\File;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
 
 final class StoryGeneratorTest extends TestCase
 {
@@ -61,7 +61,7 @@ final class StoryGeneratorTest extends TestCase
     ): StoryGenerator {
         $completion ??= $this->completion($completionResult);
 
-        return new class($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator) extends StoryGenerator {
+        return new class($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $this->storage()) extends StoryGenerator {
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
@@ -69,6 +69,7 @@ final class StoryGeneratorTest extends TestCase
                 HtmlToImageRendererInterface $renderer,
                 ImageCompositorInterface $compositor,
                 ImageGeneratorInterface $imageGenerator,
+                JobFileStorage $storage,
             ) {
                 parent::__construct(
                     $jobs,
@@ -78,26 +79,29 @@ final class StoryGeneratorTest extends TestCase
                     $renderer,
                     $compositor,
                     $imageGenerator,
-                    new class extends JobFileStorage {
-                        private int $uid = 0;
-
-                        public function __construct() {}
-
-                        public function store(string $content, string $fileName): File
-                        {
-                            $this->uid++;
-                            $file = (new ReflectionClass(File::class))->newInstanceWithoutConstructor();
-                            (new ReflectionProperty(File::class, 'properties'))->setValue($file, ['uid' => $this->uid]);
-
-                            return $file;
-                        }
-                    },
+                    $storage,
                 );
             }
 
             protected function renderSlideHtml(GenerationContext $ctx, StorySlide $slide, int $index, int $total, bool $transparent): string
             {
                 return sprintf('<html><body>SLIDE %d/%d %s | %s | %s</body></html>', $index, $total, $slide->role, $slide->headline, $slide->subline);
+            }
+        };
+    }
+
+    private function storage(): JobFileStorage
+    {
+        return new class($this->createStub(ResourceStorage::class)) extends JobFileStorage {
+            private int $uid = 0;
+
+            public function __construct(private readonly ResourceStorage $falStorage) {}
+
+            public function store(string $content, string $fileName): File
+            {
+                $this->uid++;
+
+                return new File(['uid' => $this->uid], $this->falStorage);
             }
         };
     }
@@ -183,7 +187,7 @@ final class StoryGeneratorTest extends TestCase
 
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
-                throw new RuntimeException('image service exploded');
+                throw new RenderingException('image service exploded');
             }
         };
 
@@ -268,7 +272,7 @@ final class StoryGeneratorTest extends TestCase
             {
                 $this->call++;
                 if ($this->call === 2) {
-                    throw new RuntimeException('chromium crashed');
+                    throw new RenderingException('chromium crashed');
                 }
 
                 $path = sys_get_temp_dir() . '/story_' . bin2hex(random_bytes(4)) . '.png';

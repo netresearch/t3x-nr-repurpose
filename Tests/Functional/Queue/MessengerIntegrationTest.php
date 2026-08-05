@@ -68,7 +68,7 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
         $orchestrator = new class implements GenerationOrchestratorInterface {
             public function process(int $jobUid): void
             {
-                throw new RuntimeException('worker exploded');
+                throw new OrchestratorCrashException('worker exploded');
             }
         };
 
@@ -80,3 +80,10 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('worker exploded', (string) $row['error_message']);
     }
 }
+
+/**
+ * Dedicated exception for the simulated orchestrator crash (php:S112 — no generic
+ * RuntimeException throws). The handler's catch contract is Throwable, so the
+ * concrete type is irrelevant to the behaviour under test.
+ */
+final class OrchestratorCrashException extends RuntimeException {}
