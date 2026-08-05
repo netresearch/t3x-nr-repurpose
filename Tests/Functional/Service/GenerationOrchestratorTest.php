@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
-use RuntimeException;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
+use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
@@ -24,6 +24,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 {
+    private const QUARTERLY_REPORT = 'Quarterly report';
+
     private function seedJob(): int
     {
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)
@@ -81,8 +83,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
     {
         $jobUid = $this->seedJob();
 
-        $document = $this->stubDocument('Quarterly report', 'Revenue grew across all regions.');
-        $brief = $this->stubBrief('Quarterly report');
+        $document = $this->stubDocument(self::QUARTERLY_REPORT, 'Revenue grew across all regions.');
+        $brief = $this->stubBrief(self::QUARTERLY_REPORT);
 
         $jobs = $this->get(JobProcessingRepository::class);
         $generator = new RecordingArtifactGenerator($jobs);
@@ -99,7 +101,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 
         self::assertInstanceOf(GenerationContext::class, $generator->seen);
         self::assertSame('nr', $generator->seen->theme);
-        self::assertSame('Quarterly report', $generator->seen->brief->title);
+        self::assertSame(self::QUARTERLY_REPORT, $generator->seen->brief->title);
         self::assertSame('Revenue grew across all regions.', $generator->seen->document->text);
         // A job without a prompt-snippet selection resolves to the empty default (real resolver).
         self::assertSame([], $generator->seen->snippets->personas);
@@ -132,7 +134,9 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $ingestion = new class implements SourceIngestionServiceInterface {
             public function ingest(array $jobRow): SourceDocument
             {
-                throw new RuntimeException('source unreachable');
+                // The real contract: SourceIngestionServiceInterface::ingest() throws
+                // IngestionException on an unreachable source.
+                throw new IngestionException('source unreachable');
             }
         };
         $analyzer = new class implements DocumentAnalyzerInterface {

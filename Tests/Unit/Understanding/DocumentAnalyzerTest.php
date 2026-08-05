@@ -23,6 +23,8 @@ use Psr\Log\NullLogger;
  */
 final class FakeCompletionService implements CompletionServiceInterface
 {
+    private const NOT_USED = 'not used in this test';
+
     /** @var list<array{prompt:string, options:?ChatOptions}> */
     public array $jsonCalls = [];
 
@@ -41,7 +43,7 @@ final class FakeCompletionService implements CompletionServiceInterface
 
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 
     /**
@@ -51,32 +53,32 @@ final class FakeCompletionService implements CompletionServiceInterface
      */
     public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 
     public function completeFactual(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 
     public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 
     public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 
     public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 
     /**
@@ -86,22 +88,22 @@ final class FakeCompletionService implements CompletionServiceInterface
      */
     public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 
     public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 
     public function completeFactualForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 
     public function completeCreativeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
-        throw new BadMethodCallException('not used in this test');
+        throw new BadMethodCallException(self::NOT_USED);
     }
 }
 

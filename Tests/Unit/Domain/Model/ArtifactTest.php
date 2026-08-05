@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Domain\Model;
 
-use ReflectionProperty;
 use Netresearch\NrRepurpose\Domain\Model\Artifact;
 use PHPUnit\Framework\TestCase;
 
@@ -13,8 +12,7 @@ final class ArtifactTest extends TestCase
     public function testGetMetadataArrayDecodesSlideMetadata(): void
     {
         $artifact = new Artifact();
-        (new ReflectionProperty(Artifact::class, 'metadata'))
-            ->setValue($artifact, '{"role":"cover","slideIndex":1,"slideTotal":3}');
+        $artifact->_setProperty('metadata', '{"role":"cover","slideIndex":1,"slideTotal":3}');
 
         self::assertSame(
             ['role' => 'cover', 'slideIndex' => 1, 'slideTotal' => 3],
@@ -27,10 +25,10 @@ final class ArtifactTest extends TestCase
         $artifact = new Artifact();
         self::assertSame([], $artifact->getMetadataArray());
 
-        (new ReflectionProperty(Artifact::class, 'metadata'))->setValue($artifact, '{broken');
+        $artifact->_setProperty('metadata', '{broken');
         self::assertSame([], $artifact->getMetadataArray());
 
-        (new ReflectionProperty(Artifact::class, 'metadata'))->setValue($artifact, '"just a string"');
+        $artifact->_setProperty('metadata', '"just a string"');
         self::assertSame([], $artifact->getMetadataArray());
     }
 }
