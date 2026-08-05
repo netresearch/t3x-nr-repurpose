@@ -35,8 +35,7 @@
         "typo3/cms-filelist": "^14.3",
         "typo3/cms-lowlevel": "^14.3",
         "typo3/cms-setup": "^14.3",
-        "typo3/cms-tstemplate": "^14.3",
-        "typo3/testing-framework": "^9.0"
+        "typo3/cms-tstemplate": "^14.3"
     },
     "autoload": {
         "psr-4": {
@@ -52,6 +51,7 @@
     "prefer-stable": true,
     "config": {
         "allow-plugins": {
+            "ergebnis/composer-normalize": true,
             "a9f/fractor-extension-installer": true,
             "captainhook/hook-installer": true,
             "infection/extension-installer": true,
