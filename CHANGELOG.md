@@ -6,6 +6,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-07
+
+### Changed
+
+- Require `netresearch/nr-llm` `^0.26.0` (was `^0.25`).
+
+### Removed
+
+- The public alias for nr-llm's `CapabilityPermissionServiceInterface`. nr-llm
+  0.26 removed that service and its interface outright — ADR-117 withdrew the
+  backend capability permissions rather than deferring them again — so the
+  alias, which existed only to expose them "once capability gating is added",
+  now fails the container compile. Nothing in this extension consumed it.
+
 ## [0.3.1] - 2026-07-31
 
 ### Changed
@@ -110,5 +124,12 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.2.3...v0.3.0
+[0.2.3]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.2.2...v0.2.3
+[0.2.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/netresearch/t3x-nr-repurpose/releases/tag/v0.1.0
