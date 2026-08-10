@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-10
+
+### Changed
+
+- Requires nr-llm ^0.28. The previous cap at ^0.26 did not even admit 0.27 and
+  held the dependency tree two minors back.
+
 ## [0.4.0] - 2026-08-07
 
 ### Changed
