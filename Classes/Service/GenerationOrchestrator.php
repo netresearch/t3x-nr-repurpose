@@ -15,7 +15,9 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
+use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * Drives one job through the real pipeline: findRow -> ingest -> analyze -> resolve prompt
@@ -35,6 +37,8 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         private SourceIngestionServiceInterface $ingestion,
         private DocumentAnalyzerInterface $analyzer,
         private PromptSnippetResolver $snippetResolver,
+        private TechnicalActorContextInterface $technicalActor,
+        private ExtensionConfiguration $extensionConfiguration,
         iterable $generators,
     ) {
         $this->generators = $generators instanceof Traversable
@@ -42,7 +46,50 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             : array_values($generators);
     }
 
+    /**
+     * Both callers - the Messenger handler and the CLI command - run without an
+     * authenticated backend user: TYPO3 boots an unauthenticated
+     * CommandLineUserAuthentication for a console request. nr_vault has no actor
+     * to authorise in that state and denies every secret read, so the very first
+     * provider call fails with "Access denied to secret ... insufficient
+     * permissions" and the job dies at 20% in the analysis step, before any
+     * artifact exists. Owner and group grants on the secret cannot help: that
+     * branch of the access check never consults them.
+     *
+     * The wrapper therefore goes here rather than into either caller - one choke
+     * point, both paths covered, and a future third caller too.
+     *
+     * With technicalBeUserUid at 0 nothing changes, so an installation that has
+     * not configured an actor behaves exactly as before instead of failing in a
+     * new way.
+     */
     public function process(int $jobUid): void
+    {
+        $actorUid = $this->technicalActorUid();
+
+        if ($actorUid === 0) {
+            $this->processJob($jobUid);
+
+            return;
+        }
+
+        $this->technicalActor->runAs($actorUid, function () use ($jobUid): void {
+            $this->processJob($jobUid);
+        });
+    }
+
+    private function technicalActorUid(): int
+    {
+        try {
+            return (int) $this->extensionConfiguration->get('nr_repurpose', 'technicalBeUserUid');
+        } catch (Throwable) {
+            // Not configured at all - the extension shipped without an
+            // ext_conf_template until this was added.
+            return 0;
+        }
+    }
+
+    private function processJob(int $jobUid): void
     {
         $row = $this->jobs->findRow($jobUid);
         if ($row === null) {

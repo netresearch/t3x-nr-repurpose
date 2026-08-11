@@ -18,7 +18,10 @@ use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
+use Netresearch\NrVault\Security\TechnicalActor;
+use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Psr\Log\NullLogger;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -95,6 +98,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->stubIngestion($document),
             $this->stubAnalyzer($brief),
             $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
             [$generator],
         );
         $orchestrator->process($jobUid);
@@ -165,7 +170,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             }
         };
 
-        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, $this->get(PromptSnippetResolver::class), [$generator]);
+        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, $this->get(PromptSnippetResolver::class), $this->get(TechnicalActorContextInterface::class), $this->get(ExtensionConfiguration::class), [$generator]);
         $orchestrator->process($jobUid);
 
         $row = $jobs->findRow($jobUid);
@@ -189,6 +194,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->stubIngestion($this->stubDocument()),
             $this->stubAnalyzer($this->stubBrief()),
             $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
             [new RecordingArtifactGenerator($jobs)],
         );
         $orchestrator->process($jobUid);
@@ -198,6 +205,120 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
             ->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobUid]);
         self::assertSame(1, $total);
+    }
+
+    /**
+     * The reason this class takes a TechnicalActorContextInterface at all: both callers run
+     * without an authenticated backend user, and nr_vault then denies every secret read. The
+     * generator asserting inside its own generate() is the point - it proves the scope is open
+     * for the whole job, not merely entered and left around it.
+     */
+    public function testRunsTheWholeJobInsideTheTechnicalActorScopeWhenOneIsConfigured(): void
+    {
+        $jobUid = $this->seedJob();
+        $jobs = $this->get(JobProcessingRepository::class);
+        $actor = new RecordingTechnicalActorContext();
+        $generator = new ScopeAssertingArtifactGenerator($jobs, $actor);
+
+        $orchestrator = new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $this->stubIngestion($this->stubDocument()),
+            $this->stubAnalyzer($this->stubBrief()),
+            $this->get(PromptSnippetResolver::class),
+            $actor,
+            $this->extensionConfigurationWithActorUid(4711),
+            [$generator],
+        );
+        $orchestrator->process($jobUid);
+
+        self::assertSame([4711], $actor->uids, 'the job must run in exactly one runAs scope');
+        self::assertTrue($generator->wasInsideScope, 'generation must happen inside the scope, not beside it');
+    }
+
+    public function testRunsWithoutAScopeWhenNoTechnicalActorIsConfigured(): void
+    {
+        $jobUid = $this->seedJob();
+        $jobs = $this->get(JobProcessingRepository::class);
+        $actor = new RecordingTechnicalActorContext();
+
+        $orchestrator = new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $this->stubIngestion($this->stubDocument()),
+            $this->stubAnalyzer($this->stubBrief()),
+            $this->get(PromptSnippetResolver::class),
+            $actor,
+            $this->extensionConfigurationWithActorUid(0),
+            [new RecordingArtifactGenerator($jobs)],
+        );
+        $orchestrator->process($jobUid);
+
+        self::assertSame([], $actor->uids, 'uid 0 must behave exactly as before this seam existed');
+    }
+
+    private function extensionConfigurationWithActorUid(int $uid): ExtensionConfiguration
+    {
+        // readonly: TYPO3 v14 declares ExtensionConfiguration readonly, and a
+        // non-readonly class cannot extend one.
+        return new readonly class($uid) extends ExtensionConfiguration {
+            public function __construct(private int $uid) {}
+
+            public function get(string $extension, string $path = ''): mixed
+            {
+                return $path === 'technicalBeUserUid' ? $this->uid : null;
+            }
+        };
+    }
+}
+
+/** Records every runAs() it is asked for and runs the callable, so the scope is observable. */
+final class RecordingTechnicalActorContext implements TechnicalActorContextInterface
+{
+    /** @var list<int> */
+    public array $uids = [];
+
+    public bool $inside = false;
+
+    public function runAs(int $beUserUid, callable $fn): mixed
+    {
+        $this->uids[] = $beUserUid;
+        $this->inside = true;
+
+        try {
+            return $fn();
+        } finally {
+            $this->inside = false;
+        }
+    }
+
+    public function getCurrentActor(): ?TechnicalActor
+    {
+        return null;
+    }
+}
+
+/** Asserts, from inside generate(), that the surrounding runAs() scope is still open. */
+final class ScopeAssertingArtifactGenerator implements ArtifactGeneratorInterface
+{
+    public bool $wasInsideScope = false;
+
+    public function __construct(
+        private readonly JobProcessingRepository $jobs,
+        private readonly RecordingTechnicalActorContext $actor,
+    ) {}
+
+    public function supports(GenerationContext $ctx): bool
+    {
+        return true;
+    }
+
+    public function generate(GenerationContext $ctx): bool
+    {
+        $this->wasInsideScope = $this->actor->inside;
+        $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+
+        return true;
     }
 }
 
