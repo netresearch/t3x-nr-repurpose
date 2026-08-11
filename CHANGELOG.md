@@ -6,6 +6,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-11
+
+### Fixed
+
+- Generation jobs no longer fail in `analyzing` with a denied vault read. The
+  job runs in a Messenger consumer or on the CLI, where TYPO3 boots an
+  *unauthenticated* command-line user; nr-vault then has no actor to authorise
+  and refuses every secret, so the provider connection failed before a single
+  artifact was produced. `GenerationOrchestrator::process()` now resolves a
+  configured backend user and wraps `processJob()` in nr-vault's
+  `TechnicalActorContextInterface::runAs()`.
+
+  This was a missing *identity*, not a missing grant — the unauthenticated CLI
+  branch never consults `owner_uid` or the group tables at all, so widening
+  permissions would not have helped.
+
+### Added
+
+- `technicalBeUserUid` extension setting: the backend user the asynchronous job
+  acts as. Defaults to `0`, which keeps the previous behaviour, so an existing
+  installation does not change until the value is set.
+
+### Changed
+
+- Requires `netresearch/nr-vault` `^0.15` for the technical-actor API.
+
 ## [0.4.1] - 2026-08-10
 
 ### Changed
@@ -131,7 +157,9 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.2.3...v0.3.0
