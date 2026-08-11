@@ -1,0 +1,2 @@
+# cat=basic; type=int+; label=Technical backend user for vault access: UID of a backend user the asynchronous job runs as. Jobs execute in a Symfony Messenger consumer or on the CLI, where TYPO3 boots an unauthenticated command-line user - nr_vault then has no actor to authorise and denies every secret read, so the provider connection fails before any artifact is generated. Leave at 0 to keep the previous behaviour.
+technicalBeUserUid = 0
