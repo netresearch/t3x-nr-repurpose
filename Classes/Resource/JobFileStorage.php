@@ -1,12 +1,17 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Resource;
 
 use Netresearch\NrRepurpose\Exception\DefaultStorageUnavailableException;
-use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\File;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
 /**
@@ -42,7 +47,7 @@ class JobFileStorage
 
             // Unique target name to avoid collisions across runs.
             $extension = pathinfo($fileName, PATHINFO_EXTENSION);
-            $unique = pathinfo($fileName, PATHINFO_FILENAME)
+            $unique    = pathinfo($fileName, PATHINFO_FILENAME)
                 . '-' . bin2hex(random_bytes(4))
                 . ($extension !== '' ? '.' . $extension : '');
 

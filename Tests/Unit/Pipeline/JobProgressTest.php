@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Pipeline;
@@ -13,7 +18,7 @@ final class JobProgressTest extends TestCase
 {
     public function testStepMapsTheFractionIntoTheBand(): void
     {
-        $jobs = new StatusRecordingJobRepository();
+        $jobs     = new StatusRecordingJobRepository();
         $progress = new JobProgress($jobs, 42, 30.0, 65.0);
 
         $progress->step('Podcast: writing script', 0.0);
@@ -33,7 +38,7 @@ final class JobProgressTest extends TestCase
 
     public function testStepClampsOutOfRangeFractionsToTheBandEdges(): void
     {
-        $jobs = new StatusRecordingJobRepository();
+        $jobs     = new StatusRecordingJobRepository();
         $progress = new JobProgress($jobs, 7, 30.0, 100.0);
 
         $progress->step('below', -0.5);

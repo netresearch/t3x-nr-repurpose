@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
@@ -24,7 +29,7 @@ final class SourceIngestionServiceTest extends TestCase
      */
     private function service(array $textPages): SourceIngestionService
     {
-        $text = new class($textPages) extends PdfTextExtractor {
+        $text = new class ($textPages) extends PdfTextExtractor {
             /** @param list<array{page:int,text:string,isSparse:bool}> $pages */
             public function __construct(private readonly array $pages) {}
 
@@ -35,9 +40,15 @@ final class SourceIngestionServiceTest extends TestCase
         };
 
         $runner = new class implements PopplerRunnerInterface {
-            public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string { return 'PNG'; }
+            public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
+            {
+                return 'PNG';
+            }
 
-            public function extractLayout(string $absPdfPath, int $page): string { return 'LAYOUT-P' . $page; }
+            public function extractLayout(string $absPdfPath, int $page): string
+            {
+                return 'LAYOUT-P' . $page;
+            }
         };
 
         $vision = new class extends PdfVisionExtractor {
@@ -57,7 +68,10 @@ final class SourceIngestionServiceTest extends TestCase
         $resolver = new class extends PdfFileResolver {
             public function __construct() {}
 
-            public function resolve(array $jobRow): string { return '/abs/doc.pdf'; }
+            public function resolve(array $jobRow): string
+            {
+                return '/abs/doc.pdf';
+            }
         };
 
         return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout);
@@ -91,7 +105,7 @@ final class SourceIngestionServiceTest extends TestCase
         ]);
 
         $doc = $service->ingest([
-            'uid' => 6, 'source_type' => 'pdf_url', 'source_value' => 'https://example.com/x.pdf',
+            'uid'      => 6, 'source_type' => 'pdf_url', 'source_value' => 'https://example.com/x.pdf',
             'pdf_mode' => 'vision', 'be_user' => 0,
         ]);
 

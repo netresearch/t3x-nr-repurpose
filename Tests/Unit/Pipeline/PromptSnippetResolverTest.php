@@ -1,13 +1,18 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Pipeline;
 
-use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
+use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Tests\Unit\Pipeline\Fixture\InMemoryPromptSnippetRepository;

@@ -1,13 +1,18 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator\Image;
 
-use Throwable;
 use Netresearch\NrLlm\Specialized\Image\DallEImageService;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Throwable;
 
 /**
  * Default ImageGeneratorInterface: delegates to nr-llm's DallEImageService (OpenAI images).

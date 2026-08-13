@@ -1,11 +1,14 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Service;
 
-use Traversable;
-use Throwable;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
@@ -17,6 +20,8 @@ use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
+use Traversable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
@@ -164,7 +169,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             static fn (ArtifactGeneratorInterface $g): bool => $g->supports($ctx),
         ));
         $count = count($applicable);
-        $ok = 0;
+        $ok    = 0;
         foreach ($applicable as $i => $generator) {
             // Each generator reports fine-grained steps into its own slice of the
             // 30..100 generation band; the context is derived per generator.

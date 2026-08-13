@@ -1,16 +1,21 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
-use Stringable;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Stringable;
 
 /**
  * Pins the lenient imageSize-hint resolution shared by all image-calling generators:
@@ -47,7 +52,7 @@ final class AbstractGeneratorTest extends TestCase
         };
         $budget = new FakeBudgetService();
 
-        return new class($jobs, $budget, $logger) extends AbstractGenerator {
+        return new class ($jobs, $budget, $logger) extends AbstractGenerator {
             public function supports(GenerationContext $ctx): bool
             {
                 return false;
@@ -75,7 +80,7 @@ final class AbstractGeneratorTest extends TestCase
 
     public function testValidHintsDivisibleBySixteenAreUsed(): void
     {
-        $logger = $this->logger();
+        $logger  = $this->logger();
         $subject = $this->subject($logger);
 
         self::assertSame('1920x1088', $subject->expose('1920x1088', '1536x1024'));

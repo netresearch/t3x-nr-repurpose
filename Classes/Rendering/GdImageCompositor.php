@@ -1,8 +1,15 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Rendering;
+
+use function dirname;
 
 use GdImage;
 
@@ -39,10 +46,10 @@ final class GdImageCompositor implements ImageCompositorInterface
         $background = $this->load($backgroundPng);
         $foreground = $this->load($foregroundPng);
 
-        $targetWidth = imagesx($foreground);
+        $targetWidth  = imagesx($foreground);
         $targetHeight = imagesy($foreground);
-        $bgWidth = imagesx($background);
-        $bgHeight = imagesy($background);
+        $bgWidth      = imagesx($background);
+        $bgHeight     = imagesy($background);
 
         $canvas = imagecreatetruecolor($targetWidth, $targetHeight);
         // Start from a transparent canvas so a foreground with alpha keeps it where nothing
@@ -67,7 +74,7 @@ final class GdImageCompositor implements ImageCompositorInterface
             throw RenderingException::because('GD foreground overlay copy failed', 1749400207);
         }
 
-        $dir = \dirname($outPath);
+        $dir = dirname($outPath);
         if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) {
             throw RenderingException::because('Compositor output dir not writable: ' . $dir, 1749400202);
         }
@@ -133,9 +140,9 @@ final class GdImageCompositor implements ImageCompositorInterface
         // non-positive (int) cast returns above that, so this is positive by
         // construction.
         return match (strtoupper(substr($limit, -1))) {
-            'G' => $value * 1024 ** 3,
-            'M' => $value * 1024 ** 2,
-            'K' => $value * 1024,
+            'G'     => $value * 1024 ** 3,
+            'M'     => $value * 1024 ** 2,
+            'K'     => $value * 1024,
             default => $value,
         };
     }

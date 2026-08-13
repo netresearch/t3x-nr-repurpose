@@ -1,12 +1,17 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion;
 
-use Throwable;
 use Smalot\PdfParser\Config;
 use Smalot\PdfParser\Parser;
+use Throwable;
 
 /**
  * Tier 1 — embedded PDF text via smalot/pdfparser, per page, with near-empty (sparse)
@@ -19,6 +24,7 @@ class PdfTextExtractor
 
     /**
      * @return list<array{page:int, text:string, isSparse:bool}>
+     *
      * @throws IngestionException on a missing, encrypted or unparseable PDF
      */
     public function extract(string $absPath): array
@@ -33,7 +39,7 @@ class PdfTextExtractor
 
         $parser = new Parser([], $config);
         try {
-            $document = $parser->parseFile($absPath);
+            $document    = $parser->parseFile($absPath);
             $pageObjects = $document->getPages();
         } catch (Throwable $e) {
             // smalot throws \Exception('Secured pdf file are currently not supported.') on real encryption.
@@ -46,11 +52,11 @@ class PdfTextExtractor
 
         $pages = [];
         foreach ($pageObjects as $i => $page) {
-            $text = trim($page->getText());
+            $text    = trim($page->getText());
             $density = strlen(preg_replace('/\s+/', '', $text) ?? '');
             $pages[] = [
-                'page' => $i + 1,
-                'text' => $text,
+                'page'     => $i + 1,
+                'text'     => $text,
                 'isSparse' => $density < self::MIN_CHARS_PER_PAGE,
             ];
         }

@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Domain\Repository;
@@ -15,7 +20,7 @@ final class JobRepositoryTest extends AbstractFunctionalTestCase
     public function testJobRoundTripsThroughExtbasePersistence(): void
     {
         $repo = $this->get(JobRepository::class);
-        $pm = $this->get(PersistenceManagerInterface::class);
+        $pm   = $this->get(PersistenceManagerInterface::class);
 
         $job = new Job();
         $job->setSourceValue('https://example.com/');

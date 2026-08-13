@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
@@ -34,8 +39,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)
             ->getConnectionForTable('tx_nrrepurpose_domain_model_job');
         $conn->insert('tx_nrrepurpose_domain_model_job', [
-            'pid' => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
-            'theme' => 'nr', 'want_podcast' => 1, 'want_schaubild' => 1, 'want_story' => 1,
+            'pid'    => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
+            'theme'  => 'nr', 'want_podcast' => 1, 'want_schaubild' => 1, 'want_story' => 1,
             'status' => 'queued', 'be_user' => 0,
         ]);
 
@@ -87,9 +92,9 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $jobUid = $this->seedJob();
 
         $document = $this->stubDocument(self::QUARTERLY_REPORT, 'Revenue grew across all regions.');
-        $brief = $this->stubBrief(self::QUARTERLY_REPORT);
+        $brief    = $this->stubBrief(self::QUARTERLY_REPORT);
 
-        $jobs = $this->get(JobProcessingRepository::class);
+        $jobs      = $this->get(JobProcessingRepository::class);
         $generator = new RecordingArtifactGenerator($jobs);
 
         $orchestrator = new GenerationOrchestrator(
@@ -134,7 +139,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
     public function testIngestionFailureMarksJobFailedAndRunsNoGenerator(): void
     {
         $jobUid = $this->seedJob();
-        $jobs = $this->get(JobProcessingRepository::class);
+        $jobs   = $this->get(JobProcessingRepository::class);
 
         $ingestion = new class implements SourceIngestionServiceInterface {
             public function ingest(array $jobRow): SourceDocument
@@ -183,7 +188,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
     public function testReprocessingClearsPriorArtifacts(): void
     {
         $jobUid = $this->seedJob();
-        $jobs = $this->get(JobProcessingRepository::class);
+        $jobs   = $this->get(JobProcessingRepository::class);
 
         // A prior (interrupted) run left a stale artifact row for this job.
         $jobs->insertArtifact($jobUid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Failed);
@@ -215,9 +220,9 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
      */
     public function testRunsTheWholeJobInsideTheTechnicalActorScopeWhenOneIsConfigured(): void
     {
-        $jobUid = $this->seedJob();
-        $jobs = $this->get(JobProcessingRepository::class);
-        $actor = new RecordingTechnicalActorContext();
+        $jobUid    = $this->seedJob();
+        $jobs      = $this->get(JobProcessingRepository::class);
+        $actor     = new RecordingTechnicalActorContext();
         $generator = new ScopeAssertingArtifactGenerator($jobs, $actor);
 
         $orchestrator = new GenerationOrchestrator(
@@ -239,8 +244,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
     public function testRunsWithoutAScopeWhenNoTechnicalActorIsConfigured(): void
     {
         $jobUid = $this->seedJob();
-        $jobs = $this->get(JobProcessingRepository::class);
-        $actor = new RecordingTechnicalActorContext();
+        $jobs   = $this->get(JobProcessingRepository::class);
+        $actor  = new RecordingTechnicalActorContext();
 
         $orchestrator = new GenerationOrchestrator(
             $jobs,
@@ -261,7 +266,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
     {
         // readonly: TYPO3 v14 declares ExtensionConfiguration readonly, and a
         // non-readonly class cannot extend one.
-        return new readonly class($uid) extends ExtensionConfiguration {
+        return new readonly class ($uid) extends ExtensionConfiguration {
             public function __construct(private int $uid) {}
 
             public function get(string $extension, string $path = ''): mixed

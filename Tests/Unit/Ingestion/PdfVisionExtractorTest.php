@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
@@ -23,7 +28,7 @@ final class PdfVisionExtractorTest extends TestCase
 
             public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
             {
-                $this->lastPdf = $absPdfPath;
+                $this->lastPdf  = $absPdfPath;
                 $this->lastPage = $page;
 
                 return "\x89PNG\r\n\x1a\nFAKEPNGBYTES";
@@ -40,16 +45,25 @@ final class PdfVisionExtractorTest extends TestCase
 
             public string $receivedPrompt = '';
 
-            public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+            public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string
+            {
+                return '';
+            }
 
-            public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+            public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string
+            {
+                return '';
+            }
 
-            public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+            public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string
+            {
+                return '';
+            }
 
             public function analyzeImage(string|array $imageUrl, string $customPrompt, ?VisionOptions $options = null): string
             {
                 $this->receivedImageUrl = (string) $imageUrl;
-                $this->receivedPrompt = $customPrompt;
+                $this->receivedPrompt   = $customPrompt;
 
                 return 'Net revenue rose to 48 million euro.';
             }
@@ -61,7 +75,7 @@ final class PdfVisionExtractorTest extends TestCase
         };
 
         $extractor = new PdfVisionExtractor($runner, $vision);
-        $text = $extractor->ocrPage('/abs/doc.pdf', 2, beUser: 7);
+        $text      = $extractor->ocrPage('/abs/doc.pdf', 2, beUser: 7);
 
         self::assertSame('/abs/doc.pdf', $runner->lastPdf);
         self::assertSame(2, $runner->lastPage);
@@ -76,16 +90,31 @@ final class PdfVisionExtractorTest extends TestCase
     public function testJoinsArrayVisionResult(): void
     {
         $runner = new class implements PopplerRunnerInterface {
-            public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string { return 'PNG'; }
+            public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
+            {
+                return 'PNG';
+            }
 
-            public function extractLayout(string $absPdfPath, int $page): string { return ''; }
+            public function extractLayout(string $absPdfPath, int $page): string
+            {
+                return '';
+            }
         };
         $vision = new class implements VisionServiceInterface {
-            public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+            public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string
+            {
+                return '';
+            }
 
-            public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+            public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string
+            {
+                return '';
+            }
 
-            public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string { return ''; }
+            public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string
+            {
+                return '';
+            }
 
             public function analyzeImage(string|array $imageUrl, string $customPrompt, ?VisionOptions $options = null): array
             {

@@ -1,12 +1,17 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion;
 
 use DOMDocument;
-use DOMXPath;
 use DOMNode;
+use DOMXPath;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
@@ -50,7 +55,7 @@ class WebPageFetcher
         }
 
         $title = $this->extractTitle($html);
-        $text = $this->extractMainText($html);
+        $text  = $this->extractMainText($html);
 
         if ($text === '') {
             throw new IngestionException('No readable content extracted from: ' . $url, 1749379413);
@@ -68,7 +73,7 @@ class WebPageFetcher
 
     private function loadDom(string $html): DOMDocument
     {
-        $dom = new DOMDocument();
+        $dom      = new DOMDocument();
         $previous = libxml_use_internal_errors(true);
         // Force UTF-8 interpretation regardless of a missing/late <meta charset>.
         $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
@@ -80,7 +85,7 @@ class WebPageFetcher
 
     private function extractTitle(string $html): string
     {
-        $dom = $this->loadDom($html);
+        $dom    = $this->loadDom($html);
         $titles = $dom->getElementsByTagName('title');
         if ($titles->length > 0) {
             return trim((string) $titles->item(0)?->textContent);
@@ -119,7 +124,7 @@ class WebPageFetcher
         }
 
         // 2) Drop HTML comments.
-        $xpath = new DOMXPath($dom);
+        $xpath    = new DOMXPath($dom);
         $comments = $xpath->query('//comment()');
         // removeChild() takes a DOMNode. A DOMNodeList can also yield
         // DOMNameSpaceNode, which is not one, so the instance check is what
@@ -132,7 +137,7 @@ class WebPageFetcher
 
         // 3) Prefer the densest of <article>/<main>, else <body>.
         $candidate = $this->densestNode($dom, ['article', 'main']) ?? $dom->getElementsByTagName('body')->item(0);
-        $raw = $candidate !== null ? (string) $candidate->textContent : $dom->textContent;
+        $raw       = $candidate !== null ? (string) $candidate->textContent : $dom->textContent;
 
         return $this->collapseWhitespace($raw);
     }
@@ -140,14 +145,14 @@ class WebPageFetcher
     /** @param list<string> $tagNames */
     private function densestNode(DOMDocument $dom, array $tagNames): ?DOMNode
     {
-        $best = null;
+        $best       = null;
         $bestLength = 0;
         foreach ($tagNames as $tag) {
             foreach ($dom->getElementsByTagName($tag) as $node) {
                 $length = strlen(trim((string) $node->textContent));
                 if ($length > $bestLength) {
                     $bestLength = $length;
-                    $best = $node;
+                    $best       = $node;
                 }
             }
         }

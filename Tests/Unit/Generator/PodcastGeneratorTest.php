@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
@@ -33,7 +38,7 @@ final class PodcastGeneratorTest extends TestCase
     private function context(int $wantPodcast = 1, array $personas = []): GenerationContext
     {
         $document = new SourceDocument('Quarterly Report', 'Revenue grew. Costs fell.', 'https://example.com/report', 0, 'en');
-        $brief = new ContentBrief(
+        $brief    = new ContentBrief(
             'Quarterly Report',
             'Revenue up, costs down.',
             ['Revenue +12%', 'Costs -5%'],
@@ -61,7 +66,7 @@ final class PodcastGeneratorTest extends TestCase
             ['speaker' => 'Host A', 'text' => 'Lets dig in.'],
         ];
 
-        $completion = new FakeCompletionService();
+        $completion             = new FakeCompletionService();
         $completion->jsonResult = ['turns' => $turns];
 
         return $completion;
@@ -117,7 +122,7 @@ final class PodcastGeneratorTest extends TestCase
 
     private function storage(): JobFileStorage
     {
-        return new class($this->createStub(ResourceStorage::class)) extends JobFileStorage {
+        return new class ($this->createStub(ResourceStorage::class)) extends JobFileStorage {
             /** @var array<string, string> */
             public array $contentByName = [];
 
@@ -131,8 +136,8 @@ final class PodcastGeneratorTest extends TestCase
             public function store(string $content, string $fileName): File
             {
                 $this->contentByName[$fileName] = $content;
-                $this->order[] = $fileName;
-                $this->uid++;
+                $this->order[]                  = $fileName;
+                ++$this->uid;
 
                 return new File(['uid' => $this->uid], $this->falStorage);
             }
@@ -172,7 +177,7 @@ final class PodcastGeneratorTest extends TestCase
 
     private function denyingBudget(): FakeBudgetService
     {
-        $budget = new FakeBudgetService();
+        $budget              = new FakeBudgetService();
         $budget->checkResult = BudgetCheckResult::denied('LIMIT_DAILY', 10.0, 10.0, 'exhausted');
 
         return $budget;
@@ -181,13 +186,20 @@ final class PodcastGeneratorTest extends TestCase
     public function testHappyPathSynthesizesAlternatingVoicesStitchesAndRecordsArtifact(): void
     {
         $completion = $this->completion();
-        $speech = $this->speech();
-        $stitcher = $this->stitcher();
-        $storage = $this->storage();
-        $jobs = $this->jobs();
+        $speech     = $this->speech();
+        $stitcher   = $this->stitcher();
+        $storage    = $this->storage();
+        $jobs       = $this->jobs();
 
         $generator = new PodcastGenerator(
-            $jobs, $this->allowingBudget(), new NullLogger(), $completion, $speech, $stitcher, $storage, new WebVttBuilder(),
+            $jobs,
+            $this->allowingBudget(),
+            new NullLogger(),
+            $completion,
+            $speech,
+            $stitcher,
+            $storage,
+            new WebVttBuilder(),
         );
 
         self::assertTrue($generator->generate($this->context()));
@@ -208,9 +220,16 @@ final class PodcastGeneratorTest extends TestCase
 
     public function testWebVttCuesUseProbedDurations(): void
     {
-        $storage = $this->storage();
+        $storage   = $this->storage();
         $generator = new PodcastGenerator(
-            $this->jobs(), $this->allowingBudget(), new NullLogger(), $this->completion(), $this->speech(), $this->stitcher(), $storage, new WebVttBuilder(),
+            $this->jobs(),
+            $this->allowingBudget(),
+            new NullLogger(),
+            $this->completion(),
+            $this->speech(),
+            $this->stitcher(),
+            $storage,
+            new WebVttBuilder(),
         );
 
         $generator->generate($this->context());
@@ -224,10 +243,17 @@ final class PodcastGeneratorTest extends TestCase
     public function testOverBudgetMarksArtifactFailedWithoutTtsCalls(): void
     {
         $speech = $this->speech();
-        $jobs = $this->jobs();
+        $jobs   = $this->jobs();
 
         $generator = new PodcastGenerator(
-            $jobs, $this->denyingBudget(), new NullLogger(), $this->completion(), $speech, $this->stitcher(), $this->storage(), new WebVttBuilder(),
+            $jobs,
+            $this->denyingBudget(),
+            new NullLogger(),
+            $this->completion(),
+            $speech,
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
         );
 
         self::assertFalse($generator->generate($this->context()));
@@ -237,13 +263,20 @@ final class PodcastGeneratorTest extends TestCase
 
     public function testTtsUnavailableMarksArtifactFailed(): void
     {
-        $speech = $this->speech();
+        $speech            = $this->speech();
         $speech->available = false;
 
         $jobs = $this->jobs();
 
         $generator = new PodcastGenerator(
-            $jobs, $this->allowingBudget(), new NullLogger(), $this->completion(), $speech, $this->stitcher(), $this->storage(), new WebVttBuilder(),
+            $jobs,
+            $this->allowingBudget(),
+            new NullLogger(),
+            $this->completion(),
+            $speech,
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
         );
 
         self::assertFalse($generator->generate($this->context()));
@@ -265,10 +298,17 @@ final class PodcastGeneratorTest extends TestCase
             ['speaker' => 'Dave', 'text' => 'Not on the guest list.'],
         ]);
         $speech = $this->speech();
-        $jobs = $this->jobs();
+        $jobs   = $this->jobs();
 
         $generator = new PodcastGenerator(
-            $jobs, $this->allowingBudget(), new NullLogger(), $completion, $speech, $this->stitcher(), $this->storage(), new WebVttBuilder(),
+            $jobs,
+            $this->allowingBudget(),
+            new NullLogger(),
+            $completion,
+            $speech,
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
         );
 
         self::assertTrue($generator->generate($this->context(1, $personas)));
@@ -305,7 +345,14 @@ final class PodcastGeneratorTest extends TestCase
         ]);
 
         $generator = new PodcastGenerator(
-            $this->jobs(), $this->allowingBudget(), new NullLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+            $this->jobs(),
+            $this->allowingBudget(),
+            new NullLogger(),
+            $completion,
+            $this->speech(),
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
         );
 
         self::assertTrue($generator->generate($this->context(1, $personas)));
@@ -320,10 +367,17 @@ final class PodcastGeneratorTest extends TestCase
     public function testWithoutPersonasDialogueKeepsTheTwoHostShape(): void
     {
         $completion = $this->completion();
-        $jobs = $this->jobs();
+        $jobs       = $this->jobs();
 
         $generator = new PodcastGenerator(
-            $jobs, $this->allowingBudget(), new NullLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+            $jobs,
+            $this->allowingBudget(),
+            new NullLogger(),
+            $completion,
+            $this->speech(),
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
         );
 
         self::assertTrue($generator->generate($this->context()));
@@ -338,16 +392,23 @@ final class PodcastGeneratorTest extends TestCase
     public function testRecordsDialoguePromptsTtsModelAndVoiceMapInMetadata(): void
     {
         $completion = $this->completion();
-        $jobs = $this->jobs();
+        $jobs       = $this->jobs();
 
         $generator = new PodcastGenerator(
-            $jobs, $this->allowingBudget(), new NullLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+            $jobs,
+            $this->allowingBudget(),
+            new NullLogger(),
+            $completion,
+            $this->speech(),
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
         );
 
         self::assertTrue($generator->generate($this->context()));
 
         $metadata = json_decode((string) $jobs->updates[100]['metadata'], true);
-        $prompts = $metadata['prompts'];
+        $prompts  = $metadata['prompts'];
         // The exact LLM call, verbatim and complete.
         self::assertSame($completion->completeJsonCalls[0]['prompt'], $prompts['user']);
         self::assertSame((string) $completion->completeJsonCalls[0]['options']?->getSystemPrompt(), $prompts['system']);
@@ -361,8 +422,15 @@ final class PodcastGeneratorTest extends TestCase
     public function testReportsScriptVoicingAndStitchingProgressSteps(): void
     {
         $progressJobs = new StatusRecordingJobRepository();
-        $generator = new PodcastGenerator(
-            $this->jobs(), $this->allowingBudget(), new NullLogger(), $this->completion(), $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+        $generator    = new PodcastGenerator(
+            $this->jobs(),
+            $this->allowingBudget(),
+            new NullLogger(),
+            $this->completion(),
+            $this->speech(),
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
         );
         $ctx = $this->context()->withProgress(new JobProgress($progressJobs, 7, 30.0, 100.0));
 
@@ -377,7 +445,7 @@ final class PodcastGeneratorTest extends TestCase
 
         // Progress only ever moves forward within the generator's band.
         $progresses = $progressJobs->progresses();
-        $sorted = $progresses;
+        $sorted     = $progresses;
         sort($sorted);
         self::assertSame($sorted, $progresses);
         self::assertGreaterThanOrEqual(30, min($progresses));
@@ -387,7 +455,14 @@ final class PodcastGeneratorTest extends TestCase
     public function testSupportsReadsWantPodcastFlag(): void
     {
         $generator = new PodcastGenerator(
-            $this->jobs(), $this->allowingBudget(), new NullLogger(), $this->completion(), $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder(),
+            $this->jobs(),
+            $this->allowingBudget(),
+            new NullLogger(),
+            $this->completion(),
+            $this->speech(),
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
         );
 
         self::assertTrue($generator->supports($this->context(1)));

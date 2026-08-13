@@ -1,16 +1,21 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Queue;
 
-use RuntimeException;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Queue\Handler\GenerateArtifactsHandler;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -29,7 +34,7 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)
             ->getConnectionForTable('tx_nrrepurpose_domain_model_job');
         $conn->insert('tx_nrrepurpose_domain_model_job', [
-            'pid' => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
+            'pid'   => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
             'theme' => 'nr', 'want_podcast' => 1, 'want_schaubild' => 1, 'want_story' => 1, 'status' => 'queued',
         ]);
 
@@ -63,7 +68,7 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
     public function testHandlerCatchesOrchestratorCrashAndMarksJobFailed(): void
     {
         $jobUid = $this->seedJob();
-        $jobs = $this->get(JobProcessingRepository::class);
+        $jobs   = $this->get(JobProcessingRepository::class);
 
         $orchestrator = new class implements GenerationOrchestratorInterface {
             public function process(int $jobUid): void

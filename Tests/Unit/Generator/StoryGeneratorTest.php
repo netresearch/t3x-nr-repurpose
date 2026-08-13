@@ -1,11 +1,14 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
-use Throwable;
-use RuntimeException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
@@ -29,6 +32,8 @@ use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RuntimeException;
+use Throwable;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
 
@@ -44,7 +49,7 @@ final class StoryGeneratorTest extends TestCase
     private function context(bool $wantStory = true, array $keyPoints = ['Point'], ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets()): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
-        $brief = new ContentBrief('Report', 'A crisp summary.', $keyPoints, [], 'All', 'en');
+        $brief    = new ContentBrief('Report', 'A crisp summary.', $keyPoints, [], 'All', 'en');
 
         return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0], $document, $brief, 'nr', 5, $snippets);
     }
@@ -61,7 +66,7 @@ final class StoryGeneratorTest extends TestCase
     ): StoryGenerator {
         $completion ??= $this->completion($completionResult);
 
-        return new class($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $this->storage()) extends StoryGenerator {
+        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $this->storage()) extends StoryGenerator {
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
@@ -92,14 +97,14 @@ final class StoryGeneratorTest extends TestCase
 
     private function storage(): JobFileStorage
     {
-        return new class($this->createStub(ResourceStorage::class)) extends JobFileStorage {
+        return new class ($this->createStub(ResourceStorage::class)) extends JobFileStorage {
             private int $uid = 0;
 
             public function __construct(private readonly ResourceStorage $falStorage) {}
 
             public function store(string $content, string $fileName): File
             {
-                $this->uid++;
+                ++$this->uid;
 
                 return new File(['uid' => $this->uid], $this->falStorage);
             }
@@ -109,7 +114,7 @@ final class StoryGeneratorTest extends TestCase
     public function testCreatesOneArtifactPerSlideWithRoleIndexAndTotalMetadata(): void
     {
         $renderer = $this->renderer();
-        $jobs = $this->jobs();
+        $jobs     = $this->jobs();
 
         $generator = $this->generator(self::THREE_SLIDES, $renderer, $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor());
 
@@ -137,11 +142,11 @@ final class StoryGeneratorTest extends TestCase
 
     public function testGeneratesSharedKiBackgroundOnceAndCompositesEverySlide(): void
     {
-        $renderer = $this->renderer();
-        $compositor = $this->compositor();
+        $renderer       = $this->renderer();
+        $compositor     = $this->compositor();
         $imageGenerator = $this->imageGenerator(true);
-        $jobs = $this->jobs();
-        $budget = $this->allowingBudget();
+        $jobs           = $this->jobs();
+        $budget         = $this->allowingBudget();
 
         $generator = $this->generator(self::THREE_SLIDES, $renderer, $imageGenerator, $jobs, $budget, $compositor);
 
@@ -158,9 +163,9 @@ final class StoryGeneratorTest extends TestCase
 
     public function testOverBudgetFallsBackToFlatSlides(): void
     {
-        $renderer = $this->renderer();
+        $renderer       = $this->renderer();
         $imageGenerator = $this->imageGenerator(true);
-        $jobs = $this->jobs();
+        $jobs           = $this->jobs();
 
         $generator = $this->generator(self::THREE_SLIDES, $renderer, $imageGenerator, $jobs, $this->denyingBudget(), $this->compositor());
 
@@ -174,16 +179,25 @@ final class StoryGeneratorTest extends TestCase
 
     public function testBackgroundGenerationErrorFallsBackToFlatSlides(): void
     {
-        $renderer = $this->renderer();
-        $jobs = $this->jobs();
+        $renderer       = $this->renderer();
+        $jobs           = $this->jobs();
         $imageGenerator = new class implements ImageGeneratorInterface {
-            public function isAvailable(): bool { return true; }
+            public function isAvailable(): bool
+            {
+                return true;
+            }
 
-            public function getModel(): string { return 'stub-image-model'; }
+            public function getModel(): string
+            {
+                return 'stub-image-model';
+            }
 
             public string $promptPreamble = '';
 
-            public function getPromptPreamble(): string { return $this->promptPreamble; }
+            public function getPromptPreamble(): string
+            {
+                return $this->promptPreamble;
+            }
 
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
@@ -202,7 +216,7 @@ final class StoryGeneratorTest extends TestCase
 
     public function testSkipsMalformedAndEmptySlideEntriesAndNormalizesUnknownRoles(): void
     {
-        $jobs = $this->jobs();
+        $jobs     = $this->jobs();
         $response = ['slides' => [
             ['role' => 'cover', 'headline' => 'Valid one', 'subline' => 'Sub'],
             ['role' => 'point', 'headline' => '   ', 'subline' => 'Headline empty -> skipped'],
@@ -221,9 +235,9 @@ final class StoryGeneratorTest extends TestCase
 
     public function testCapsCarouselAtSixSlides(): void
     {
-        $jobs = $this->jobs();
+        $jobs   = $this->jobs();
         $slides = [];
-        for ($i = 1; $i <= 8; $i++) {
+        for ($i = 1; $i <= 8; ++$i) {
             $slides[] = ['role' => 'point', 'headline' => 'Slide ' . $i, 'subline' => ''];
         }
 
@@ -264,13 +278,13 @@ final class StoryGeneratorTest extends TestCase
 
     public function testFailedSlideRenderDoesNotAbortSiblingSlides(): void
     {
-        $jobs = $this->jobs();
+        $jobs     = $this->jobs();
         $renderer = new class implements HtmlToImageRendererInterface {
             private int $call = 0;
 
             public function render(string $html, int $width, ?int $height, float $deviceScaleFactor = 1.0, bool $transparent = false): string
             {
-                $this->call++;
+                ++$this->call;
                 if ($this->call === 2) {
                     throw new RenderingException('chromium crashed');
                 }
@@ -300,11 +314,11 @@ final class StoryGeneratorTest extends TestCase
     public function testPromptAsksForTheCopyLimitsTheParserEnforces(): void
     {
         $completion = $this->completion(['slides' => [[
-            'role' => 'cover',
+            'role'     => 'cover',
             'headline' => str_repeat('H', 80),
-            'subline' => str_repeat('s', 150),
+            'subline'  => str_repeat('s', 150),
         ]]]);
-        $jobs = $this->jobs();
+        $jobs      = $this->jobs();
         $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), $completion);
 
         self::assertTrue($generator->generate($this->context()));
@@ -322,13 +336,13 @@ final class StoryGeneratorTest extends TestCase
     {
         // 1 key point -> cover + 1 point + outro = 3 slides planned.
         $completion = $this->completion(self::THREE_SLIDES);
-        $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
+        $generator  = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
         $generator->generate($this->context(true, ['Point']));
         self::assertEqualsWithDelta(0.03, $completion->completeJsonCalls[0]['options']?->getPlannedCost(), 1e-9);
 
         // 6 key points -> capped at 4 point slides -> 6 slides planned.
         $completion = $this->completion(self::THREE_SLIDES);
-        $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
+        $generator  = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
         $generator->generate($this->context(true, ['A', 'B', 'C', 'D', 'E', 'F']));
         self::assertEqualsWithDelta(0.06, $completion->completeJsonCalls[0]['options']?->getPlannedCost(), 1e-9);
     }
@@ -336,8 +350,8 @@ final class StoryGeneratorTest extends TestCase
     public function testSlidesPromptCarriesTheComposedSnippetSections(): void
     {
         $completion = $this->completion(self::THREE_SLIDES);
-        $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
-        $snippets = new ResolvedPromptSnippets(storySections: "TONE OF VOICE:\nUpbeat and concise\n\nLAYOUT:\nFull-bleed imagery");
+        $generator  = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
+        $snippets   = new ResolvedPromptSnippets(storySections: "TONE OF VOICE:\nUpbeat and concise\n\nLAYOUT:\nFull-bleed imagery");
 
         self::assertTrue($generator->generate($this->context(true, ['Point'], $snippets)));
         self::assertStringContainsString("TONE OF VOICE:\nUpbeat and concise", $completion->completeJsonCalls[0]['prompt']);
@@ -347,7 +361,7 @@ final class StoryGeneratorTest extends TestCase
     public function testWithoutSnippetsSlidesPromptHasNoSectionBlocks(): void
     {
         $completion = $this->completion(self::THREE_SLIDES);
-        $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
+        $generator  = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
 
         self::assertTrue($generator->generate($this->context()));
         self::assertStringNotContainsString('TONE OF VOICE', $completion->completeJsonCalls[0]['prompt']);
@@ -356,10 +370,10 @@ final class StoryGeneratorTest extends TestCase
 
     public function testEverySlideRecordsCopyPromptsAndTheSharedBackgroundImageCall(): void
     {
-        $completion = $this->completion(self::THREE_SLIDES);
+        $completion     = $this->completion(self::THREE_SLIDES);
         $imageGenerator = $this->imageGenerator(true);
-        $jobs = $this->jobs();
-        $generator = $this->generator([], $this->renderer(), $imageGenerator, $jobs, $this->allowingBudget(), $this->compositor(), $completion);
+        $jobs           = $this->jobs();
+        $generator      = $this->generator([], $this->renderer(), $imageGenerator, $jobs, $this->allowingBudget(), $this->compositor(), $completion);
 
         self::assertTrue($generator->generate($this->context()));
 
@@ -376,8 +390,8 @@ final class StoryGeneratorTest extends TestCase
     public function testFlatSlidesRecordCopyPromptsWithoutImageCallMetadata(): void
     {
         $completion = $this->completion(self::THREE_SLIDES);
-        $jobs = $this->jobs();
-        $generator = $this->generator([], $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), $completion);
+        $jobs       = $this->jobs();
+        $generator  = $this->generator([], $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), $completion);
 
         self::assertTrue($generator->generate($this->context()));
 
@@ -391,8 +405,8 @@ final class StoryGeneratorTest extends TestCase
     public function testLayoutImageSizeHintDrivesTheSharedBackgroundCall(): void
     {
         $imageGenerator = $this->imageGenerator(true);
-        $jobs = $this->jobs();
-        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $imageGenerator, $jobs, $this->allowingBudget(), $this->compositor());
+        $jobs           = $this->jobs();
+        $generator      = $this->generator(self::THREE_SLIDES, $this->renderer(), $imageGenerator, $jobs, $this->allowingBudget(), $this->compositor());
 
         $snippets = new ResolvedPromptSnippets(storyImageSize: '1088x1920');
         self::assertTrue($generator->generate($this->context(true, ['Point'], $snippets)));
@@ -405,7 +419,7 @@ final class StoryGeneratorTest extends TestCase
     public function testInvalidImageSizeHintFallsBackToTheDefaultSize(): void
     {
         $imageGenerator = $this->imageGenerator(true);
-        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $imageGenerator, $this->jobs(), $this->allowingBudget(), $this->compositor());
+        $generator      = $this->generator(self::THREE_SLIDES, $this->renderer(), $imageGenerator, $this->jobs(), $this->allowingBudget(), $this->compositor());
 
         $snippets = new ResolvedPromptSnippets(storyImageSize: '999x1920');   // not divisible by 16
         self::assertTrue($generator->generate($this->context(true, ['Point'], $snippets)));
@@ -416,8 +430,8 @@ final class StoryGeneratorTest extends TestCase
     public function testReportsCopyBackgroundAndSlideProgressSteps(): void
     {
         $progressJobs = new StatusRecordingJobRepository();
-        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(true), $this->jobs(), $this->allowingBudget(), $this->compositor());
-        $ctx = $this->context()->withProgress(new JobProgress($progressJobs, 21, 30.0, 100.0));
+        $generator    = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(true), $this->jobs(), $this->allowingBudget(), $this->compositor());
+        $ctx          = $this->context()->withProgress(new JobProgress($progressJobs, 21, 30.0, 100.0));
 
         self::assertTrue($generator->generate($ctx));
         self::assertSame([
@@ -429,7 +443,7 @@ final class StoryGeneratorTest extends TestCase
         ], $progressJobs->steps());
 
         $progresses = $progressJobs->progresses();
-        $sorted = $progresses;
+        $sorted     = $progresses;
         sort($sorted);
         self::assertSame($sorted, $progresses);
     }
@@ -468,10 +482,10 @@ final class StoryGeneratorTest extends TestCase
 
             public function render(string $html, int $width, ?int $height, float $deviceScaleFactor = 1.0, bool $transparent = false): string
             {
-                $this->widths[] = $width;
-                $this->heights[] = $height;
+                $this->widths[]       = $width;
+                $this->heights[]      = $height;
                 $this->transparents[] = $transparent;
-                $path = sys_get_temp_dir() . '/story_' . bin2hex(random_bytes(4)) . '.png';
+                $path                 = sys_get_temp_dir() . '/story_' . bin2hex(random_bytes(4)) . '.png';
                 file_put_contents($path, 'PNG');
 
                 return $path;
@@ -486,7 +500,7 @@ final class StoryGeneratorTest extends TestCase
 
             public function overlay(string $backgroundPng, string $foregroundPng, string $outPath): string
             {
-                $this->overlayCalls++;
+                ++$this->overlayCalls;
                 file_put_contents($outPath, 'COMPOSITED');
 
                 return $outPath;
@@ -496,7 +510,7 @@ final class StoryGeneratorTest extends TestCase
 
     private function imageGenerator(bool $available): ImageGeneratorInterface
     {
-        return new class($available) implements ImageGeneratorInterface {
+        return new class ($available) implements ImageGeneratorInterface {
             public int $calls = 0;
 
             /** @var list<string> */
@@ -507,19 +521,28 @@ final class StoryGeneratorTest extends TestCase
 
             public function __construct(private readonly bool $available) {}
 
-            public function isAvailable(): bool { return $this->available; }
+            public function isAvailable(): bool
+            {
+                return $this->available;
+            }
 
-            public function getModel(): string { return 'stub-image-model'; }
+            public function getModel(): string
+            {
+                return 'stub-image-model';
+            }
 
             public string $promptPreamble = '';
 
-            public function getPromptPreamble(): string { return $this->promptPreamble; }
+            public function getPromptPreamble(): string
+            {
+                return $this->promptPreamble;
+            }
 
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
-                $this->calls++;
+                ++$this->calls;
                 $this->prompts[] = $prompt;
-                $this->sizes[] = $size;
+                $this->sizes[]   = $size;
                 file_put_contents($outputPath, 'PNG');
             }
         };
@@ -543,8 +566,8 @@ final class StoryGeneratorTest extends TestCase
 
             public function insertArtifact(int $jobUid, ArtifactType $type, string $variant, int $fileUid, ArtifactStatus $status, ?string $error = null): int
             {
-                $this->inserted[] = [$type->value, $variant];
-                $uid = $this->nextUid++;
+                $this->inserted[]           = [$type->value, $variant];
+                $uid                        = $this->nextUid++;
                 $this->variantUid[$variant] = $uid;
 
                 return $uid;
@@ -569,7 +592,7 @@ final class StoryGeneratorTest extends TestCase
 
     private function denyingBudget(): FakeBudgetService
     {
-        $budget = new FakeBudgetService();
+        $budget              = new FakeBudgetService();
         $budget->checkResult = BudgetCheckResult::denied('LIMIT_DAILY', 9.0, 9.0, 'no');
 
         return $budget;

@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Persistence;
@@ -18,7 +23,7 @@ final class JobProcessingRepositoryUpdateArtifactTest extends AbstractFunctional
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)
             ->getConnectionForTable('tx_nrrepurpose_domain_model_job');
         $conn->insert('tx_nrrepurpose_domain_model_job', [
-            'pid' => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
+            'pid'   => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
             'theme' => 'nr', 'want_podcast' => 1, 'want_schaubild' => 1, 'want_story' => 1, 'status' => 'queued',
         ]);
 
@@ -28,17 +33,17 @@ final class JobProcessingRepositoryUpdateArtifactTest extends AbstractFunctional
     public function testUpdateArtifactWritesAllProvidedFields(): void
     {
         $jobUid = $this->seedJob();
-        $repo = $this->get(JobProcessingRepository::class);
+        $repo   = $this->get(JobProcessingRepository::class);
 
         $artifactUid = $repo->insertArtifact($jobUid, ArtifactType::Podcast, 'default', 0, ArtifactStatus::Pending);
 
         $repo->updateArtifact($artifactUid, [
-            'file_uid' => 42,
+            'file_uid'          => 42,
             'subtitle_file_uid' => 99,
-            'source_html' => '<html>diagram</html>',
-            'script_text' => "Host A: hello\nHost B: hi",
-            'metadata' => '{"voice":"nova"}',
-            'status' => ArtifactStatus::Done->value,
+            'source_html'       => '<html>diagram</html>',
+            'script_text'       => "Host A: hello\nHost B: hi",
+            'metadata'          => '{"voice":"nova"}',
+            'status'            => ArtifactStatus::Done->value,
         ]);
 
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)
@@ -57,8 +62,8 @@ final class JobProcessingRepositoryUpdateArtifactTest extends AbstractFunctional
 
     public function testUpdateArtifactWithEmptyFieldsIsNoOp(): void
     {
-        $jobUid = $this->seedJob();
-        $repo = $this->get(JobProcessingRepository::class);
+        $jobUid      = $this->seedJob();
+        $repo        = $this->get(JobProcessingRepository::class);
         $artifactUid = $repo->insertArtifact($jobUid, ArtifactType::Story, 'default', 0, ArtifactStatus::Pending);
 
         $repo->updateArtifact($artifactUid, []);

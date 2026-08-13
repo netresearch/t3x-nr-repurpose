@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion\Poppler;
@@ -12,13 +17,13 @@ interface PopplerRunnerInterface
 {
     /**
      * Rasterize one 1-based page of $absPdfPath to PNG and return the raw PNG bytes.
-     * (pdftoppm -png -r <dpi> -f <page> -l <page> -singlefile)
+     * (pdftoppm -png -r <dpi> -f <page> -l <page> -singlefile).
      */
     public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string;
 
     /**
      * Extract one 1-based page preserving columns/tables as plain text.
-     * (pdftotext -layout -f <page> -l <page> -enc UTF-8 -nopgbrk -q ... -)
+     * (pdftotext -layout -f <page> -l <page> -enc UTF-8 -nopgbrk -q ... -).
      */
     public function extractLayout(string $absPdfPath, int $page): string;
 }

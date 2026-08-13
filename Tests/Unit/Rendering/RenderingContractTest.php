@@ -1,24 +1,29 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
 
-use RuntimeException;
-use ReflectionMethod;
-use ReflectionParameter;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
+use ReflectionParameter;
+use RuntimeException;
 
 final class RenderingContractTest extends TestCase
 {
     public function testExceptionIsRuntimeExceptionWithFactory(): void
     {
         $previous = new RuntimeException('boom');
-        $e = RenderingException::because('render failed', 1749400000, $previous);
+        $e        = RenderingException::because('render failed', 1749400000, $previous);
 
         self::assertInstanceOf(RuntimeException::class, $e);
         self::assertSame('render failed', $e->getMessage());

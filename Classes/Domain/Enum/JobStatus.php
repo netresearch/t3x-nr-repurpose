@@ -1,24 +1,29 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\Enum;
 
 enum JobStatus: string
 {
-    case Queued = 'queued';
-    case Ingesting = 'ingesting';
-    case Analyzing = 'analyzing';
-    case Generating = 'generating';
-    case Done = 'done';
+    case Queued        = 'queued';
+    case Ingesting     = 'ingesting';
+    case Analyzing     = 'analyzing';
+    case Generating    = 'generating';
+    case Done          = 'done';
     case PartiallyDone = 'partially_done';
-    case Failed = 'failed';
+    case Failed        = 'failed';
 
     public function isTerminal(): bool
     {
         return match ($this) {
             self::Done, self::PartiallyDone, self::Failed => true,
-            default => false,
+            default                                       => false,
         };
     }
 
@@ -36,10 +41,10 @@ enum JobStatus: string
     public function getSeverity(): string
     {
         return match ($this) {
-            self::Done => 'success',
+            self::Done          => 'success',
             self::PartiallyDone => 'warning',
-            self::Failed => 'danger',
-            default => 'info',
+            self::Failed        => 'danger',
+            default             => 'info',
         };
     }
 }

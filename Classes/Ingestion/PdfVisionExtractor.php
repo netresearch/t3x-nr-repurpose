@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion;
@@ -30,7 +35,7 @@ class PdfVisionExtractor
      */
     public function ocrPage(string $absPdfPath, int $page, int $beUser, int $dpi = 200): string
     {
-        $png = $this->poppler->rasterizePage($absPdfPath, $page, $dpi);
+        $png     = $this->poppler->rasterizePage($absPdfPath, $page, $dpi);
         $dataUri = 'data:image/png;base64,' . base64_encode($png);
 
         $options = (new VisionOptions())->withMaxTokens(self::OCR_MAX_TOKENS);

@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Rendering;
@@ -7,8 +12,10 @@ namespace Netresearch\NrRepurpose\Rendering;
 interface AudioStitcherInterface
 {
     /**
-     * @param list<string> $mp3Paths concatenated in order into one mp3 (ffmpeg concat).
+     * @param list<string> $mp3Paths concatenated in order into one mp3 (ffmpeg concat)
+     *
      * @return string absolute path of the joined mp3 ($outPath)
+     *
      * @throws RenderingException
      */
     public function concat(array $mp3Paths, string $outPath): string;

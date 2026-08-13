@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
@@ -50,8 +55,8 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     protected function renderTemplate(string $area, string $theme, array $variables): string
     {
         $templateName = $theme === 'nr' ? 'Nr' : 'Neutral';
-        $viewFactory = GeneralUtility::makeInstance(ViewFactoryInterface::class);
-        $view = $viewFactory->create(new ViewFactoryData(
+        $viewFactory  = GeneralUtility::makeInstance(ViewFactoryInterface::class);
+        $view         = $viewFactory->create(new ViewFactoryData(
             templatePathAndFilename: GeneralUtility::getFileAbsFileName(
                 sprintf('EXT:nr_repurpose/Resources/Private/Templates/Generated/%s/%s.html', $area, $templateName),
             ),
@@ -101,13 +106,13 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     ): array {
         return array_filter(
             [
-                'system' => $system,
-                'user' => $user,
-                'image' => $image,
+                'system'     => $system,
+                'user'       => $user,
+                'image'      => $image,
                 'imageModel' => $imageModel,
-                'imageSize' => $imageSize,
-                'ttsModel' => $ttsModel,
-                'voices' => $voices,
+                'imageSize'  => $imageSize,
+                'ttsModel'   => $ttsModel,
+                'voices'     => $voices,
             ],
             static fn (string|array|null $value): bool => $value !== null,
         );
@@ -130,7 +135,7 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         }
 
         if (preg_match('/^(\d{2,4})x(\d{2,4})$/', $hint, $matches) === 1) {
-            $width = (int) $matches[1];
+            $width  = (int) $matches[1];
             $height = (int) $matches[2];
 
             // Mirrors ImageGenerationOptions::validateGptImageSize(): divisible by 16,
@@ -145,7 +150,7 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         }
 
         $this->logger->warning('Ignoring invalid imageSize hint from layout snippet', [
-            'hint' => $hint,
+            'hint'     => $hint,
             'fallback' => $default,
         ]);
 
@@ -156,12 +161,12 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     protected function failArtifact(int $artifactUid, int $jobUid, string $reason): void
     {
         $this->logger->warning('Artifact generation failed', [
-            'job' => $jobUid,
+            'job'      => $jobUid,
             'artifact' => $artifactUid,
-            'reason' => $reason,
+            'reason'   => $reason,
         ]);
         $this->jobs->updateArtifact($artifactUid, [
-            'status' => ArtifactStatus::Failed->value,
+            'status'        => ArtifactStatus::Failed->value,
             'error_message' => $reason,
         ]);
     }

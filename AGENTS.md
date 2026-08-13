@@ -26,8 +26,13 @@
 >
 > PHPStan runs at level 8 over `Classes` only (`phpstan.neon`), with `Tests`
 > and level 10 deliberately not enabled yet: level 10 on both costs about 280
-> findings, and a baseline that size hides every new one. `ci.yml` still sets
-> `run-cgl: false` and `run-functional-tests: false`.
+> findings, and a baseline that size hides every new one.
+>
+> Code style uses the shared ruleset from `netresearch/typo3-ci-workflows` via
+> `.php-cs-fixer.dist.php`. **Run it on PHP 8.3**, which is what CI uses — the
+> cgl job takes the first entry of `php-versions`, and formatting on a newer
+> runtime can produce output that job then rejects. `ci.yml` still sets
+> `run-functional-tests: false`.
 >
 > This paragraph used to say those tools were "not provisioned" and told you
 > not to investigate the failure. That was true when the template was adopted
