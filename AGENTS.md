@@ -20,12 +20,21 @@
 | Reinstall deps | `./Build/Scripts/runTests.sh -s composerUpdate` | ~2min |
 <!-- AGENTS-GENERATED:END commands -->
 
-> **Only unit, functional and lint are provisioned.** The runner script also
-> offers `cgl`, `phpstan`, `rector`, `mutation`, `architecture`, `e2e` — those
-> tools are NOT in `require-dev` and `ci.yml` sets `run-cgl: false` /
-> `run-phpstan: false`. A "Could not open input file: .Build/bin/<tool>"
-> failure means *unprovisioned*, not broken — do not fight it with
-> composerUpdate.
+> **PHPStan, cgl, rector and lint all run here.** The tools come in through
+> `netresearch/typo3-ci-workflows`, which is in `require-dev` — a plain install
+> puts `phpstan`, `php-cs-fixer` and `rector` into `.Build/bin/`.
+>
+> PHPStan runs at level 8 over `Classes` only (`phpstan.neon`), with `Tests`
+> and level 10 deliberately not enabled yet: level 10 on both costs about 280
+> findings, and a baseline that size hides every new one. `ci.yml` still sets
+> `run-cgl: false` and `run-functional-tests: false`.
+>
+> This paragraph used to say those tools were "not provisioned" and told you
+> not to investigate the failure. That was true when the template was adopted
+> and stopped being true when the shared package started shipping them; the
+> instruction to stop looking is why nobody noticed for two months. If a tool
+> reports "config file does not exist", that is a missing config, not a
+> missing tool — check before concluding.
 
 ## Response Style
 - Answer first, elaborate only if needed. No sycophantic openers ("Great question!", "Absolutely!").
@@ -83,7 +92,9 @@ Build/           → project files
 <!-- AGENTS-GENERATED:START ci-rules -->
 ## CI (reusable netresearch/typo3-ci-workflows)
 - Matrix: PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3 — Lint + Unit Tests per version
-- `run-cgl: false`, `run-phpstan: false` (not provisioned in this repo)
+- `run-phpstan: true` — level 8 over `Classes`, config in `phpstan.neon`
+- `run-cgl: false`, `run-functional-tests: false` — the tools are installed,
+  these gates are simply not switched on yet
 - Plus: security (Opengrep SAST, composer audit), license-check, CodeQL, SonarCloud, DCO
 - Release: signed annotated tag `vX.Y.Z` triggers `release.yml` (skip-ter/packagist/docs set — not published there yet)
 <!-- AGENTS-GENERATED:END ci-rules -->

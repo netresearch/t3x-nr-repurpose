@@ -116,7 +116,8 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
     /** Cheap table heuristic: 3+ lines with a run of 2+ spaces between non-space chars (column gutters). */
     private function looksTabular(string $text): bool
     {
-        $lines = preg_split('/\R/', $text) ?: [];
+        $split = preg_split('/\R/', $text);
+        $lines = $split === false ? [] : $split;
         $aligned = 0;
         foreach ($lines as $line) {
             if (preg_match('/\S {2,}\S/', $line) === 1) {

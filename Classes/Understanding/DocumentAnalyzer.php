@@ -22,14 +22,14 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
 {
-    private const SYSTEM_PROMPT =
-        'You are a precise editorial analyst. You read a source document and produce a faithful '
+    private const SYSTEM_PROMPT
+        = 'You are a precise editorial analyst. You read a source document and produce a faithful '
         . 'structured brief. Numbers, names and labels must stay exactly as in the source. '
         . 'Detect the source language and report it as an ISO-639-1 code. '
         . 'Output ONLY valid JSON, no prose around it.';
 
-    private const MAP_SYSTEM_PROMPT =
-        'You summarize one section of a larger document faithfully and concisely. '
+    private const MAP_SYSTEM_PROMPT
+        = 'You summarize one section of a larger document faithfully and concisely. '
         . 'Preserve numbers, names and labels exactly. Output ONLY valid JSON.';
 
     public function __construct(
@@ -136,7 +136,8 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
     /** @return list<string> */
     private function splitIntoChunks(string $text): array
     {
-        $paragraphs = preg_split('/\n{2,}/', $text) ?: [$text];
+        $split = preg_split('/\n{2,}/', $text);
+        $paragraphs = $split === false ? [$text] : $split;
         $chunks = [];
         $current = '';
 

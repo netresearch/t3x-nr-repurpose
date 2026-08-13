@@ -67,7 +67,9 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
     {
         $actorUid = $this->technicalActorUid();
 
-        if ($actorUid === 0) {
+        // <= 0, not === 0: runAs() takes a positive uid, and a negative one
+        // reached it because only zero was filtered. There is no actor below 1.
+        if ($actorUid <= 0) {
             $this->processJob($jobUid);
 
             return;

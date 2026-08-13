@@ -56,7 +56,7 @@
             "captainhook/hook-installer": true,
             "ergebnis/composer-normalize": true,
             "infection/extension-installer": true,
-            "phpstan/extension-installer": false,
+            "phpstan/extension-installer": true,
             "typo3/class-alias-loader": true,
             "typo3/cms-composer-installers": true
         },
@@ -67,6 +67,7 @@
         "ci:rector": [
             "rector process --config Build/rector.php"
         ],
+        "ci:test:php:phpstan": "phpstan analyse",
         "ci:test:php:rector": [
             "@ci:rector --dry-run"
         ]

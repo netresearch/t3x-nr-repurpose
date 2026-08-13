@@ -10,6 +10,7 @@ use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use RuntimeException;
 
 /**
  * Persists a new Job (Extbase, request context) and dispatches the generation message.
@@ -30,7 +31,13 @@ final readonly class JobSubmissionService
         $this->jobRepository->add($job);
         $this->persistenceManager->persistAll(); // ensure uid before dispatch
 
+        // persistAll() above assigns the uid, but getUid() stays nullable in the
+        // Extbase base class, so the value has to be narrowed before it is put
+        // into a message that declares int.
         $jobUid = $job->getUid();
+        if ($jobUid === null) {
+            throw new RuntimeException('The job has no uid after persisting', 1755000202);
+        }
 
         // Pin the transport explicitly: TYPO3's TransportLocator (unlike Symfony's
         // SendersLocator) does NOT treat the '*' routing entry as a fallback — it

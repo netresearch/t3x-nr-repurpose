@@ -1,0 +1,87 @@
+includes:
+    - .Build/vendor/phpstan/phpstan/conf/bleedingEdge.neon
+    - .Build/vendor/netresearch/typo3-ci-workflows/config/phpstan/phpstan.neon
+    # The PHPStan extensions (phpstan-phpunit, strict-rules, deprecation-rules,
+    # saschaegerer/phpstan-typo3, ergebnis/phpstan-rules) are auto-registered by
+    # phpstan/extension-installer, which the shared package pulls in. Listing
+    # their .neon files here would double-load them and fail the run.
+    #
+    # For a local `composer install --no-plugins` the installer does not run and
+    # the curated `ergebnis` section has no owner, which shows up as
+    # `Unexpected item 'parameters › ergebnis'`. Include
+    # .Build/vendor/netresearch/typo3-ci-workflows/config/phpstan/includes-no-extension-installer.neon
+    # ahead of this file in that case.
+
+parameters:
+    # Level 8 on Classes, not 10, and Tests are not analysed yet. Measured on
+    # the tree this was introduced against: level 8 costs 25 findings, level 10
+    # costs 57, and adding Tests takes the total past 280. Starting where the
+    # findings can be fixed rather than baselined keeps the gate honest — a
+    # baseline of that size would make every future finding invisible among the
+    # old ones.
+    level: 8
+    paths:
+        - Classes
+
+    ignoreErrors:
+        # TYPO3 marks Extbase's own accessors @internal, but they are the
+        # documented and only way to use them from an extension. Every TYPO3
+        # extension that touches a domain object hits this; the alternative is
+        # not "cleaner code", it is reflection.
+        -
+            identifier: method.internalClass
+            message: '#Call to method getUid\(\) of internal class TYPO3\\CMS\\Extbase\\DomainObject\\AbstractDomainObject#'
+        -
+            identifier: method.internal
+            message: '#Call to internal method TYPO3\\CMS\\Extbase\\Mvc\\Controller\\ActionController::getFlashMessageQueue\(\)#'
+            path: Classes/Controller/JobController.php
+            count: 1
+
+        # Assigned per action rather than in the constructor, because the
+        # controller instance is reused across actions and the ModuleTemplate is
+        # bound to one request. The comment at the assignment says so.
+        -
+            identifier: property.uninitialized
+            path: Classes/Controller/JobController.php
+            count: 1
+
+        # Deliberate error suppression, each the documented idiom and each with
+        # its result checked or irrelevant: best-effort cleanup of a temporary
+        # file, the race-safe mkdir pattern, and getimagesize/imagecreatefromstring
+        # on input that is allowed to not be an image. Counted per file, so a
+        # NEW suppression still fails the run.
+        -
+            identifier: ergebnis.noErrorSuppression
+            path: Classes/Ingestion/Poppler/SymfonyProcessPopplerRunner.php
+            count: 1
+        -
+            identifier: ergebnis.noErrorSuppression
+            path: Classes/Rendering/FfmpegAudioStitcher.php
+            count: 2
+        -
+            identifier: ergebnis.noErrorSuppression
+            path: Classes/Rendering/GdImageCompositor.php
+            count: 4
+        -
+            identifier: ergebnis.noErrorSuppression
+            path: Classes/Rendering/PlaywrightHtmlToImageRenderer.php
+            count: 1
+
+        # smalot/pdfparser deprecated setIgnoreEncryption() without offering a
+        # replacement ("this is a temporary workaround, don't rely on it",
+        # smalot/pdfparser#653). Dropping the call reinstates the false-positive
+        # "Secured pdf file" detection this extension hit (issues #488/#743).
+        -
+            message: '#setIgnoreEncryption\(\) of class Smalot\\PdfParser\\Config#'
+            path: Classes/Ingestion/PdfTextExtractor.php
+            count: 1
+
+        # PHP-version dependent: the GD stubs narrow imagecopy()/imagecopyresampled()
+        # to `true` on 8.5 but not on 8.4, so the guards read as dead on one leg of
+        # the matrix and as live on the others. reportUnmatched keeps the entry from
+        # failing the legs where the finding does not occur; every other ignore here
+        # still has to match.
+        -
+            identifier: identical.alwaysFalse
+            path: Classes/Rendering/GdImageCompositor.php
+            reportUnmatched: false
