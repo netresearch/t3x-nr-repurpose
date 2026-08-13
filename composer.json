@@ -64,9 +64,11 @@
         "vendor-dir": ".Build/vendor"
     },
     "scripts": {
+        "ci:cgl": "php-cs-fixer fix",
         "ci:rector": [
             "rector process --config Build/rector.php"
         ],
+        "ci:test:php:cgl": "php-cs-fixer fix --dry-run --diff",
         "ci:test:php:phpstan": "phpstan analyse",
         "ci:test:php:rector": [
             "@ci:rector --dry-run"
