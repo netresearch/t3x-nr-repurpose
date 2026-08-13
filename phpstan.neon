@@ -75,3 +75,13 @@ parameters:
             message: '#setIgnoreEncryption\(\) of class Smalot\\PdfParser\\Config#'
             path: Classes/Ingestion/PdfTextExtractor.php
             count: 1
+
+        # PHP-version dependent: the GD stubs narrow imagecopy()/imagecopyresampled()
+        # to `true` on 8.5 but not on 8.4, so the guards read as dead on one leg of
+        # the matrix and as live on the others. reportUnmatched keeps the entry from
+        # failing the legs where the finding does not occur; every other ignore here
+        # still has to match.
+        -
+            identifier: identical.alwaysFalse
+            path: Classes/Rendering/GdImageCompositor.php
+            reportUnmatched: false

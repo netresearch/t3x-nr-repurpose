@@ -56,6 +56,7 @@ class JobFileStorage
                     1755000201,
                 );
             }
+
             $file->setContents($content);
 
             return $file;

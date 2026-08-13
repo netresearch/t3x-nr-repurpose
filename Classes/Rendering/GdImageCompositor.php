@@ -53,6 +53,7 @@ final class GdImageCompositor implements ImageCompositorInterface
         if ($transparent === false) {
             throw RenderingException::because('GD could not allocate the transparent canvas colour', 1755000101);
         }
+
         imagefill($canvas, 0, 0, $transparent);
         imagealphablending($canvas, true);
 
@@ -128,16 +129,15 @@ final class GdImageCompositor implements ImageCompositorInterface
             return PHP_INT_MAX;
         }
 
-        $bytes = match (strtoupper(substr($limit, -1))) {
+        // No `<= 0` guard on the result: '-1' and '' return above, and a
+        // non-positive (int) cast returns above that, so this is positive by
+        // construction.
+        return match (strtoupper(substr($limit, -1))) {
             'G' => $value * 1024 ** 3,
             'M' => $value * 1024 ** 2,
             'K' => $value * 1024,
             default => $value,
         };
-
-        // No `<= 0` guard here: '-1' and '' return above, and a non-positive
-        // (int) cast returns above that, so $bytes is positive by construction.
-        return $bytes;
     }
 
     /**
