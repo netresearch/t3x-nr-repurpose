@@ -120,8 +120,14 @@ class WebPageFetcher
 
         // 2) Drop HTML comments.
         $xpath = new DOMXPath($dom);
-        foreach (iterator_to_array($xpath->query('//comment()') ?: []) as $comment) {
-            $comment->parentNode?->removeChild($comment);
+        $comments = $xpath->query('//comment()');
+        // removeChild() takes a DOMNode. A DOMNodeList can also yield
+        // DOMNameSpaceNode, which is not one, so the instance check is what
+        // makes the call type-safe rather than a cast.
+        foreach ($comments === false ? [] : iterator_to_array($comments) as $comment) {
+            if ($comment instanceof DOMNode) {
+                $comment->parentNode?->removeChild($comment);
+            }
         }
 
         // 3) Prefer the densest of <article>/<main>, else <body>.

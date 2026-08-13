@@ -47,6 +47,15 @@ class JobFileStorage
                 . ($extension !== '' ? '.' . $extension : '');
 
             $file = $storage->createFile($unique, $folder);
+            // createFile() is typed to allow a ProcessedFile or null. Neither can
+            // be stored against a job, and calling setContents() on null would be
+            // a fatal inside the finally block below rather than a message.
+            if (!$file instanceof File) {
+                throw new DefaultStorageUnavailableException(
+                    'The default FAL storage did not return a writable file for ' . $unique,
+                    1755000201,
+                );
+            }
             $file->setContents($content);
 
             return $file;

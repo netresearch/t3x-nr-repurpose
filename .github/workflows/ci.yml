@@ -21,7 +21,7 @@ jobs:
       php-versions: '["8.3","8.4","8.5"]'
       typo3-versions: '["^14.3"]'
       run-cgl: false
-      run-phpstan: false
+      run-phpstan: true
       run-rector: true
       run-unit-tests: true
       unit-test-command: '.Build/bin/phpunit -c Build/phpunit/UnitTests.xml'

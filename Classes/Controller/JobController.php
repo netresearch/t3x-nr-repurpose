@@ -89,7 +89,7 @@ class JobController extends ActionController
             storyStyle: $snippetStoryStyle,
         ));
 
-        $beUser = (int)($GLOBALS['BE_USER']->user['uid'] ?? 0);
+        $beUser = (int) ($GLOBALS['BE_USER']->user['uid'] ?? 0);
         $this->jobSubmissionService->submit($newJob, $beUser);
         $this->addFlashMessage(
             LocalizationUtility::translate('job.created', 'nr_repurpose') ?? 'Job created and queued for generation.',
@@ -103,7 +103,7 @@ class JobController extends ActionController
         $this->moduleTemplate->setTitle(
             $this->moduleTitle(),
             LocalizationUtility::translate('show.title', 'nr_repurpose', [$job->getUid()])
-                ?? sprintf('Job #%d', $job->getUid()),
+                ?? sprintf('Job #%d', (int) $job->getUid()),
         );
         $this->moduleTemplate->assignMultiple([
             'job' => $job,

@@ -146,7 +146,6 @@ Options:
             - unitCoverage: Unit tests with coverage
             - fuzzy: Property-based (fuzzy) tests
             - mutation: Mutation testing
-            - architecture: Architecture tests (PHPat via PHPStan)
 
     -d <sqlite|mariadb|mysql|postgres>
         Database for functional tests (default: sqlite)
@@ -365,12 +364,6 @@ PHP_OPCACHE_OPTS="-d opcache.enable_cli=1 -d opcache.jit=1255 -d opcache.jit_buf
 
 # Suite execution
 case ${TEST_SUITE} in
-    architecture)
-        # Architecture tests are run via PHPStan with phpat extension
-        COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpstan analyse -c Build/phpstan/phpstan.neon"
-        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name architecture-${SUFFIX} -e COMPOSER_ROOT_VERSION=${COMPOSER_ROOT_VERSION} ${IMAGE_PHP} /bin/sh -c "${COMMAND}"
-        SUITE_EXIT_CODE=$?
-        ;;
     cgl)
         if [ "${CGLCHECK_DRY_RUN}" -eq 1 ]; then
             COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/php-cs-fixer fix -v --dry-run --diff"
@@ -517,7 +510,7 @@ case ${TEST_SUITE} in
         SUITE_EXIT_CODE=$?
         ;;
     phpstan)
-        COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpstan analyse -c Build/phpstan/phpstan.neon"
+        COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpstan analyse"
         ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name phpstan-${SUFFIX} -e COMPOSER_ROOT_VERSION=${COMPOSER_ROOT_VERSION} ${IMAGE_PHP} /bin/sh -c "${COMMAND}"
         SUITE_EXIT_CODE=$?
         ;;
