@@ -1,8 +1,15 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
+
+use function extension_loaded;
 
 use Netresearch\NrRepurpose\Rendering\GdImageCompositor;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
@@ -14,7 +21,7 @@ final class GdImageCompositorTest extends TestCase
 
     protected function setUp(): void
     {
-        if (!\extension_loaded('gd')) {
+        if (!extension_loaded('gd')) {
             self::markTestSkipped('ext-gd is required for the compositor');
         }
 
@@ -56,8 +63,8 @@ final class GdImageCompositorTest extends TestCase
 
     public function testOverlayKeepsBackgroundWhereForegroundIsTransparentAndPaintsOpaquePixels(): void
     {
-        $bg = $this->makeOpaquePng(20, 30, 0, 0, 255);
-        $fg = $this->makeMostlyTransparentPng(20, 30);
+        $bg  = $this->makeOpaquePng(20, 30, 0, 0, 255);
+        $fg  = $this->makeMostlyTransparentPng(20, 30);
         $out = $this->tmpDir . '/out.png';
 
         $returned = (new GdImageCompositor())->overlay($bg, $fg, $out);
@@ -84,8 +91,8 @@ final class GdImageCompositorTest extends TestCase
         // The foreground is the design canvas (a tall 1:2 portrait); the background is a
         // mismatched 2:1 landscape. The output must take the FOREGROUND's dimensions and the
         // background must be scaled to cover them — never the other way round.
-        $bg = $this->makeOpaquePng(40, 20, 10, 20, 200);
-        $fg = $this->makeMostlyTransparentPng(20, 40);
+        $bg  = $this->makeOpaquePng(40, 20, 10, 20, 200);
+        $fg  = $this->makeMostlyTransparentPng(20, 40);
         $out = $this->tmpDir . '/out-cover.png';
 
         (new GdImageCompositor())->overlay($bg, $fg, $out);

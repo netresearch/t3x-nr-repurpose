@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Pipeline;
@@ -45,13 +50,13 @@ final readonly class PromptSnippetResolver
             $byUid[(int) $snippet->getUid()] = $snippet;
         }
 
-        $audience = $byUid[$selection->audience] ?? null;
-        $tone = $byUid[$selection->tone] ?? null;
-        $schaubildStyle = $byUid[$selection->schaubildStyle] ?? null;
+        $audience        = $byUid[$selection->audience] ?? null;
+        $tone            = $byUid[$selection->tone] ?? null;
+        $schaubildStyle  = $byUid[$selection->schaubildStyle] ?? null;
         $schaubildLayout = $byUid[$selection->schaubildLayout] ?? null;
-        $storyLayout = $byUid[$selection->storyLayout] ?? null;
+        $storyLayout     = $byUid[$selection->storyLayout] ?? null;
 
-        $personas = [];
+        $personas  = [];
         $seenNames = [];
         foreach ($selection->personas as $uid) {
             $snippet = $byUid[$uid] ?? null;
@@ -70,13 +75,13 @@ final readonly class PromptSnippetResolver
             }
 
             $uniqueName = $name;
-            for ($suffix = 2; in_array($uniqueName, $seenNames, true); $suffix++) {
+            for ($suffix = 2; in_array($uniqueName, $seenNames, true); ++$suffix) {
                 $uniqueName = $name . ' ' . $suffix;
             }
 
             $seenNames[] = $uniqueName;
 
-            $voice = $snippet->getMetadataArray()['voice'] ?? null;
+            $voice      = $snippet->getMetadataArray()['voice'] ?? null;
             $personas[] = new Persona(
                 $uniqueName,
                 $snippet->getSnippet(),
@@ -87,15 +92,15 @@ final readonly class PromptSnippetResolver
         return new ResolvedPromptSnippets(
             schaubildSections: $this->composer->composeSections([
                 self::LABEL_AUDIENCE => $audience,
-                self::LABEL_TONE => $tone,
-                self::LABEL_LAYOUT => $schaubildLayout,
-                self::LABEL_STYLE => $schaubildStyle,
+                self::LABEL_TONE     => $tone,
+                self::LABEL_LAYOUT   => $schaubildLayout,
+                self::LABEL_STYLE    => $schaubildStyle,
             ]),
             storySections: $this->composer->composeSections([
                 self::LABEL_AUDIENCE => $audience,
-                self::LABEL_TONE => $tone,
-                self::LABEL_LAYOUT => $storyLayout,
-                self::LABEL_STYLE => $byUid[$selection->storyStyle] ?? null,
+                self::LABEL_TONE     => $tone,
+                self::LABEL_LAYOUT   => $storyLayout,
+                self::LABEL_STYLE    => $byUid[$selection->storyStyle] ?? null,
             ]),
             audienceHint: $audience?->getSnippet() ?? '',
             styleHint: $schaubildStyle?->getSnippet() ?? '',

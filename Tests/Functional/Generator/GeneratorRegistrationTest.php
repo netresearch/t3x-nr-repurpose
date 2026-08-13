@@ -1,10 +1,14 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Generator;
 
-use ReflectionClass;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\PodcastGenerator;
 use Netresearch\NrRepurpose\Generator\SchaubildGenerator;
@@ -12,6 +16,7 @@ use Netresearch\NrRepurpose\Generator\StoryGenerator;
 use Netresearch\NrRepurpose\Generator\StubArtifactGenerator;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use ReflectionClass;
 
 final class GeneratorRegistrationTest extends AbstractFunctionalTestCase
 {

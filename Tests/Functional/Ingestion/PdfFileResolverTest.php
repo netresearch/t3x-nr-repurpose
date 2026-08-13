@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Ingestion;
@@ -15,13 +20,13 @@ final class PdfFileResolverTest extends AbstractFunctionalTestCase
     {
         $storage = $this->get(StorageRepository::class)->getDefaultStorage();
         self::assertNotNull($storage);
-        $bytes = (string) file_get_contents(dirname(__DIR__, 2) . '/Fixtures/Pdf/sample-text.pdf');
+        $bytes  = (string) file_get_contents(dirname(__DIR__, 2) . '/Fixtures/Pdf/sample-text.pdf');
         $folder = $storage->hasFolder('repurpose') ? $storage->getFolder('repurpose') : $storage->createFolder('repurpose');
-        $file = $storage->createFile('resolver-test.pdf', $folder);
+        $file   = $storage->createFile('resolver-test.pdf', $folder);
         $file->setContents($bytes);
 
         $resolver = $this->get(PdfFileResolver::class);
-        $path = $resolver->resolve(['source_type' => 'pdf_fal', 'source_pdf' => $file->getUid()]);
+        $path     = $resolver->resolve(['source_type' => 'pdf_fal', 'source_pdf' => $file->getUid()]);
 
         self::assertFileExists($path);
         self::assertSame($bytes, (string) file_get_contents($path));

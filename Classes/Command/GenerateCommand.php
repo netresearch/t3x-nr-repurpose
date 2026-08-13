@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Command;
@@ -14,7 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Runs the generation pipeline for a single job synchronously. Useful for ops/CLI runs and
  * for driving an end-to-end test without the async worker:
- *   vendor/bin/typo3 nr_repurpose:generate <jobUid>
+ *   vendor/bin/typo3 nr_repurpose:generate <jobUid>.
  */
 #[AsCommand(name: 'nr_repurpose:generate', description: 'Run the generation pipeline for a job uid')]
 final class GenerateCommand extends Command

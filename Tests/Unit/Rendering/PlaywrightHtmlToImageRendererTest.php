@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
@@ -28,7 +33,7 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
     public function testDiagramRenderBuildsAutoHeightTransparentArgvAndFeedsHtmlOnStdin(): void
     {
         $runner = new RecordingProcessRunner();
-        $out = $this->renderer($runner)->render('<html><body>diagram</body></html>', 1200, null, 2.0, true);
+        $out    = $this->renderer($runner)->render('<html><body>diagram</body></html>', 1200, null, 2.0, true);
 
         self::assertCount(1, $runner->calls);
         $call = $runner->calls[0];
@@ -47,7 +52,7 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
     public function testStoryRenderBuildsFixedHeightOpaqueArgv(): void
     {
         $runner = new RecordingProcessRunner();
-        $out = $this->renderer($runner)->render('<html></html>', 1080, 1920, 1.0, false);
+        $out    = $this->renderer($runner)->render('<html></html>', 1080, 1920, 1.0, false);
 
         self::assertSame(
             ['--width', '1080', '--height', '1920', '--scale', '1', '--out', $out, '--opaque'],
@@ -58,7 +63,7 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
     public function testChromiumPathIsNotPassedViaArgv(): void
     {
         $runner = new RecordingProcessRunner();
-        $out = $this->renderer($runner)->render('<html></html>', 800, 600, 1.0, false);
+        $out    = $this->renderer($runner)->render('<html></html>', 800, 600, 1.0, false);
 
         self::assertNotContains(self::CHROMIUM, $runner->calls[0]['command']);
         self::assertStringEndsWith('.png', $out);

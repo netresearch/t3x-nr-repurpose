@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
@@ -43,7 +48,7 @@ final class FfmpegAudioStitcherTest extends TestCase
     public function testConcatBuildsConcatDemuxerArgvAndWritesAQuotedListFile(): void
     {
         $runner = new RecordingProcessRunner();
-        $out = $this->tmpDir . '/joined.mp3';
+        $out    = $this->tmpDir . '/joined.mp3';
         // Fake runner won't run ffmpeg, so the output must already exist for the is_file() check.
         file_put_contents($out, 'z');
 

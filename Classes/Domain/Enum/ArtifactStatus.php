@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\Enum;
@@ -7,8 +12,8 @@ namespace Netresearch\NrRepurpose\Domain\Enum;
 enum ArtifactStatus: string
 {
     case Pending = 'pending';
-    case Done = 'done';
-    case Failed = 'failed';
+    case Done    = 'done';
+    case Failed  = 'failed';
 
     /**
      * LLL key (locallang.xlf) for the human-readable status label.
@@ -23,8 +28,8 @@ enum ArtifactStatus: string
     public function getSeverity(): string
     {
         return match ($this) {
-            self::Done => 'success',
-            self::Failed => 'danger',
+            self::Done    => 'success',
+            self::Failed  => 'danger',
             self::Pending => 'warning',
         };
     }

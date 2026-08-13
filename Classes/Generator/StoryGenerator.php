@@ -1,10 +1,14 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
-use Throwable;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -18,6 +22,7 @@ use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Produces a multi-slide 9:16 Instagram-story carousel (1080x1920 PNG per slide, spec §10).
@@ -104,11 +109,11 @@ class StoryGenerator extends AbstractGenerator
         $backgroundPath = $this->generateSharedBackground($ctx, $imageSize);
 
         $total = count($slides);
-        $ok = false;
+        $ok    = false;
         foreach ($slides as $i => $slide) {
             $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
             $slideOk = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
-            $ok = $slideOk || $ok;
+            $ok      = $slideOk || $ok;
         }
 
         return $ok;
@@ -120,9 +125,9 @@ class StoryGenerator extends AbstractGenerator
      */
     private function carouselPrompt(GenerationContext $ctx): string
     {
-        $brief = $ctx->brief;
+        $brief     = $ctx->brief;
         $keyPoints = array_slice($brief->keyPoints, 0, self::MAX_POINT_SLIDES);
-        $prompt = sprintf(
+        $prompt    = sprintf(
             "Title: %s\nSummary: %s\nKey points:\n- %s\nSource: %s\n\n"
             . 'Write an Instagram story carousel for this content: first a "cover" slide with a punchy '
             . 'hook/title, then one "point" slide per key point, and finally an "outro" slide with the '
@@ -152,7 +157,7 @@ class StoryGenerator extends AbstractGenerator
     private function buildSlides(GenerationContext $ctx): array
     {
         $keyPoints = array_slice($ctx->brief->keyPoints, 0, self::MAX_POINT_SLIDES);
-        $options = new ChatOptions(
+        $options   = new ChatOptions(
             temperature: 0.5,
             responseFormat: 'json',
             systemPrompt: self::COPY_SYSTEM_PROMPT,
@@ -189,7 +194,7 @@ class StoryGenerator extends AbstractGenerator
             }
 
             $subline = is_scalar($raw['subline'] ?? null) ? trim((string) $raw['subline']) : '';
-            $role = is_scalar($raw['role'] ?? null) ? (string) $raw['role'] : '';
+            $role    = is_scalar($raw['role'] ?? null) ? (string) $raw['role'] : '';
             if (!in_array($role, [StorySlide::ROLE_COVER, StorySlide::ROLE_POINT, StorySlide::ROLE_OUTRO], true)) {
                 $role = StorySlide::ROLE_POINT;
             }
@@ -225,7 +230,7 @@ class StoryGenerator extends AbstractGenerator
             return $backgroundPath;
         } catch (Throwable $e) {
             $this->logger->warning('Story background generation failed, falling back to flat slides', [
-                'job' => $ctx->jobUid(),
+                'job'    => $ctx->jobUid(),
                 'reason' => $e->getMessage(),
             ]);
 
@@ -243,13 +248,13 @@ class StoryGenerator extends AbstractGenerator
         ?string $backgroundPath,
         string $imageSize,
     ): bool {
-        $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Story, 'slide-' . $index, 0, ArtifactStatus::Pending);
+        $artifactUid   = $this->jobs->insertArtifact($jobUid, ArtifactType::Story, 'slide-' . $index, 0, ArtifactStatus::Pending);
         $hasBackground = $backgroundPath !== null;
-        $metadata = [
-            'width' => self::WIDTH,
-            'height' => self::HEIGHT,
+        $metadata      = [
+            'width'      => self::WIDTH,
+            'height'     => self::HEIGHT,
             'background' => $hasBackground ? 'ki' : 'flat',
-            'role' => $slide->role,
+            'role'       => $slide->role,
             'slideIndex' => $index,
             'slideTotal' => $total,
             // Every slide carries the full copy prompts; the shared background image
@@ -267,7 +272,7 @@ class StoryGenerator extends AbstractGenerator
             $html = $this->renderSlideHtml($ctx, $slide, $index, $total, $backgroundPath !== null);
 
             if ($backgroundPath !== null) {
-                $fgPath = $this->renderer->render($html, self::WIDTH, self::HEIGHT, 1.0, true);
+                $fgPath  = $this->renderer->render($html, self::WIDTH, self::HEIGHT, 1.0, true);
                 $pngPath = $this->makeTempDir() . '/slide.png';
                 $this->compositor->overlay($backgroundPath, $fgPath, $pngPath);
             } else {
@@ -276,10 +281,10 @@ class StoryGenerator extends AbstractGenerator
 
             $file = $this->fileStorage->store((string) file_get_contents($pngPath), sprintf('story-slide-%d.png', $index));
             $this->jobs->updateArtifact($artifactUid, [
-                'file_uid' => $file->getUid(),
+                'file_uid'    => $file->getUid(),
                 'source_html' => $html,
-                'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
-                'status' => ArtifactStatus::Done->value,
+                'metadata'    => json_encode($metadata, JSON_THROW_ON_ERROR),
+                'status'      => ArtifactStatus::Done->value,
             ]);
 
             return true;
@@ -308,11 +313,11 @@ class StoryGenerator extends AbstractGenerator
     protected function renderSlideHtml(GenerationContext $ctx, StorySlide $slide, int $index, int $total, bool $transparent): string
     {
         return $this->renderTemplate('Story', $ctx->theme, [
-            'headline' => $slide->headline,
-            'subline' => $slide->subline,
-            'role' => $slide->role,
-            'slideIndex' => $index,
-            'slideTotal' => $total,
+            'headline'    => $slide->headline,
+            'subline'     => $slide->subline,
+            'role'        => $slide->role,
+            'slideIndex'  => $index,
+            'slideTotal'  => $total,
             'sourceLabel' => $ctx->document->sourceLabel,
             'transparent' => $transparent,
         ]);

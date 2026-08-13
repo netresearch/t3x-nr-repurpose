@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
@@ -19,7 +24,7 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
     public function testSubmitPersistsJobAndDispatchesMessage(): void
     {
         $dispatched = [];
-        $bus = new class($dispatched) implements MessageBusInterface {
+        $bus        = new class ($dispatched) implements MessageBusInterface {
             /** @param array<int, array{message: object, stamps: array<int, object>}> $sink */
             public function __construct(private array &$sink) {}
 

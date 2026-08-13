@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Service;
@@ -38,8 +43,8 @@ final class ConfiguredCompletionServiceTest extends TestCase
 
     public function testRoutesCompleteJsonToTheNamedConfigurationWhenResolvable(): void
     {
-        $configuration = $this->activeConfigurationStub();
-        $inner = new FakeCompletionService();
+        $configuration     = $this->activeConfigurationStub();
+        $inner             = new FakeCompletionService();
         $inner->jsonResult = ['ok' => true];
 
         $result = $this->subject($inner, $configuration)->completeJson('prompt');
@@ -53,7 +58,7 @@ final class ConfiguredCompletionServiceTest extends TestCase
 
     public function testFallsBackToInstanceDefaultWhenConfigurationIsMissing(): void
     {
-        $inner = new FakeCompletionService();
+        $inner             = new FakeCompletionService();
         $inner->jsonResult = ['fallback' => true];
 
         // Repository returns null -> getActiveByIdentifier throws -> fail-soft fallback.
@@ -69,7 +74,7 @@ final class ConfiguredCompletionServiceTest extends TestCase
         $inactive = self::createStub(LlmConfiguration::class);
         $inactive->method('isActive')->willReturn(false);
 
-        $inner = new FakeCompletionService();
+        $inner            = new FakeCompletionService();
         $inner->responses = [$this->response()];
 
         $this->subject($inner, $inactive)->complete('prompt');
@@ -80,10 +85,10 @@ final class ConfiguredCompletionServiceTest extends TestCase
 
     public function testRoutesMarkdownAndCompleteToTheConfigurationPath(): void
     {
-        $configuration = $this->activeConfigurationStub();
-        $inner = new FakeCompletionService();
+        $configuration         = $this->activeConfigurationStub();
+        $inner                 = new FakeCompletionService();
         $inner->markdownResult = '# heading';
-        $inner->responses = [$this->response()];
+        $inner->responses      = [$this->response()];
 
         $subject = $this->subject($inner, $configuration);
 
@@ -102,7 +107,7 @@ final class ConfiguredCompletionServiceTest extends TestCase
             ->method('findOneByIdentifier')
             ->willReturn($this->activeConfigurationStub());
 
-        $inner = new FakeCompletionService();
+        $inner             = new FakeCompletionService();
         $inner->jsonResult = [];
 
         $subject = new ConfiguredCompletionService($inner, new ConfigurationResolver($repository), new NullLogger());
@@ -113,13 +118,13 @@ final class ConfiguredCompletionServiceTest extends TestCase
 
     public function testForConfigurationMethodsPassStraightThrough(): void
     {
-        $explicit = self::createStub(LlmConfiguration::class);
-        $inner = new FakeCompletionService();
+        $explicit          = self::createStub(LlmConfiguration::class);
+        $inner             = new FakeCompletionService();
         $inner->jsonResult = ['explicit' => true];
 
         // No resolver interaction needed: the caller already named a configuration.
         $subject = $this->subject($inner, null);
-        $result = $subject->completeJsonForConfiguration('p', $explicit);
+        $result  = $subject->completeJsonForConfiguration('p', $explicit);
 
         self::assertSame(['explicit' => true], $result);
         self::assertSame($explicit, $inner->completeJsonForConfigurationCalls[0]['configuration']);

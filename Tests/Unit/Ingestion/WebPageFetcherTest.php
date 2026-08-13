@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
@@ -16,11 +21,11 @@ final class WebPageFetcherTest extends TestCase
 {
     private function client(int $status, string $body): ClientInterface
     {
-        $factory = new HttpFactory();
+        $factory  = new HttpFactory();
         $response = $factory->createResponse($status)
             ->withBody($factory->createStream($body));
 
-        return new class($response) implements ClientInterface {
+        return new class ($response) implements ClientInterface {
             public function __construct(private readonly ResponseInterface $response) {}
 
             public function sendRequest(RequestInterface $request): ResponseInterface
@@ -32,7 +37,7 @@ final class WebPageFetcherTest extends TestCase
 
     public function testExtractsTitleAndMainContentDroppingBoilerplate(): void
     {
-        $html = (string) file_get_contents(__DIR__ . '/../../Fixtures/Web/article.html');
+        $html    = (string) file_get_contents(__DIR__ . '/../../Fixtures/Web/article.html');
         $fetcher = new WebPageFetcher($this->client(200, $html), new HttpFactory());
 
         $doc = $fetcher->fetch('https://example.com/q1');

@@ -1,13 +1,18 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Persistence;
 
-use Throwable;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
+use Throwable;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 
@@ -56,7 +61,7 @@ class JobProcessingRepository
         $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
             self::JOB_TABLE,
             ['status' => JobStatus::Failed->value, 'error_message' => $error, 'tstamp' => time()],
-            ['uid' => $jobUid],
+            ['uid'    => $jobUid],
         );
     }
 
@@ -65,7 +70,7 @@ class JobProcessingRepository
         $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
             self::JOB_TABLE,
             ['language_detected' => $language, 'tstamp' => time()],
-            ['uid' => $jobUid],
+            ['uid'               => $jobUid],
         );
     }
 
@@ -79,18 +84,18 @@ class JobProcessingRepository
     ): int {
         $conn = $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE);
         $conn->insert(self::ARTIFACT_TABLE, [
-            'pid' => 0,
-            'job' => $jobUid,
-            'type' => $type->value,
-            'variant' => $variant,
-            'file_uid' => $fileUid,
-            'status' => $status->value,
+            'pid'           => 0,
+            'job'           => $jobUid,
+            'type'          => $type->value,
+            'variant'       => $variant,
+            'file_uid'      => $fileUid,
+            'status'        => $status->value,
             'error_message' => $error ?? '',
-            'crdate' => time(),
-            'tstamp' => time(),
+            'crdate'        => time(),
+            'tstamp'        => time(),
         ]);
 
-        return (int)$conn->lastInsertId();
+        return (int) $conn->lastInsertId();
     }
 
     /**
@@ -132,8 +137,8 @@ class JobProcessingRepository
         }
 
         try {
-            $file = $this->resourceFactory->getFileObject($fileUid);
-            $storage = $file->getStorage();
+            $file                        = $this->resourceFactory->getFileObject($fileUid);
+            $storage                     = $file->getStorage();
             $previousEvaluatePermissions = $storage->getEvaluatePermissions();
             $storage->setEvaluatePermissions(false);
             try {
@@ -151,7 +156,7 @@ class JobProcessingRepository
      * Empty $fields is a no-op (no UPDATE issued).
      *
      * @param array<string, mixed> $fields keys: file_uid, subtitle_file_uid, source_html,
-     *                                      script_text, metadata, status, variant, error_message
+     *                                     script_text, metadata, status, variant, error_message
      */
     public function updateArtifact(int $artifactUid, array $fields): void
     {

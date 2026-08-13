@@ -1,10 +1,14 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
-use Throwable;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -17,6 +21,7 @@ use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Produces a branded diagram in three artifact rows for empirical comparison (spec §8):
@@ -65,7 +70,7 @@ class SchaubildGenerator extends AbstractGenerator
         $jobUid = $ctx->jobUid();
 
         $ctx->progress?->step('Schaubild: building HTML', 0.05);
-        $htmlOpaque = $this->renderDiagramHtml($ctx, false);
+        $htmlOpaque      = $this->renderDiagramHtml($ctx, false);
         $htmlTransparent = $this->renderDiagramHtml($ctx, true);
 
         // The exact diagram-body LLM prompts, recorded in every variant's metadata
@@ -97,13 +102,13 @@ class SchaubildGenerator extends AbstractGenerator
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html', 0, ArtifactStatus::Pending);
         try {
             $pngPath = $this->renderer->render($html, self::WIDTH, null, 2.0, false);
-            $file = $this->fileStorage->store((string) file_get_contents($pngPath), 'schaubild-html.png');
+            $file    = $this->fileStorage->store((string) file_get_contents($pngPath), 'schaubild-html.png');
             $this->jobs->updateArtifact($artifactUid, [
-                'file_uid' => $file->getUid(),
+                'file_uid'    => $file->getUid(),
                 'source_html' => $html,
-                'metadata' => json_encode([
+                'metadata'    => json_encode([
                     'variant' => 'html',
-                    'width' => self::WIDTH,
+                    'width'   => self::WIDTH,
                     'prompts' => $this->promptsMetadata(system: $llmPrompts['system'], user: $llmPrompts['user']),
                 ], JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,
@@ -132,21 +137,21 @@ class SchaubildGenerator extends AbstractGenerator
         }
 
         try {
-            $tmpDir = $this->makeTempDir();
-            $bgPath = $tmpDir . '/bg.png';
+            $tmpDir   = $this->makeTempDir();
+            $bgPath   = $tmpDir . '/bg.png';
             $bgPrompt = $this->backgroundPrompt($ctx);
             $ctx->progress?->step('Schaubild: generating background image', 0.65);
             $this->imageGenerator->generateToFile($bgPrompt, $imageSize, $bgPath);
 
-            $fgPath = $this->renderer->render($transparentHtml, self::WIDTH, null, 2.0, true);
+            $fgPath  = $this->renderer->render($transparentHtml, self::WIDTH, null, 2.0, true);
             $outPath = $tmpDir . '/composited.png';
             $this->compositor->overlay($bgPath, $fgPath, $outPath);
 
             $file = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-html-bg.png');
             $this->jobs->updateArtifact($artifactUid, [
-                'file_uid' => $file->getUid(),
+                'file_uid'    => $file->getUid(),
                 'source_html' => $transparentHtml,
-                'metadata' => json_encode([
+                'metadata'    => json_encode([
                     'variant' => 'html_bg',
                     'bgModel' => $this->imageGenerator->getModel(),
                     'prompts' => $this->promptsMetadata(
@@ -179,18 +184,18 @@ class SchaubildGenerator extends AbstractGenerator
         }
 
         try {
-            $tmpDir = $this->makeTempDir();
-            $outPath = $tmpDir . '/ki.png';
+            $tmpDir   = $this->makeTempDir();
+            $outPath  = $tmpDir . '/ki.png';
             $kiPrompt = $this->kiImagePrompt($ctx);
             $this->imageGenerator->generateToFile($kiPrompt, $imageSize, $outPath);
 
             $file = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-ki.png');
             $this->jobs->updateArtifact($artifactUid, [
-                'file_uid' => $file->getUid(),
+                'file_uid'    => $file->getUid(),
                 'source_html' => $referenceHtml,
-                'metadata' => json_encode([
+                'metadata'    => json_encode([
                     'variant' => 'ki_image',
-                    'model' => $this->imageGenerator->getModel(),
+                    'model'   => $this->imageGenerator->getModel(),
                     'prompts' => $this->promptsMetadata(
                         image: $kiPrompt,
                         imageModel: $this->imageGenerator->getModel(),
@@ -214,9 +219,9 @@ class SchaubildGenerator extends AbstractGenerator
      */
     private function diagramBodyPrompt(GenerationContext $ctx): string
     {
-        $brief = $ctx->brief;
+        $brief     = $ctx->brief;
         $keyPoints = implode("\n- ", $brief->keyPoints);
-        $prompt = sprintf(
+        $prompt    = sprintf(
             "Title: %s\nSummary: %s\nKey points:\n- %s\n\n"
             . 'Produce the inner HTML body of an INFOGRAPHIC that visualises this content — not a '
             . 'text document. Lay it out as distinct visual blocks (cards / columns / a simple flow), '
@@ -243,7 +248,7 @@ class SchaubildGenerator extends AbstractGenerator
      */
     protected function renderDiagramHtml(GenerationContext $ctx, bool $transparent): string
     {
-        $brief = $ctx->brief;
+        $brief   = $ctx->brief;
         $options = new ChatOptions(
             temperature: 0.3,
             systemPrompt: self::HTML_SYSTEM_PROMPT,
@@ -253,10 +258,10 @@ class SchaubildGenerator extends AbstractGenerator
         $bodyHtml = self::stripCodeFences($this->completion->completeMarkdown($this->diagramBodyPrompt($ctx), $options));
 
         return $this->renderTemplate('Schaubild', $ctx->theme, [
-            'title' => $brief->title,
-            'bodyHtml' => $bodyHtml,
+            'title'       => $brief->title,
+            'bodyHtml'    => $bodyHtml,
             'transparent' => $transparent,
-            'language' => $brief->language,
+            'language'    => $brief->language,
         ]);
     }
 
@@ -279,7 +284,7 @@ class SchaubildGenerator extends AbstractGenerator
         if ($newlinePos !== false) {
             $trimmed = substr($trimmed, $newlinePos + 1);
         } else {
-            $tagPos = strpos($trimmed, '<');
+            $tagPos  = strpos($trimmed, '<');
             $trimmed = $tagPos !== false ? substr($trimmed, $tagPos) : '';
         }
 

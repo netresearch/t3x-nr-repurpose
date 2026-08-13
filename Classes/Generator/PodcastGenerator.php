@@ -1,10 +1,14 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
-use Throwable;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -19,6 +23,7 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Builds a two-host podcast: an LLM dialogue script (length follows document scope),
@@ -72,11 +77,11 @@ final class PodcastGenerator extends AbstractGenerator
 
     public function generate(GenerationContext $ctx): bool
     {
-        $jobUid = $ctx->jobUid();
+        $jobUid      = $ctx->jobUid();
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Podcast, 'default', 0, ArtifactStatus::Pending);
 
         // Budget-guarded availability check for the Specialized TTS calls up front.
-        $turnCount = max(1, count($ctx->brief->keyPoints) + count($ctx->brief->sections) + 2);
+        $turnCount      = max(1, count($ctx->brief->keyPoints) + count($ctx->brief->sections) + 2);
         $plannedTtsCost = self::TTS_COST_PER_TURN * $turnCount;
         if (!$this->specializedAllowed($ctx, $plannedTtsCost, $this->speech->isAvailable())) {
             $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or speech synthesis unavailable');
@@ -87,17 +92,17 @@ final class PodcastGenerator extends AbstractGenerator
         try {
             $ctx->progress?->step('Podcast: writing script', 0.05);
             $personaVoices = $this->personaVoices($ctx->snippets->personas);
-            $dialogue = $this->buildDialogue($ctx, $personaVoices);
-            $turns = $dialogue['turns'];
+            $dialogue      = $this->buildDialogue($ctx, $personaVoices);
+            $turns         = $dialogue['turns'];
             if ($turns === []) {
                 $this->failArtifact($artifactUid, $jobUid, 'LLM produced no dialogue turns');
 
                 return false;
             }
 
-            $tmpDir = $this->makeTempDir();
-            $segmentPaths = [];
-            $vttSegments = [];
+            $tmpDir          = $this->makeTempDir();
+            $segmentPaths    = [];
+            $vttSegments     = [];
             $transcriptLines = [];
 
             $totalTurns = count($turns);
@@ -112,9 +117,9 @@ final class PodcastGenerator extends AbstractGenerator
                 }
 
                 $segmentPaths[] = $segmentPath;
-                $vttSegments[] = [
-                    'speaker' => $turn['speaker'],
-                    'text' => $turn['text'],
+                $vttSegments[]  = [
+                    'speaker'         => $turn['speaker'],
+                    'text'            => $turn['text'],
                     'durationSeconds' => $this->stitcher->probeDurationSeconds($segmentPath),
                 ];
                 $transcriptLines[] = $turn['speaker'] . ': ' . $turn['text'];
@@ -131,16 +136,16 @@ final class PodcastGenerator extends AbstractGenerator
             $this->stitcher->concat($segmentPaths, $mp3Path);
 
             $transcript = implode("\n", $transcriptLines);
-            $vtt = $this->vttBuilder->build($vttSegments);
+            $vtt        = $this->vttBuilder->build($vttSegments);
 
             $mp3File = $this->fileStorage->store((string) file_get_contents($mp3Path), 'podcast.mp3');
             $vttFile = $this->fileStorage->store($vtt, 'podcast.vtt');
 
             $this->jobs->updateArtifact($artifactUid, [
-                'file_uid' => $mp3File->getUid(),
+                'file_uid'          => $mp3File->getUid(),
                 'subtitle_file_uid' => $vttFile->getUid(),
-                'script_text' => $transcript,
-                'metadata' => json_encode(
+                'script_text'       => $transcript,
+                'metadata'          => json_encode(
                     $this->buildMetadata($personaVoices, count($turns), $dialogue['system'], $dialogue['user']),
                     JSON_THROW_ON_ERROR,
                 ),
@@ -161,17 +166,17 @@ final class PodcastGenerator extends AbstractGenerator
      */
     private function synthesizeWithRetry(string $text, string $voice, string $segmentPath, int $jobUid, int $turnIndex): bool
     {
-        for ($attempt = 1; $attempt <= self::TTS_MAX_ATTEMPTS; $attempt++) {
+        for ($attempt = 1; $attempt <= self::TTS_MAX_ATTEMPTS; ++$attempt) {
             try {
                 $this->speech->synthesizeToFile($text, $voice, $segmentPath);
 
                 return true;
             } catch (Throwable $e) {
                 $this->logger->warning('Podcast TTS turn failed', [
-                    'job' => $jobUid,
-                    'turn' => $turnIndex,
+                    'job'     => $jobUid,
+                    'turn'    => $turnIndex,
                     'attempt' => $attempt,
-                    'reason' => $e->getMessage(),
+                    'reason'  => $e->getMessage(),
                 ]);
             }
         }
@@ -201,9 +206,9 @@ final class PodcastGenerator extends AbstractGenerator
      */
     private function buildTwoHostDialogue(GenerationContext $ctx): array
     {
-        $brief = $ctx->brief;
+        $brief     = $ctx->brief;
         $keyPoints = implode("\n- ", $brief->keyPoints);
-        $prompt = sprintf(
+        $prompt    = sprintf(
             "Title: %s\nSummary: %s\nAudience: %s\nKey points:\n- %s\n\n"
             . 'Write a lively two-host podcast dialogue (Host A and Host B) that explains this '
             . 'content faithfully to the audience. Keep all facts, numbers and labels accurate. '
@@ -228,21 +233,21 @@ final class PodcastGenerator extends AbstractGenerator
             plannedCost: self::SCRIPT_COST,
         );
 
-        $data = $this->completion->completeJson($prompt, $options);
+        $data     = $this->completion->completeJson($prompt, $options);
         $rawTurns = is_array($data['turns'] ?? null) ? $data['turns'] : [];
 
         $turns = [];
         foreach ($rawTurns as $raw) {
             $speaker = (string) ($raw['speaker'] ?? 'Host A');
-            $text = trim((string) ($raw['text'] ?? ''));
+            $text    = trim((string) ($raw['text'] ?? ''));
             if ($text === '') {
                 continue;
             }
 
             $turns[] = [
                 'speaker' => $speaker,
-                'text' => mb_substr($text, 0, 4096),
-                'voice' => $speaker === 'Host B' ? self::VOICE_HOST_B : self::VOICE_HOST_A,
+                'text'    => mb_substr($text, 0, 4096),
+                'voice'   => $speaker === 'Host B' ? self::VOICE_HOST_B : self::VOICE_HOST_A,
             ];
         }
 
@@ -260,8 +265,8 @@ final class PodcastGenerator extends AbstractGenerator
      */
     private function buildPersonaDialogue(GenerationContext $ctx, array $personaVoices): array
     {
-        $brief = $ctx->brief;
-        $keyPoints = implode("\n- ", $brief->keyPoints);
+        $brief        = $ctx->brief;
+        $keyPoints    = implode("\n- ", $brief->keyPoints);
         $personaLines = array_map(
             static fn (Persona $persona): string => sprintf('- %s: %s', $persona->name, $persona->description),
             $ctx->snippets->personas,
@@ -304,7 +309,7 @@ final class PodcastGenerator extends AbstractGenerator
             plannedCost: self::SCRIPT_COST,
         );
 
-        $data = $this->completion->completeJson($prompt, $options);
+        $data     = $this->completion->completeJson($prompt, $options);
         $rawTurns = is_array($data['turns'] ?? null) ? $data['turns'] : [];
 
         $turns = [];
@@ -321,8 +326,8 @@ final class PodcastGenerator extends AbstractGenerator
 
             $turns[] = [
                 'speaker' => $speaker,
-                'text' => mb_substr($text, 0, 4096),
-                'voice' => $personaVoices[$speaker],
+                'text'    => mb_substr($text, 0, 4096),
+                'voice'   => $personaVoices[$speaker],
             ];
         }
 
@@ -344,8 +349,8 @@ final class PodcastGenerator extends AbstractGenerator
     private function personaVoices(array $personas): array
     {
         $fallback = [self::VOICE_HOST_A, self::VOICE_HOST_B];
-        $known = SpeechSynthesisOptions::getAvailableVoices();
-        $voices = [];
+        $known    = SpeechSynthesisOptions::getAvailableVoices();
+        $voices   = [];
         foreach (array_values($personas) as $i => $persona) {
             $voices[$persona->name] = ($persona->voice !== null && in_array($persona->voice, $known, true))
                 ? $persona->voice
@@ -369,10 +374,10 @@ final class PodcastGenerator extends AbstractGenerator
         // hardcoded fallback), so the metadata names the model that actually ran.
         $ttsModel = $this->speech->getModel();
         $metadata = [
-            'voices' => array_values($voiceMap),
-            'turns' => $turnCount,
+            'voices'   => array_values($voiceMap),
+            'turns'    => $turnCount,
             'ttsModel' => $ttsModel,
-            'prompts' => $this->promptsMetadata(
+            'prompts'  => $this->promptsMetadata(
                 system: $systemPrompt,
                 user: $userPrompt,
                 ttsModel: $ttsModel,

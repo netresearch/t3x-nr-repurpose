@@ -1,8 +1,13 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
-defined('TYPO3') || die();
+defined('TYPO3') || exit;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 
@@ -10,7 +15,7 @@ use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 // IMAGE/SPEECH capability, so audio generation gates on AUDIO and image/vision on VISION.
 $GLOBALS['TYPO3_CONF_VARS']['BE']['customPermOptions']['nrrepurpose'] = [
     'header' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.header',
-    'items' => [
+    'items'  => [
         'generate_audio' => [
             'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.generate_audio',
             'actions-volume-up',

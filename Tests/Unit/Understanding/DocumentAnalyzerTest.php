@@ -1,11 +1,16 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Understanding;
 
-use LogicException;
 use BadMethodCallException;
+use LogicException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
@@ -124,10 +129,10 @@ final class DocumentAnalyzerTest extends TestCase
     private function briefResult(string $language = 'en'): array
     {
         return [
-            'title' => 'Quarterly report',
-            'summary' => 'A concise overview of Q1 results.',
+            'title'     => 'Quarterly report',
+            'summary'   => 'A concise overview of Q1 results.',
             'keyPoints' => ['Revenue up 12%', 'Churn down 3%'],
-            'sections' => [
+            'sections'  => [
                 ['heading' => 'Revenue', 'body' => 'Revenue grew across all regions.'],
                 ['heading' => 'Churn', 'body' => 'Churn fell after onboarding.'],
             ],
@@ -138,7 +143,7 @@ final class DocumentAnalyzerTest extends TestCase
 
     public function testSmallDocumentUsesOneCallAndMapsJsonToContentBrief(): void
     {
-        $fake = new FakeCompletionService([$this->briefResult('en')]);
+        $fake     = new FakeCompletionService([$this->briefResult('en')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 24000, chunkSize: 12000);
 
         $brief = $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 7]);
@@ -154,7 +159,7 @@ final class DocumentAnalyzerTest extends TestCase
 
     public function testPromptCarriesDocumentTextAndJsonBudgetOptions(): void
     {
-        $fake = new FakeCompletionService([$this->briefResult('en')]);
+        $fake     = new FakeCompletionService([$this->briefResult('en')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 24000, chunkSize: 12000);
 
         $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 7]);
@@ -177,7 +182,7 @@ final class DocumentAnalyzerTest extends TestCase
             pageCount: 0,
             languageHint: '',
         );
-        $fake = new FakeCompletionService([$this->briefResult('de')]);
+        $fake     = new FakeCompletionService([$this->briefResult('de')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
         $brief = $analyzer->analyze($document, ['uid' => 1, 'be_user' => 0]);
@@ -188,7 +193,7 @@ final class DocumentAnalyzerTest extends TestCase
     public function testLargeDocumentTakesMapReducePath(): void
     {
         $paragraph = str_repeat('Section content sentence. ', 400);
-        $bigText = implode("\n\n", [$paragraph, $paragraph, $paragraph]);
+        $bigText   = implode("\n\n", [$paragraph, $paragraph, $paragraph]);
 
         $document = new SourceDocument(
             title: 'Big report',
@@ -199,9 +204,9 @@ final class DocumentAnalyzerTest extends TestCase
         );
 
         $mapResult = ['summary' => 'Chunk summary.', 'keyPoints' => ['kp']];
-        $results = [$mapResult, $mapResult, $mapResult, $this->briefResult('en')];
-        $fake = new FakeCompletionService($results);
-        $analyzer = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000);
+        $results   = [$mapResult, $mapResult, $mapResult, $this->briefResult('en')];
+        $fake      = new FakeCompletionService($results);
+        $analyzer  = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000);
 
         $brief = $analyzer->analyze($document, ['uid' => 1, 'be_user' => 7]);
 
@@ -230,7 +235,7 @@ final class DocumentAnalyzerTest extends TestCase
     public function testThrowsWhenRequiredKeysMissingTwice(): void
     {
         $badShape = ['keyPoints' => ['x'], 'language' => 'en'];
-        $fake = new FakeCompletionService([$badShape, $badShape]);
+        $fake     = new FakeCompletionService([$badShape, $badShape]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
         $this->expectException(AnalysisException::class);

@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator\Support;
@@ -15,18 +20,18 @@ final class WebVttBuilder
      */
     public function build(array $segments): string
     {
-        $out = 'WEBVTT' . "\n";
+        $out    = 'WEBVTT' . "\n";
         $cursor = 0.0;
-        $index = 1;
+        $index  = 1;
 
         foreach ($segments as $segment) {
             $start = $cursor;
-            $end = $cursor + $segment['durationSeconds'];
+            $end   = $cursor + $segment['durationSeconds'];
             $out .= "\n" . $index . "\n";
             $out .= $this->formatTimestamp($start) . ' --> ' . $this->formatTimestamp($end) . "\n";
             $out .= $segment['speaker'] . ': ' . $segment['text'] . "\n";
             $cursor = $end;
-            $index++;
+            ++$index;
         }
 
         return $out;
@@ -35,7 +40,7 @@ final class WebVttBuilder
     private function formatTimestamp(float $seconds): string
     {
         $milliseconds = (int) round($seconds * 1000);
-        $hours = intdiv($milliseconds, 3_600_000);
+        $hours        = intdiv($milliseconds, 3_600_000);
         $milliseconds -= $hours * 3_600_000;
         $minutes = intdiv($milliseconds, 60_000);
         $milliseconds -= $minutes * 60_000;

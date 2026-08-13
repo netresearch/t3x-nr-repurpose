@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
@@ -33,7 +38,7 @@ final class SchaubildGeneratorTest extends TestCase
     private function context(ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets()): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
-        $brief = new ContentBrief('Report', 'Summary', ['A', 'B'], [['heading' => 'H', 'body' => 'B']], 'All', 'en');
+        $brief    = new ContentBrief('Report', 'Summary', ['A', 'B'], [['heading' => 'H', 'body' => 'B']], 'All', 'en');
 
         return new GenerationContext(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1], $document, $brief, 'nr', 4, $snippets);
     }
@@ -53,7 +58,7 @@ final class SchaubildGeneratorTest extends TestCase
     ): SchaubildGenerator {
         $completion ??= $this->completion();
 
-        return new class($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage) extends SchaubildGenerator {
+        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage) extends SchaubildGenerator {
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
@@ -99,9 +104,9 @@ final class SchaubildGeneratorTest extends TestCase
 
     public function testProducesThreeVariantArtifactsWhenBudgetAllows(): void
     {
-        $compositor = $this->compositor();
+        $compositor     = $this->compositor();
         $imageGenerator = $this->imageGenerator();
-        $jobs = $this->jobs();
+        $jobs           = $this->jobs();
 
         $generator = $this->generator($this->renderer(), $compositor, $imageGenerator, $this->storage(), $jobs, $this->allowingBudget());
 
@@ -122,7 +127,7 @@ final class SchaubildGeneratorTest extends TestCase
 
     public function testOverBudgetFailsImageVariantsButHtmlSucceeds(): void
     {
-        $jobs = $this->jobs();
+        $jobs           = $this->jobs();
         $imageGenerator = $this->imageGenerator();
 
         $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->denyingBudget());
@@ -136,7 +141,7 @@ final class SchaubildGeneratorTest extends TestCase
 
     public function testImagePromptPreambleIsPrependedToBothAiImagePrompts(): void
     {
-        $imageGenerator = $this->imageGenerator();
+        $imageGenerator                 = $this->imageGenerator();
         $imageGenerator->promptPreamble = 'Always use the corporate teal palette.';
 
         $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget(), $this->completion());
@@ -153,9 +158,9 @@ final class SchaubildGeneratorTest extends TestCase
 
     public function testSnippetSectionsAndHintsFlowIntoTheLlmAndImagePrompts(): void
     {
-        $completion = $this->completion();
+        $completion     = $this->completion();
         $imageGenerator = $this->imageGenerator();
-        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget(), $completion);
+        $generator      = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget(), $completion);
 
         $snippets = new ResolvedPromptSnippets(
             schaubildSections: "TARGET AUDIENCE:\nInvestors\n\nSTYLE:\nHand-drawn sketch look",
@@ -180,9 +185,9 @@ final class SchaubildGeneratorTest extends TestCase
 
     public function testWithoutSnippetsPromptsCarryNoSectionOrHintBlocks(): void
     {
-        $completion = $this->completion();
+        $completion     = $this->completion();
         $imageGenerator = $this->imageGenerator();
-        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget(), $completion);
+        $generator      = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget(), $completion);
 
         self::assertTrue($generator->generate($this->context()));
 
@@ -198,10 +203,10 @@ final class SchaubildGeneratorTest extends TestCase
 
     public function testRecordsFullPromptsAndActualModelInVariantMetadata(): void
     {
-        $completion = $this->completion();
+        $completion     = $this->completion();
         $imageGenerator = $this->imageGenerator();
-        $jobs = $this->jobs();
-        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget(), $completion);
+        $jobs           = $this->jobs();
+        $generator      = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget(), $completion);
 
         self::assertTrue($generator->generate($this->context()));
 
@@ -235,8 +240,8 @@ final class SchaubildGeneratorTest extends TestCase
     public function testLayoutImageSizeHintDrivesBothAiImageCalls(): void
     {
         $imageGenerator = $this->imageGenerator();
-        $jobs = $this->jobs();
-        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget());
+        $jobs           = $this->jobs();
+        $generator      = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget());
 
         $snippets = new ResolvedPromptSnippets(schaubildImageSize: '1920x1088');
         self::assertTrue($generator->generate($this->context($snippets)));
@@ -254,7 +259,7 @@ final class SchaubildGeneratorTest extends TestCase
         // fail the artifact — they fall back to the generator default.
         foreach (['nonsense', '1000x1080', '8x1080', '19200x1080'] as $hint) {
             $imageGenerator = $this->imageGenerator();
-            $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget());
+            $generator      = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $this->jobs(), $this->allowingBudget());
 
             $snippets = new ResolvedPromptSnippets(schaubildImageSize: $hint);
             self::assertTrue($generator->generate($this->context($snippets)));
@@ -265,8 +270,8 @@ final class SchaubildGeneratorTest extends TestCase
     public function testReportsHtmlAndVariantProgressSteps(): void
     {
         $progressJobs = new StatusRecordingJobRepository();
-        $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget());
-        $ctx = $this->context()->withProgress(new JobProgress($progressJobs, 11, 30.0, 100.0));
+        $generator    = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget());
+        $ctx          = $this->context()->withProgress(new JobProgress($progressJobs, 11, 30.0, 100.0));
 
         self::assertTrue($generator->generate($ctx));
         self::assertSame([
@@ -278,7 +283,7 @@ final class SchaubildGeneratorTest extends TestCase
         ], $progressJobs->steps());
 
         $progresses = $progressJobs->progresses();
-        $sorted = $progresses;
+        $sorted     = $progresses;
         sort($sorted);
         self::assertSame($sorted, $progresses);
     }
@@ -291,7 +296,7 @@ final class SchaubildGeneratorTest extends TestCase
 
     private function completion(): FakeCompletionService
     {
-        $completion = new FakeCompletionService();
+        $completion                 = new FakeCompletionService();
         $completion->markdownResult = '<p>body</p>';
 
         return $completion;
@@ -317,7 +322,7 @@ final class SchaubildGeneratorTest extends TestCase
 
             public function overlay(string $backgroundPng, string $foregroundPng, string $outPath): string
             {
-                $this->overlayCalls++;
+                ++$this->overlayCalls;
                 file_put_contents($outPath, 'COMPOSITED');
 
                 return $outPath;
@@ -338,19 +343,28 @@ final class SchaubildGeneratorTest extends TestCase
             /** @var list<string> */
             public array $sizes = [];
 
-            public function isAvailable(): bool { return $this->available; }
+            public function isAvailable(): bool
+            {
+                return $this->available;
+            }
 
-            public function getModel(): string { return 'stub-image-model'; }
+            public function getModel(): string
+            {
+                return 'stub-image-model';
+            }
 
             public string $promptPreamble = '';
 
-            public function getPromptPreamble(): string { return $this->promptPreamble; }
+            public function getPromptPreamble(): string
+            {
+                return $this->promptPreamble;
+            }
 
             public function generateToFile(string $prompt, string $size, string $outputPath): void
             {
-                $this->calls++;
+                ++$this->calls;
                 $this->prompts[] = $prompt;
-                $this->sizes[] = $size;
+                $this->sizes[]   = $size;
                 file_put_contents($outputPath, 'PNG');
             }
         };
@@ -358,14 +372,14 @@ final class SchaubildGeneratorTest extends TestCase
 
     private function storage(): JobFileStorage
     {
-        return new class($this->createStub(ResourceStorage::class)) extends JobFileStorage {
+        return new class ($this->createStub(ResourceStorage::class)) extends JobFileStorage {
             private int $uid = 0;
 
             public function __construct(private readonly ResourceStorage $falStorage) {}
 
             public function store(string $content, string $fileName): File
             {
-                $this->uid++;
+                ++$this->uid;
 
                 return new File(['uid' => $this->uid], $this->falStorage);
             }
@@ -390,8 +404,8 @@ final class SchaubildGeneratorTest extends TestCase
 
             public function insertArtifact(int $jobUid, ArtifactType $type, string $variant, int $fileUid, ArtifactStatus $status, ?string $error = null): int
             {
-                $this->inserted[] = [$type->value, $variant];
-                $uid = $this->nextUid++;
+                $this->inserted[]           = [$type->value, $variant];
+                $uid                        = $this->nextUid++;
                 $this->variantUid[$variant] = $uid;
 
                 return $uid;
@@ -416,7 +430,7 @@ final class SchaubildGeneratorTest extends TestCase
 
     private function denyingBudget(): FakeBudgetService
     {
-        $budget = new FakeBudgetService();
+        $budget              = new FakeBudgetService();
         $budget->checkResult = BudgetCheckResult::denied('LIMIT_DAILY', 9.0, 9.0, 'no');
 
         return $budget;

@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Understanding;
@@ -42,7 +47,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
     public function analyze(SourceDocument $document, array $jobRow): ContentBrief
     {
         $beUser = (int) ($jobRow['be_user'] ?? 0);
-        $text = trim($document->text);
+        $text   = trim($document->text);
 
         if ($text === '') {
             throw new AnalysisException('Cannot analyze an empty source document', 1749384000);
@@ -54,7 +59,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
             $synthesisInput = $text;
         }
 
-        $prompt = $this->buildSynthesisPrompt($document, $synthesisInput);
+        $prompt  = $this->buildSynthesisPrompt($document, $synthesisInput);
         $decoded = $this->completion->completeJson($prompt, $this->jsonOptions(self::SYSTEM_PROMPT, $beUser));
 
         if (!$this->hasRequiredBriefKeys($decoded)) {
@@ -96,7 +101,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
     {
         $safe = [];
         foreach (array_slice($keys, 0, 12) as $key) {
-            $clean = (string) preg_replace('/[^A-Za-z0-9_.-]/', '', (string) $key);
+            $clean  = (string) preg_replace('/[^A-Za-z0-9_.-]/', '', (string) $key);
             $safe[] = mb_substr($clean !== '' ? $clean : '(unprintable)', 0, 40);
         }
 
@@ -122,8 +127,8 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
                 $this->jsonOptions(self::MAP_SYSTEM_PROMPT, $beUser),
             );
 
-            $summary = is_string($decoded['summary'] ?? null) ? $decoded['summary'] : '';
-            $points = $this->normalizeStringList($decoded['keyPoints'] ?? []);
+            $summary     = is_string($decoded['summary'] ?? null) ? $decoded['summary'] : '';
+            $points      = $this->normalizeStringList($decoded['keyPoints'] ?? []);
             $summaries[] = trim($summary . "\n" . implode("\n", array_map(
                 static fn (string $p): string => '- ' . $p,
                 $points,
@@ -136,16 +141,16 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
     /** @return list<string> */
     private function splitIntoChunks(string $text): array
     {
-        $split = preg_split('/\n{2,}/', $text);
+        $split      = preg_split('/\n{2,}/', $text);
         $paragraphs = $split === false ? [$text] : $split;
-        $chunks = [];
-        $current = '';
+        $chunks     = [];
+        $current    = '';
 
         foreach ($paragraphs as $paragraph) {
             $candidate = $current === '' ? $paragraph : $current . "\n\n" . $paragraph;
             if (mb_strlen($candidate) > $this->chunkSize && $current !== '') {
                 $chunks[] = $current;
-                $current = $paragraph;
+                $current  = $paragraph;
             } else {
                 $current = $candidate;
             }
@@ -186,7 +191,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
      */
     private function toContentBrief(array $decoded, SourceDocument $document): ContentBrief
     {
-        $title = is_string($decoded['title'] ?? null) ? trim($decoded['title']) : '';
+        $title   = is_string($decoded['title'] ?? null) ? trim($decoded['title']) : '';
         $summary = is_string($decoded['summary'] ?? null) ? trim($decoded['summary']) : '';
 
         if ($title === '' || $summary === '') {
@@ -250,7 +255,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
             }
 
             $heading = is_string($section['heading'] ?? null) ? trim($section['heading']) : '';
-            $body = is_string($section['body'] ?? null) ? trim($section['body']) : '';
+            $body    = is_string($section['body'] ?? null) ? trim($section['body']) : '';
             if ($heading === '' && $body === '') {
                 continue;
             }

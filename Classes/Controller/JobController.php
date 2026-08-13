@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Controller;
@@ -53,10 +58,10 @@ class JobController extends ActionController
         // An unconfigured tag yields an empty map; the select then only offers "(none)".
         $this->moduleTemplate->assignMultiple([
             'audienceOptions' => $this->snippetOptions('audience'),
-            'toneOptions' => $this->snippetOptions('tone_of_voice'),
-            'personaOptions' => $this->snippetOptions('persona'),
-            'layoutOptions' => $this->snippetOptions('layout'),
-            'styleOptions' => $this->snippetOptions('style'),
+            'toneOptions'     => $this->snippetOptions('tone_of_voice'),
+            'personaOptions'  => $this->snippetOptions('persona'),
+            'layoutOptions'   => $this->snippetOptions('layout'),
+            'styleOptions'    => $this->snippetOptions('style'),
         ]);
 
         return $this->moduleTemplate->renderResponse('Job/New');
@@ -106,7 +111,7 @@ class JobController extends ActionController
                 ?? sprintf('Job #%d', (int) $job->getUid()),
         );
         $this->moduleTemplate->assignMultiple([
-            'job' => $job,
+            'job'               => $job,
             'snippetSelections' => $this->resolveSnippetSelections($job->getPromptSnippetSelection()),
         ]);
 
@@ -153,11 +158,11 @@ class JobController extends ActionController
             }
 
             $snippet = $byUid[$uid] ?? null;
-            $rows[] = [
-                'label' => $label,
-                'name' => $snippet?->getName() ?? '',
+            $rows[]  = [
+                'label'       => $label,
+                'name'        => $snippet?->getName() ?? '',
                 'description' => $snippet?->getDescription() ?? '',
-                'available' => $snippet !== null,
+                'available'   => $snippet !== null,
             ];
         }
 

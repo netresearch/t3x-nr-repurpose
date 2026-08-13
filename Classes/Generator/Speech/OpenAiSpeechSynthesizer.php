@@ -1,13 +1,18 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator\Speech;
 
-use Throwable;
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Throwable;
 
 /**
  * Default SpeechSynthesizerInterface: delegates to nr-llm's TextToSpeechService (OpenAI TTS).

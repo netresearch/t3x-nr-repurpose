@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Rendering;
@@ -55,8 +60,8 @@ final class FfmpegAudioStitcherTest extends AbstractFunctionalTestCase
 
     public function testConcatTwoTonesYieldsApproxSummedDuration(): void
     {
-        $a = $this->tmpDir . '/a.mp3';
-        $b = $this->tmpDir . '/b.mp3';
+        $a   = $this->tmpDir . '/a.mp3';
+        $b   = $this->tmpDir . '/b.mp3';
         $out = $this->tmpDir . '/joined.mp3';
         $this->makeTone($a, 1.0);
         $this->makeTone($b, 2.0);

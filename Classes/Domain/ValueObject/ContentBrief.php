@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\ValueObject;
@@ -11,7 +16,7 @@ namespace Netresearch\NrRepurpose\Domain\ValueObject;
 final readonly class ContentBrief
 {
     /**
-     * @param list<string> $keyPoints
+     * @param list<string>                             $keyPoints
      * @param list<array{heading:string, body:string}> $sections
      */
     public function __construct(

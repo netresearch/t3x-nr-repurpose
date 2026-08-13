@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion;
@@ -14,7 +19,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
  *   - auto:   tier 1 (embedded text); sparse page -> tier 2 (Vision OCR); tabular page -> tier 3 (layout)
  *   - text:   tier 1 for every page
  *   - vision: tier 2 for every page
- *   - tables: tier 3 for every page
+ *   - tables: tier 3 for every page.
  */
 final readonly class SourceIngestionService implements SourceIngestionServiceInterface
 {
@@ -34,7 +39,7 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         }
 
         return match ($type) {
-            SourceType::Url => $this->ingestUrl((string) ($jobRow['source_value'] ?? '')),
+            SourceType::Url                        => $this->ingestUrl((string) ($jobRow['source_value'] ?? '')),
             SourceType::PdfUrl, SourceType::PdfFal => $this->ingestPdf($jobRow),
         };
     }
@@ -51,8 +56,8 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
     /** @param array<string,mixed> $jobRow */
     private function ingestPdf(array $jobRow): SourceDocument
     {
-        $mode = PdfMode::fromJobValue((string) ($jobRow['pdf_mode'] ?? 'auto'));
-        $beUser = (int) ($jobRow['be_user'] ?? 0);
+        $mode    = PdfMode::fromJobValue((string) ($jobRow['pdf_mode'] ?? 'auto'));
+        $beUser  = (int) ($jobRow['be_user'] ?? 0);
         $absPath = $this->pdfFileResolver->resolve($jobRow);
 
         $pages = $this->textExtractor->extract($absPath);
@@ -62,7 +67,7 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         foreach ($pages as $page) {
             [$text, $tier] = $this->extractPage($absPath, $page, $mode, $beUser);
             if (trim($text) !== '') {
-                $texts[] = $text;
+                $texts[]      = $text;
                 $tiers[$tier] = true;
             }
         }
@@ -84,20 +89,22 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
 
     /**
      * @param array{page:int,text:string,isSparse:bool} $page
+     *
      * @return array{0:string,1:string} [pageText, tierLabel]
      */
     private function extractPage(string $absPath, array $page, PdfMode $mode, int $beUser): array
     {
         return match ($mode) {
-            PdfMode::Text => [$page['text'], 'text'],
+            PdfMode::Text   => [$page['text'], 'text'],
             PdfMode::Vision => [$this->visionExtractor->ocrPage($absPath, $page['page'], $beUser), 'vision'],
             PdfMode::Tables => [$this->layoutExtractor->extractPage($absPath, $page['page']), 'tables'],
-            PdfMode::Auto => $this->autoPage($absPath, $page, $beUser),
+            PdfMode::Auto   => $this->autoPage($absPath, $page, $beUser),
         };
     }
 
     /**
      * @param array{page:int,text:string,isSparse:bool} $page
+     *
      * @return array{0:string,1:string}
      */
     private function autoPage(string $absPath, array $page, int $beUser): array
@@ -116,12 +123,12 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
     /** Cheap table heuristic: 3+ lines with a run of 2+ spaces between non-space chars (column gutters). */
     private function looksTabular(string $text): bool
     {
-        $split = preg_split('/\R/', $text);
-        $lines = $split === false ? [] : $split;
+        $split   = preg_split('/\R/', $text);
+        $lines   = $split === false ? [] : $split;
         $aligned = 0;
         foreach ($lines as $line) {
             if (preg_match('/\S {2,}\S/', $line) === 1) {
-                $aligned++;
+                ++$aligned;
             }
         }
 
@@ -130,6 +137,7 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
 
     /**
      * @param array<string,bool> $tiers
+     *
      * @return list<string>
      */
     private function orderTiers(array $tiers): array

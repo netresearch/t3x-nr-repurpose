@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Service;
@@ -7,10 +12,10 @@ namespace Netresearch\NrRepurpose\Service;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
+use RuntimeException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
-use RuntimeException;
 
 /**
  * Persists a new Job (Extbase, request context) and dispatches the generation message.

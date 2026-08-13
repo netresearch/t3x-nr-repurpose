@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Persistence;
@@ -19,29 +24,30 @@ final class JobProcessingRepositoryTest extends AbstractFunctionalTestCase
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)
             ->getConnectionForTable('tx_nrrepurpose_domain_model_job');
         $conn->insert('tx_nrrepurpose_domain_model_job', [
-            'pid' => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
-            'theme' => 'nr', 'want_podcast' => 1, 'want_schaubild' => 1, 'want_story' => 1,
+            'pid'    => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
+            'theme'  => 'nr', 'want_podcast' => 1, 'want_schaubild' => 1, 'want_story' => 1,
             'status' => 'queued',
         ]);
-        return (int)$conn->lastInsertId();
+
+        return (int) $conn->lastInsertId();
     }
 
     public function testMarkStatusUpdatesRow(): void
     {
-        $uid = $this->seedJob();
+        $uid  = $this->seedJob();
         $repo = $this->get(JobProcessingRepository::class);
 
         $repo->markStatus($uid, JobStatus::Generating, 'stub', 50);
 
         $row = $repo->findRow($uid);
         self::assertSame('generating', $row['status']);
-        self::assertSame(50, (int)$row['progress']);
+        self::assertSame(50, (int) $row['progress']);
         self::assertSame('stub', $row['current_step']);
     }
 
     public function testInsertArtifactReturnsUidAndPersists(): void
     {
-        $uid = $this->seedJob();
+        $uid  = $this->seedJob();
         $repo = $this->get(JobProcessingRepository::class);
 
         $artifactUid = $repo->insertArtifact($uid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);

@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\ValueObject;
@@ -56,7 +61,7 @@ final readonly class PromptSnippetSelection
         }
 
         $schaubild = is_array($data['schaubild'] ?? null) ? $data['schaubild'] : [];
-        $story = is_array($data['story'] ?? null) ? $data['story'] : [];
+        $story     = is_array($data['story'] ?? null) ? $data['story'] : [];
 
         return new self(
             audience: self::uidFrom($data, 'audience'),
@@ -72,11 +77,11 @@ final readonly class PromptSnippetSelection
     public function toJson(): string
     {
         return json_encode([
-            'audience' => $this->audience,
-            'tone' => $this->tone,
-            'personas' => $this->personas,
+            'audience'  => $this->audience,
+            'tone'      => $this->tone,
+            'personas'  => $this->personas,
             'schaubild' => ['layout' => $this->schaubildLayout, 'style' => $this->schaubildStyle],
-            'story' => ['layout' => $this->storyLayout, 'style' => $this->storyStyle],
+            'story'     => ['layout' => $this->storyLayout, 'style' => $this->storyStyle],
         ], JSON_THROW_ON_ERROR);
     }
 

@@ -1,8 +1,15 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\ViewHelpers;
+
+use function is_string;
 
 use Throwable;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -31,13 +38,13 @@ final class PublicUrlViewHelper extends AbstractViewHelper
         }
 
         try {
-            $file = GeneralUtility::makeInstance(ResourceFactory::class)->getFileObject($fileUid);
+            $file      = GeneralUtility::makeInstance(ResourceFactory::class)->getFileObject($fileUid);
             $publicUrl = $file->getPublicUrl();
         } catch (Throwable) {
             return '';
         }
 
-        return \is_string($publicUrl) && $publicUrl !== ''
+        return is_string($publicUrl) && $publicUrl !== ''
             ? PathUtility::getAbsoluteWebPath($publicUrl)
             : '';
     }

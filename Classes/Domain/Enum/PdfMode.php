@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\Enum;
@@ -10,8 +15,8 @@ namespace Netresearch\NrRepurpose\Domain\Enum;
  */
 enum PdfMode: string
 {
-    case Auto = 'auto';
-    case Text = 'text';
+    case Auto   = 'auto';
+    case Text   = 'text';
     case Vision = 'vision';
     case Tables = 'tables';
 

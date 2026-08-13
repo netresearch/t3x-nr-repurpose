@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\ValueObject;
@@ -26,7 +31,7 @@ final readonly class ArtifactTypeSummary
      * @param non-empty-list<ArtifactStatus> $statuses
      *
      * @throws InvalidArgumentException when $statuses is empty — an empty list
-     *                                   would silently aggregate to Done
+     *                                  would silently aggregate to Done
      */
     public static function fromStatuses(ArtifactType $type, array $statuses): self
     {
@@ -44,8 +49,8 @@ final readonly class ArtifactTypeSummary
     public function getSeverity(): string
     {
         return match ($this->status) {
-            ArtifactStatus::Done => 'success',
-            ArtifactStatus::Failed => 'danger',
+            ArtifactStatus::Done    => 'success',
+            ArtifactStatus::Failed  => 'danger',
             ArtifactStatus::Pending => 'muted',
         };
     }

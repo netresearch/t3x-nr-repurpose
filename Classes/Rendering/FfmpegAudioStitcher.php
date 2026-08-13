@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Rendering;
@@ -39,7 +44,7 @@ final readonly class FfmpegAudioStitcher implements AudioStitcherInterface
         }
 
         $listPath = $dir . '/concat-' . bin2hex(random_bytes(8)) . '.txt';
-        $lines = [];
+        $lines    = [];
         foreach ($mp3Paths as $path) {
             // ffmpeg concat-list syntax escapes a single quote as: '\''
             $lines[] = "file '" . str_replace("'", "'\\''", $path) . "'";
