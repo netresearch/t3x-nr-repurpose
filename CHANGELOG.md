@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-08-13
+
+### Changed
+
+- Accepts nr-llm 0.29 alongside 0.28. Nothing here touches the three surfaces
+  0.29 broke: the interface it gained a method on is consumed, never
+  implemented, and neither `ContextFitResult` nor `InputSubmission` is
+  constructed. The unit and functional suites run identically against both.
+
 ## [0.4.2] - 2026-08-11
 
 ### Fixed
