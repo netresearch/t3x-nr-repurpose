@@ -61,7 +61,7 @@ class JobProcessingRepository
         $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
             self::JOB_TABLE,
             ['status' => JobStatus::Failed->value, 'error_message' => $error, 'tstamp' => time()],
-            ['uid'    => $jobUid],
+            ['uid' => $jobUid],
         );
     }
 
@@ -70,7 +70,7 @@ class JobProcessingRepository
         $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
             self::JOB_TABLE,
             ['language_detected' => $language, 'tstamp' => time()],
-            ['uid'               => $jobUid],
+            ['uid' => $jobUid],
         );
     }
 
