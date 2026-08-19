@@ -1,12 +1,12 @@
 <!-- FOR AI AGENTS - Human readability is a side effect, not a goal -->
 <!-- Managed by agent: keep sections and order; edit content, not structure -->
-<!-- Last updated: 2026-06-12 | Last verified: 2026-06-12 -->
+<!-- Last updated: 2026-08-19 | Last verified: 2026-08-19 -->
 
 # AGENTS.md
 
 **Precedence:** the **closest `AGENTS.md`** to the files you're changing wins. Root holds global defaults only.
 
-## Commands (verified 2026-06-12)
+## Commands (verified 2026-08-19)
 > ALWAYS via the Docker test runner — NEVER `phpunit`/`php-cs-fixer` directly.
 
 <!-- AGENTS-GENERATED:START commands -->
@@ -21,35 +21,25 @@
 <!-- AGENTS-GENERATED:END commands -->
 
 > **PHPStan, cgl, rector and lint all run here.** The tools come in through
-> `netresearch/typo3-ci-workflows`, which is in `require-dev` — a plain install
-> puts `phpstan`, `php-cs-fixer` and `rector` into `.Build/bin/`.
+> `netresearch/typo3-ci-workflows` (require-dev) — a plain install puts
+> `phpstan`, `php-cs-fixer` and `rector` into `.Build/bin/`. Composer scripts:
+> `ci:cgl`, `ci:rector`, `ci:test:php:{cgl,phpstan,rector}`.
 >
-> PHPStan runs at level 8 over `Classes` only (`phpstan.neon`), with `Tests`
-> and level 10 deliberately not enabled yet: level 10 on both costs about 280
-> findings, and a baseline that size hides every new one.
+> PHPStan runs at level 8 over `Classes` only (`phpstan.neon`) — level 10 plus
+> `Tests` costs ~280 findings, and a baseline that size hides every new one.
 >
-> Code style uses the shared ruleset from `netresearch/typo3-ci-workflows` via
-> `.php-cs-fixer.dist.php`. **Run it on PHP 8.3**, which is what CI uses — the
-> cgl job takes the first entry of `php-versions`, and formatting on a newer
-> runtime can produce output that job then rejects. `ci.yml` still sets
-> `run-functional-tests: false`.
+> Code style uses the shared ruleset via `.php-cs-fixer.dist.php`. **Run cgl on
+> PHP 8.3** — CI's cgl job takes the first `php-versions` entry, and formatting
+> on a newer runtime can produce output that job then rejects.
 >
-> This paragraph used to say those tools were "not provisioned" and told you
-> not to investigate the failure. That was true when the template was adopted
-> and stopped being true when the shared package started shipping them; the
-> instruction to stop looking is why nobody noticed for two months. If a tool
-> reports "config file does not exist", that is a missing config, not a
-> missing tool — check before concluding.
-
-## Response Style
-- Answer first, elaborate only if needed. No sycophantic openers ("Great question!", "Absolutely!").
-- For yes/no or status questions, lead with the answer.
-- Skip preamble. Match response length to task complexity.
+> If a tool reports "config file does not exist", that is a missing config, not
+> a missing tool — check before concluding a tool is absent.
 
 ## Workflow
 1. **Before coding**: Read nearest `AGENTS.md` + check Golden Samples for the area you're touching
 2. **After each change**: Run the smallest relevant check (lint → typecheck → single test)
 3. **Before committing**: Run full test suite if changes affect >2 files or touch shared code
+4. **Response style**: answer first, no sycophantic openers; match response length to task complexity
 4. **Before claiming done**: Run verification and **show output as evidence** — never say "try again", "should work now", "tested", "verified", or "all green" without pasted command output in the same turn
 
 ## File Map
@@ -91,16 +81,14 @@ Build/           → project files
 <!-- AGENTS-GENERATED:START repo-settings -->
 - **Default branch:** `main`
 - **Merge strategy:** merge
-- **Active rulesets:** Copilot review for default branch
+- **Active rulesets:** Copilot review, require-signed-commits, t3x-baseline (required status checks), t3x-pull-request
 <!-- AGENTS-GENERATED:END repo-settings -->
 
 <!-- AGENTS-GENERATED:START ci-rules -->
 ## CI (reusable netresearch/typo3-ci-workflows)
-- Matrix: PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3 — Lint + Unit Tests per version
-- `run-phpstan: true` — level 8 over `Classes`, config in `phpstan.neon`
-- `run-cgl: false`, `run-functional-tests: false` — the tools are installed,
-  these gates are simply not switched on yet
-- Plus: security (Opengrep SAST, composer audit), license-check, CodeQL, SonarCloud, DCO
+- `ci.yml` matrix: PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3 — lint + unit tests per version
+- `run-cgl`, `run-phpstan`, `run-rector` are `true`; `run-functional-tests: false` is the only gate still off
+- `checks.yml` (drift-enforced): security (Opengrep SAST, composer audit), gitleaks, zizmor, fuzz, license-check, CodeQL, Scorecard, dependency-review, pr-quality — all behind one required `All security checks` gate; SonarCloud + DCO run as apps
 - Release: signed annotated tag `vX.Y.Z` triggers `release.yml` (skip-ter/packagist/docs set — not published there yet)
 <!-- AGENTS-GENERATED:END ci-rules -->
 
@@ -135,15 +123,9 @@ Build/           → project files
 - Reply to review comments with bare "Addressed" or "Fixed" — cite the resolving commit SHA
 - Delete migration files or schema changes
 - Use `secrets: inherit` in reusable GitHub Actions workflows (pass secrets explicitly)
-- Commit composer.lock without composer.json changes
-- Modify core framework files
+- Commit a `composer.lock` — this extension deliberately has none
 
-## Contributing (for AI agents)
-- **Comprehension**: Understand the problem before submitting code. Read the linked issue, understand *why* the change is needed, not just *what* to change.
-- **Context**: Every PR must explain the trade-offs considered and link to the issue it addresses. Disclose AI assistance if the project requires it.
-- **Continuity**: Respond to review feedback. Drive-by PRs without follow-up will be closed.
-
-## Architecture (pipeline)
+## Architecture (pipeline — component map: `docs/ARCHITECTURE.md`)
 <!-- AGENTS-GENERATED:START codebase-state -->
 ingest (`Classes/Ingestion/`: URL fetch or tiered PDF reader) → analyze
 (`Classes/Understanding/DocumentAnalyzer` → one `ContentBrief` via nr-llm
@@ -165,4 +147,3 @@ nr-llm (identifier `nr_repurpose_openai` on the live instance).
 
 ## When instructions conflict
 The nearest `AGENTS.md` wins. Explicit user prompts override files.
-- For PHP-specific patterns, follow PSR standards
