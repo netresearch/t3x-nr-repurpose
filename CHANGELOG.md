@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-08-19
+
 ### Changed
 
 - netresearch/nr-llm requirement raised to `^0.30` (0.28/0.29 support dropped)
