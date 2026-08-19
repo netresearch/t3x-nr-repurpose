@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-06-12 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
 
 # AGENTS.md — Classes
 
@@ -29,7 +29,7 @@ TYPO3 extension following TYPO3 CGL and PSR-12
 
 <!-- AGENTS-GENERATED:START setup -->
 ## Setup & environment
-- PHP ^8.3, TYPO3 ^14.3, nr-llm ^0.25
+- PHP ^8.3, TYPO3 ^14.3; nr-llm/nr-vault floors: see `composer.json` (do not pin versions here)
 - Local dev: `ddev start && ddev install` (seeds the provider key + nr-llm wiring)
 - Tests/static analysis: see root `AGENTS.md` Commands — Docker runner only
 <!-- AGENTS-GENERATED:END setup -->
@@ -55,9 +55,11 @@ Classes/
 
 <!-- AGENTS-GENERATED:START commands -->
 ## Build & tests
-See the root `AGENTS.md` Commands table — everything runs through
-`./Build/Scripts/runTests.sh` (unit, functional, lint only; cgl/phpstan/rector
-are NOT provisioned in this repo). No composer scripts exist.
+See the root `AGENTS.md` Commands table — tests run through
+`./Build/Scripts/runTests.sh` (unit, functional, lint, cgl, phpstan). The CI
+tools ship via `netresearch/typo3-ci-workflows` (require-dev) into
+`.Build/bin/`; composer scripts: `ci:cgl`, `ci:rector`,
+`ci:test:php:{cgl,phpstan,rector}`.
 <!-- AGENTS-GENERATED:END commands -->
 
 <!-- AGENTS-GENERATED:START code-style -->
@@ -111,7 +113,7 @@ are NOT provisioned in this repo). No composer scripts exist.
 <!-- AGENTS-GENERATED:START upgrade -->
 ## TYPO3 upgrade considerations
 - Run **Extension Scanner** before upgrading: Backend → Upgrade → Scan Extension Files
-- Rector is NOT provisioned in this repo (no config, not in require-dev)
+- Rector is provisioned: config `Build/rector.php`, dry-run via `composer ci:test:php:rector`, fix via `composer ci:rector`
 - Check **deprecation log** in TYPO3 backend
 - Review [TYPO3 Changelog](https://docs.typo3.org/c/typo3/cms-core/main/en-us/Index.html) for breaking changes
 <!-- AGENTS-GENERATED:END upgrade -->

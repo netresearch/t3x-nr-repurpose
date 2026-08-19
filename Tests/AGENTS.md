@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-06-12 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
 
 # AGENTS.md — Tests
 
@@ -28,18 +28,14 @@ TYPO3 extension test suite. **Use the `typo3-testing` skill** for comprehensive 
 <!-- AGENTS-GENERATED:END golden-samples -->
 
 <!-- AGENTS-GENERATED:START structure -->
-## Test Structure (TYPO3 standard)
+## Test Structure
 ```
 Tests/
-├── Unit/                    # Fast, isolated unit tests
-│   └── Domain/
-│       └── Model/
-├── Functional/              # Tests with database/TYPO3 context
-│   ├── Fixtures/            # Test data, SQL, XML
-│   └── Domain/
-│       └── Repository/
-└── Build/                   # CI configuration
+├── Unit/          # Domain, Fixture, Generator, Ingestion, Pipeline, Rendering, Service, Understanding
+├── Functional/    # Domain, Generator, Ingestion, Persistence, Queue, Rendering, Resource, Service
+└── Fixtures/      # Pdf/ and Web/ sample inputs shared by both suites
 ```
+PHPUnit configs live in `Build/phpunit/` (repo root), not under `Tests/`.
 <!-- AGENTS-GENERATED:END structure -->
 
 <!-- AGENTS-GENERATED:START commands -->
@@ -51,8 +47,9 @@ Tests/
 | Single file | `./Build/Scripts/runTests.sh -s unit Tests/Unit/Path/To/Test.php` (extra args pass through to phpunit) |
 | Coverage | `./Build/Scripts/runTests.sh -s unitCoverage` |
 
-> No composer test scripts exist in this repo — the runner is the only entry
-> point. `-p <8.3|8.4|8.5>` selects the PHP version (default 8.5).
+> No composer phpunit scripts exist — the runner is the only test entry point
+> (the `ci:*` composer scripts cover cgl/phpstan/rector, not phpunit).
+> `-p <8.3|8.4|8.5>` selects the PHP version (default 8.5).
 <!-- AGENTS-GENERATED:END commands -->
 
 <!-- AGENTS-GENERATED:START patterns -->
@@ -95,7 +92,7 @@ See Golden Samples above — real tests beat generic snippets.
 
 ## When stuck
 - Verbose run: `./Build/Scripts/runTests.sh -s unit -v`
-- Root `AGENTS.md` for provisioning limits (no cgl/phpstan here)
+- Root `AGENTS.md` for tool provisioning (cgl/phpstan/rector ship via `netresearch/typo3-ci-workflows`)
 
 <!-- AGENTS-GENERATED:START skill-reference -->
 ## Skill Reference
