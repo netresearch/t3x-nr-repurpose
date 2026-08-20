@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Every nr-llm call names this extension and the pipeline step it belongs to
+  (`withCallerSource('nr_repurpose', …)`, nr-llm ADR-177), so nr-llm's Analytics
+  module attributes usage and cost to `nr_repurpose` instead of listing it as
+  "Unattributed". Operations: `analyzeDocument`, `analyzeDocumentChunk`,
+  `extractPdfVision`, `generatePodcast`, `generateDiagram`, `generateStory`.
+  `ConfiguredCompletionService`, the funnel every text completion passes through,
+  stamps the extension key on options that carry none — the operation stays with
+  the call site. The PDF vision annotation does not reach the telemetry row yet:
+  nr-llm 0.31.1's `VisionService::analyzeImageFull()` rebuilds the options object
+  without the caller source (netresearch/t3x-nr-llm#845).
+
 ## [0.4.5] - 2026-08-20
 
 ### Changed

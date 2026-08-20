@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -29,6 +30,7 @@ use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -345,6 +347,25 @@ final class StoryGeneratorTest extends TestCase
         $generator  = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
         $generator->generate($this->context(true, ['A', 'B', 'C', 'D', 'E', 'F']));
         self::assertEqualsWithDelta(0.06, $completion->completeJsonCalls[0]['options']?->getPlannedCost(), 1e-9);
+    }
+
+    /**
+     * The copy call names this extension and its pipeline step, so nr-llm Analytics
+     * can attribute the cost instead of listing it as "Unattributed".
+     */
+    public function testCopyCallNamesThisExtensionAndTheStoryOperation(): void
+    {
+        $completion = $this->completion(self::THREE_SLIDES);
+        $generator  = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+
+        $options = $completion->completeJsonCalls[0]['options'];
+        self::assertInstanceOf(ChatOptions::class, $options);
+        self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
+        self::assertSame(CallerSource::GENERATE_STORY, $options->getCallerSourceOperation());
+        // The wither returns a copy — the budget guard must survive it.
+        self::assertSame(5, $options->getBeUserUid());
     }
 
     public function testSlidesPromptCarriesTheComposedSnippetSections(): void

@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -27,6 +28,7 @@ use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -180,6 +182,28 @@ final class SchaubildGeneratorTest extends TestCase
         foreach ($imageGenerator->prompts as $prompt) {
             self::assertStringContainsString('Visual style: Hand-drawn sketch look', $prompt);
             self::assertStringContainsString('Target audience: Investors', $prompt);
+        }
+    }
+
+    /**
+     * Every diagram-body call names this extension and its pipeline step, so nr-llm
+     * Analytics can attribute the cost instead of listing it as "Unattributed".
+     */
+    public function testEveryDiagramBodyCallNamesThisExtensionAndTheDiagramOperation(): void
+    {
+        $completion = $this->completion();
+        $generator  = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+
+        self::assertNotSame([], $completion->completeMarkdownCalls);
+        foreach ($completion->completeMarkdownCalls as $call) {
+            $options = $call['options'];
+            self::assertInstanceOf(ChatOptions::class, $options);
+            self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
+            self::assertSame(CallerSource::GENERATE_DIAGRAM, $options->getCallerSourceOperation());
+            // The wither returns a copy — the budget guard must survive it.
+            self::assertSame(4, $options->getBeUserUid());
         }
     }
 

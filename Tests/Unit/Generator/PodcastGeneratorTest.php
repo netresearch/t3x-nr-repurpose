@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -26,7 +27,9 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Resource\File;
@@ -332,6 +335,48 @@ final class PodcastGeneratorTest extends TestCase
         // The prompts object carries the resolved per-speaker voice map.
         self::assertSame(['Anna' => 'fable', 'Ben' => 'onyx', 'Cara' => 'nova'], $metadata['prompts']['voices']);
         self::assertSame($completion->completeJsonCalls[0]['prompt'], $metadata['prompts']['user']);
+    }
+
+    /**
+     * Both dialogue shapes name this extension and the podcast step, so nr-llm
+     * Analytics can attribute the cost instead of listing it as "Unattributed".
+     *
+     * @param list<Persona> $personas
+     */
+    #[DataProvider('dialogueShapes')]
+    public function testScriptCallNamesThisExtensionAndThePodcastOperation(array $personas): void
+    {
+        $completion = $this->completion();
+        $generator  = new PodcastGenerator(
+            $this->jobs(),
+            $this->allowingBudget(),
+            new NullLogger(),
+            $completion,
+            $this->speech(),
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
+        );
+
+        self::assertTrue($generator->generate($this->context(1, $personas)));
+
+        $options = $completion->completeJsonCalls[0]['options'];
+        self::assertInstanceOf(ChatOptions::class, $options);
+        self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
+        self::assertSame(CallerSource::GENERATE_PODCAST, $options->getCallerSourceOperation());
+        // The wither returns a copy — the budget guard must survive it.
+        self::assertSame(3, $options->getBeUserUid());
+    }
+
+    /**
+     * @return array<string, array{list<Persona>}>
+     */
+    public static function dialogueShapes(): array
+    {
+        return [
+            'two-host' => [[]],
+            'persona'  => [[new Persona('Anna', 'Curious analyst.', 'fable')]],
+        ];
     }
 
     public function testPersonaNamesWithQuotesAreJsonEscapedInTheSpeakerConstraint(): void

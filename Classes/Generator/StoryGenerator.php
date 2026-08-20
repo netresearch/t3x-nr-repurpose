@@ -21,6 +21,7 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -157,14 +158,14 @@ class StoryGenerator extends AbstractGenerator
     private function buildSlides(GenerationContext $ctx): array
     {
         $keyPoints = array_slice($ctx->brief->keyPoints, 0, self::MAX_POINT_SLIDES);
-        $options   = new ChatOptions(
+        $options   = (new ChatOptions(
             temperature: 0.5,
             responseFormat: 'json',
             systemPrompt: self::COPY_SYSTEM_PROMPT,
             beUserUid: $ctx->beUser,
             // cover + one slide per key point + outro; capped at MAX_SLIDES by the point cap.
             plannedCost: self::COPY_COST_PER_SLIDE * (count($keyPoints) + 2),
-        );
+        ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_STORY);
 
         return $this->parseSlides($this->completion->completeJson($this->carouselPrompt($ctx), $options));
     }

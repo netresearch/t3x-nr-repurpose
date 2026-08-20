@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzer;
 use PHPUnit\Framework\TestCase;
@@ -171,6 +172,80 @@ final class DocumentAnalyzerTest extends TestCase
         self::assertSame('json', $options->getResponseFormat());
         self::assertNotSame('', (string) $options->getSystemPrompt());
         self::assertSame(7, $options->getBeUserUid());
+    }
+
+    /**
+     * The synthesis call names this extension and its pipeline step, so nr-llm
+     * Analytics can attribute the cost instead of listing it as "Unattributed".
+     */
+    public function testSynthesisCallNamesThisExtensionAndTheAnalysisOperation(): void
+    {
+        $fake     = new FakeCompletionService([$this->briefResult('en')]);
+        $analyzer = new DocumentAnalyzer($fake, new NullLogger());
+
+        $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 7]);
+
+        $options = $fake->jsonCalls[0]['options'];
+        self::assertInstanceOf(ChatOptions::class, $options);
+        self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
+        self::assertSame(CallerSource::ANALYZE_DOCUMENT, $options->getCallerSourceOperation());
+    }
+
+    public function testCorrectiveRetryKeepsTheAnalysisOperation(): void
+    {
+        $fake = new FakeCompletionService([
+            ['keyPoints' => ['x'], 'language' => 'en'],
+            $this->briefResult('en'),
+        ]);
+        $analyzer = new DocumentAnalyzer($fake, new NullLogger());
+
+        $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 0]);
+
+        $options = $fake->jsonCalls[1]['options'];
+        self::assertInstanceOf(ChatOptions::class, $options);
+        self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
+        self::assertSame(CallerSource::ANALYZE_DOCUMENT, $options->getCallerSourceOperation());
+    }
+
+    /**
+     * The map step is one call per chunk against a cheaper prompt — it reports its
+     * own operation so the breakdown separates it from the single synthesis call.
+     */
+    public function testMapStepReportsItsOwnOperationAndSynthesisKeepsTheAnalysisOne(): void
+    {
+        $paragraph = str_repeat('Section content sentence. ', 400);
+        $document  = new SourceDocument(
+            title: 'Big report',
+            text: implode("\n\n", [$paragraph, $paragraph, $paragraph]),
+            sourceLabel: 'https://example.com/big',
+            pageCount: 0,
+            languageHint: 'en',
+        );
+
+        $mapResult = ['summary' => 'Chunk summary.', 'keyPoints' => ['kp']];
+        $fake      = new FakeCompletionService([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
+        $analyzer  = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000);
+
+        $analyzer->analyze($document, ['uid' => 1, 'be_user' => 7]);
+
+        $operations = array_map(
+            static function (array $call): ?string {
+                $options = $call['options'];
+
+                return $options instanceof ChatOptions ? $options->getCallerSourceOperation() : null;
+            },
+            $fake->jsonCalls,
+        );
+
+        self::assertSame(
+            [
+                CallerSource::ANALYZE_DOCUMENT_CHUNK,
+                CallerSource::ANALYZE_DOCUMENT_CHUNK,
+                CallerSource::ANALYZE_DOCUMENT_CHUNK,
+                CallerSource::ANALYZE_DOCUMENT,
+            ],
+            $operations,
+        );
     }
 
     public function testJsonLanguageOverridesEmptyHint(): void

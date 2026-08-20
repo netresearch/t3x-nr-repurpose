@@ -35,6 +35,12 @@ use Psr\Log\LoggerInterface;
  * the instance-default configuration — the pre-0.22 behaviour — so an
  * unconfigured install keeps working. Wired into the generators via a scoped
  * `$completion` bind in Configuration/Services.yaml.
+ *
+ * Every text completion in this extension passes through here, so this is also
+ * where the caller identity (nr-llm ADR-177) is guaranteed: options that already
+ * name a caller are passed through untouched — the operation belongs to the call
+ * site, not here — and options that name none are stamped with the extension key,
+ * so a new call site cannot land in the Analytics "Unattributed" bucket.
  */
 final class ConfiguredCompletionService implements CompletionServiceInterface
 {
@@ -59,6 +65,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
 
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
+        $options       = $this->withCallerIdentity($options);
         $configuration = $this->resolveConfiguration();
 
         return $configuration instanceof LlmConfiguration
@@ -71,6 +78,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
      */
     public function completeJson(string $prompt, ?ChatOptions $options = null): array
     {
+        $options       = $this->withCallerIdentity($options);
         $configuration = $this->resolveConfiguration();
 
         return $configuration instanceof LlmConfiguration
@@ -85,6 +93,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
      */
     public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
     {
+        $options       = $this->withCallerIdentity($options);
         $configuration = $this->resolveConfiguration();
 
         return $configuration instanceof LlmConfiguration
@@ -94,6 +103,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
     {
+        $options       = $this->withCallerIdentity($options);
         $configuration = $this->resolveConfiguration();
 
         return $configuration instanceof LlmConfiguration
@@ -103,6 +113,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
 
     public function completeFactual(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
+        $options       = $this->withCallerIdentity($options);
         $configuration = $this->resolveConfiguration();
 
         return $configuration instanceof LlmConfiguration
@@ -112,6 +123,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
 
     public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
+        $options       = $this->withCallerIdentity($options);
         $configuration = $this->resolveConfiguration();
 
         return $configuration instanceof LlmConfiguration
@@ -121,7 +133,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
 
     public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
-        return $this->inner->completeForConfiguration($prompt, $configuration, $options);
+        return $this->inner->completeForConfiguration($prompt, $configuration, $this->withCallerIdentity($options));
     }
 
     /**
@@ -129,7 +141,7 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
      */
     public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
     {
-        return $this->inner->completeJsonForConfiguration($prompt, $configuration, $options);
+        return $this->inner->completeJsonForConfiguration($prompt, $configuration, $this->withCallerIdentity($options));
     }
 
     /**
@@ -139,22 +151,39 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
      */
     public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
     {
-        return $this->inner->completeStructuredForConfiguration($prompt, $configuration, $schema, $options);
+        return $this->inner->completeStructuredForConfiguration($prompt, $configuration, $schema, $this->withCallerIdentity($options));
     }
 
     public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
     {
-        return $this->inner->completeMarkdownForConfiguration($prompt, $configuration, $options);
+        return $this->inner->completeMarkdownForConfiguration($prompt, $configuration, $this->withCallerIdentity($options));
     }
 
     public function completeFactualForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
-        return $this->inner->completeFactualForConfiguration($prompt, $configuration, $options);
+        return $this->inner->completeFactualForConfiguration($prompt, $configuration, $this->withCallerIdentity($options));
     }
 
     public function completeCreativeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
-        return $this->inner->completeCreativeForConfiguration($prompt, $configuration, $options);
+        return $this->inner->completeCreativeForConfiguration($prompt, $configuration, $this->withCallerIdentity($options));
+    }
+
+    /**
+     * Guarantee the call names this extension (nr-llm ADR-177). A caller that
+     * already set one keeps it, operation included — the operation identifies the
+     * pipeline step and only the call site knows it. A caller that set none (or
+     * passed no options at all) gets the bare extension key: attributed to
+     * nr_repurpose with an empty operation, rather than "Unattributed".
+     */
+    private function withCallerIdentity(?ChatOptions $options): ChatOptions
+    {
+        $options ??= new ChatOptions();
+        $extension = $options->getCallerSourceExtension();
+
+        return $extension === null || $extension === ''
+            ? $options->withCallerSource(CallerSource::EXTENSION)
+            : $options;
     }
 
     /**

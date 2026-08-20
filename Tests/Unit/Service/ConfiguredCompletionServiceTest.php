@@ -14,7 +14,9 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
+use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Service\ConfiguredCompletionService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -128,6 +130,66 @@ final class ConfiguredCompletionServiceTest extends TestCase
 
         self::assertSame(['explicit' => true], $result);
         self::assertSame($explicit, $inner->completeJsonForConfigurationCalls[0]['configuration']);
+    }
+
+    /**
+     * The decorator is the funnel for every text completion in this extension, so a
+     * call that names no caller still reaches nr-llm attributed to the extension
+     * rather than landing in the Analytics "Unattributed" bucket.
+     */
+    public function testStampsTheExtensionKeyOnOptionsThatNameNoCaller(): void
+    {
+        $inner             = new FakeCompletionService();
+        $inner->jsonResult = [];
+
+        $this->subject($inner, $this->activeConfigurationStub())->completeJson('p', new ChatOptions(temperature: 0.4));
+
+        $options = $inner->completeJsonForConfigurationCalls[0]['options'];
+        self::assertInstanceOf(ChatOptions::class, $options);
+        self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
+        self::assertSame('', $options->getCallerSourceOperation());
+        self::assertSame(0.4, $options->getTemperature());
+    }
+
+    public function testStampsTheExtensionKeyWhenTheCallerPassesNoOptions(): void
+    {
+        $inner             = new FakeCompletionService();
+        $inner->jsonResult = [];
+
+        $this->subject($inner, null)->completeJson('p');
+
+        $options = $inner->completeJsonCalls[0]['options'];
+        self::assertInstanceOf(ChatOptions::class, $options);
+        self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
+    }
+
+    /**
+     * The operation identifies the pipeline step and only the call site knows it —
+     * the decorator must never overwrite what a caller already set.
+     */
+    public function testKeepsTheOperationTheCallSiteSet(): void
+    {
+        $inner             = new FakeCompletionService();
+        $inner->jsonResult = [];
+
+        $annotated = (new ChatOptions())->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_STORY);
+        $this->subject($inner, $this->activeConfigurationStub())->completeJson('p', $annotated);
+
+        $options = $inner->completeJsonForConfigurationCalls[0]['options'];
+        self::assertInstanceOf(ChatOptions::class, $options);
+        self::assertSame(CallerSource::GENERATE_STORY, $options->getCallerSourceOperation());
+    }
+
+    public function testForConfigurationPassThroughAlsoCarriesTheExtensionKey(): void
+    {
+        $inner                 = new FakeCompletionService();
+        $inner->markdownResult = '# heading';
+
+        $this->subject($inner, null)->completeMarkdownForConfiguration('p', self::createStub(LlmConfiguration::class));
+
+        $options = $inner->completeMarkdownForConfigurationCalls[0]['options'];
+        self::assertInstanceOf(ChatOptions::class, $options);
+        self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
     }
 
     private function response(): CompletionResponse

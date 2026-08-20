@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -24,6 +25,9 @@ use Psr\Log\LoggerInterface;
  *   to respect provider token limits. The chunk threshold/size are configurable.
  * - Every completion call carries a beUserUid on ChatOptions, opting it into nr-llm's
  *   BudgetMiddleware; an over-budget run throws BudgetExceededException.
+ * - Every completion call names this extension and its step (CallerSource), so nr-llm
+ *   Analytics attributes the cost to nr_repurpose instead of "Unattributed". The map
+ *   step reports its own operation — it is one call per chunk, the synthesis is one.
  */
 final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
 {
@@ -60,7 +64,10 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
         }
 
         $prompt  = $this->buildSynthesisPrompt($document, $synthesisInput);
-        $decoded = $this->completion->completeJson($prompt, $this->jsonOptions(self::SYSTEM_PROMPT, $beUser));
+        $decoded = $this->completion->completeJson(
+            $prompt,
+            $this->jsonOptions(self::SYSTEM_PROMPT, $beUser, CallerSource::ANALYZE_DOCUMENT),
+        );
 
         if (!$this->hasRequiredBriefKeys($decoded)) {
             // The model occasionally answers with a differently-shaped object
@@ -76,7 +83,10 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
                 . '] and was rejected. Respond again with EXACTLY the JSON keys '
                 . '"title", "summary", "keyPoints", "sections", "audience", "language" '
                 . '— non-empty "title" and "summary" are mandatory.';
-            $decoded = $this->completion->completeJson($retryPrompt, $this->jsonOptions(self::SYSTEM_PROMPT, $beUser));
+            $decoded = $this->completion->completeJson(
+                $retryPrompt,
+                $this->jsonOptions(self::SYSTEM_PROMPT, $beUser, CallerSource::ANALYZE_DOCUMENT),
+            );
         }
 
         return $this->toContentBrief($decoded, $document);
@@ -124,7 +134,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
                 . 'SECTION ' . ($index + 1) . ":\n" . $chunk;
             $decoded = $this->completion->completeJson(
                 $prompt,
-                $this->jsonOptions(self::MAP_SYSTEM_PROMPT, $beUser),
+                $this->jsonOptions(self::MAP_SYSTEM_PROMPT, $beUser, CallerSource::ANALYZE_DOCUMENT_CHUNK),
             );
 
             $summary     = is_string($decoded['summary'] ?? null) ? $decoded['summary'] : '';
@@ -174,13 +184,13 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
             . "DOCUMENT:\n" . $body;
     }
 
-    private function jsonOptions(string $systemPrompt, int $beUser): ChatOptions
+    private function jsonOptions(string $systemPrompt, int $beUser, string $operation): ChatOptions
     {
-        $options = new ChatOptions(
+        $options = (new ChatOptions(
             temperature: 0.3,
             responseFormat: 'json',
             systemPrompt: $systemPrompt,
-        );
+        ))->withCallerSource(CallerSource::EXTENSION, $operation);
 
         // beUserUid opts the call into nr-llm BudgetMiddleware; 0 = skip (anonymous/CLI).
         return $beUser > 0 ? $options->withBeUserUid($beUser) : $options;
