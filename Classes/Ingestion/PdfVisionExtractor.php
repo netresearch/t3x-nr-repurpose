@@ -12,10 +12,16 @@ namespace Netresearch\NrRepurpose\Ingestion;
 use Netresearch\NrLlm\Service\Feature\VisionServiceInterface;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrRepurpose\Ingestion\Poppler\PopplerRunnerInterface;
+use Netresearch\NrRepurpose\Service\CallerSource;
 
 /**
  * Tier 2 — renders a PDF page to PNG (Poppler) and OCRs it through nr-llm Vision.
  * Used by the auto dispatcher for scanned/image-only pages and by forced `vision` mode.
+ *
+ * The Vision options name this extension and the step (CallerSource) like every other
+ * nr-llm call here. Note that nr-llm 0.31.1's VisionService::analyzeImageFull() rebuilds
+ * the VisionOptions field by field and does not copy the caller source, so the annotation
+ * does not reach the telemetry row yet — netresearch/t3x-nr-llm#843.
  */
 class PdfVisionExtractor
 {
@@ -38,7 +44,9 @@ class PdfVisionExtractor
         $png     = $this->poppler->rasterizePage($absPdfPath, $page, $dpi);
         $dataUri = 'data:image/png;base64,' . base64_encode($png);
 
-        $options = (new VisionOptions())->withMaxTokens(self::OCR_MAX_TOKENS);
+        $options = (new VisionOptions())
+            ->withMaxTokens(self::OCR_MAX_TOKENS)
+            ->withCallerSource(CallerSource::EXTENSION, CallerSource::EXTRACT_PDF_VISION);
         if ($beUser > 0) {
             $options = $options->withBeUserUid($beUser);
         }

@@ -143,6 +143,37 @@ calls :php:`AbstractGenerator::specializedAllowed()`, which checks nr-llm's
 therefore still yields the cost-free variants (for example the deterministic
 HTML Schaubild) while skipping the AI-image variants.
 
+.. _architecture-generation-attribution:
+
+Cost attribution
+----------------
+
+Every nr-llm call names this extension and the pipeline step it belongs to
+(:php:`AbstractOptions::withCallerSource()`), so nr-llm's Analytics module breaks
+usage and cost down by ``nr_repurpose`` and by operation instead of listing them
+as "Unattributed". The operation names are constants on
+:php:`Netresearch\NrRepurpose\Service\CallerSource`:
+
+.. code-block:: text
+
+   analyzeDocument        document synthesis (and its corrective retry)
+   analyzeDocumentChunk   map step, one call per chunk of a large document
+   extractPdfVision       OCR of one rasterized PDF page
+   generatePodcast        podcast dialogue script
+   generateDiagram        Schaubild diagram body
+   generateStory          story carousel copy
+
+:php:`ConfiguredCompletionService`, the decorator every text completion passes
+through, stamps the extension key on options that carry none, so a new call site
+is attributed even if it forgets. The operation stays with the call site — only
+it knows which step it is.
+
+The specialized calls (TTS, image generation) carry no attribution: nr-llm's
+specialized services do not read the caller source. The PDF vision annotation is
+set but does not reach the telemetry row either, because
+:php:`VisionService::analyzeImageFull()` rebuilds the options object without it
+(`netresearch/t3x-nr-llm#843 <https://github.com/netresearch/t3x-nr-llm/issues/843>`__).
+
 .. _architecture-generation-podcast:
 
 Podcast

@@ -20,6 +20,7 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -249,12 +250,12 @@ class SchaubildGenerator extends AbstractGenerator
     protected function renderDiagramHtml(GenerationContext $ctx, bool $transparent): string
     {
         $brief   = $ctx->brief;
-        $options = new ChatOptions(
+        $options = (new ChatOptions(
             temperature: 0.3,
             systemPrompt: self::HTML_SYSTEM_PROMPT,
             beUserUid: $ctx->beUser,
             plannedCost: 0.03,
-        );
+        ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_DIAGRAM);
         $bodyHtml = self::stripCodeFences($this->completion->completeMarkdown($this->diagramBodyPrompt($ctx), $options));
 
         return $this->renderTemplate('Schaubild', $ctx->theme, [

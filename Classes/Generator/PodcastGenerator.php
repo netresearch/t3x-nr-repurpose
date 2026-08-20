@@ -22,6 +22,7 @@ use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -225,13 +226,13 @@ final class PodcastGenerator extends AbstractGenerator
             . 'of the shape {"turns":[{"speaker":"Host A"|"Host B","text":"..."}]}.',
             $brief->language,
         );
-        $options = new ChatOptions(
+        $options = (new ChatOptions(
             temperature: 0.6,
             responseFormat: 'json',
             systemPrompt: $systemPrompt,
             beUserUid: $ctx->beUser,
             plannedCost: self::SCRIPT_COST,
-        );
+        ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_PODCAST);
 
         $data     = $this->completion->completeJson($prompt, $options);
         $rawTurns = is_array($data['turns'] ?? null) ? $data['turns'] : [];
@@ -301,13 +302,13 @@ final class PodcastGenerator extends AbstractGenerator
             $brief->language,
             $speakerAlternation,
         );
-        $options = new ChatOptions(
+        $options = (new ChatOptions(
             temperature: 0.6,
             responseFormat: 'json',
             systemPrompt: $systemPrompt,
             beUserUid: $ctx->beUser,
             plannedCost: self::SCRIPT_COST,
-        );
+        ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_PODCAST);
 
         $data     = $this->completion->completeJson($prompt, $options);
         $rawTurns = is_array($data['turns'] ?? null) ? $data['turns'] : [];
