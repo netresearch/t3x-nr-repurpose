@@ -17,7 +17,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stamps the extension key on options that carry none — the operation stays with
   the call site. The PDF vision annotation does not reach the telemetry row yet:
   nr-llm 0.31.1's `VisionService::analyzeImageFull()` rebuilds the options object
-  without the caller source (netresearch/t3x-nr-llm#843).
+  without the caller source (netresearch/t3x-nr-llm#845).
 
 ## [0.4.5] - 2026-08-20
 

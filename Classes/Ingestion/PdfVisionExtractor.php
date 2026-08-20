@@ -21,7 +21,7 @@ use Netresearch\NrRepurpose\Service\CallerSource;
  * The Vision options name this extension and the step (CallerSource) like every other
  * nr-llm call here. Note that nr-llm 0.31.1's VisionService::analyzeImageFull() rebuilds
  * the VisionOptions field by field and does not copy the caller source, so the annotation
- * does not reach the telemetry row yet — netresearch/t3x-nr-llm#843.
+ * does not reach the telemetry row yet — netresearch/t3x-nr-llm#845.
  */
 class PdfVisionExtractor
 {

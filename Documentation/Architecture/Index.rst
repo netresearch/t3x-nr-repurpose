@@ -172,7 +172,7 @@ The specialized calls (TTS, image generation) carry no attribution: nr-llm's
 specialized services do not read the caller source. The PDF vision annotation is
 set but does not reach the telemetry row either, because
 :php:`VisionService::analyzeImageFull()` rebuilds the options object without it
-(`netresearch/t3x-nr-llm#843 <https://github.com/netresearch/t3x-nr-llm/issues/843>`__).
+(`netresearch/t3x-nr-llm#845 <https://github.com/netresearch/t3x-nr-llm/issues/845>`__).
 
 .. _architecture-generation-podcast:
 
