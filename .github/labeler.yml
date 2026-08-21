@@ -5,7 +5,7 @@ documentation:
       - any-glob-to-any-file: ['Documentation/**/*', '**/*.md']
 tests:
   - changed-files:
-      - any-glob-to-any-file: ['Tests/**/*', 'Build/phpunit.xml', 'Build/FunctionalTests.xml']
+      - any-glob-to-any-file: ['Tests/**/*', 'Build/phpunit/**/*']
 ci:
   - changed-files:
       - any-glob-to-any-file: ['.github/**/*', 'Build/**/*']
