@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-08-21
+
+### Changed
+
+- Requires `netresearch/nr-llm` `^0.32`. The floor rises because 0.32.0 is what
+  makes the annotation below arrive on every path, including PDF vision, and it
+  gives `vision()` and `embed()` the default-configuration fallback that `chat()`
+  already had — a call naming no provider now uses the installation's default
+  instead of throwing.
+
 ### Added
 
 - Every nr-llm call names this extension and the pipeline step it belongs to
@@ -15,9 +25,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `extractPdfVision`, `generatePodcast`, `generateDiagram`, `generateStory`.
   `ConfiguredCompletionService`, the funnel every text completion passes through,
   stamps the extension key on options that carry none — the operation stays with
-  the call site. The PDF vision annotation does not reach the telemetry row yet:
-  nr-llm 0.31.1's `VisionService::analyzeImageFull()` rebuilds the options object
-  without the caller source (netresearch/t3x-nr-llm#845).
+  the call site. PDF vision is attributed too as of nr-llm 0.32.0, which stopped
+  `VisionService::analyzeImageFull()` from rebuilding the options object without
+  the caller source ([nr-llm#845](https://github.com/netresearch/t3x-nr-llm/issues/845)).
 
 ## [0.4.5] - 2026-08-20
 
