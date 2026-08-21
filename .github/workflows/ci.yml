@@ -24,7 +24,6 @@ jobs:
       run-phpstan: true
       run-rector: true
       run-unit-tests: true
-      unit-test-command: '.Build/bin/phpunit -c Build/phpunit/UnitTests.xml'
-      run-functional-tests: false
+      run-functional-tests: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

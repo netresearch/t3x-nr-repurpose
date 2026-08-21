@@ -69,6 +69,8 @@
             "rector process --config Build/rector.php"
         ],
         "ci:test:php:cgl": "php-cs-fixer fix --dry-run --diff",
+        "ci:test:php:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite unit \"$@\"; else ./Build/Scripts/runTests.sh -s unit \"$@\"; fi' --",
+        "ci:test:php:functional": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/FunctionalTests.xml \"$@\"; else ./Build/Scripts/runTests.sh -s functional \"$@\"; fi' --",
         "ci:test:php:phpstan": "phpstan analyse",
         "ci:test:php:rector": [
             "@ci:rector --dry-run"

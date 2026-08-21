@@ -11,8 +11,8 @@ TYPO3 extension test suite. **Use the `typo3-testing` skill** for comprehensive 
 ## Key Files
 | File | Purpose |
 |------|---------|
-| `Build/phpunit/UnitTests.xml` | Unit (+ fuzzy/integration testsuite) config |
-| `Build/phpunit/FunctionalTests.xml` | Functional config (sqlite default) |
+| `Build/phpunit.xml` | Unit (+ fuzzy/integration testsuite) config |
+| `Build/FunctionalTests.xml` | Functional config (sqlite default) |
 | `Tests/Functional/Persistence/JobProcessingRepositoryTest.php` | Repository/DB reference test |
 | `Tests/Functional/Rendering/FfmpegAudioStitcherTest.php` | Real-binary smoke test (ffmpeg) |
 | `Tests/Unit/Rendering/GdImageCompositorTest.php` | Unit reference (memory guard) |
@@ -35,7 +35,7 @@ Tests/
 ├── Functional/    # Domain, Generator, Ingestion, Persistence, Queue, Rendering, Resource, Service
 └── Fixtures/      # Pdf/ and Web/ sample inputs shared by both suites
 ```
-PHPUnit configs live in `Build/phpunit/` (repo root), not under `Tests/`.
+PHPUnit configs live in `Build/` (repo root), not under `Tests/`: `Build/phpunit.xml` and `Build/FunctionalTests.xml` — the locations the shared runner finds without a conf.
 <!-- AGENTS-GENERATED:END structure -->
 
 <!-- AGENTS-GENERATED:START commands -->
