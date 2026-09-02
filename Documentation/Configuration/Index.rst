@@ -87,6 +87,34 @@ shown in the form so the choice is informed. A ``layout`` snippet may carry an
 ``imageSize`` metadata key (``"WIDTHxHEIGHT"``) that sets the AI-image
 dimensions for that channel — e.g. skyscraper ``768x2160``, wide ``2160x768``.
 
+.. _configuration-starter-pack:
+
+The starter pack
+----------------
+
+A fresh installation has no snippets, so all five selectors read *(none)*. The
+**Content Repurpose Starter** use-case pack installs a small library to start
+from: two audiences, two tones of voice, three podcast personas with their own
+``voice``, three layouts with their ``imageSize``, and three visual styles.
+
+Install it in nr-llm's *Use Case Packs* module, or from a provisioning script:
+
+.. code-block:: bash
+    :caption: Install the starter pack unattended
+
+    vendor/bin/typo3 nrllm:usecasepack:install content-repurpose-starter
+
+The records it creates are ordinary snippets — rename them, rewrite them,
+deactivate the ones you do not want. Installing again creates only what is
+missing and leaves your edits alone.
+
+The pack's snippets are **not** linked to the ``nr_repurpose_text``
+configuration by tag, and that is deliberate. This extension resolves the five
+families per job, from the selection in the form. Linking them would make
+nr-llm compose every active persona, layout and style into every completion as
+well — three speakers the job did not choose, and two contradictory image
+sizes. See nr-llm's ADR-186.
+
 .. _configuration-messenger:
 
 Messenger routing

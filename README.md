@@ -38,6 +38,9 @@ via Symfony Messenger (doctrine transport).
   *layout* and *style* selectors, populated from nr-llm's prompt-snippet library
   (each option shows its description). A layout snippet's `imageSize` metadata
   drives the AI-image dimensions per channel (skyscraper, wide, square, …).
+  A fresh installation has no snippets, so install the **Content Repurpose
+  Starter** pack to fill the five selectors — from nr-llm's Use Case Packs
+  module, or `vendor/bin/typo3 nrllm:usecasepack:install content-repurpose-starter`.
 - **Live progress** — while a job runs, the detail view shows fine-grained per-step
   progress and refreshes itself.
 - **Prompt transparency** — every generated artifact records its complete creation

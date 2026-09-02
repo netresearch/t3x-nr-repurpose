@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetProviderInterface;
 use Netresearch\NrRepurpose\Generator\Image\DallEImageGenerator;
 use Netresearch\NrRepurpose\Generator\Speech\OpenAiSpeechSynthesizer;
+use Netresearch\NrRepurpose\Service\UseCase\RepurposeStarterPackProvider;
 
 /**
  * Declares the nr-llm Configuration records this extension needs (ADR-056), so an
@@ -45,19 +46,32 @@ final class RepurposeConfigurationPresetProvider implements ConfigurationPresetP
     /**
      * @return list<ConfigurationPreset>
      */
+    /**
+     * The completion (text) preset, as one object.
+     *
+     * Named rather than inlined because {@see RepurposeStarterPackProvider}
+     * declares the same configuration: a pack carries a preset, and two
+     * hand-written copies of one identifier drift into two records the operator
+     * has to tell apart.
+     */
+    public static function textPreset(): ConfigurationPreset
+    {
+        return new ConfigurationPreset(
+            identifier: self::TEXT_CONFIGURATION,
+            name: 'Content Repurpose: Text',
+            description: 'Chat model with JSON output for content briefs, podcast scripts, '
+                . 'diagram data and story slides. Import it and mark it as the default '
+                . 'configuration — the text pipeline uses the instance default.',
+            criteria: new ModelSelectionCriteria(
+                capabilities: [ModelCapability::CHAT->value, ModelCapability::JSON_MODE->value],
+            ),
+        );
+    }
+
     public function getPresets(): array
     {
         return [
-            new ConfigurationPreset(
-                identifier: self::TEXT_CONFIGURATION,
-                name: 'Content Repurpose: Text',
-                description: 'Chat model with JSON output for content briefs, podcast scripts, '
-                    . 'diagram data and story slides. Import it and mark it as the default '
-                    . 'configuration — the text pipeline uses the instance default.',
-                criteria: new ModelSelectionCriteria(
-                    capabilities: [ModelCapability::CHAT->value, ModelCapability::JSON_MODE->value],
-                ),
-            ),
+            self::textPreset(),
             new ConfigurationPreset(
                 identifier: DallEImageGenerator::CONFIGURATION,
                 name: 'Content Repurpose: Images',
