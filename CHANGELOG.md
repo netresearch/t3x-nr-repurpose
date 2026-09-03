@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.9] - 2026-09-03
+
 ### Fixed
 
 - **The `nr_repurpose_text` preset asks for `chat` and nothing else.** It required `ModelCapability::JSON_MODE` as well, which made it unimportable on every installation: no model discoverer in nr-llm assigns that capability to anything, so `ModelSelectionService` found no candidate and the import was refused with "no active model satisfies its configuration requirement". That also blocked the Content Repurpose Starter pack, which carries this preset — observed on the demo instance, netresearch/typo3-demo#236. The pipeline still asks for JSON on every completion through `responseFormat: 'json'`, which nr-llm passes to the provider as a plain option and gates on no capability, so nothing about the generated output changes.
@@ -226,7 +228,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.8...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.9...HEAD
+[0.4.9]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.5...v0.4.6
