@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **The Content Repurpose Starter use-case pack.** The job form's five selectors — audience, tone of voice, persona, layout, style — read prompt snippets by tag, and a fresh installation has none, so every one of them shows "(none)" and the steering the form advertises is invisible until somebody hand-writes thirteen records in nr-llm's Snippets module. The pack installs a starting library instead: two audiences, two tones, three podcast personas each with its own TTS `voice`, three layouts each with the `imageSize` that drives the AI-image dimensions, and three visual styles. Install it in nr-llm's Use Case Packs module, or with `vendor/bin/typo3 nrllm:usecasepack:install content-repurpose-starter` from a provisioning script. The records are ordinary snippets — rename, rewrite or deactivate them; a second install creates only what is missing and leaves edits alone.
+- Every snippet in the pack declares `composedByConfiguration: false` (nr-llm ADR-186). This extension resolves all five families by uid, per job, from the form's selection; letting the installer link their tags to `nr_repurpose_text` would additionally compose every active persona, layout and style into every completion on that configuration — three speakers the job did not choose, and two contradictory image sizes.
+
+### Changed
+
+- Requires `netresearch/nr-llm` `^0.34`. The floor rises because the pack needs both fields 0.34.0 adds to `PackSnippet`: `metadata`, without which a persona ships without its voice and a layout without its image size, and `composedByConfiguration`, without which shipping these snippets at all is the prompt defect described above. `ext_emconf.php` declares the same dependency and is raised with it — and its upper bound is now `0.34.99` rather than `0.99.99`, so the two agree on what this extension accepts instead of only on where it starts.
+- `RepurposeConfigurationPresetProvider::textPreset()` is now a named factory the pack reuses, so the `nr_repurpose_text` preset has one definition rather than two hand-written copies of one identifier.
+
 ## [0.4.7] - 2026-08-21
 
 ### Changed
