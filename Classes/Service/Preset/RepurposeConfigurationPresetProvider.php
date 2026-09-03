@@ -44,9 +44,6 @@ final class RepurposeConfigurationPresetProvider implements ConfigurationPresetP
     public const TEXT_CONFIGURATION = 'nr_repurpose_text';
 
     /**
-     * @return list<ConfigurationPreset>
-     */
-    /**
      * The completion (text) preset, as one object.
      *
      * Named rather than inlined because {@see RepurposeStarterPackProvider}
@@ -68,6 +65,9 @@ final class RepurposeConfigurationPresetProvider implements ConfigurationPresetP
         );
     }
 
+    /**
+     * @return list<ConfigurationPreset>
+     */
     public function getPresets(): array
     {
         return [

@@ -13,7 +13,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Requires `netresearch/nr-llm` `^0.34`. The floor rises because the pack needs both fields 0.34.0 adds to `PackSnippet`: `metadata`, without which a persona ships without its voice and a layout without its image size, and `composedByConfiguration`, without which shipping these snippets at all is the prompt defect described above. `ext_emconf.php` declares the same dependency and is raised with it.
+- Requires `netresearch/nr-llm` `^0.34`. The floor rises because the pack needs both fields 0.34.0 adds to `PackSnippet`: `metadata`, without which a persona ships without its voice and a layout without its image size, and `composedByConfiguration`, without which shipping these snippets at all is the prompt defect described above. `ext_emconf.php` declares the same dependency and is raised with it — and its upper bound is now `0.34.99` rather than `0.99.99`, so the two agree on what this extension accepts instead of only on where it starts.
 - `RepurposeConfigurationPresetProvider::textPreset()` is now a named factory the pack reuses, so the `nr_repurpose_text` preset has one definition rather than two hand-written copies of one identifier.
 
 ## [0.4.7] - 2026-08-21
