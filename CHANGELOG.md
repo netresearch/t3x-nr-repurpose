@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.8] - 2026-09-03
+
 ### Added
 
 - **The Content Repurpose Starter use-case pack.** The job form's five selectors — audience, tone of voice, persona, layout, style — read prompt snippets by tag, and a fresh installation has none, so every one of them shows "(none)" and the steering the form advertises is invisible until somebody hand-writes thirteen records in nr-llm's Snippets module. The pack installs a starting library instead: two audiences, two tones, three podcast personas each with its own TTS `voice`, three layouts each with the `imageSize` that drives the AI-image dimensions, and three visual styles. Install it in nr-llm's Use Case Packs module, or with `vendor/bin/typo3 nrllm:usecasepack:install content-repurpose-starter` from a provisioning script. The records are ordinary snippets — rename, rewrite or deactivate them; a second install creates only what is missing and leaves edits alone.
@@ -218,7 +220,9 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.8...HEAD
+[0.4.8]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.7...v0.4.8
+[0.4.7]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.3...v0.4.4
