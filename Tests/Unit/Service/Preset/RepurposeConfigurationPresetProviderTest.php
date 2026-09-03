@@ -65,12 +65,18 @@ final class RepurposeConfigurationPresetProviderTest extends TestCase
         self::assertSame([ModelCapability::TEXT_TO_SPEECH->value], $preset->criteria->capabilities);
     }
 
-    public function testTextPresetRequiresChatAndJsonMode(): void
+    public function testTextPresetRequiresChatAndNothingElse(): void
     {
+        // JSON_MODE was in here and made the preset unimportable everywhere:
+        // no nr-llm model discoverer assigns that capability to any model, so
+        // ModelSelectionService found no candidate and the import — and with
+        // it the use-case pack that carries this preset — was refused. The
+        // pipeline still asks for JSON, per call, through `responseFormat`,
+        // which nr-llm passes to the provider without checking a capability.
         $preset = $this->presetsByIdentifier()[RepurposeConfigurationPresetProvider::TEXT_CONFIGURATION];
 
         self::assertSame(
-            [ModelCapability::CHAT->value, ModelCapability::JSON_MODE->value],
+            [ModelCapability::CHAT->value],
             $preset->criteria->capabilities,
         );
     }

@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The `nr_repurpose_text` preset asks for `chat` and nothing else.** It required `ModelCapability::JSON_MODE` as well, which made it unimportable on every installation: no model discoverer in nr-llm assigns that capability to anything, so `ModelSelectionService` found no candidate and the import was refused with "no active model satisfies its configuration requirement". That also blocked the Content Repurpose Starter pack, which carries this preset — observed on the demo instance, netresearch/typo3-demo#236. The pipeline still asks for JSON on every completion through `responseFormat: 'json'`, which nr-llm passes to the provider as a plain option and gates on no capability, so nothing about the generated output changes.
+- **`ext_emconf.php` declares `nr_vault`.** `composer.json` requires `netresearch/nr-vault: ^0.15` and `constraints.depends` named only `typo3` and `nr_llm`, so an Extension Manager or TER install could activate this extension without nr-vault. Every API key it uses is resolved through nr-vault by nr-llm, so the failure surfaced as a provider error at generation time rather than at install time (#104).
+
+
 ## [0.4.8] - 2026-09-03
 
 ### Added
