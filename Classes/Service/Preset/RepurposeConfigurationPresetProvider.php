@@ -56,11 +56,21 @@ final class RepurposeConfigurationPresetProvider implements ConfigurationPresetP
         return new ConfigurationPreset(
             identifier: self::TEXT_CONFIGURATION,
             name: 'Content Repurpose: Text',
-            description: 'Chat model with JSON output for content briefs, podcast scripts, '
-                . 'diagram data and story slides. Import it and mark it as the default '
-                . 'configuration — the text pipeline uses the instance default.',
+            description: 'Chat model for content briefs, podcast scripts, diagram data and '
+                . 'story slides — the pipeline asks for JSON per call. Import it and mark it '
+                . 'as the default configuration; the text pipeline uses the instance default.',
+            // CHAT only, deliberately. The pipeline does request JSON — every
+            // completion passes `responseFormat: 'json'` — but requiring
+            // ModelCapability::JSON_MODE here makes this preset unimportable
+            // on every installation: no model discoverer in nr-llm assigns
+            // that capability to anything, so ModelSelectionService finds no
+            // candidate and the import is refused with "no active model
+            // satisfies its configuration requirement". Nothing on the call
+            // path checks it either — `responseFormat` is a plain provider
+            // option. A criterion nothing can satisfy and nothing enforces
+            // only blocks the import (netresearch/typo3-demo#236).
             criteria: new ModelSelectionCriteria(
-                capabilities: [ModelCapability::CHAT->value, ModelCapability::JSON_MODE->value],
+                capabilities: [ModelCapability::CHAT->value],
             ),
         );
     }
