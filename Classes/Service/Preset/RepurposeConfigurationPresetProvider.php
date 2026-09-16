@@ -81,7 +81,17 @@ final class RepurposeConfigurationPresetProvider implements ConfigurationPresetP
     public function getPresets(): array
     {
         return [
-            self::textPreset(),
+            // textPreset() is deliberately NOT returned here. The starter pack
+            // carries it ({@see \Netresearch\NrRepurpose\Service\UseCase\RepurposeStarterPackProvider}),
+            // and nr-llm publishes every pack's configuration preset into the
+            // same registry through UseCasePackPresetProvider (ADR-163, nr-llm
+            // 0.29+). Declaring it in both places put the identifier into that
+            // registry twice, and the registry refuses a duplicate with
+            // LogicException #1789347004 — which 500s the whole nr_llm
+            // Configurations backend module, not just this preset.
+            //
+            // The image and speech presets stay: no pack carries them, and the
+            // specialized generators look them up by identifier.
             new ConfigurationPreset(
                 identifier: DallEImageGenerator::CONFIGURATION,
                 name: 'Content Repurpose: Images',

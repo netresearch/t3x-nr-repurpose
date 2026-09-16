@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Service;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
 use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
@@ -200,7 +201,14 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
         $this->resolved = true;
 
         try {
-            $this->configuration = $this->configurationResolver->getActiveByIdentifier(self::CONFIGURATION);
+            // A ConfigurationIdentifier, not the bare string: nr-llm 0.35 narrowed
+            // this parameter to the value object (#893, second step). A string
+            // reaches it as a TypeError, which is NOT an NrLlmExceptionInterface
+            // — so the fail-soft catch below would not have caught it and the
+            // whole text pipeline would have died instead of falling back.
+            $this->configuration = $this->configurationResolver->getActiveByIdentifier(
+                new ConfigurationIdentifier(self::CONFIGURATION),
+            );
         } catch (NrLlmExceptionInterface $e) {
             $this->logger->debug(
                 'nr_repurpose: "{identifier}" configuration not resolvable ({reason}); text generation falls back to the instance-default configuration.',

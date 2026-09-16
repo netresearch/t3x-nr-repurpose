@@ -17,7 +17,15 @@ use PHPUnit\Framework\TestCase;
 
 final class GdImageCompositorTest extends TestCase
 {
-    private string $tmpDir;
+    /**
+     * Nullable, and read as such in tearDown: PHPUnit runs tearDown even after
+     * setUp called markTestSkipped, so a typed property left uninitialised
+     * turned every skip into "Typed property … must not be accessed before
+     * initialization". On a machine without ext-gd this class reported six
+     * ERRORS where it meant six skips, which is the kind of noise that hides a
+     * real failure — it hid one for a while.
+     */
+    private ?string $tmpDir = null;
 
     protected function setUp(): void
     {
@@ -31,6 +39,10 @@ final class GdImageCompositorTest extends TestCase
 
     protected function tearDown(): void
     {
+        if ($this->tmpDir === null) {
+            return;
+        }
+
         foreach (glob($this->tmpDir . '/*') ?: [] as $f) {
             @unlink($f);
         }
