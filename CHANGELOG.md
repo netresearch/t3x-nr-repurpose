@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-17
+
 ### Fixed
 
 - **The `nr_repurpose_text` preset was declared twice, which 500s the whole nr_llm Configurations module.** `RepurposeConfigurationPresetProvider::getPresets()` returned the text preset AND `RepurposeStarterPackProvider`'s pack carries the same one, and nr-llm republishes every pack's configuration preset into the same registry through `UseCasePackPresetProvider` (ADR-163, nr-llm 0.29+). That registry refuses a duplicate identifier with `LogicException #1789347004`, so `/typo3/module/nrllm/configurations` answered 500 for every admin — not a degraded preset list, the module. Observed on the demo instance. The provider no longer returns it; `textPreset()` stays as the static factory the pack uses, so the preset itself is unchanged and still reaches the registry exactly once. Two unit cases now pin it, and one of them asserts the rule rather than the instance: no identifier may be declared both directly and by a pack. The case that previously asserted the text preset WAS in `getPresets()` pinned the defect, so it is rewritten rather than kept.
@@ -240,7 +242,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.9...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.6...v0.4.7
