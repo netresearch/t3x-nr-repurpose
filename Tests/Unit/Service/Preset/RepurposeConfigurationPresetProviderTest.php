@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Service\Preset;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
+use Netresearch\NrLlm\Service\UseCase\UseCasePack;
 use Netresearch\NrRepurpose\Generator\Image\DallEImageGenerator;
 use Netresearch\NrRepurpose\Generator\Speech\OpenAiSpeechSynthesizer;
 use Netresearch\NrRepurpose\Service\Preset\RepurposeConfigurationPresetProvider;
@@ -70,7 +71,7 @@ final class RepurposeConfigurationPresetProviderTest extends TestCase
         $direct = array_keys($this->presetsByIdentifier());
 
         $viaPacks = array_map(
-            static fn ($pack): string => $pack->configurationPreset->identifier,
+            static fn (UseCasePack $pack): string => $pack->configurationPreset->identifier,
             (new RepurposeStarterPackProvider())->getPacks(),
         );
 
