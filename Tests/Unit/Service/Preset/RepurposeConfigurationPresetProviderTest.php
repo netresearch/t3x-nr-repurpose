@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
 use Netresearch\NrRepurpose\Generator\Image\DallEImageGenerator;
 use Netresearch\NrRepurpose\Generator\Speech\OpenAiSpeechSynthesizer;
 use Netresearch\NrRepurpose\Service\Preset\RepurposeConfigurationPresetProvider;
+use Netresearch\NrRepurpose\Service\UseCase\RepurposeStarterPackProvider;
 use PHPUnit\Framework\TestCase;
 
 final class RepurposeConfigurationPresetProviderTest extends TestCase
@@ -33,20 +34,47 @@ final class RepurposeConfigurationPresetProviderTest extends TestCase
         return $indexed;
     }
 
-    public function testDeclaresTextImageAndSpeechPresets(): void
+    /**
+     * This provider declares the image and speech presets and NOT the text one.
+     *
+     * The text preset reaches nr-llm's registry through the starter pack, which
+     * nr-llm republishes via UseCasePackPresetProvider (ADR-163). Declaring it
+     * here as well put one identifier into that registry twice, and the registry
+     * refuses a duplicate with LogicException #1789347004 — which 500s the whole
+     * nr_llm Configurations module. This case asserted the opposite until then,
+     * so it pinned the defect rather than the rule.
+     */
+    public function testDeclaresTheImageAndSpeechPresetsAndLeavesTheTextOneToThePack(): void
     {
         $identifiers = array_keys($this->presetsByIdentifier());
         sort($identifiers);
 
-        // Sorted alphabetically: nr_repurpose_image, nr_repurpose_text, nr_repurpose_tts.
         self::assertSame(
             [
                 DallEImageGenerator::CONFIGURATION,
-                RepurposeConfigurationPresetProvider::TEXT_CONFIGURATION,
                 OpenAiSpeechSynthesizer::CONFIGURATION,
             ],
             $identifiers,
         );
+        self::assertNotContains(RepurposeConfigurationPresetProvider::TEXT_CONFIGURATION, $identifiers);
+    }
+
+    /**
+     * The invariant the 500 came from: no identifier may be declared by this
+     * provider AND by a pack, because nr-llm publishes both into one registry
+     * that refuses duplicates. Asserted across the real pack rather than a
+     * fixture, so adding a pack preset that collides fails here.
+     */
+    public function testNoIdentifierIsDeclaredBothDirectlyAndByAPack(): void
+    {
+        $direct = array_keys($this->presetsByIdentifier());
+
+        $viaPacks = array_map(
+            static fn ($pack): string => $pack->configurationPreset->identifier,
+            (new RepurposeStarterPackProvider())->getPacks(),
+        );
+
+        self::assertSame([], array_values(array_intersect($direct, $viaPacks)));
     }
 
     public function testImagePresetIdentifierMatchesTheGeneratorItFeeds(): void
@@ -73,8 +101,11 @@ final class RepurposeConfigurationPresetProviderTest extends TestCase
         // it the use-case pack that carries this preset — was refused. The
         // pipeline still asks for JSON, per call, through `responseFormat`,
         // which nr-llm passes to the provider without checking a capability.
-        $preset = $this->presetsByIdentifier()[RepurposeConfigurationPresetProvider::TEXT_CONFIGURATION];
+        // Read from the factory, not from getPresets(): the text preset is the
+        // pack's declaration now, and this assertion is about the preset itself.
+        $preset = RepurposeConfigurationPresetProvider::textPreset();
 
+        self::assertSame(RepurposeConfigurationPresetProvider::TEXT_CONFIGURATION, $preset->identifier);
         self::assertSame(
             [ModelCapability::CHAT->value],
             $preset->criteria->capabilities,

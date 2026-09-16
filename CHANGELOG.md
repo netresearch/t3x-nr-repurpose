@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The `nr_repurpose_text` preset was declared twice, which 500s the whole nr_llm Configurations module.** `RepurposeConfigurationPresetProvider::getPresets()` returned the text preset AND `RepurposeStarterPackProvider`'s pack carries the same one, and nr-llm republishes every pack's configuration preset into the same registry through `UseCasePackPresetProvider` (ADR-163, nr-llm 0.29+). That registry refuses a duplicate identifier with `LogicException #1789347004`, so `/typo3/module/nrllm/configurations` answered 500 for every admin — not a degraded preset list, the module. Observed on the demo instance. The provider no longer returns it; `textPreset()` stays as the static factory the pack uses, so the preset itself is unchanged and still reaches the registry exactly once. Two unit cases now pin it, and one of them asserts the rule rather than the instance: no identifier may be declared both directly and by a pack. The case that previously asserted the text preset WAS in `getPresets()` pinned the defect, so it is rewritten rather than kept.
+
+- **A string reached `ConfigurationResolver::getActiveByIdentifier()`, which nr-llm 0.35 narrowed to a value object.** `ConfiguredCompletionService` passed `self::CONFIGURATION` directly; under nr-llm 0.35 (#893, second step) that parameter is a `ConfigurationIdentifier` with no string union, so the call raised a `TypeError`. The surrounding `catch (NrLlmExceptionInterface)` does not catch a `TypeError`, so the fail-soft fallback to the instance-default configuration would have been bypassed and the whole text pipeline would have died instead of degrading. nr-llm's own release notes state that this change is invisible outside that extension; this call site is the counter-example.
+
+- **A skipped GD test reported an error instead of a skip.** `GdImageCompositorTest::setUp()` calls `markTestSkipped()` when ext-gd is absent, but PHPUnit still runs `tearDown()`, which read an uninitialised typed `$tmpDir` — so on any machine without ext-gd the class produced six *errors* where it meant six skips. The property is nullable and `tearDown()` returns early. Nothing about the compositor changes; the suite now says what it means, which matters because six standing errors hide a real one.
+
+### Changed
+
+- **`netresearch/nr-llm` is required at `^0.35`.** The value-object parameter above exists only from 0.35, so the floor moves with the call rather than after it. `^0.34` would have installed a version this code cannot call.
+
 ## [0.4.9] - 2026-09-03
 
 ### Fixed
