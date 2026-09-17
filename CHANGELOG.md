@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-17
+
 ### Fixed
 
 - **v0.5.0 shipped contradictory dependency metadata.** `composer.json` required `netresearch/nr-llm` at `^0.35` — the code needs it — while `ext_emconf.php` still declared `nr_llm 0.34.0-0.34.99`. A TYPO3 extension states the same dependency in both places, so Composer would install nr-llm 0.35 and the Extension Manager would refuse to activate against it, which is a failure that is invisible in this repository and surfaces at install time on somebody else's instance. The range is now `0.35.0-0.35.99`, matching the exclusive `^0.35`: this extension does not run on 0.34 any more.
@@ -246,7 +248,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.7...v0.4.8
