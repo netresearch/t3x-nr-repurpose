@@ -88,7 +88,7 @@ Build/           → project files
 ## CI (reusable netresearch/typo3-ci-workflows)
 - `ci.yml` matrix: PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3 — lint + unit tests per version
 - `run-cgl`, `run-phpstan`, `run-rector` are `true`; `run-functional-tests: false` is the only gate still off
-- `checks.yml` (drift-enforced): security (Opengrep SAST, composer audit), gitleaks, zizmor, fuzz, license-check, CodeQL, Scorecard, dependency-review, pr-quality — all behind one required `All security checks` gate; SonarCloud + DCO run as apps
+- `checks.yml` (drift-enforced): security (Opengrep SAST, composer audit), betterleaks, zizmor, fuzz, license-check, CodeQL, Scorecard, dependency-review, pr-quality — all behind one required `All security checks` gate; SonarCloud + DCO run as apps
 - Release: signed annotated tag `vX.Y.Z` triggers `release.yml` (skip-ter/packagist/docs set — not published there yet)
 <!-- AGENTS-GENERATED:END ci-rules -->
 
