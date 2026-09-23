@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
@@ -37,12 +38,12 @@ use TYPO3\CMS\Core\Resource\ResourceStorage;
 
 final class SchaubildGeneratorTest extends TestCase
 {
-    private function context(ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets()): GenerationContext
+    private function context(ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief    = new ContentBrief('Report', 'Summary', ['A', 'B'], [['heading' => 'H', 'body' => 'B']], 'All', 'en');
 
-        return new GenerationContext(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1], $document, $brief, 'nr', 4, $snippets);
+        return new GenerationContext(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1], $document, $brief, 'nr', 4, $snippets, grants: $grants ?? CapabilityGrants::all());
     }
 
     /**
@@ -138,6 +139,24 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertSame('done', $jobs->updates[$jobs->uidForVariant('html')]['status']);
         self::assertSame('failed', $jobs->updates[$jobs->uidForVariant('html_bg')]['status']);
         self::assertSame('failed', $jobs->updates[$jobs->uidForVariant('ki_image')]['status']);
+        self::assertSame(0, $imageGenerator->calls);
+    }
+
+    public function testWithoutTheVisionGrantBothImageVariantsFailButHtmlSucceeds(): void
+    {
+        $jobs           = $this->jobs();
+        $imageGenerator = $this->imageGenerator();
+
+        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget());
+
+        self::assertTrue($generator->generate($this->context(new ResolvedPromptSnippets(), new CapabilityGrants(audio: true, vision: false))));
+        self::assertSame('done', $jobs->updates[$jobs->uidForVariant('html')]['status']);
+        foreach (['html_bg', 'ki_image'] as $variant) {
+            $update = $jobs->updates[$jobs->uidForVariant($variant)];
+            self::assertSame('failed', $update['status']);
+            self::assertStringContainsString('nrrepurpose:generate_vision', (string) $update['error_message']);
+        }
+
         self::assertSame(0, $imageGenerator->calls);
     }
 

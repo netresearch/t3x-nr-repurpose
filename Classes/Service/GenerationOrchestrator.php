@@ -44,6 +44,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         private PromptSnippetResolver $snippetResolver,
         private TechnicalActorContextInterface $technicalActor,
         private ExtensionConfiguration $extensionConfiguration,
+        private CapabilityGrantResolverInterface $grantResolver,
         iterable $generators,
     ) {
         $this->generators = $generators instanceof Traversable
@@ -156,6 +157,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             theme: (string) ($row['theme'] ?? 'nr'),
             beUser: (int) ($row['be_user'] ?? 0),
             snippets: $snippets,
+            grants: $this->grantResolver->resolve((int) ($row['be_user'] ?? 0)),
         );
 
         // 5) Generation — per-artifact isolation; a single failure does not abort siblings.

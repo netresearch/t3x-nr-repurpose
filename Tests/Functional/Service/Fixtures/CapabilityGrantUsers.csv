@@ -1,0 +1,15 @@
+"be_groups"
+,"uid","pid","title","custom_options","subgroup","deleted","hidden"
+,1,0,"Podcast editors","nrrepurpose:generate_audio","",0,0
+,2,0,"Imagery editors","nrrepurpose:generate_vision","",0,0
+,3,0,"Inherits imagery","","2",0,0
+,4,0,"No AI spend","","",0,0
+"be_users"
+,"uid","pid","username","admin","usergroup","deleted","disable"
+,10,0,"admin",1,"",0,0
+,11,0,"podcaster",0,"1",0,0
+,12,0,"illustrator",0,"3",0,0
+,13,0,"plain",0,"4",0,0
+,14,0,"both",0,"1,2",0,0
+,15,0,"disabled",0,"1,2",0,1
+,16,0,"deleted",0,"1,2",1,0

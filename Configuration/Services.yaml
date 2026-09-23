@@ -35,6 +35,13 @@ services:
     alias: Netresearch\NrRepurpose\Service\GenerationOrchestrator
     public: true
 
+  # Public so functional tests can fetch the real resolver via $this->get().
+  Netresearch\NrRepurpose\Service\CapabilityGrantResolver:
+    public: true
+
+  Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface:
+    alias: Netresearch\NrRepurpose\Service\CapabilityGrantResolver
+
   Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface:
     alias: Netresearch\NrRepurpose\Understanding\DocumentAnalyzer
 

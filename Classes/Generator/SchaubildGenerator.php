@@ -131,6 +131,12 @@ class SchaubildGenerator extends AbstractGenerator
     private function generateHtmlBgVariant(GenerationContext $ctx, int $jobUid, string $transparentHtml, array $llmPrompts, string $imageSize): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html_bg', 0, ArtifactStatus::Pending);
+        if (!$ctx->grants->vision) {
+            $this->failArtifact($artifactUid, $jobUid, self::DENIED_VISION);
+
+            return false;
+        }
+
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
             $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or image service unavailable');
 
@@ -178,6 +184,12 @@ class SchaubildGenerator extends AbstractGenerator
     private function generateKiImageVariant(GenerationContext $ctx, int $jobUid, string $referenceHtml, string $imageSize): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'ki_image', 0, ArtifactStatus::Pending);
+        if (!$ctx->grants->vision) {
+            $this->failArtifact($artifactUid, $jobUid, self::DENIED_VISION);
+
+            return false;
+        }
+
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
             $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or image service unavailable');
 

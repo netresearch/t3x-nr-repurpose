@@ -28,6 +28,12 @@ use TYPO3\CMS\Core\View\ViewFactoryInterface;
  */
 abstract class AbstractGenerator implements ArtifactGeneratorInterface
 {
+    /** Artifact error when the job owner's groups lack `nrrepurpose:generate_audio`. */
+    protected const DENIED_AUDIO = 'Not permitted: the job owner\'s backend groups do not grant "Generate podcast audio" (nrrepurpose:generate_audio)';
+
+    /** Artifact error when the job owner's groups lack `nrrepurpose:generate_vision`. */
+    protected const DENIED_VISION = 'Not permitted: the job owner\'s backend groups do not grant "Generate AI imagery" (nrrepurpose:generate_vision)';
+
     public function __construct(
         protected readonly JobProcessingRepository $jobs,
         protected readonly BudgetServiceInterface $budget,

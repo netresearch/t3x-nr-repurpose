@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
@@ -48,12 +49,12 @@ final class StoryGeneratorTest extends TestCase
     ]];
 
     /** @param list<string> $keyPoints */
-    private function context(bool $wantStory = true, array $keyPoints = ['Point'], ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets()): GenerationContext
+    private function context(bool $wantStory = true, array $keyPoints = ['Point'], ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief    = new ContentBrief('Report', 'A crisp summary.', $keyPoints, [], 'All', 'en');
 
-        return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0], $document, $brief, 'nr', 5, $snippets);
+        return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0], $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all());
     }
 
     /** @param array<mixed>|Throwable $completionResult */
@@ -172,6 +173,22 @@ final class StoryGeneratorTest extends TestCase
         $generator = $this->generator(self::THREE_SLIDES, $renderer, $imageGenerator, $jobs, $this->denyingBudget(), $this->compositor());
 
         self::assertTrue($generator->generate($this->context()));
+        self::assertSame(0, $imageGenerator->calls);
+        self::assertSame([false, false, false], $renderer->transparents);
+        foreach ($jobs->updates as $update) {
+            self::assertSame('done', $update['status']);
+        }
+    }
+
+    public function testWithoutTheVisionGrantSlidesAreFlatAndNoImageIsGenerated(): void
+    {
+        $renderer       = $this->renderer();
+        $imageGenerator = $this->imageGenerator(true);
+        $jobs           = $this->jobs();
+
+        $generator = $this->generator(self::THREE_SLIDES, $renderer, $imageGenerator, $jobs, $this->allowingBudget(), $this->compositor());
+
+        self::assertTrue($generator->generate($this->context(grants: new CapabilityGrants(audio: true, vision: false))));
         self::assertSame(0, $imageGenerator->calls);
         self::assertSame([false, false, false], $renderer->transparents);
         foreach ($jobs->updates as $update) {

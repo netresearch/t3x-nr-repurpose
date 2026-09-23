@@ -189,3 +189,15 @@ namespace so backend group editors can gate AI spend per group:
 
 nr-llm has no dedicated image/speech capability, so audio generation gates on
 ``AUDIO`` and image/vision generation on ``VISION``.
+
+The worker checks both options against the backend groups of the user who
+created the job, once per run (an administrator holds both):
+
+-   Without ``generate_audio`` the podcast artifact fails before any script or
+    speech call, with an error naming the missing option.
+-   Without ``generate_vision`` the two AI image variants of the Schaubild
+    (``html_bg``, ``ki_image``) fail the same way while the plain HTML variant
+    is still produced, and the story is rendered on flat backgrounds.
+
+The check runs before the budget check, so a denied capability costs
+nothing.
