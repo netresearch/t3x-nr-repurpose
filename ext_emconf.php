@@ -8,11 +8,11 @@ $EM_CONF[$_EXTKEY] = [
     'author_email' => 'typo3@netresearch.de',
     'author_company' => 'Netresearch DTT GmbH',
     'state' => 'alpha',
-    'version' => '0.5.1',
+    'version' => '0.5.2',
     'constraints' => [
         'depends' => [
             'typo3' => '14.3.0-14.99.99',
-            'nr_llm' => '0.35.0-0.35.99',
+            'nr_llm' => '0.35.0-0.36.99',
             'nr_vault' => '0.15.0-0.15.99',
         ],
         'conflicts' => [],
