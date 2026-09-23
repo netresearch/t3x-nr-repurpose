@@ -71,8 +71,10 @@ class SchaubildGenerator extends AbstractGenerator
         $jobUid = $ctx->jobUid();
 
         $ctx->progress?->step('Schaubild: building HTML', 0.05);
-        $htmlOpaque      = $this->renderDiagramHtml($ctx, false);
-        $htmlTransparent = $this->renderDiagramHtml($ctx, true);
+        $htmlOpaque = $this->renderDiagramHtml($ctx, false);
+        // The transparent render only feeds the html_bg variant, which a missing
+        // generate_vision grant refuses anyway: skip its completion call then.
+        $htmlTransparent = $ctx->grants->vision ? $this->renderDiagramHtml($ctx, true) : '';
 
         // The exact diagram-body LLM prompts, recorded in every variant's metadata
         // (transparency: the result view shows what was actually sent).

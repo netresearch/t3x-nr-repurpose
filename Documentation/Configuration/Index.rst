@@ -199,5 +199,7 @@ created the job, once per run (an administrator holds both):
     (``html_bg``, ``ki_image``) fail the same way while the plain HTML variant
     is still produced, and the story is rendered on flat backgrounds.
 
-The check runs before the budget check, so a denied capability costs
-nothing.
+The check runs before the budget check, so the denied speech and image calls
+are never made, and neither is the transparent diagram render that only the
+``html_bg`` variant uses. The document analysis and the text parts that stay
+permitted still call the LLM as before.

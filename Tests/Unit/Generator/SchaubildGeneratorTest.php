@@ -146,10 +146,13 @@ final class SchaubildGeneratorTest extends TestCase
     {
         $jobs           = $this->jobs();
         $imageGenerator = $this->imageGenerator();
+        $completion     = $this->completion();
 
-        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget());
+        $generator = $this->generator($this->renderer(), $this->compositor(), $imageGenerator, $this->storage(), $jobs, $this->allowingBudget(), $completion);
 
         self::assertTrue($generator->generate($this->context(new ResolvedPromptSnippets(), new CapabilityGrants(audio: true, vision: false))));
+        // Only the opaque diagram is rendered; the transparent one feeds html_bg alone.
+        self::assertCount(1, $completion->completeMarkdownCalls);
         self::assertSame('done', $jobs->updates[$jobs->uidForVariant('html')]['status']);
         foreach (['html_bg', 'ki_image'] as $variant) {
             $update = $jobs->updates[$jobs->uidForVariant($variant)];
