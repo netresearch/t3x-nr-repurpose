@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The permissions `generate_audio` and `generate_vision` are enforced** (NEXT-182). They were registered as `customPermOptions` and documented as gating AI spend per backend group, but nothing checked them, so every editor could generate podcast audio and AI imagery. The worker now resolves the job owner's grants once per run: without `generate_audio` the podcast artifact fails before any call; without `generate_vision` the Schaubild's two AI image variants fail (the HTML variant is still produced) and the story is rendered on flat backgrounds. Administrators hold both. Editors whose groups do not carry the options lose these artifacts after the update — grant them in the backend group's "Custom module options" to keep the previous behaviour.
+
 ## [0.5.1] - 2026-09-17
 
 ### Fixed

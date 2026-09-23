@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
@@ -20,6 +21,7 @@ use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
+use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
@@ -34,14 +36,14 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 {
     private const QUARTERLY_REPORT = 'Quarterly report';
 
-    private function seedJob(): int
+    private function seedJob(int $beUser = 0): int
     {
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)
             ->getConnectionForTable('tx_nrrepurpose_domain_model_job');
         $conn->insert('tx_nrrepurpose_domain_model_job', [
             'pid'    => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
             'theme'  => 'nr', 'want_podcast' => 1, 'want_schaubild' => 1, 'want_story' => 1,
-            'status' => 'queued', 'be_user' => 0,
+            'status' => 'queued', 'be_user' => $beUser,
         ]);
 
         return (int) $conn->lastInsertId();
@@ -105,6 +107,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(PromptSnippetResolver::class),
             $this->get(TechnicalActorContextInterface::class),
             $this->get(ExtensionConfiguration::class),
+            $this->get(CapabilityGrantResolver::class),
             [$generator],
         );
         $orchestrator->process($jobUid);
@@ -175,7 +178,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             }
         };
 
-        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, $this->get(PromptSnippetResolver::class), $this->get(TechnicalActorContextInterface::class), $this->get(ExtensionConfiguration::class), [$generator]);
+        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, $this->get(PromptSnippetResolver::class), $this->get(TechnicalActorContextInterface::class), $this->get(ExtensionConfiguration::class), $this->get(CapabilityGrantResolver::class), [$generator]);
         $orchestrator->process($jobUid);
 
         $row = $jobs->findRow($jobUid);
@@ -201,6 +204,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(PromptSnippetResolver::class),
             $this->get(TechnicalActorContextInterface::class),
             $this->get(ExtensionConfiguration::class),
+            $this->get(CapabilityGrantResolver::class),
             [new RecordingArtifactGenerator($jobs)],
         );
         $orchestrator->process($jobUid);
@@ -233,12 +237,39 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(PromptSnippetResolver::class),
             $actor,
             $this->extensionConfigurationWithActorUid(4711),
+            $this->get(CapabilityGrantResolver::class),
             [$generator],
         );
         $orchestrator->process($jobUid);
 
         self::assertSame([4711], $actor->uids, 'the job must run in exactly one runAs scope');
         self::assertTrue($generator->wasInsideScope, 'generation must happen inside the scope, not beside it');
+    }
+
+    public function testGeneratorsSeeTheGrantsOfTheJobOwner(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/Fixtures/CapabilityGrantUsers.csv');
+        $jobUid    = $this->seedJob(11);
+        $jobs      = $this->get(JobProcessingRepository::class);
+        $generator = new RecordingArtifactGenerator($jobs);
+
+        $orchestrator = new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $this->stubIngestion($this->stubDocument()),
+            $this->stubAnalyzer($this->stubBrief()),
+            $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
+            $this->get(CapabilityGrantResolver::class),
+            [$generator],
+        );
+        $orchestrator->process($jobUid);
+
+        // be_user 11 is in a group granting generate_audio only; the per-generator
+        // context (withProgress) must carry the grants too.
+        self::assertInstanceOf(GenerationContext::class, $generator->seen);
+        self::assertEquals(new CapabilityGrants(audio: true, vision: false), $generator->seen->grants);
     }
 
     public function testRunsWithoutAScopeWhenNoTechnicalActorIsConfigured(): void
@@ -255,6 +286,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(PromptSnippetResolver::class),
             $actor,
             $this->extensionConfigurationWithActorUid(0),
+            $this->get(CapabilityGrantResolver::class),
             [new RecordingArtifactGenerator($jobs)],
         );
         $orchestrator->process($jobUid);

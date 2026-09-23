@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
@@ -38,7 +39,7 @@ use TYPO3\CMS\Core\Resource\ResourceStorage;
 final class PodcastGeneratorTest extends TestCase
 {
     /** @param list<Persona> $personas */
-    private function context(int $wantPodcast = 1, array $personas = []): GenerationContext
+    private function context(int $wantPodcast = 1, array $personas = [], ?CapabilityGrants $grants = null): GenerationContext
     {
         $document = new SourceDocument('Quarterly Report', 'Revenue grew. Costs fell.', 'https://example.com/report', 0, 'en');
         $brief    = new ContentBrief(
@@ -57,6 +58,7 @@ final class PodcastGeneratorTest extends TestCase
             'nr',
             3,
             new ResolvedPromptSnippets(personas: $personas),
+            grants: $grants ?? CapabilityGrants::all(),
         );
     }
 
@@ -262,6 +264,30 @@ final class PodcastGeneratorTest extends TestCase
         self::assertFalse($generator->generate($this->context()));
         self::assertSame([], $speech->calls);
         self::assertSame('failed', $jobs->updates[100]['status']);
+    }
+
+    public function testWithoutTheAudioGrantTheArtifactFailsBeforeAnyCall(): void
+    {
+        $completion = $this->completion();
+        $speech     = $this->speech();
+        $jobs       = $this->jobs();
+
+        $generator = new PodcastGenerator(
+            $jobs,
+            $this->allowingBudget(),
+            new NullLogger(),
+            $completion,
+            $speech,
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
+        );
+
+        self::assertFalse($generator->generate($this->context(1, [], new CapabilityGrants(audio: false, vision: true))));
+        self::assertSame([], $speech->calls);
+        self::assertSame([], $completion->completeJsonCalls);
+        self::assertSame('failed', $jobs->updates[100]['status']);
+        self::assertStringContainsString('nrrepurpose:generate_audio', (string) $jobs->updates[100]['error_message']);
     }
 
     public function testTtsUnavailableMarksArtifactFailed(): void

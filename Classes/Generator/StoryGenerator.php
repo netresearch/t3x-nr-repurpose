@@ -215,11 +215,15 @@ class StoryGenerator extends AbstractGenerator
 
     /**
      * Generate the single KI background shared by all slides (visual coherence, one image
-     * cost). Best-effort: over budget, service unavailable or a generation error all fall
-     * back to flat renders (null).
+     * cost). Best-effort: no generate_vision grant, over budget, service unavailable or a
+     * generation error all fall back to flat renders (null).
      */
     private function generateSharedBackground(GenerationContext $ctx, string $imageSize): ?string
     {
+        if (!$ctx->grants->vision) {
+            return null;
+        }
+
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
             return null;
         }

@@ -71,8 +71,10 @@ class SchaubildGenerator extends AbstractGenerator
         $jobUid = $ctx->jobUid();
 
         $ctx->progress?->step('Schaubild: building HTML', 0.05);
-        $htmlOpaque      = $this->renderDiagramHtml($ctx, false);
-        $htmlTransparent = $this->renderDiagramHtml($ctx, true);
+        $htmlOpaque = $this->renderDiagramHtml($ctx, false);
+        // The transparent render only feeds the html_bg variant, which a missing
+        // generate_vision grant refuses anyway: skip its completion call then.
+        $htmlTransparent = $ctx->grants->vision ? $this->renderDiagramHtml($ctx, true) : '';
 
         // The exact diagram-body LLM prompts, recorded in every variant's metadata
         // (transparency: the result view shows what was actually sent).
@@ -131,6 +133,12 @@ class SchaubildGenerator extends AbstractGenerator
     private function generateHtmlBgVariant(GenerationContext $ctx, int $jobUid, string $transparentHtml, array $llmPrompts, string $imageSize): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html_bg', 0, ArtifactStatus::Pending);
+        if (!$ctx->grants->vision) {
+            $this->failArtifact($artifactUid, $jobUid, self::DENIED_VISION);
+
+            return false;
+        }
+
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
             $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or image service unavailable');
 
@@ -178,6 +186,12 @@ class SchaubildGenerator extends AbstractGenerator
     private function generateKiImageVariant(GenerationContext $ctx, int $jobUid, string $referenceHtml, string $imageSize): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'ki_image', 0, ArtifactStatus::Pending);
+        if (!$ctx->grants->vision) {
+            $this->failArtifact($artifactUid, $jobUid, self::DENIED_VISION);
+
+            return false;
+        }
+
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
             $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or image service unavailable');
 

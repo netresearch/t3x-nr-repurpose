@@ -81,6 +81,12 @@ final class PodcastGenerator extends AbstractGenerator
         $jobUid      = $ctx->jobUid();
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Podcast, 'default', 0, ArtifactStatus::Pending);
 
+        if (!$ctx->grants->audio) {
+            $this->failArtifact($artifactUid, $jobUid, self::DENIED_AUDIO);
+
+            return false;
+        }
+
         // Budget-guarded availability check for the Specialized TTS calls up front.
         $turnCount      = max(1, count($ctx->brief->keyPoints) + count($ctx->brief->sections) + 2);
         $plannedTtsCost = self::TTS_COST_PER_TURN * $turnCount;
