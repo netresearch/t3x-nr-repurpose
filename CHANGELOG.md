@@ -6,9 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-09-23
+
+### Changed
+
+- **Accept nr-llm 0.36.** `composer.json` requires `netresearch/nr-llm` at `^0.35 || ^0.36`, and `ext_emconf.php` declares `nr_llm 0.35.0-0.36.99` to match. On a 0.x version `^0.35` does not admit 0.36.0, so this extension kept an installation from moving to nr-llm 0.36. nr-llm 0.36.0 adds tools and guards and changes nothing this extension calls; the floor stays at 0.35.
+- The README states the nr-llm range the extension requires (#115).
+- CI synced with the `netresearch/.github` TYPO3 extension template (#116, #118).
+- `.bestpractices.json` records the OpenSSF Best Practices badge answers with their evidence (#119).
+
 ### Fixed
 
-- **The permissions `generate_audio` and `generate_vision` are enforced** (NEXT-182). They were registered as `customPermOptions` and documented as gating AI spend per backend group, but nothing checked them, so every editor could generate podcast audio and AI imagery. The worker now resolves the job owner's grants once per run: without `generate_audio` the podcast artifact fails before any call; without `generate_vision` the Schaubild's two AI image variants fail (the HTML variant is still produced) and the story is rendered on flat backgrounds. Administrators hold both. Editors whose groups do not carry the options lose these artifacts after the update — grant them in the backend group's "Custom module options" to keep the previous behaviour.
+- **The permissions `generate_audio` and `generate_vision` are enforced** (NEXT-182, #120). They were registered as `customPermOptions` and documented as gating AI spend per backend group, but nothing checked them, so every editor could generate podcast audio and AI imagery. The worker now resolves the job owner's grants once per run: without `generate_audio` the podcast artifact fails before any call; without `generate_vision` the Schaubild's two AI image variants fail (the HTML variant is still produced) and the story is rendered on flat backgrounds. Administrators hold both. Editors whose groups do not carry the options lose these artifacts after the update — grant them in the backend group's "Custom module options" to keep the previous behaviour.
 
 ## [0.5.1] - 2026-09-17
 
@@ -252,7 +261,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.4.8...v0.4.9

@@ -105,7 +105,7 @@ the AI usage stays under the operator's control:
 ## Requirements
 
 - TYPO3 v14.3 LTS, PHP 8.3+
-- nr-llm `^0.35` (installed automatically via Composer; it owns the provider
+- nr-llm `^0.35 || ^0.36` (installed automatically via Composer; it owns the provider
   credentials)
 - An API key for at least one nr-llm-supported provider. The tested default stack
   uses a single OpenAI key for everything (analysis, TTS, images).
