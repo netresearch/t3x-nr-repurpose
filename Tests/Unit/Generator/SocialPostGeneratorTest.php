@@ -99,7 +99,7 @@ final class SocialPostGeneratorTest extends TextGeneratorTestCase
             public function updateArtifact(int $artifactUid, array $fields): void
             {
                 if (($fields['status'] ?? null) === 'done' && $this->inserted[$artifactUid]['variant'] === 'x') {
-                    throw new RuntimeException('connection lost');
+                    throw new SimulatedStorageFailure('connection lost');
                 }
 
                 parent::updateArtifact($artifactUid, $fields);
@@ -171,3 +171,6 @@ final class SocialPostGeneratorTest extends TextGeneratorTestCase
         self::assertSame('Social posts generation error: the answer has no "x" post', $row['error_message']);
     }
 }
+
+/** Dedicated exception for the simulated write failure (php:S112 — no generic RuntimeException). */
+final class SimulatedStorageFailure extends RuntimeException {}

@@ -43,12 +43,14 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 {
     private const QUARTERLY_REPORT = 'Quarterly report';
 
+    private const SOURCE_URL = 'https://example.com/';
+
     private function seedJob(int $beUser = 0): int
     {
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)
             ->getConnectionForTable('tx_nrrepurpose_domain_model_job');
         $conn->insert('tx_nrrepurpose_domain_model_job', [
-            'pid'    => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
+            'pid'    => 0, 'source_type' => 'url', 'source_value' => self::SOURCE_URL,
             'theme'  => 'nr', 'want_podcast' => 1, 'want_schaubild' => 1, 'want_story' => 1,
             'status' => 'queued', 'be_user' => $beUser,
         ]);
@@ -61,7 +63,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         return new SourceDocument(
             title: $title,
             text: $text,
-            sourceLabel: 'https://example.com/',
+            sourceLabel: self::SOURCE_URL,
             pageCount: 0,
             languageHint: 'en',
         );
@@ -156,7 +158,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
     {
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job');
         $conn->insert('tx_nrrepurpose_domain_model_job', [
-            'pid'               => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
+            'pid'               => 0, 'source_type' => 'url', 'source_value' => self::SOURCE_URL,
             'theme'             => 'nr', 'want_podcast' => 0, 'want_schaubild' => 0, 'want_story' => 0,
             'want_exec_summary' => 0, 'want_faq' => 1, 'want_social_post' => 0, 'want_newsletter' => 0,
             'status'            => 'queued',
