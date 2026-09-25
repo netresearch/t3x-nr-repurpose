@@ -74,10 +74,10 @@ return [
         'want_podcast'      => ['label' => 'Podcast', 'config' => ['type' => 'check', 'default' => 1]],
         'want_schaubild'    => ['label' => 'Schaubild', 'config' => ['type' => 'check', 'default' => 1]],
         'want_story'        => ['label' => 'Story', 'config' => ['type' => 'check', 'default' => 1]],
-        'want_exec_summary' => ['label' => 'Executive summary', 'config' => ['type' => 'check', 'default' => 1]],
-        'want_faq'          => ['label' => 'FAQ', 'config' => ['type' => 'check', 'default' => 1]],
-        'want_social_post'  => ['label' => 'Social posts', 'config' => ['type' => 'check', 'default' => 1]],
-        'want_newsletter'   => ['label' => 'Newsletter', 'config' => ['type' => 'check', 'default' => 1]],
+        'want_exec_summary' => ['label' => 'Executive summary', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_faq'          => ['label' => 'FAQ', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_social_post'  => ['label' => 'Social posts', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_newsletter'   => ['label' => 'Newsletter', 'config' => ['type' => 'check', 'default' => 0]],
         // JSON snapshot of the New-form prompt-snippet selection (PromptSnippetSelection);
         // written by the module form only, hence passthrough (not editable in the record view).
         'prompt_snippets'   => ['config' => ['type' => 'passthrough']],

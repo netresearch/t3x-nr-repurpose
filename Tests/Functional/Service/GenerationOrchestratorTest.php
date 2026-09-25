@@ -209,6 +209,43 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('"@type": "FAQPage"', (string) $metadata['content']['jsonLd']);
     }
 
+    /**
+     * A row written without the text-format columns (as by a script or an older form)
+     * takes the database defaults: no text generator runs and no LLM call is made.
+     */
+    public function testAJobRowWithoutTextFlagsRunsNoTextGenerator(): void
+    {
+        $jobUid     = $this->seedJob();
+        $jobs       = $this->get(JobProcessingRepository::class);
+        $completion = new FakeCompletionService();
+        $budget     = new FakeBudgetService();
+        $logger     = new NullLogger();
+
+        $orchestrator = new GenerationOrchestrator(
+            $jobs,
+            $logger,
+            $this->stubIngestion($this->stubDocument()),
+            $this->stubAnalyzer($this->stubBrief()),
+            $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
+            $this->get(CapabilityGrantResolver::class),
+            [
+                new ExecutiveSummaryGenerator($jobs, $budget, $logger, $completion),
+                new FaqGenerator($jobs, $budget, $logger, $completion),
+                new SocialPostGenerator($jobs, $budget, $logger, $completion, new TextLimiter()),
+                new NewsletterGenerator($jobs, $budget, $logger, $completion),
+            ],
+        );
+        $orchestrator->process($jobUid);
+
+        self::assertSame([], $completion->completeStructuredCalls);
+        $artifacts = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobUid]);
+        self::assertSame(0, $artifacts);
+    }
+
     public function testIngestionFailureMarksJobFailedAndRunsNoGenerator(): void
     {
         $jobUid = $this->seedJob();

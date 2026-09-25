@@ -34,7 +34,7 @@ From one source (URL or PDF) the pipeline derives a single faithful `ContentBrie
   each for LinkedIn (≤ 3000 characters), X (≤ 280) and Instagram (caption + hashtags,
   ≤ 2200), and a newsletter text (subject, preheader, paragraphs, one call to action).
   Each is one schema-validated LLM call; the platform limits are enforced in code by
-  cutting at a sentence boundary.
+  cutting at a sentence boundary. The text formats are off by default — tick them per job.
 
 Each artifact type can be selected per run. Long-running generation runs asynchronously
 via Symfony Messenger (doctrine transport).

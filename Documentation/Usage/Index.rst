@@ -71,9 +71,11 @@ record:
      - checkboxes (all on by default)
      - Which artifacts to generate this run.
    * - Executive summary / FAQ / Social posts / Newsletter
-     - checkboxes (all on by default)
-     - Which text formats to generate this run. *Audience* and *tone of voice*
-       steer them; persona, layout and style do not apply to text.
+     - checkboxes (all off by default)
+     - Which text formats to generate this run. They are opt-in, so an
+       upgraded installation makes no additional LLM calls until an editor
+       ticks one. *Audience* and *tone of voice* steer them; persona, layout
+       and style do not apply to text.
 
 .. note::
 

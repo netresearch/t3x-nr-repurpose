@@ -36,13 +36,15 @@ class Job extends AbstractEntity
 
     protected bool $wantStory = true;
 
-    protected bool $wantExecSummary = true;
+    // The text formats are opt-in: an upgraded installation must not start making
+    // four extra LLM calls per job without anyone choosing that.
+    protected bool $wantExecSummary = false;
 
-    protected bool $wantFaq = true;
+    protected bool $wantFaq = false;
 
-    protected bool $wantSocialPost = true;
+    protected bool $wantSocialPost = false;
 
-    protected bool $wantNewsletter = true;
+    protected bool $wantNewsletter = false;
 
     protected string $promptSnippets = '';
 

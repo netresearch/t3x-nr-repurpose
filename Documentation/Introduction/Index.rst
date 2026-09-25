@@ -92,7 +92,9 @@ Text formats
 ------------
 
 Four ready-to-use texts, each written by one structured LLM call from the same
-brief and answered in the source language:
+brief and answered in the source language. They are off by default in the job
+form, so an existing installation makes no additional LLM calls until an editor
+selects one:
 
 -   **Executive summary** — five to eight sentences for decision makers, key
     facts first.
