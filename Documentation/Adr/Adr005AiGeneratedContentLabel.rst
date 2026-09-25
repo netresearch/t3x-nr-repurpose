@@ -69,19 +69,30 @@ Decision
    - PNG: ``tEXt`` ``Software`` and ``Comment`` plus an ``iTXt``
      ``XML:com.adobe.xmp`` packet with ``Iptc4xmpExt:DigitalSourceType``,
      ``xmp:CreatorTool`` and ``dc:description``, inserted right after
-     ``IHDR``. The image data is not touched.
+     ``IHDR``. The image data is not touched. The ``dc:description`` keeps the
+     UTF-8 text; the Latin-1 ``tEXt`` ``Comment`` gets it transliterated
+     (``é`` becomes ``e``).
    - PNG with a ``caBX`` chunk (a C2PA manifest): left byte-identical. Any
-     change would invalidate the manifest's signature, and the manifest
-     already declares the origin.
+     change would break the C2PA content hash binding, so the manifest would
+     fail validation. Such a manifest from the image model is expected to
+     declare the AI origin itself — see the assumption under Consequences.
    - MP3: an existing ID3v2 tag is replaced by an ID3v2.3 tag with
-     ``TXXX:AI-generated = true``, ``TXXX:DigitalSourceType``, ``TSSE`` and a
-     ``COMM`` frame. Replacing rather than merging keeps the writer to one tag
-     version; the only frame lost is ffmpeg's ``TSSE`` (its muxer version).
-     ID3v2.3 because it is the version every player reads.
-   - A file that does not match its extension's format (a ``.png`` that is not
-     a PNG, a ``.mp3`` without an MPEG frame sync) makes the store fail, so
-     the artifact fails instead of being stored unlabelled.
-   - Other files (the WebVTT subtitles) are not rewritten.
+     ``TXXX:AI-generated = true``, ``TXXX:DigitalSourceType`` and a ``COMM``
+     frame. Replacing rather than merging keeps the writer to one tag version
+     (ID3v2.3, the version every player reads). The encoder's ``TSSE`` of the
+     replaced tag — ffmpeg's ``Lavf…`` — is carried over; this extension does
+     not encode audio, so without one it writes no ``TSSE`` and names itself
+     in ``COMM`` only.
+   - WebVTT: a ``NOTE`` block naming the AI origin right after the ``WEBVTT``
+     header (a comment block players ignore); the cues are unchanged.
+   - A file that does not match its extension's format makes the store fail,
+     so the artifact fails instead of being stored unlabelled: a ``.png`` that
+     is not a complete PNG (``IHDR`` of length 13 first, ``IEND`` last and
+     exactly at the end — a truncated render is refused), a ``.mp3`` without
+     an MPEG frame sync after the tag, a ``.vtt`` without the ``WEBVTT``
+     header. The check runs before the file is created, so nothing is left in
+     FAL.
+   - Other files are not rewritten.
 
 4. **FAL description, core field only.** For every file stored with a
    provenance, ``sys_file_metadata.description`` states the AI origin in one
@@ -94,6 +105,10 @@ Decision
 
    - The result view shows an "AI-generated" badge on every finished artifact,
      rows stored before this change included — they are just as generated.
+     Its tooltip mentions the machine-readable marker only when the row has an
+     ``aiLabel`` block; older rows get "Created with generative AI." The story
+     card is labelled from its first finished slide and carries no badge when
+     every slide failed.
    - ``aiLabelImages`` (default on) renders a small corner label into the
      Schaubild and story templates, in the artifact's language, on its own dark
      plate so it stays legible over an AI background. ``ki_image`` never passes
@@ -116,9 +131,13 @@ Decision
 Consequences
 ============
 
-- Every file downloaded from the result view carries its AI origin, readable
-  by standard tools (``ffprobe``, ``exiftool``, Pillow, media players), and
-  every artifact row states it in the metadata.
+- Every file downloaded from the result view — MP3, WebVTT, PNG — carries its
+  AI origin, readable by standard tools (``ffprobe``, ``exiftool``, Pillow,
+  media players), and every artifact row states it in the metadata.
+- A copied text carries nothing machine-readable. Its marker is the
+  ``aiLabel`` block in the database; the closing line is a human-readable
+  disclosure and off by default. The editor who publishes the text has to
+  disclose it where it is published.
 - The markers are metadata. Tools that strip metadata — most social networks'
   image upload, a re-export in an image editor — remove them; the visible
   corner label on the rendered images survives those, the full AI image has

@@ -173,11 +173,17 @@ permission.
 AI labelling
 ------------
 
-Everything this extension generates is marked as AI-generated, so that a
-published podcast, image or text can be detected as synthetic (EU AI Act,
-Art. 50(2)). The result view shows an "AI-generated" badge on every finished
-artifact and on the story strip. The markers themselves travel with the
-artifact:
+Everything this extension generates is marked as AI-generated. A published
+podcast or image carries its marker inside the file, so it can be detected as
+synthetic (EU AI Act, Art. 50(2)). A text is different: once an editor copies
+it, it carries nothing machine-readable. Its only machine-readable marker is
+the ``aiLabel`` block in the artifact's database row, and the optional closing
+line is human-readable only. **Whoever publishes a generated text has to
+disclose it as AI-generated where it is published** — in the page, the
+newsletter tool or the social network.
+
+The result view shows an "AI-generated" badge on every finished artifact and
+on the story strip when at least one slide finished. The markers:
 
 .. list-table::
    :header-rows: 1
@@ -187,9 +193,13 @@ artifact:
      - Marker
    * - Podcast MP3
      - An ID3v2.3 tag with ``TXXX:AI-generated = true``,
-       ``TXXX:DigitalSourceType`` (IPTC ``trainedAlgorithmicMedia``), ``TSSE``
-       (``nr_repurpose <version>``) and a ``COMM`` comment naming the speech
-       model. Media players and tools such as ``ffprobe`` show these tags.
+       ``TXXX:DigitalSourceType`` (IPTC ``trainedAlgorithmicMedia``) and a
+       ``COMM`` comment naming this extension and the speech model. The
+       encoder's ``TSSE`` (ffmpeg's ``Lavf…``) is kept. Media players and tools
+       such as ``ffprobe`` show these tags.
+   * - Podcast subtitles (WebVTT)
+     - A ``NOTE`` block right after the ``WEBVTT`` header naming the AI
+       origin. Players ignore ``NOTE`` blocks; the cues are unchanged.
    * - Schaubild and story PNGs
      - ``tEXt`` chunks ``Software`` and ``Comment`` and an XMP packet (``iTXt``
        ``XML:com.adobe.xmp``) with ``Iptc4xmpExt:DigitalSourceType``: the full
@@ -198,8 +208,12 @@ artifact:
        ``compositeWithTrainedAlgorithmicMedia``. With the ``aiLabelImages``
        setting on (the default), the HTML renders also show a small
        "AI-generated" label in the top corner. An image that already carries a
-       C2PA manifest is stored unchanged, because any change would break the
-       manifest's signature.
+       C2PA manifest is stored unchanged: any change would break the C2PA
+       content hash binding, so the manifest would fail validation. Such a
+       manifest from the image model is expected to declare the AI origin
+       itself; that has not been checked against real output yet (see
+       :ref:`adr-005`). A PNG that is incomplete (truncated render) is not
+       stored; the artifact fails with the reason.
    * - Every stored file (MP3, WebVTT, PNG)
      - The file's metadata description in the file list: "AI-generated with
        nr_repurpose …", with the digital source type and the known models.
@@ -207,15 +221,17 @@ artifact:
      - An ``aiLabel`` block in the artifact metadata: ``aiGenerated: true``,
        ``generator``, ``digitalSourceType`` and, where known, ``models``. The
        text formats name no model, because nr-llm does not report which
-       model answered a completion.
+       model answered a completion. Rows stored before this version have no
+       block; their badge says only "Created with generative AI.".
    * - Text formats (optional)
      - With the ``aiLabelTexts`` setting on, the copy-ready text ends with
-       "This text was created with AI." in the text's language. The FAQ
+       "This text was created with AI." in the text's language — a
+       human-readable disclosure, not a machine-readable marker. The FAQ
        JSON-LD is never changed, so it stays valid schema.org.
 
-The two settings are described in :ref:`configuration-ai-label`. The markers
-survive a download; they do not survive tools that strip metadata, such as
-most social networks' image upload or a re-export in an image editor.
+The two settings are described in :ref:`configuration-ai-label`. The file
+markers survive a download; they do not survive tools that strip metadata,
+such as most social networks' image upload or a re-export in an image editor.
 
 .. _usage-cli:
 
