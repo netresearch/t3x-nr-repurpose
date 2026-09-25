@@ -133,16 +133,21 @@ plain-text version of every text is stored on the artifact as well
      - a definition list of questions and answers, plus the schema.org
        ``FAQPage`` JSON-LD in a collapsible block
      - At most ten pairs; a pair without a question or an answer is dropped.
-       The JSON-LD escapes ``<`` and ``>``, so it can be pasted into a
+       The JSON-LD names the text's language (``inLanguage``) and escapes
+       ``<`` and ``>``, so it can be pasted into a
        ``<script type="application/ld+json">`` element as it is.
    * - Social posts
      - one card per platform (``linkedin``, ``x``, ``instagram``) with the
        character count
      - LinkedIn ≤ 3,000, X ≤ 280, Instagram ≤ 2,200 characters including the
        hashtag line. A longer post is cut at the last sentence end inside the
-       limit (at a word boundary with "…" if the first sentence alone is too
-       long); the card says when a post was shortened. Hashtags are normalised
-       to ``#word``, de-duplicated and capped at 30.
+       limit; when that would keep less than half the limit, it is cut at a
+       word boundary with "…" instead. The card says which of the two
+       happened. Each hashtag entry is split on spaces and ``#``, reduced to
+       letters, digits and underscores (``AI-driven`` → ``#AIdriven``) and
+       de-duplicated; at most 30 are kept, and more are left out while the
+       hashtag line would take more than half of the 2,200 characters. The card
+       says how many were left out.
    * - Newsletter
      - subject, preheader, body paragraphs and the call to action
      - Subject, preheader, at least one paragraph and exactly one call to
@@ -153,7 +158,10 @@ the same way; X weighs some characters double (most emoji, CJK), so a post in
 those scripts can still exceed X's own limit.
 
 The texts are written in the detected source language, like every other
-artifact. When the answer is unusable — the provider fails, the answer does not
+artifact. The labels inside the plain text (``Q:``/``A:`` for the FAQ,
+``Subject:``/``Preheader:`` for the newsletter) follow that language too, not
+the editor's backend language; a language the extension has no translation for
+gets the English labels. When the answer is unusable — the provider fails, the answer does not
 match the JSON shape after nr-llm's one repair round, or a required part is
 empty — the artifact is marked failed with the reason, and the other artifacts
 of the job are not affected. The text formats make no speech or image call, so

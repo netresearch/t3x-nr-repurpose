@@ -241,7 +241,8 @@ Text formats
 schema; nr-llm validates the answer against the schema and asks once more with
 the validation failure when it does not match. The generator then applies what
 a schema cannot express — caps, the platform character limits
-(:php:`TextLimiter`, cut at a sentence boundary), hashtag normalisation — and
+(:php:`TextLimiter`, cut at a sentence boundary, or at a word boundary when
+that would keep less than half), hashtag normalisation — and
 stores the plain text in ``script_text`` and the structured answer in
 ``metadata.content``. The social posts become one row per platform variant
 (``linkedin``, ``x``, ``instagram``); the other formats one row each. No file

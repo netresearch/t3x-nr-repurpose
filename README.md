@@ -29,12 +29,13 @@ From one source (URL or PDF) the pipeline derives a single faithful `ContentBrie
   artifact per slide. A single optional AI background is shared by all slides — generated
   at the layout-selected dimensions and scaled to *cover* the design canvas so the
   layout is never distorted.
-- **Text formats** — an executive summary (5–8 sentences, key facts first), an FAQ
-  (5–10 pairs from the source only, plus schema.org `FAQPage` JSON-LD), one social post
+- **Text formats** — an executive summary (5–8 sentences asked for, key facts first), an
+  FAQ (5–10 pairs from the source only asked for — more are cut, fewer kept as they come —
+  plus schema.org `FAQPage` JSON-LD), one social post
   each for LinkedIn (≤ 3000 characters), X (≤ 280) and Instagram (caption + hashtags,
   ≤ 2200), and a newsletter text (subject, preheader, paragraphs, one call to action).
   Each is one schema-validated LLM call; the platform limits are enforced in code by
-  cutting at a sentence boundary. The text formats are off by default — tick them per job.
+  cutting at a sentence boundary (or a word boundary when that keeps more). The text formats are off by default — tick them per job.
 
 Each artifact type can be selected per run. Long-running generation runs asynchronously
 via Symfony Messenger (doctrine transport).
@@ -165,4 +166,5 @@ never inside ddev:
 See the rendered documentation under `Documentation/` (Introduction, Installation,
 Configuration, Usage, Architecture, and the Architecture Decision Records). Pipeline:
 ingest (web/PDF) → analyze (one `ContentBrief` via nr-llm) → generate (podcast /
-schaubild×3 / story×N slides / text formats) → store in the TYPO3 File Abstraction Layer (FAL).
+schaubild×3 / story×N slides / text formats) → store in the TYPO3 File Abstraction Layer (FAL); the
+text formats write no file, their text lives on the artifact row.

@@ -4,7 +4,7 @@ Agent-facing component map. For conventions and commands see the root `AGENTS.md
 
 ## System overview
 
-nr_repurpose turns a webpage or PDF into derived artifacts (podcast audio, Schaubild diagram images, Instagram-story slides, and the text formats executive summary, FAQ, social posts and newsletter). A backend module (or the `nr_repurpose:generate` CLI) creates a job; the pipeline ingests the source, condenses it into one `ContentBrief` via nr-llm, runs the tagged generators, and stores the results in FAL. All AI calls go through `netresearch/nr-llm` — this extension contains zero provider code.
+nr_repurpose turns a webpage or PDF into derived artifacts (podcast audio, Schaubild diagram images, Instagram-story slides, and the text formats executive summary, FAQ, social posts and newsletter). A backend module (or the `nr_repurpose:generate` CLI) creates a job; the pipeline ingests the source, condenses it into one `ContentBrief` via nr-llm, runs the tagged generators, and stores the media results in FAL — the text formats write no FAL file; their text is stored on the artifact row (`script_text`, `metadata.content`). All AI calls go through `netresearch/nr-llm` — this extension contains zero provider code.
 
 ## Components
 
@@ -37,7 +37,7 @@ Derived from `Configuration/Services.yaml` (no phpat architecture test suite exi
 1. **Ingest** — `Classes/Ingestion/`: URL fetch or tiered PDF reader (Poppler).
 2. **Analyze** — `DocumentAnalyzer` produces one `ContentBrief` via nr-llm completion (map-reduce above 24k chars).
 3. **Generate** — tagged generators produce podcast (1–3 persona speakers), Schaubild (×3 variants), story (×N slides) and the four text formats; async via Symfony Messenger doctrine transport. The worker host needs `ffmpeg`, `chromium` and `poppler`.
-4. **Store** — artifacts land in FAL under `repurpose/` via `JobFileStorage`.
+4. **Store** — media artifacts land in FAL under `repurpose/` via `JobFileStorage`; text formats stay on the artifact row.
 
 ## Key decisions
 

@@ -96,15 +96,17 @@ brief and answered in the source language. They are off by default in the job
 form, so an existing installation makes no additional LLM calls until an editor
 selects one:
 
--   **Executive summary** — five to eight sentences for decision makers, key
-    facts first.
--   **FAQ** — five to ten question/answer pairs taken only from the source,
-    shown as a list and additionally as schema.org ``FAQPage`` JSON-LD to paste
+-   **Executive summary** — the model is asked for five to eight sentences for
+    decision makers, key facts first; more than eight are cut, fewer are kept
+    as they come.
+-   **FAQ** — the model is asked for five to ten question/answer pairs taken
+    only from the source; more than ten are cut, fewer are kept as they come.
+    Shown as a list and additionally as schema.org ``FAQPage`` JSON-LD to paste
     into a page.
 -   **Social posts** — one post each for LinkedIn (up to 3,000 characters), X
     (up to 280) and Instagram (a caption with hashtags, up to 2,200). The limits
     are enforced in code: a longer post is cut at the last sentence end that
-    fits.
+    fits, or at a word boundary when that would keep less than half the post.
 -   **Newsletter** — subject line, preheader, a body in plain paragraphs and
     one call to action.
 
