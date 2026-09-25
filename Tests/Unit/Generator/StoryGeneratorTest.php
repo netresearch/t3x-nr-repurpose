@@ -32,6 +32,7 @@ use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -42,6 +43,8 @@ use TYPO3\CMS\Core\Resource\ResourceStorage;
 
 final class StoryGeneratorTest extends TestCase
 {
+    use PromptBoundaryAssertions;
+
     private const THREE_SLIDES = ['slides' => [
         ['role' => 'cover', 'headline' => 'Big News', 'subline' => 'Details inside'],
         ['role' => 'point', 'headline' => 'Point one', 'subline' => 'It matters'],
@@ -49,10 +52,10 @@ final class StoryGeneratorTest extends TestCase
     ]];
 
     /** @param list<string> $keyPoints */
-    private function context(bool $wantStory = true, array $keyPoints = ['Point'], ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null): GenerationContext
+    private function context(bool $wantStory = true, array $keyPoints = ['Point'], ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null, string $summary = 'A crisp summary.'): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
-        $brief    = new ContentBrief('Report', 'A crisp summary.', $keyPoints, [], 'All', 'en');
+        $brief    = new ContentBrief('Report', $summary, $keyPoints, [], 'All', 'en');
 
         return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0], $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all());
     }
@@ -342,7 +345,7 @@ final class StoryGeneratorTest extends TestCase
 
         self::assertTrue($generator->generate($this->context()));
         // The prompt asks the LLM for the same limits the parser enforces below.
-        self::assertStringContainsString('Headline <=60 chars and subline <=110 chars', $completion->completeJsonCalls[0]['prompt']);
+        self::assertStringContainsString('Headline <=60 chars and subline <=110 chars', (string) $completion->completeJsonCalls[0]['options']?->getSystemPrompt());
 
         $html = (string) $jobs->updates[$jobs->uidForVariant('slide-1')]['source_html'];
         self::assertStringContainsString(str_repeat('H', 60), $html);
@@ -392,8 +395,11 @@ final class StoryGeneratorTest extends TestCase
         $snippets   = new ResolvedPromptSnippets(storySections: "TONE OF VOICE:\nUpbeat and concise\n\nLAYOUT:\nFull-bleed imagery");
 
         self::assertTrue($generator->generate($this->context(true, ['Point'], $snippets)));
-        self::assertStringContainsString("TONE OF VOICE:\nUpbeat and concise", $completion->completeJsonCalls[0]['prompt']);
-        self::assertStringContainsString("LAYOUT:\nFull-bleed imagery", $completion->completeJsonCalls[0]['prompt']);
+        // Snippets are editor configuration: system prompt, not the source-material block.
+        $systemPrompt = (string) $completion->completeJsonCalls[0]['options']?->getSystemPrompt();
+        self::assertStringContainsString("TONE OF VOICE:\nUpbeat and concise", $systemPrompt);
+        self::assertStringContainsString("LAYOUT:\nFull-bleed imagery", $systemPrompt);
+        self::assertStringNotContainsString('TONE OF VOICE', $completion->completeJsonCalls[0]['prompt']);
     }
 
     public function testWithoutSnippetsSlidesPromptHasNoSectionBlocks(): void
@@ -402,8 +408,11 @@ final class StoryGeneratorTest extends TestCase
         $generator  = $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion);
 
         self::assertTrue($generator->generate($this->context()));
-        self::assertStringNotContainsString('TONE OF VOICE', $completion->completeJsonCalls[0]['prompt']);
-        self::assertStringNotContainsString('LAYOUT:', $completion->completeJsonCalls[0]['prompt']);
+        $call = $completion->completeJsonCalls[0];
+        foreach ([$call['prompt'], (string) $call['options']?->getSystemPrompt()] as $prompt) {
+            self::assertStringNotContainsString('TONE OF VOICE', $prompt);
+            self::assertStringNotContainsString('LAYOUT:', $prompt);
+        }
     }
 
     public function testEverySlideRecordsCopyPromptsAndTheSharedBackgroundImageCall(): void
@@ -417,7 +426,8 @@ final class StoryGeneratorTest extends TestCase
 
         foreach (['slide-1', 'slide-2', 'slide-3'] as $variant) {
             $prompts = json_decode((string) $jobs->updates[$jobs->uidForVariant($variant)]['metadata'], true)['prompts'];
-            self::assertSame('You are a social-media copywriter. Output ONLY valid JSON.', $prompts['system']);
+            self::assertSame($completion->completeJsonCalls[0]['options']?->getSystemPrompt(), $prompts['system']);
+            self::assertStringStartsWith('You are a social-media copywriter. Output ONLY valid JSON.', $prompts['system']);
             self::assertSame($completion->completeJsonCalls[0]['prompt'], $prompts['user']);   // the exact copy prompt, verbatim
             self::assertSame($imageGenerator->prompts[0], $prompts['image']);  // shared background prompt
             self::assertSame('stub-image-model', $prompts['imageModel']);
@@ -634,5 +644,25 @@ final class StoryGeneratorTest extends TestCase
         $budget->checkResult = BudgetCheckResult::denied('LIMIT_DAILY', 9.0, 9.0, 'no');
 
         return $budget;
+    }
+
+    public function testAnInstructionPayloadStaysInsideTheSourceBlock(): void
+    {
+        $completion = $this->completion(self::THREE_SLIDES);
+        $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion)
+            ->generate($this->context(summary: self::INSTRUCTION_PAYLOAD));
+
+        $call = $completion->completeJsonCalls[0];
+        self::assertInstructionPayloadContained((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+    }
+
+    public function testASpoofedSourceTagIsNeutralised(): void
+    {
+        $completion = $this->completion(self::THREE_SLIDES);
+        $this->generator([], $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), $completion)
+            ->generate($this->context(summary: self::SPOOF_PAYLOAD));
+
+        $call = $completion->completeJsonCalls[0];
+        self::assertSpoofNeutralised((string) $call['options']?->getSystemPrompt(), $call['prompt']);
     }
 }

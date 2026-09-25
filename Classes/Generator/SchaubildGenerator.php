@@ -17,6 +17,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
@@ -78,7 +79,7 @@ class SchaubildGenerator extends AbstractGenerator
 
         // The exact diagram-body LLM prompts, recorded in every variant's metadata
         // (transparency: the result view shows what was actually sent).
-        $llmPrompts = ['system' => self::HTML_SYSTEM_PROMPT, 'user' => $this->diagramBodyPrompt($ctx)];
+        $llmPrompts = ['system' => $this->diagramSystemPrompt($ctx), 'user' => $this->diagramBodyPrompt($ctx)];
         // Layout snippets may hint a custom AI-image size; resolved once so an invalid
         // hint logs a single warning. The html variant (Chromium render) is unaffected.
         $imageSize = $this->resolveImageSize($ctx->snippets->schaubildImageSize, self::IMAGE_SIZE);
@@ -229,32 +230,41 @@ class SchaubildGenerator extends AbstractGenerator
     }
 
     /**
-     * The exact user prompt of the diagram-body LLM call — also recorded verbatim in the
-     * artifact metadata (prompts.user), so build it in one place only.
+     * The system prompt of the diagram-body LLM call: role, the source-material rule, the
+     * task, the output language and the editor's Schaubild snippets — everything the
+     * extension decides. Recorded in the artifact metadata (prompts.system).
      */
-    private function diagramBodyPrompt(GenerationContext $ctx): string
+    private function diagramSystemPrompt(GenerationContext $ctx): string
     {
-        $brief     = $ctx->brief;
-        $keyPoints = implode("\n- ", $brief->keyPoints);
-        $prompt    = sprintf(
-            "Title: %s\nSummary: %s\nKey points:\n- %s\n\n"
-            . 'Produce the inner HTML body of an INFOGRAPHIC that visualises this content — not a '
-            . 'text document. Lay it out as distinct visual blocks (cards / columns / a simple flow), '
+        $prompt = self::HTML_SYSTEM_PROMPT . "\n\n" . SourceMaterial::SYSTEM_RULE . "\n\n"
+            . 'Task: Produce the inner HTML body of an INFOGRAPHIC that visualises the source material — '
+            . 'not a text document. Lay it out as distinct visual blocks (cards / columns / a simple flow), '
             . 'each with a short heading and the key figure or term made prominent; use inline CSS '
             . 'styles for layout, spacing, colour accents and typographic hierarchy. Avoid long '
             . 'paragraphs and plain bullet lists. Self-contained HTML only (no <html>/<head>, no '
             . 'external assets). Keep every label, number and term exactly as given. '
-            . 'Write text in language code "%s".',
-            $brief->title,
-            $brief->summary,
-            $keyPoints,
-            $brief->language,
-        );
+            . 'Write text in ' . SourceMaterial::language($ctx->brief->language) . '.';
         if ($ctx->snippets->schaubildSections !== '') {
             $prompt .= "\n\n" . $ctx->snippets->schaubildSections;
         }
 
         return $prompt;
+    }
+
+    /**
+     * The user prompt of the diagram-body LLM call: only the source-derived brief fields,
+     * as one SourceMaterial block. Recorded in the artifact metadata (prompts.user).
+     */
+    private function diagramBodyPrompt(GenerationContext $ctx): string
+    {
+        $brief = $ctx->brief;
+
+        return SourceMaterial::wrap(sprintf(
+            "Title: %s\nSummary: %s\nKey points:\n- %s",
+            $brief->title,
+            $brief->summary,
+            implode("\n- ", $brief->keyPoints),
+        ));
     }
 
     /**
@@ -266,7 +276,7 @@ class SchaubildGenerator extends AbstractGenerator
         $brief   = $ctx->brief;
         $options = (new ChatOptions(
             temperature: 0.3,
-            systemPrompt: self::HTML_SYSTEM_PROMPT,
+            systemPrompt: $this->diagramSystemPrompt($ctx),
             beUserUid: $ctx->beUser,
             plannedCost: 0.03,
         ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_DIAGRAM);
