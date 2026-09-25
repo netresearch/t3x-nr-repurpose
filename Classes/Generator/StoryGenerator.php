@@ -18,6 +18,7 @@ use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\Support\StorySlide;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
@@ -121,33 +122,45 @@ class StoryGenerator extends AbstractGenerator
     }
 
     /**
-     * The exact user prompt of the carousel-copy LLM call — also recorded verbatim in each
-     * slide's artifact metadata (prompts.user), so build it in one place only.
+     * The system prompt of the carousel-copy LLM call: role, the source-material rule, the
+     * task with its limits and JSON shape, the output language and the editor's story
+     * snippets. Recorded in each slide's artifact metadata (prompts.system).
      */
-    private function carouselPrompt(GenerationContext $ctx): string
+    private function copySystemPrompt(GenerationContext $ctx): string
     {
-        $brief     = $ctx->brief;
-        $keyPoints = array_slice($brief->keyPoints, 0, self::MAX_POINT_SLIDES);
-        $prompt    = sprintf(
-            "Title: %s\nSummary: %s\nKey points:\n- %s\nSource: %s\n\n"
-            . 'Write an Instagram story carousel for this content: first a "cover" slide with a punchy '
-            . 'hook/title, then one "point" slide per key point, and finally an "outro" slide with the '
+        $prompt = self::COPY_SYSTEM_PROMPT . "\n\n" . SourceMaterial::SYSTEM_RULE . "\n\n" . sprintf(
+            'Task: Write an Instagram story carousel for the source material: first a "cover" slide with a '
+            . 'punchy hook/title, then one "point" slide per key point, and finally an "outro" slide with the '
             . 'main takeaway and the source attribution. Headline <=%d chars and subline <=%d chars '
-            . 'per slide. Write in language code "%s". Output ONLY JSON '
+            . 'per slide. Write in %s. Output ONLY JSON '
             . '{"slides":[{"role":"cover|point|outro","headline":"...","subline":"..."}]}.',
-            $brief->title,
-            $brief->summary,
-            implode("\n- ", $keyPoints),
-            $ctx->document->sourceLabel,
             self::MAX_HEADLINE_CHARS,
             self::MAX_SUBLINE_CHARS,
-            $brief->language,
+            SourceMaterial::language($ctx->brief->language),
         );
         if ($ctx->snippets->storySections !== '') {
             $prompt .= "\n\n" . $ctx->snippets->storySections;
         }
 
         return $prompt;
+    }
+
+    /**
+     * The user prompt of the carousel-copy LLM call: only the source-derived brief fields
+     * and the source label, as one SourceMaterial block. Recorded in each slide's artifact
+     * metadata (prompts.user).
+     */
+    private function carouselPrompt(GenerationContext $ctx): string
+    {
+        $brief = $ctx->brief;
+
+        return SourceMaterial::wrap(sprintf(
+            "Title: %s\nSummary: %s\nKey points:\n- %s\nSource: %s",
+            $brief->title,
+            $brief->summary,
+            implode("\n- ", array_slice($brief->keyPoints, 0, self::MAX_POINT_SLIDES)),
+            $ctx->document->sourceLabel,
+        ));
     }
 
     /**
@@ -161,7 +174,7 @@ class StoryGenerator extends AbstractGenerator
         $options   = (new ChatOptions(
             temperature: 0.5,
             responseFormat: 'json',
-            systemPrompt: self::COPY_SYSTEM_PROMPT,
+            systemPrompt: $this->copySystemPrompt($ctx),
             beUserUid: $ctx->beUser,
             // cover + one slide per key point + outro; capped at MAX_SLIDES by the point cap.
             plannedCost: self::COPY_COST_PER_SLIDE * (count($keyPoints) + 2),
@@ -265,7 +278,7 @@ class StoryGenerator extends AbstractGenerator
             // Every slide carries the full copy prompts; the shared background image
             // prompt/model/size only when a KI background was actually composited.
             'prompts' => $this->promptsMetadata(
-                system: self::COPY_SYSTEM_PROMPT,
+                system: $this->copySystemPrompt($ctx),
                 user: $this->carouselPrompt($ctx),
                 image: $hasBackground ? $this->backgroundPrompt($ctx) : null,
                 imageModel: $hasBackground ? $this->imageGenerator->getModel() : null,

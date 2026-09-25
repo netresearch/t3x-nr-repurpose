@@ -78,6 +78,17 @@ Decision
    a guarantee: the system-prompt rule is what tells the model to treat the
    block as data.
 
+   *Amendment:* the boundary lives in one helper,
+   :php:`Netresearch\NrRepurpose\Pipeline\SourceMaterial`, and every
+   completion of the extension uses it — the four text formats, the podcast
+   script (both the two-host and the persona shape; persona descriptions are
+   editor snippets and go to the system prompt), the Schaubild diagram body,
+   the story copy and the document analysis (map step, synthesis and its
+   corrective retry, whose correction extends the system prompt). The output
+   contracts are unchanged. Not covered: the image-generation prompts, which
+   are a single text with no system/user split, and the PDF vision OCR,
+   whose source is the page image itself.
+
 6. **The schemas are tested against nr-llm's validator.** nr-llm refuses a
    schema outside the subset before the first provider call. The test double
    :php:`FakeCompletionService` does not check, so each generator's unit test

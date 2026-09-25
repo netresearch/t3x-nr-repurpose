@@ -29,6 +29,7 @@ use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -38,13 +39,17 @@ use TYPO3\CMS\Core\Resource\ResourceStorage;
 
 final class PodcastGeneratorTest extends TestCase
 {
+    use PromptBoundaryAssertions;
+
+    use PromptBoundaryAssertions;
+
     /** @param list<Persona> $personas */
-    private function context(int $wantPodcast = 1, array $personas = [], ?CapabilityGrants $grants = null): GenerationContext
+    private function context(int $wantPodcast = 1, array $personas = [], ?CapabilityGrants $grants = null, string $summary = 'Revenue up, costs down.'): GenerationContext
     {
         $document = new SourceDocument('Quarterly Report', 'Revenue grew. Costs fell.', 'https://example.com/report', 0, 'en');
         $brief    = new ContentBrief(
             'Quarterly Report',
-            'Revenue up, costs down.',
+            $summary,
             ['Revenue +12%', 'Costs -5%'],
             [['heading' => 'Financials', 'body' => 'Details.']],
             'Investors',
@@ -342,10 +347,13 @@ final class PodcastGeneratorTest extends TestCase
 
         self::assertTrue($generator->generate($this->context(1, $personas)));
 
-        // The dialogue prompt describes each persona; the JSON shape pins the persona names as speakers.
-        self::assertStringContainsString('- Anna: Curious analyst who asks sharp questions.', $completion->completeJsonCalls[0]['prompt']);
-        self::assertStringContainsString('- Cara: Moderator keeping the pace.', $completion->completeJsonCalls[0]['prompt']);
-        self::assertStringContainsString('"Anna"|"Ben"|"Cara"', (string) $completion->completeJsonCalls[0]['options']?->getSystemPrompt());
+        // The system prompt describes each persona (editor configuration, not source data);
+        // the JSON shape pins the persona names as speakers.
+        $systemPrompt = (string) $completion->completeJsonCalls[0]['options']?->getSystemPrompt();
+        self::assertStringContainsString('- Anna: Curious analyst who asks sharp questions.', $systemPrompt);
+        self::assertStringContainsString('- Cara: Moderator keeping the pace.', $systemPrompt);
+        self::assertStringContainsString('"Anna"|"Ben"|"Cara"', $systemPrompt);
+        self::assertStringNotContainsString('Curious analyst', $completion->completeJsonCalls[0]['prompt']);
 
         // Voice mapping: valid metadata voice wins (Anna); invalid/missing fall back to the host
         // voices round-robin (Ben = index 1 -> onyx, Cara = index 2 -> nova). The unknown speaker
@@ -538,5 +546,37 @@ final class PodcastGeneratorTest extends TestCase
 
         self::assertTrue($generator->supports($this->context(1)));
         self::assertFalse($generator->supports($this->context(0)));
+    }
+
+    private function podcastGenerator(FakeCompletionService $completion): PodcastGenerator
+    {
+        return new PodcastGenerator($this->jobs(), $this->allowingBudget(), new NullLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder());
+    }
+
+    public function testAnInstructionPayloadStaysInsideTheSourceBlock(): void
+    {
+        $completion = $this->completion();
+        $this->podcastGenerator($completion)->generate($this->context(summary: self::INSTRUCTION_PAYLOAD));
+
+        $call = $completion->completeJsonCalls[0];
+        self::assertInstructionPayloadContained((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+    }
+
+    public function testAnInstructionPayloadStaysInsideTheSourceBlockInPersonaMode(): void
+    {
+        $completion = $this->completion([['speaker' => 'Anna', 'text' => 'Hello.']]);
+        $this->podcastGenerator($completion)->generate($this->context(1, [new Persona('Anna', 'Curious analyst.')], summary: self::INSTRUCTION_PAYLOAD));
+
+        $call = $completion->completeJsonCalls[0];
+        self::assertInstructionPayloadContained((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+    }
+
+    public function testASpoofedSourceTagIsNeutralised(): void
+    {
+        $completion = $this->completion();
+        $this->podcastGenerator($completion)->generate($this->context(summary: self::SPOOF_PAYLOAD));
+
+        $call = $completion->completeJsonCalls[0];
+        self::assertSpoofNeutralised((string) $call['options']?->getSystemPrompt(), $call['prompt']);
     }
 }

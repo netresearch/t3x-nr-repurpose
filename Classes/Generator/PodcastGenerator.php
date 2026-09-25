@@ -20,6 +20,7 @@ use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
 use Netresearch\NrRepurpose\Generator\Support\WebVttBuilder;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
@@ -213,24 +214,17 @@ final class PodcastGenerator extends AbstractGenerator
      */
     private function buildTwoHostDialogue(GenerationContext $ctx): array
     {
-        $brief     = $ctx->brief;
-        $keyPoints = implode("\n- ", $brief->keyPoints);
-        $prompt    = sprintf(
-            "Title: %s\nSummary: %s\nAudience: %s\nKey points:\n- %s\n\n"
-            . 'Write a lively two-host podcast dialogue (Host A and Host B) that explains this '
-            . 'content faithfully to the audience. Keep all facts, numbers and labels accurate. '
-            . 'The length must follow the document scope — short for short documents, longer for rich ones. '
-            . 'Each turn must be at most 600 characters.',
-            $brief->title,
-            $brief->summary,
-            $brief->audience,
-            $keyPoints,
-        );
-
+        $prompt       = $this->sourcePrompt($ctx);
         $systemPrompt = sprintf(
-            'You are a podcast scriptwriter. Write in language code "%s". Output ONLY valid JSON '
+            'You are a podcast scriptwriter.' . "\n\n" . '%s' . "\n\n"
+            . 'Task: Write a lively two-host podcast dialogue (Host A and Host B) that explains the '
+            . 'source material faithfully to its audience. Keep all facts, numbers and labels accurate. '
+            . 'The length must follow the document scope — short for short documents, longer for rich ones. '
+            . 'Each turn must be at most 600 characters.' . "\n\n"
+            . 'Write in %s. Output ONLY valid JSON '
             . 'of the shape {"turns":[{"speaker":"Host A"|"Host B","text":"..."}]}.',
-            $brief->language,
+            SourceMaterial::SYSTEM_RULE,
+            SourceMaterial::language($ctx->brief->language),
         );
         $options = (new ChatOptions(
             temperature: 0.6,
@@ -272,27 +266,13 @@ final class PodcastGenerator extends AbstractGenerator
      */
     private function buildPersonaDialogue(GenerationContext $ctx, array $personaVoices): array
     {
-        $brief        = $ctx->brief;
-        $keyPoints    = implode("\n- ", $brief->keyPoints);
         $personaLines = array_map(
             static fn (Persona $persona): string => sprintf('- %s: %s', $persona->name, $persona->description),
             $ctx->snippets->personas,
         );
         $names = array_keys($personaVoices);
 
-        $prompt = sprintf(
-            "Title: %s\nSummary: %s\nAudience: %s\nKey points:\n- %s\n\nHosts:\n%s\n\n"
-            . 'Write a lively podcast dialogue between the hosts described above that explains this '
-            . 'content faithfully to the audience. Keep every host in character with their persona '
-            . 'description. Keep all facts, numbers and labels accurate. '
-            . 'The length must follow the document scope — short for short documents, longer for rich ones. '
-            . 'Each turn must be at most 600 characters.',
-            $brief->title,
-            $brief->summary,
-            $brief->audience,
-            $keyPoints,
-            implode("\n", $personaLines),
-        );
+        $prompt = $this->sourcePrompt($ctx);
 
         // JSON-encode each speaker name: a quote/backslash in a persona name must not be able
         // to malform the JSON-shape constraint or the "|" alternation between the names. The
@@ -302,10 +282,21 @@ final class PodcastGenerator extends AbstractGenerator
             $names,
         ));
 
+        // The personas are the editor's snippets (trusted configuration), so they belong
+        // to the system prompt with the task.
         $systemPrompt = sprintf(
-            'You are a podcast scriptwriter. Write in language code "%s". Output ONLY valid JSON '
-            . 'of the shape {"turns":[{"speaker":%s,"text":"..."}]}.',
-            $brief->language,
+            'You are a podcast scriptwriter.' . "\n\n" . '%1$s' . "\n\n"
+            . 'Hosts:' . "\n" . '%2$s' . "\n\n"
+            . 'Task: Write a lively podcast dialogue between the hosts described above that explains the '
+            . 'source material faithfully to its audience. Keep every host in character with their persona '
+            . 'description. Keep all facts, numbers and labels accurate. '
+            . 'The length must follow the document scope — short for short documents, longer for rich ones. '
+            . 'Each turn must be at most 600 characters.' . "\n\n"
+            . 'Write in %3$s. Output ONLY valid JSON '
+            . 'of the shape {"turns":[{"speaker":%4$s,"text":"..."}]}.',
+            SourceMaterial::SYSTEM_RULE,
+            implode("\n", $personaLines),
+            SourceMaterial::language($ctx->brief->language),
             $speakerAlternation,
         );
         $options = (new ChatOptions(
@@ -339,6 +330,23 @@ final class PodcastGenerator extends AbstractGenerator
         }
 
         return ['turns' => $turns, 'system' => $systemPrompt, 'user' => $prompt];
+    }
+
+    /**
+     * The user prompt of both dialogue shapes: only the source-derived brief fields, as
+     * one SourceMaterial block. Recorded in the artifact metadata (prompts.user).
+     */
+    private function sourcePrompt(GenerationContext $ctx): string
+    {
+        $brief = $ctx->brief;
+
+        return SourceMaterial::wrap(sprintf(
+            "Title: %s\nSummary: %s\nAudience: %s\nKey points:\n- %s",
+            $brief->title,
+            $brief->summary,
+            $brief->audience,
+            implode("\n- ", $brief->keyPoints),
+        ));
     }
 
     /**

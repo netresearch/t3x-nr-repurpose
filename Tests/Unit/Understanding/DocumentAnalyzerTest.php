@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzer;
 use PHPUnit\Framework\TestCase;
@@ -115,6 +116,8 @@ final class FakeCompletionService implements CompletionServiceInterface
 
 final class DocumentAnalyzerTest extends TestCase
 {
+    use PromptBoundaryAssertions;
+
     private function smallDocument(): SourceDocument
     {
         return new SourceDocument(
@@ -303,8 +306,10 @@ final class DocumentAnalyzerTest extends TestCase
 
         self::assertSame('Quarterly report', $brief->title);
         self::assertCount(2, $fake->jsonCalls);
-        // The retry prompt names the rejected keys so the model can self-correct.
-        self::assertStringContainsString('keyPoints, language', $fake->jsonCalls[1]['prompt']);
+        // The retry's system prompt names the rejected keys so the model can self-correct;
+        // the user message stays the unchanged source-material block.
+        self::assertStringContainsString('keyPoints, language', (string) $fake->jsonCalls[1]['options']?->getSystemPrompt());
+        self::assertSame($fake->jsonCalls[0]['prompt'], $fake->jsonCalls[1]['prompt']);
     }
 
     public function testThrowsWhenRequiredKeysMissingTwice(): void
@@ -316,5 +321,57 @@ final class DocumentAnalyzerTest extends TestCase
         $this->expectException(AnalysisException::class);
         $this->expectExceptionMessageMatches('/received keys: keyPoints, language/');
         $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 0]);
+    }
+
+    private function documentWith(string $text): SourceDocument
+    {
+        return new SourceDocument(title: 'Quarterly report', text: $text, sourceLabel: 'https://example.com/report', pageCount: 0, languageHint: 'en');
+    }
+
+    public function testAnInstructionPayloadInTheDocumentStaysInsideTheSourceBlock(): void
+    {
+        $fake = new FakeCompletionService([$this->briefResult('en')]);
+        (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::INSTRUCTION_PAYLOAD), ['uid' => 1, 'be_user' => 0]);
+
+        $call = $fake->jsonCalls[0];
+        self::assertInstructionPayloadContained((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+    }
+
+    public function testASpoofedSourceTagInTheDocumentIsNeutralised(): void
+    {
+        $fake = new FakeCompletionService([$this->briefResult('en')]);
+        (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::SPOOF_PAYLOAD), ['uid' => 1, 'be_user' => 0]);
+
+        $call = $fake->jsonCalls[0];
+        self::assertSpoofNeutralised((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+    }
+
+    /** The corrective retry keeps the boundary: its correction goes to the system prompt. */
+    public function testTheCorrectiveRetryKeepsThePayloadInsideTheSourceBlock(): void
+    {
+        $fake = new FakeCompletionService([['keyPoints' => ['x']], $this->briefResult('en')]);
+        (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::INSTRUCTION_PAYLOAD), ['uid' => 1, 'be_user' => 0]);
+
+        $call = $fake->jsonCalls[1];
+        self::assertInstructionPayloadContained((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+    }
+
+    /** Map step (large document): every chunk call and the synthesis over the summaries. */
+    public function testEveryMapReduceCallKeepsThePayloadInsideTheSourceBlock(): void
+    {
+        $paragraph = self::INSTRUCTION_PAYLOAD . "\n" . self::SPOOF_PAYLOAD . ' ' . str_repeat('Section content sentence. ', 400);
+        $mapResult = ['summary' => self::INSTRUCTION_PAYLOAD, 'keyPoints' => ['kp']];
+        $fake      = new FakeCompletionService([$mapResult, $mapResult, $this->briefResult('en')]);
+
+        (new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000))
+            ->analyze($this->documentWith($paragraph . "\n\n" . $paragraph), ['uid' => 1, 'be_user' => 0]);
+
+        self::assertCount(3, $fake->jsonCalls);
+        foreach ($fake->jsonCalls as $i => $call) {
+            self::assertInstructionPayloadContained((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+            if ($i < 2) {
+                self::assertSpoofNeutralised((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+            }
+        }
     }
 }

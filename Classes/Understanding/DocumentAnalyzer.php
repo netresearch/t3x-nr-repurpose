@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
 
@@ -31,15 +32,24 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
 {
+    // Role, source-material rule and task sit in the system prompts; the document text,
+    // its title and label, and the chunk summaries reach the model only as one
+    // SourceMaterial block in the user message (ADR-004).
     private const SYSTEM_PROMPT
         = 'You are a precise editorial analyst. You read a source document and produce a faithful '
         . 'structured brief. Numbers, names and labels must stay exactly as in the source. '
         . 'Detect the source language and report it as an ISO-639-1 code. '
-        . 'Output ONLY valid JSON, no prose around it.';
+        . 'Output ONLY valid JSON, no prose around it.' . "\n\n" . SourceMaterial::SYSTEM_RULE . "\n\n"
+        . 'Task: Analyze the document in the source material and produce a faithful brief as JSON with keys: '
+        . '"title" (string), "summary" (string), "keyPoints" (array of strings), '
+        . '"sections" (array of {"heading": string, "body": string}), '
+        . '"audience" (string), "language" (ISO-639-1 string of the source language).';
 
     private const MAP_SYSTEM_PROMPT
         = 'You summarize one section of a larger document faithfully and concisely. '
-        . 'Preserve numbers, names and labels exactly. Output ONLY valid JSON.';
+        . 'Preserve numbers, names and labels exactly. Output ONLY valid JSON.' . "\n\n" . SourceMaterial::SYSTEM_RULE . "\n\n"
+        . 'Task: Summarize the section in the source material faithfully as JSON with keys '
+        . '"summary" (string) and "keyPoints" (array of strings).';
 
     public function __construct(
         private CompletionServiceInterface $completion,
@@ -78,14 +88,16 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
             $this->logger->warning('Analysis synthesis returned an unusable shape, retrying once', [
                 'receivedKeys' => $receivedKeys,
             ]);
-            $retryPrompt = $prompt . "\n\nIMPORTANT: Your previous answer used the keys ["
+            // The correction is the extension's instruction, so it extends the system
+            // prompt; the user message stays the unchanged source-material block.
+            $retrySystemPrompt = self::SYSTEM_PROMPT . "\n\nIMPORTANT: Your previous answer used the keys ["
                 . $receivedKeys
                 . '] and was rejected. Respond again with EXACTLY the JSON keys '
                 . '"title", "summary", "keyPoints", "sections", "audience", "language" '
                 . '— non-empty "title" and "summary" are mandatory.';
             $decoded = $this->completion->completeJson(
-                $retryPrompt,
-                $this->jsonOptions(self::SYSTEM_PROMPT, $beUser, CallerSource::ANALYZE_DOCUMENT),
+                $prompt,
+                $this->jsonOptions($retrySystemPrompt, $beUser, CallerSource::ANALYZE_DOCUMENT),
             );
         }
 
@@ -129,9 +141,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
 
         $summaries = [];
         foreach ($chunks as $index => $chunk) {
-            $prompt = 'Summarize this section faithfully as JSON with keys '
-                . '"summary" (string) and "keyPoints" (array of strings).' . "\n\n"
-                . 'SECTION ' . ($index + 1) . ":\n" . $chunk;
+            $prompt  = SourceMaterial::wrap('SECTION ' . ($index + 1) . ":\n" . $chunk);
             $decoded = $this->completion->completeJson(
                 $prompt,
                 $this->jsonOptions(self::MAP_SYSTEM_PROMPT, $beUser, CallerSource::ANALYZE_DOCUMENT_CHUNK),
@@ -175,13 +185,11 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
 
     private function buildSynthesisPrompt(SourceDocument $document, string $body): string
     {
-        return 'Analyze the following document and produce a faithful brief as JSON with keys: '
-            . '"title" (string), "summary" (string), "keyPoints" (array of strings), '
-            . '"sections" (array of {"heading": string, "body": string}), '
-            . '"audience" (string), "language" (ISO-639-1 string of the source language).' . "\n\n"
-            . 'Source title: ' . ($document->title !== '' ? $document->title : '(none)') . "\n"
+        return SourceMaterial::wrap(
+            'Source title: ' . ($document->title !== '' ? $document->title : '(none)') . "\n"
             . 'Source label: ' . $document->sourceLabel . "\n\n"
-            . "DOCUMENT:\n" . $body;
+            . "DOCUMENT:\n" . $body,
+        );
     }
 
     private function jsonOptions(string $systemPrompt, int $beUser, string $operation): ChatOptions

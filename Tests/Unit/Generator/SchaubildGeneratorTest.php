@@ -30,6 +30,7 @@ use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -38,10 +39,12 @@ use TYPO3\CMS\Core\Resource\ResourceStorage;
 
 final class SchaubildGeneratorTest extends TestCase
 {
-    private function context(ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null): GenerationContext
+    use PromptBoundaryAssertions;
+
+    private function context(ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null, string $summary = 'Summary'): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
-        $brief    = new ContentBrief('Report', 'Summary', ['A', 'B'], [['heading' => 'H', 'body' => 'B']], 'All', 'en');
+        $brief    = new ContentBrief('Report', $summary, ['A', 'B'], [['heading' => 'H', 'body' => 'B']], 'All', 'en');
 
         return new GenerationContext(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1], $document, $brief, 'nr', 4, $snippets, grants: $grants ?? CapabilityGrants::all());
     }
@@ -193,10 +196,13 @@ final class SchaubildGeneratorTest extends TestCase
         );
         self::assertTrue($generator->generate($this->context($snippets)));
 
-        // Composed sections are appended to the diagram-body LLM prompt (both render passes).
-        foreach (array_column($completion->completeMarkdownCalls, 'prompt') as $prompt) {
-            self::assertStringContainsString("TARGET AUDIENCE:\nInvestors", $prompt);
-            self::assertStringContainsString("STYLE:\nHand-drawn sketch look", $prompt);
+        // Composed sections are editor configuration: they go into the system prompt of the
+        // diagram-body call (both render passes), never into the source-material block.
+        foreach ($completion->completeMarkdownCalls as $call) {
+            $systemPrompt = (string) $call['options']?->getSystemPrompt();
+            self::assertStringContainsString("TARGET AUDIENCE:\nInvestors", $systemPrompt);
+            self::assertStringContainsString("STYLE:\nHand-drawn sketch look", $systemPrompt);
+            self::assertStringNotContainsString('TARGET AUDIENCE', $call['prompt']);
         }
 
         // Style/audience hints are woven into both image prompts (background + ki_image).
@@ -237,8 +243,9 @@ final class SchaubildGeneratorTest extends TestCase
 
         self::assertTrue($generator->generate($this->context()));
 
-        foreach (array_column($completion->completeMarkdownCalls, 'prompt') as $prompt) {
-            self::assertStringNotContainsString('TARGET AUDIENCE', $prompt);
+        foreach ($completion->completeMarkdownCalls as $call) {
+            self::assertStringNotContainsString('TARGET AUDIENCE', $call['prompt']);
+            self::assertStringNotContainsString('TARGET AUDIENCE', (string) $call['options']?->getSystemPrompt());
         }
 
         foreach ($imageGenerator->prompts as $prompt) {
@@ -258,7 +265,8 @@ final class SchaubildGeneratorTest extends TestCase
 
         // html: the diagram-body LLM call, verbatim and complete.
         $html = json_decode((string) $jobs->updates[$jobs->uidForVariant('html')]['metadata'], true);
-        self::assertSame(
+        self::assertSame($completion->completeMarkdownCalls[0]['options']?->getSystemPrompt(), $html['prompts']['system']);
+        self::assertStringStartsWith(
             'You are an information designer. Output a raw HTML fragment only — no Markdown, no code fences.',
             $html['prompts']['system'],
         );
@@ -480,5 +488,28 @@ final class SchaubildGeneratorTest extends TestCase
         $budget->checkResult = BudgetCheckResult::denied('LIMIT_DAILY', 9.0, 9.0, 'no');
 
         return $budget;
+    }
+
+    public function testAnInstructionPayloadStaysInsideTheSourceBlock(): void
+    {
+        $completion = $this->completion();
+        $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget(), $completion)
+            ->generate($this->context(summary: self::INSTRUCTION_PAYLOAD));
+
+        self::assertNotSame([], $completion->completeMarkdownCalls);
+        foreach ($completion->completeMarkdownCalls as $call) {
+            self::assertInstructionPayloadContained((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+        }
+    }
+
+    public function testASpoofedSourceTagIsNeutralised(): void
+    {
+        $completion = $this->completion();
+        $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget(), $completion)
+            ->generate($this->context(summary: self::SPOOF_PAYLOAD));
+
+        foreach ($completion->completeMarkdownCalls as $call) {
+            self::assertSpoofNeutralised((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+        }
     }
 }
