@@ -58,7 +58,9 @@ abstract class TextGeneratorTestCase extends TestCase
 
     protected function context(bool $want = true, ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), string $language = 'de'): GenerationContext
     {
-        $document = new SourceDocument('Quartalsbericht', 'text', 'https://example.com/report', 0, $language);
+        // The document's language hint deliberately differs from the brief's detected
+        // language: the output must follow the brief, and a generator reading the hint fails.
+        $document = new SourceDocument('Quartalsbericht', 'text', 'https://example.com/report', 0, 'fr');
         $brief    = new ContentBrief(
             'Quartalsbericht',
             'Der Umsatz stieg um 12 Prozent.',
@@ -143,6 +145,7 @@ abstract class TextGeneratorTestCase extends TestCase
 
         $prompt = $this->completion->completeStructuredCalls[0]['prompt'];
         self::assertStringContainsString('Write in language code "de".', $prompt);
+        self::assertStringNotContainsString('"fr"', $prompt);
         self::assertStringContainsString('Der Umsatz stieg im dritten Quartal um 12 Prozent.', $prompt);
         self::assertStringContainsString('https://example.com/report', $prompt);
         self::assertStringContainsString('Use only facts stated in the content above', $prompt);

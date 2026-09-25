@@ -11,13 +11,14 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrRepurpose\Generator\NewsletterGenerator;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\MapTextLabels;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 final class NewsletterGeneratorTest extends TextGeneratorTestCase
 {
     protected function generator(): NewsletterGenerator
     {
-        return new NewsletterGenerator($this->jobs, $this->budget(), $this->logger(), $this->completion);
+        return new NewsletterGenerator($this->jobs, $this->budget(), $this->logger(), $this->completion, new MapTextLabels());
     }
 
     protected function validAnswer(): array
@@ -50,16 +51,23 @@ final class NewsletterGeneratorTest extends TextGeneratorTestCase
         return 'Newsletter';
     }
 
-    public function testStoresAllPartsStructuredAndAsPlainText(): void
+    public function testStoresAllPartsStructuredAndAsPlainTextLabelledInTheTextsLanguage(): void
     {
-        self::assertTrue($this->generatorWithAnswer()->generate($this->context()));
+        self::assertTrue($this->generatorWithAnswer()->generate($this->context(language: 'de')));
 
         self::assertSame($this->validAnswer(), $this->jobs->metadata()['content']);
         self::assertSame(
-            "Subject: Revenue up 12 percent\nPreheader: And a new branch in Leipzig\n\n"
+            "Betreff: Revenue up 12 percent\nPreheader: And a new branch in Leipzig\n\n"
             . "Revenue grew by 12 percent.\n\nA new branch opened in Leipzig.\n\nRead the full report",
             $this->jobs->row()['script_text'],
         );
+    }
+
+    public function testEnglishLabelsForAnEnglishText(): void
+    {
+        self::assertTrue($this->generatorWithAnswer()->generate($this->context(language: 'en')));
+
+        self::assertStringStartsWith("Subject: Revenue up 12 percent\nPreheader: And a new", (string) $this->jobs->row()['script_text']);
     }
 
     /** @return array<string, array{0: string, 1: mixed}> */

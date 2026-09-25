@@ -64,9 +64,9 @@
       <trans-unit id="artifact.story"><source>Story</source><target>Story</target></trans-unit>
       <trans-unit id="artifact.story.desc"><source>A vertical 9:16 slide carousel made for Instagram / social-media stories — a cover hook, one slide per key point and an outro with the source attribution.</source><target>Eine vertikale 9:16-Slide-Strecke für Instagram- / Social-Media-Storys — ein Cover als Einstieg, eine Slide je Kernpunkt und ein Abschluss mit Quellenangabe.</target></trans-unit>
       <trans-unit id="artifact.exec_summary"><source>Executive summary</source><target>Executive Summary</target></trans-unit>
-      <trans-unit id="artifact.exec_summary.desc"><source>Five to eight sentences for decision makers, key facts first.</source><target>Fünf bis acht Sätze für Entscheider, die wichtigsten Fakten zuerst.</target></trans-unit>
+      <trans-unit id="artifact.exec_summary.desc"><source>Up to eight sentences for decision makers, key facts first.</source><target>Bis zu acht Sätze für Entscheider, die wichtigsten Fakten zuerst.</target></trans-unit>
       <trans-unit id="artifact.faq"><source>FAQ</source><target>FAQ</target></trans-unit>
-      <trans-unit id="artifact.faq.desc"><source>Five to ten questions with answers taken only from the source, plus schema.org FAQPage JSON-LD.</source><target>Fünf bis zehn Fragen mit Antworten ausschließlich aus der Quelle, dazu schema.org-FAQPage-JSON-LD.</target></trans-unit>
+      <trans-unit id="artifact.faq.desc"><source>Up to ten questions with answers taken only from the source, plus schema.org FAQPage JSON-LD.</source><target>Bis zu zehn Fragen mit Antworten ausschließlich aus der Quelle, dazu schema.org-FAQPage-JSON-LD.</target></trans-unit>
       <trans-unit id="artifact.social_post"><source>Social posts</source><target>Social-Media-Posts</target></trans-unit>
       <trans-unit id="artifact.social_post.desc"><source>One post each for LinkedIn (up to 3,000 characters), X (up to 280) and Instagram (caption with hashtags, up to 2,200).</source><target>Je ein Post für LinkedIn (bis 3.000 Zeichen), X (bis 280) und Instagram (Bildunterschrift mit Hashtags, bis 2.200).</target></trans-unit>
       <trans-unit id="artifact.newsletter"><source>Newsletter</source><target>Newsletter</target></trans-unit>
@@ -93,6 +93,12 @@
       <trans-unit id="show.faq.jsonLd"><source>schema.org FAQPage (JSON-LD)</source><target>schema.org FAQPage (JSON-LD)</target></trans-unit>
       <trans-unit id="show.social.length"><source>%s of %s characters.</source><target>%s von %s Zeichen.</target></trans-unit>
       <trans-unit id="show.social.truncated"><source>Shortened at a sentence boundary to fit the limit.</source><target>An einer Satzgrenze gekürzt, um das Limit einzuhalten.</target></trans-unit>
+      <trans-unit id="show.social.truncated.word"><source>Shortened mid-sentence at a word boundary to fit the limit.</source><target>Mitten im Satz an einer Wortgrenze gekürzt, um das Limit einzuhalten.</target></trans-unit>
+      <trans-unit id="show.social.hashtagsDropped"><source>%s hashtags left out to fit.</source><target>%s Hashtags weggelassen, um das Limit einzuhalten.</target></trans-unit>
+      <trans-unit id="text.faq.question"><source>Q</source><target>F</target></trans-unit>
+      <trans-unit id="text.faq.answer"><source>A</source><target>A</target></trans-unit>
+      <trans-unit id="text.newsletter.subject"><source>Subject</source><target>Betreff</target></trans-unit>
+      <trans-unit id="text.newsletter.preheader"><source>Preheader</source><target>Preheader</target></trans-unit>
       <trans-unit id="show.newsletter.subject"><source>Subject</source><target>Betreff</target></trans-unit>
       <trans-unit id="show.newsletter.preheader"><source>Preheader</source><target>Preheader</target></trans-unit>
 

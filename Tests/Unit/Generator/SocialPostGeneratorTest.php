@@ -64,6 +64,8 @@ final class SocialPostGeneratorTest extends TextGeneratorTestCase
         self::assertSame(280, $x['maxChars']);
         self::assertSame(37, $x['length']);
         self::assertFalse($x['truncated']);
+        self::assertSame('', $x['cutMode']);
+        self::assertSame(0, $this->jobs->metadata('instagram')['content']['hashtagsDropped']);
     }
 
     public function testEachPostIsCutAtASentenceBoundaryWithinItsPlatformLimit(): void
@@ -85,6 +87,7 @@ final class SocialPostGeneratorTest extends TextGeneratorTestCase
             self::assertSame($limit, $content['maxChars']);
             self::assertSame(mb_strlen($text), $content['length']);
             self::assertTrue($content['truncated'], $platform);
+            self::assertSame('sentence', $content['cutMode'], $platform);
         }
 
         // Whole sentences only: six end at character 269, the seventh would end at 314.
@@ -126,6 +129,7 @@ final class SocialPostGeneratorTest extends TextGeneratorTestCase
         $text = (string) $this->jobs->row('instagram')['script_text'];
         self::assertLessThanOrEqual(2200, mb_strlen($text));
         self::assertStringEndsWith("…\n\n#growth #Leipzig", $text);
+        self::assertSame('word', $this->jobs->metadata('instagram')['content']['cutMode']);
     }
 
     public function testHashtagsCannotCrowdTheCaptionBelowHalfTheLimit(): void
@@ -137,25 +141,62 @@ final class SocialPostGeneratorTest extends TextGeneratorTestCase
         self::assertTrue($this->generatorWithAnswer($answer)->generate($this->context()));
 
         $content = $this->jobs->metadata('instagram')['content'];
-        self::assertLessThan(30, count($content['hashtags']));
+        // 21 tags of 50 characters fit into half the limit; the other 9 are left out and counted.
+        self::assertCount(21, $content['hashtags']);
+        self::assertSame(9, $content['hashtagsDropped']);
         self::assertGreaterThanOrEqual(1050, mb_strlen($content['caption']));
         self::assertLessThanOrEqual(2200, $content['length']);
     }
 
-    public function testHashtagsAreNormalisedDeduplicatedAndCappedAtThirty(): void
+    public function testHashtagsAreNormalisedToWordsSplitAndDeduplicated(): void
     {
-        $tags = ['#growth', 'Growth', '  new branch ', '', '##Leipzig'];
-        foreach (range(1, 40) as $i) {
-            $tags[] = 'tag' . $i;
-        }
-
         $answer                          = $this->validAnswer();
-        $answer['instagram']['hashtags'] = $tags;
+        $answer['instagram']['hashtags'] = [
+            'AI-driven',           // punctuation removed
+            'growth #Leipzig',     // split on whitespace and "#"
+            '#Growth',             // duplicate of growth, case-insensitive
+            '##Leipzig',           // duplicate after stripping the "#"
+            'Größe!',              // Unicode letters kept, "!" removed
+            'new_year 2026',       // underscore and digits kept, split on the space
+            '  ',                  // empty after trimming
+            '#-!',                 // empty after stripping
+        ];
+
         self::assertTrue($this->generatorWithAnswer($answer)->generate($this->context()));
 
-        $hashtags = $this->jobs->metadata('instagram')['content']['hashtags'];
-        self::assertCount(30, $hashtags);
-        self::assertSame(['#growth', '#newbranch', '#Leipzig', '#tag1'], array_slice($hashtags, 0, 4));
+        $content = $this->jobs->metadata('instagram')['content'];
+        self::assertSame(['#AIdriven', '#growth', '#Leipzig', '#Größe', '#new_year', '#2026'], $content['hashtags']);
+        self::assertSame(0, $content['hashtagsDropped']);
+    }
+
+    public function testHashtagsBeyondThirtyAreLeftOutAndCounted(): void
+    {
+        $answer                          = $this->validAnswer();
+        $answer['instagram']['hashtags'] = array_map(static fn (int $i): string => 'tag' . $i, range(1, 40));
+
+        self::assertTrue($this->generatorWithAnswer($answer)->generate($this->context()));
+
+        $content = $this->jobs->metadata('instagram')['content'];
+        self::assertCount(30, $content['hashtags']);
+        self::assertSame('#tag30', $content['hashtags'][29]);
+        self::assertSame(10, $content['hashtagsDropped']);
+    }
+
+    /**
+     * The review probe at generator level: the only sentence end inside 280 is the opening
+     * "Big news!"; the stored X post must keep its substance and say it was cut mid-sentence.
+     */
+    public function testAnXPostIsNotShrunkToItsOpeningExclamation(): void
+    {
+        $answer      = $this->validAnswer();
+        $answer['x'] = 'Big news! Our revenue grew by twelve percent in the third quarter, driven by '
+            . str_repeat('strong demand in every region and ', 6) . 'rising so far';
+
+        self::assertTrue($this->generatorWithAnswer($answer)->generate($this->context()));
+
+        $content = $this->jobs->metadata('x')['content'];
+        self::assertGreaterThanOrEqual(140, $content['length']);
+        self::assertSame('word', $content['cutMode']);
     }
 
     public function testAMissingPlatformFailsTheArtifactNamingThePlatform(): void

@@ -134,49 +134,57 @@ final class SocialPostGenerator extends AbstractTextGenerator
 
     private function post(string $platform, string $text, int $limit): TextArtifact
     {
-        $post = $this->limiter->truncate($text, $limit);
+        $cut = $this->limiter->cut($text, $limit);
 
-        return new TextArtifact($platform, $post, [
+        return new TextArtifact($platform, $cut->text, [
             'platform'  => $platform,
-            'text'      => $post,
-            'length'    => mb_strlen($post),
+            'text'      => $cut->text,
+            'length'    => mb_strlen($cut->text),
             'maxChars'  => $limit,
-            'truncated' => $post !== $text,
+            'truncated' => $cut->wasCut(),
+            'cutMode'   => $cut->mode,
         ]);
     }
 
     /**
-     * Caption + blank line + hashtag line, at most LIMIT_INSTAGRAM characters. The hashtag
-     * line keeps its room; when hashtags alone would crowd the caption below half the
-     * limit, hashtags are dropped from the end first.
+     * Caption + blank line + hashtag line, at most LIMIT_INSTAGRAM characters. At most
+     * MAX_HASHTAGS are kept, and when the hashtag line would crowd the caption below half
+     * the limit, hashtags are dropped from the end; the metadata counts every dropped tag.
+     * The remaining hashtag line keeps its room and the caption gives way.
      *
-     * @param list<string> $hashtags
+     * @param list<string> $hashtags normalised and de-duplicated, not yet capped
      */
     private function instagramPost(string $caption, array $hashtags): TextArtifact
     {
+        $offered  = count($hashtags);
+        $hashtags = array_slice($hashtags, 0, self::MAX_HASHTAGS);
         while ($hashtags !== [] && mb_strlen(implode(' ', $hashtags)) + 2 > intdiv(self::LIMIT_INSTAGRAM, 2)) {
             array_pop($hashtags);
         }
 
         $hashtagLine = implode(' ', $hashtags);
         $budget      = self::LIMIT_INSTAGRAM - ($hashtagLine === '' ? 0 : mb_strlen($hashtagLine) + 2);
-        $cutCaption  = $this->limiter->truncate($caption, $budget);
-        $post        = $hashtagLine === '' ? $cutCaption : $cutCaption . "\n\n" . $hashtagLine;
+        $cut         = $this->limiter->cut($caption, $budget);
+        $post        = $hashtagLine === '' ? $cut->text : $cut->text . "\n\n" . $hashtagLine;
 
         return new TextArtifact('instagram', $post, [
-            'platform'  => 'instagram',
-            'text'      => $post,
-            'caption'   => $cutCaption,
-            'hashtags'  => $hashtags,
-            'length'    => mb_strlen($post),
-            'maxChars'  => self::LIMIT_INSTAGRAM,
-            'truncated' => $cutCaption !== $caption,
+            'platform'        => 'instagram',
+            'text'            => $post,
+            'caption'         => $cut->text,
+            'hashtags'        => $hashtags,
+            'hashtagsDropped' => $offered - count($hashtags),
+            'length'          => mb_strlen($post),
+            'maxChars'        => self::LIMIT_INSTAGRAM,
+            'truncated'       => $cut->wasCut(),
+            'cutMode'         => $cut->mode,
         ]);
     }
 
     /**
-     * "#word" hashtags: the answer's entries with any leading "#" and all whitespace
-     * removed, empty ones dropped, de-duplicated case-insensitively, at most MAX_HASHTAGS.
+     * "#word" hashtags: every answer entry is split on whitespace and "#" into separate
+     * tags ("growth #Leipzig" -> #growth, #Leipzig); each tag keeps only Unicode letters,
+     * digits and underscores ("AI-driven" -> #AIdriven). Empty tags are dropped and the
+     * rest de-duplicated case-insensitively, first spelling wins. Not capped here.
      *
      * @return list<string>
      */
@@ -184,17 +192,17 @@ final class SocialPostGenerator extends AbstractTextGenerator
     {
         $tags = [];
         $seen = [];
-        foreach ($this->stringList($raw) as $tag) {
-            $tag = (string) preg_replace('/\s+/u', '', ltrim($tag, '#'));
-            $key = mb_strtolower($tag);
-            if ($tag === '' || isset($seen[$key])) {
-                continue;
-            }
+        foreach ($this->stringList($raw) as $entry) {
+            $parts = preg_split('/[\s\p{Z}#]+/u', $entry);
+            foreach ($parts === false ? [] : $parts as $part) {
+                $tag = (string) preg_replace('/[^\p{L}\p{N}_]+/u', '', $part);
+                $key = mb_strtolower($tag);
+                if ($tag === '' || isset($seen[$key])) {
+                    continue;
+                }
 
-            $seen[$key] = true;
-            $tags[]     = '#' . $tag;
-            if (count($tags) >= self::MAX_HASHTAGS) {
-                break;
+                $seen[$key] = true;
+                $tags[]     = '#' . $tag;
             }
         }
 

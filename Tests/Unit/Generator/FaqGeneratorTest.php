@@ -11,12 +11,13 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrRepurpose\Generator\FaqGenerator;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\MapTextLabels;
 
 final class FaqGeneratorTest extends TextGeneratorTestCase
 {
     protected function generator(): FaqGenerator
     {
-        return new FaqGenerator($this->jobs, $this->budget(), $this->logger(), $this->completion);
+        return new FaqGenerator($this->jobs, $this->budget(), $this->logger(), $this->completion, new MapTextLabels());
     }
 
     protected function validAnswer(): array
@@ -47,15 +48,22 @@ final class FaqGeneratorTest extends TextGeneratorTestCase
         return 'FAQ';
     }
 
-    public function testStoresThePairsStructuredAndAsPlainText(): void
+    public function testStoresThePairsStructuredAndAsPlainTextLabelledInTheTextsLanguage(): void
     {
-        self::assertTrue($this->generatorWithAnswer()->generate($this->context()));
+        self::assertTrue($this->generatorWithAnswer()->generate($this->context(language: 'de')));
 
         self::assertSame($this->validAnswer()['faq'], $this->jobs->metadata()['content']['faq']);
         self::assertSame(
-            "Q: How much did revenue grow?\nA: By 12 percent.\n\nQ: Where did a branch open?\nA: In Leipzig.",
+            "F: How much did revenue grow?\nA: By 12 percent.\n\nF: Where did a branch open?\nA: In Leipzig.",
             $this->jobs->row()['script_text'],
         );
+    }
+
+    public function testEnglishLabelsForAnEnglishText(): void
+    {
+        self::assertTrue($this->generatorWithAnswer()->generate($this->context(language: 'en')));
+
+        self::assertStringStartsWith("Q: How much did revenue grow?\nA: By 12 percent.", (string) $this->jobs->row()['script_text']);
     }
 
     public function testStoresSchemaOrgFaqPageJsonLd(): void
@@ -65,6 +73,7 @@ final class FaqGeneratorTest extends TextGeneratorTestCase
         $jsonLd = json_decode((string) $this->jobs->metadata()['content']['jsonLd'], true);
         self::assertSame('https://schema.org', $jsonLd['@context']);
         self::assertSame('FAQPage', $jsonLd['@type']);
+        self::assertSame('de', $jsonLd['inLanguage']);   // the brief's language, not the document hint ("fr")
         self::assertSame(
             [
                 ['@type' => 'Question', 'name' => 'How much did revenue grow?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'By 12 percent.']],
@@ -76,8 +85,8 @@ final class FaqGeneratorTest extends TextGeneratorTestCase
 
     public function testJsonLdCannotCloseTheScriptElementItIsPastedInto(): void
     {
-        $jsonLd = (new FaqGenerator($this->jobs, $this->budget(), $this->logger(), $this->completion))
-            ->jsonLd([['question' => 'Is </script><b>x</b> safe?', 'answer' => 'Yes.']]);
+        $jsonLd = (new FaqGenerator($this->jobs, $this->budget(), $this->logger(), $this->completion, new MapTextLabels()))
+            ->jsonLd([['question' => 'Is </script><b>x</b> safe?', 'answer' => 'Yes.']], 'en');
 
         self::assertStringNotContainsString('</script>', $jsonLd);
         self::assertStringNotContainsString('<', $jsonLd);

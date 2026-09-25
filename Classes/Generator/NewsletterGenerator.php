@@ -9,11 +9,16 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Generator\Support\TextArtifact;
+use Netresearch\NrRepurpose\Generator\Support\TextLabels;
+use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Psr\Log\LoggerInterface;
 
 /**
  * A newsletter text: subject line, preheader, body in plain paragraphs and exactly one
@@ -22,6 +27,16 @@ use Netresearch\NrRepurpose\Service\CallerSource;
  */
 final class NewsletterGenerator extends AbstractTextGenerator
 {
+    public function __construct(
+        JobProcessingRepository $jobs,
+        BudgetServiceInterface $budget,
+        LoggerInterface $logger,
+        CompletionServiceInterface $completion,
+        private readonly TextLabels $labels,
+    ) {
+        parent::__construct($jobs, $budget, $logger, $completion);
+    }
+
     protected function artifactType(): ArtifactType
     {
         return ArtifactType::Newsletter;
@@ -97,9 +112,12 @@ final class NewsletterGenerator extends AbstractTextGenerator
             );
         }
 
+        // Labels in the language the newsletter is written in, not the editor's.
         $plainText = sprintf(
-            "Subject: %s\nPreheader: %s\n\n%s\n\n%s",
+            "%s: %s\n%s: %s\n\n%s\n\n%s",
+            $this->labels->get('text.newsletter.subject', $ctx->brief->language),
             $subject,
+            $this->labels->get('text.newsletter.preheader', $ctx->brief->language),
             $preheader,
             implode("\n\n", $paragraphs),
             $callToAction,

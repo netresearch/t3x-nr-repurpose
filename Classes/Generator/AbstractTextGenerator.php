@@ -140,8 +140,10 @@ abstract class AbstractTextGenerator extends AbstractGenerator
     }
 
     /**
-     * The exact user prompt — recorded verbatim in the metadata (prompts.user), so it is
-     * built in one place only. The source block is the shared ContentBrief; the output
+     * The user prompt this generator passes to completeStructured() — stored in the
+     * metadata (prompts.user), so it is built in one place only. It is not the full text
+     * the provider receives: nr-llm appends the JSON-schema instruction (and, on a repair
+     * round, the rejected answer). The source block is the shared ContentBrief; the output
      * language is the detected source language, as for every other artifact.
      */
     protected function userPrompt(GenerationContext $ctx): string

@@ -9,11 +9,16 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Generator\Support\TextArtifact;
+use Netresearch\NrRepurpose\Generator\Support\TextLabels;
+use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Psr\Log\LoggerInterface;
 
 /**
  * 5–10 question/answer pairs answered only from the source. Stored structured
@@ -25,6 +30,16 @@ use Netresearch\NrRepurpose\Service\CallerSource;
 final class FaqGenerator extends AbstractTextGenerator
 {
     public const MAX_PAIRS = 10;
+
+    public function __construct(
+        JobProcessingRepository $jobs,
+        BudgetServiceInterface $budget,
+        LoggerInterface $logger,
+        CompletionServiceInterface $completion,
+        private readonly TextLabels $labels,
+    ) {
+        parent::__construct($jobs, $budget, $logger, $completion);
+    }
 
     protected function artifactType(): ArtifactType
     {
@@ -106,26 +121,33 @@ final class FaqGenerator extends AbstractTextGenerator
             throw new InvalidLlmOutputException('the answer contains no complete question/answer pair', 1790000201);
         }
 
+        // Labels in the language the pairs are written in, not the editor's.
+        $language  = $ctx->brief->language;
+        $question  = $this->labels->get('text.faq.question', $language);
+        $answer    = $this->labels->get('text.faq.answer', $language);
         $plainText = implode("\n\n", array_map(
-            static fn (array $pair): string => sprintf("Q: %s\nA: %s", $pair['question'], $pair['answer']),
+            static fn (array $pair): string => sprintf("%s: %s\n%s: %s", $question, $pair['question'], $answer, $pair['answer']),
             $pairs,
         ));
 
-        return [new TextArtifact('default', $plainText, ['faq' => $pairs, 'jsonLd' => $this->jsonLd($pairs)])];
+        return [new TextArtifact('default', $plainText, ['faq' => $pairs, 'jsonLd' => $this->jsonLd($pairs, $language)])];
     }
 
     /**
      * schema.org FAQPage JSON-LD for the pairs. JSON_HEX_TAG escapes "<" and ">" so the
      * document stays inert when pasted into a <script type="application/ld+json"> block.
      *
+     * `inLanguage` is the language the pairs are written in (ISO-639-1, as detected).
+     *
      * @param list<array{question: string, answer: string}> $pairs
      */
-    public function jsonLd(array $pairs): string
+    public function jsonLd(array $pairs, string $language): string
     {
         return json_encode(
             [
                 '@context'   => 'https://schema.org',
                 '@type'      => 'FAQPage',
+                'inLanguage' => $language,
                 'mainEntity' => array_map(
                     static fn (array $pair): array => [
                         '@type'          => 'Question',

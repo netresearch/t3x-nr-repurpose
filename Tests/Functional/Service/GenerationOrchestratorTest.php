@@ -21,6 +21,7 @@ use Netresearch\NrRepurpose\Generator\ExecutiveSummaryGenerator;
 use Netresearch\NrRepurpose\Generator\FaqGenerator;
 use Netresearch\NrRepurpose\Generator\NewsletterGenerator;
 use Netresearch\NrRepurpose\Generator\SocialPostGenerator;
+use Netresearch\NrRepurpose\Generator\Support\TextLabels;
 use Netresearch\NrRepurpose\Generator\Support\TextLimiter;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
@@ -37,6 +38,7 @@ use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
@@ -185,9 +187,9 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(CapabilityGrantResolver::class),
             [
                 new ExecutiveSummaryGenerator($jobs, $budget, $logger, $completion),
-                new FaqGenerator($jobs, $budget, $logger, $completion),
+                new FaqGenerator($jobs, $budget, $logger, $completion, new TextLabels($this->get(LanguageServiceFactory::class))),
                 new SocialPostGenerator($jobs, $budget, $logger, $completion, new TextLimiter()),
-                new NewsletterGenerator($jobs, $budget, $logger, $completion),
+                new NewsletterGenerator($jobs, $budget, $logger, $completion, new TextLabels($this->get(LanguageServiceFactory::class))),
             ],
         );
         $orchestrator->process($jobUid);
@@ -232,9 +234,9 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(CapabilityGrantResolver::class),
             [
                 new ExecutiveSummaryGenerator($jobs, $budget, $logger, $completion),
-                new FaqGenerator($jobs, $budget, $logger, $completion),
+                new FaqGenerator($jobs, $budget, $logger, $completion, new TextLabels($this->get(LanguageServiceFactory::class))),
                 new SocialPostGenerator($jobs, $budget, $logger, $completion, new TextLimiter()),
-                new NewsletterGenerator($jobs, $budget, $logger, $completion),
+                new NewsletterGenerator($jobs, $budget, $logger, $completion, new TextLabels($this->get(LanguageServiceFactory::class))),
             ],
         );
         $orchestrator->process($jobUid);
