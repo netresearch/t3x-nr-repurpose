@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
+use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use Netresearch\NrRepurpose\Service\JobSubmissionService;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
@@ -62,5 +63,33 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
         );
         self::assertCount(1, $stamps);
         self::assertSame(['doctrine'], array_values($stamps)[0]->getTransportNames());
+    }
+
+    /**
+     * A job submitted with the form defaults (an untouched Job) is stored requesting the
+     * media artifacts and none of the four text formats.
+     */
+    public function testAJobWithTheFormDefaultsRequestsNoTextFormat(): void
+    {
+        $bus = new class implements MessageBusInterface {
+            public function dispatch(object $message, array $stamps = []): Envelope
+            {
+                return new Envelope($message);
+            }
+        };
+        $service = new JobSubmissionService($this->get(JobRepository::class), $this->get(PersistenceManagerInterface::class), $bus);
+
+        $job = new Job();
+        $job->setSourceValue('https://example.com/');
+
+        $row = $this->get(JobProcessingRepository::class)->findRow($service->submit($job, 1)) ?? [];
+
+        foreach (['want_podcast', 'want_schaubild', 'want_story'] as $column) {
+            self::assertSame(1, (int) $row[$column], $column);
+        }
+
+        foreach (['want_exec_summary', 'want_faq', 'want_social_post', 'want_newsletter'] as $column) {
+            self::assertSame(0, (int) $row[$column], $column);
+        }
     }
 }

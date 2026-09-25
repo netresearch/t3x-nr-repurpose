@@ -41,7 +41,7 @@ Classes/
   Command/         → nr_repurpose:generate CLI
   Controller/      → Backend module (JobController)
   Domain/          → Job/Artifact models, value objects (Persona, PromptSnippetSelection)
-  Generator/       → Podcast/Schaubild/Story + Image/ and Speech/ adapter seams
+  Generator/       → Podcast/Schaubild/Story, text formats (AbstractTextGenerator) + Image/ and Speech/ adapter seams
   Ingestion/       → URL fetch, tiered PDF reader (Poppler runner)
   Persistence/     → JobProcessingRepository (direct DBAL writes from the worker)
   Pipeline/        → GenerationContext, JobProgress, PromptSnippetResolver

@@ -45,6 +45,7 @@ final class PromptSnippetResolverTest extends TestCase
         self::assertSame([], $repository->seenUidBatches);
         self::assertSame('', $resolved->schaubildSections);
         self::assertSame('', $resolved->storySections);
+        self::assertSame('', $resolved->textSections);
         self::assertSame('', $resolved->audienceHint);
         self::assertSame('', $resolved->styleHint);
         self::assertSame('', $resolved->schaubildImageSize);
@@ -93,6 +94,12 @@ final class PromptSnippetResolverTest extends TestCase
             . "LAYOUT:\nEdge-to-edge imagery.\n\n"
             . "STYLE:\nLots of whitespace, one accent color.",
             $resolved->storySections,
+        );
+        // The text formats get audience and tone only — no image layout or style.
+        self::assertSame(
+            "TARGET AUDIENCE:\nC-level buyers without deep tech background.\n\n"
+            . "TONE OF VOICE:\nUpbeat, confident, plain language.",
+            $resolved->textSections,
         );
 
         self::assertSame('C-level buyers without deep tech background.', $resolved->audienceHint);

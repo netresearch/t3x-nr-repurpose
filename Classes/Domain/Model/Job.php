@@ -36,6 +36,16 @@ class Job extends AbstractEntity
 
     protected bool $wantStory = true;
 
+    // The text formats are opt-in: an upgraded installation must not start making
+    // four extra LLM calls per job without anyone choosing that.
+    protected bool $wantExecSummary = false;
+
+    protected bool $wantFaq = false;
+
+    protected bool $wantSocialPost = false;
+
+    protected bool $wantNewsletter = false;
+
     protected string $promptSnippets = '';
 
     protected string $status = 'queued';
@@ -171,6 +181,46 @@ class Job extends AbstractEntity
     public function setWantStory(bool $wantStory): void
     {
         $this->wantStory = $wantStory;
+    }
+
+    public function isWantExecSummary(): bool
+    {
+        return $this->wantExecSummary;
+    }
+
+    public function setWantExecSummary(bool $wantExecSummary): void
+    {
+        $this->wantExecSummary = $wantExecSummary;
+    }
+
+    public function isWantFaq(): bool
+    {
+        return $this->wantFaq;
+    }
+
+    public function setWantFaq(bool $wantFaq): void
+    {
+        $this->wantFaq = $wantFaq;
+    }
+
+    public function isWantSocialPost(): bool
+    {
+        return $this->wantSocialPost;
+    }
+
+    public function setWantSocialPost(bool $wantSocialPost): void
+    {
+        $this->wantSocialPost = $wantSocialPost;
+    }
+
+    public function isWantNewsletter(): bool
+    {
+        return $this->wantNewsletter;
+    }
+
+    public function setWantNewsletter(bool $wantNewsletter): void
+    {
+        $this->wantNewsletter = $wantNewsletter;
     }
 
     public function getPromptSnippets(): string

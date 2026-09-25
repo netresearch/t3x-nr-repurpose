@@ -12,11 +12,13 @@ What does it do?
 ================
 
 Content Repurpose (``nr_repurpose``) turns a single source — a webpage URL or a
-PDF — into three AI-generated media artifacts, all from the TYPO3 backend:
+PDF — into AI-generated media artifacts and texts, all from the TYPO3 backend:
 
 #. a **podcast** (audio) with one to three persona-driven speakers,
-#. a **Schaubild** (diagram/infographic), rendered in three variants, and
-#. a 9:16 **Instagram story** carousel (one image per slide).
+#. a **Schaubild** (diagram/infographic), rendered in three variants,
+#. a 9:16 **Instagram story** carousel (one image per slide), and
+#. four **text formats**: an executive summary, an FAQ, social-media posts and
+   a newsletter text.
 
 It is a thin orchestration layer on top of :composer:`netresearch/nr-llm`: the
 LLM access (chat/vision completions, text-to-speech, image generation) and the
@@ -33,8 +35,8 @@ feeds that brief to each selected generator.
 
 .. _introduction-the-three-artifacts:
 
-The three artifacts
-===================
+The artifacts
+=============
 
 .. _introduction-podcast:
 
@@ -84,9 +86,37 @@ every slide (visual coherence, one image cost), scaled to *cover* the canvas
 (centre-cropped, never distorted), with the transparent text layer composited
 over it; otherwise flat branded renders are used.
 
+.. _introduction-text-formats:
+
+Text formats
+------------
+
+Four ready-to-use texts, each written by one structured LLM call from the same
+brief and answered in the source language. They are off by default in the job
+form, so an existing installation makes no additional LLM calls until an editor
+selects one:
+
+-   **Executive summary** — the model is asked for five to eight sentences for
+    decision makers, key facts first; more than eight are cut, fewer are kept
+    as they come.
+-   **FAQ** — the model is asked for five to ten question/answer pairs taken
+    only from the source; more than ten are cut, fewer are kept as they come.
+    Shown as a list and additionally as schema.org ``FAQPage`` JSON-LD to paste
+    into a page.
+-   **Social posts** — one post each for LinkedIn (up to 3,000 characters), X
+    (up to 280) and Instagram (a caption with hashtags, up to 2,200). The limits
+    are enforced in code: a longer post is cut at the last sentence end that
+    fits, or at a word boundary when that would keep less than half the post.
+-   **Newsletter** — subject line, preheader, a body in plain paragraphs and
+    one call to action.
+
+See :ref:`usage-text-formats` for what each format stores and how the limits
+are counted.
+
 Each artifact type is opt-in per run (``want_podcast`` / ``want_schaubild`` /
-``want_story``). Per-artifact failures are isolated — one failing generator does
-not abort its siblings.
+``want_story`` / ``want_exec_summary`` / ``want_faq`` / ``want_social_post`` /
+``want_newsletter``). Per-artifact failures are isolated — one failing generator
+does not abort its siblings.
 
 .. _introduction-foundation:
 
@@ -97,7 +127,7 @@ nr_repurpose never talks to an AI provider directly. Every AI call goes through
 nr-llm:
 
 -   **Analysis and copy** (the brief, the podcast script, the diagram body, the
-    story copy) use nr-llm's :php:`CompletionService`, which resolves the
+    story copy, the text formats) use nr-llm's :php:`CompletionService`, which resolves the
     instance's default nr-llm Configuration — and with it any chat provider
     nr-llm supports (OpenAI, Anthropic Claude, Google Gemini, Groq, Mistral,
     Ollama, OpenRouter) — and is guarded by nr-llm's budget middleware via a

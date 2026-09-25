@@ -130,9 +130,9 @@ Build/           → project files
 ingest (`Classes/Ingestion/`: URL fetch or tiered PDF reader) → analyze
 (`Classes/Understanding/DocumentAnalyzer` → one `ContentBrief` via nr-llm
 completion, map-reduce above 24k chars) → generate (`Classes/Generator/`:
-podcast with 1–3 persona speakers, Schaubild ×3 variants, story ×N slides;
-async via Symfony Messenger doctrine transport, worker needs ffmpeg +
-chromium + poppler) → store in FAL (`repurpose/` folder). ALL AI calls go
+podcast with 1–3 persona speakers, Schaubild ×3 variants, story ×N slides, four
+text formats; async via Symfony Messenger doctrine transport, worker needs
+ffmpeg, chromium, poppler) → store in FAL (`repurpose/` folder). ALL AI calls go
 through nr-llm — this extension contains zero provider code; the keys belong to
 nr-llm (identifier `nr_repurpose_openai` on the live instance).
 <!-- AGENTS-GENERATED:END codebase-state -->

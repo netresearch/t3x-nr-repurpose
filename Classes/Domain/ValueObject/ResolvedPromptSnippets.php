@@ -23,6 +23,7 @@ final readonly class ResolvedPromptSnippets
     public function __construct(
         public string $schaubildSections = '',  // composed TARGET AUDIENCE / TONE OF VOICE / LAYOUT / STYLE blocks
         public string $storySections = '',      // same labels, with the story's own layout/style snippets
+        public string $textSections = '',       // TARGET AUDIENCE / TONE OF VOICE only, for the text formats
         public string $audienceHint = '',       // raw audience snippet text for the image prompts
         public string $styleHint = '',          // raw Schaubild style snippet text for the image prompts
         public string $schaubildImageSize = '', // "WxH" hint from the Schaubild layout snippet metadata ('' = default)

@@ -19,6 +19,23 @@ use PHPUnit\Framework\TestCase;
 
 final class JobTest extends TestCase
 {
+    /**
+     * The text formats are opt-in, the media artifacts are not: an upgraded installation
+     * must not start making four extra LLM calls per job without anyone choosing that.
+     */
+    public function testANewJobRequestsTheMediaArtifactsButNoTextFormat(): void
+    {
+        $job = new Job();
+
+        self::assertTrue($job->isWantPodcast());
+        self::assertTrue($job->isWantSchaubild());
+        self::assertTrue($job->isWantStory());
+        self::assertFalse($job->isWantExecSummary());
+        self::assertFalse($job->isWantFaq());
+        self::assertFalse($job->isWantSocialPost());
+        self::assertFalse($job->isWantNewsletter());
+    }
+
     public function testArtifactTypeSummariesAreEmptyForAJobWithoutArtifacts(): void
     {
         self::assertSame([], (new Job())->getArtifactTypeSummaries());

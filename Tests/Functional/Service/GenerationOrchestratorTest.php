@@ -9,12 +9,20 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
+use Netresearch\NrLlm\Testing\FakeBudgetService;
+use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
+use Netresearch\NrRepurpose\Generator\ExecutiveSummaryGenerator;
+use Netresearch\NrRepurpose\Generator\FaqGenerator;
+use Netresearch\NrRepurpose\Generator\NewsletterGenerator;
+use Netresearch\NrRepurpose\Generator\SocialPostGenerator;
+use Netresearch\NrRepurpose\Generator\Support\TextLabels;
+use Netresearch\NrRepurpose\Generator\Support\TextLimiter;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -30,18 +38,21 @@ use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 {
     private const QUARTERLY_REPORT = 'Quarterly report';
 
+    private const SOURCE_URL = 'https://example.com/';
+
     private function seedJob(int $beUser = 0): int
     {
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)
             ->getConnectionForTable('tx_nrrepurpose_domain_model_job');
         $conn->insert('tx_nrrepurpose_domain_model_job', [
-            'pid'    => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
+            'pid'    => 0, 'source_type' => 'url', 'source_value' => self::SOURCE_URL,
             'theme'  => 'nr', 'want_podcast' => 1, 'want_schaubild' => 1, 'want_story' => 1,
             'status' => 'queued', 'be_user' => $beUser,
         ]);
@@ -54,7 +65,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         return new SourceDocument(
             title: $title,
             text: $text,
-            sourceLabel: 'https://example.com/',
+            sourceLabel: self::SOURCE_URL,
             pageCount: 0,
             languageHint: 'en',
         );
@@ -137,6 +148,104 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
             ->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobUid, 'status' => 'done']);
         self::assertSame(1, $artifactCount);
+    }
+
+    /**
+     * The acceptance criterion of the text formats: a job that asks for an FAQ ends with a
+     * stored FAQ artifact — real orchestrator, real generators, real database; only the
+     * LLM is faked. The other text formats are wired in but not requested, so the run also
+     * proves the want_* flags select generators.
+     */
+    public function testAJobRequestingAnFaqProducesAnFaqArtifact(): void
+    {
+        $conn = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job');
+        $conn->insert('tx_nrrepurpose_domain_model_job', [
+            'pid'               => 0, 'source_type' => 'url', 'source_value' => self::SOURCE_URL,
+            'theme'             => 'nr', 'want_podcast' => 0, 'want_schaubild' => 0, 'want_story' => 0,
+            'want_exec_summary' => 0, 'want_faq' => 1, 'want_social_post' => 0, 'want_newsletter' => 0,
+            'status'            => 'queued',
+        ]);
+        $jobUid = (int) $conn->lastInsertId();
+
+        $jobs                         = $this->get(JobProcessingRepository::class);
+        $completion                   = new FakeCompletionService();
+        $completion->structuredResult = ['faq' => [
+            ['question' => 'How much did revenue grow?', 'answer' => 'By twelve percent.'],
+            ['question' => 'Where did a branch open?', 'answer' => 'In Leipzig.'],
+        ]];
+        $budget = new FakeBudgetService();
+        $logger = new NullLogger();
+
+        $orchestrator = new GenerationOrchestrator(
+            $jobs,
+            $logger,
+            $this->stubIngestion($this->stubDocument(self::QUARTERLY_REPORT, 'Revenue grew by twelve percent.')),
+            $this->stubAnalyzer($this->stubBrief(self::QUARTERLY_REPORT)),
+            $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
+            $this->get(CapabilityGrantResolver::class),
+            [
+                new ExecutiveSummaryGenerator($jobs, $budget, $logger, $completion),
+                new FaqGenerator($jobs, $budget, $logger, $completion, new TextLabels($this->get(LanguageServiceFactory::class))),
+                new SocialPostGenerator($jobs, $budget, $logger, $completion, new TextLimiter()),
+                new NewsletterGenerator($jobs, $budget, $logger, $completion, new TextLabels($this->get(LanguageServiceFactory::class))),
+            ],
+        );
+        $orchestrator->process($jobUid);
+
+        self::assertSame('done', $jobs->findRow($jobUid)['status'] ?? null);
+        self::assertCount(1, $completion->completeStructuredCalls);
+
+        $rows = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->select(['type', 'variant', 'status', 'script_text', 'metadata'], 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobUid])
+            ->fetchAllAssociative();
+        self::assertCount(1, $rows);
+        self::assertSame('faq', $rows[0]['type']);
+        self::assertSame('done', $rows[0]['status']);
+        self::assertStringStartsWith("Q: How much did revenue grow?\nA: By twelve percent.", (string) $rows[0]['script_text']);
+        $metadata = json_decode((string) $rows[0]['metadata'], true);
+        self::assertIsArray($metadata);
+        self::assertSame('Where did a branch open?', $metadata['content']['faq'][1]['question']);
+        self::assertStringContainsString('"@type": "FAQPage"', (string) $metadata['content']['jsonLd']);
+    }
+
+    /**
+     * A row written without the text-format columns (as by a script or an older form)
+     * takes the database defaults: no text generator runs and no LLM call is made.
+     */
+    public function testAJobRowWithoutTextFlagsRunsNoTextGenerator(): void
+    {
+        $jobUid     = $this->seedJob();
+        $jobs       = $this->get(JobProcessingRepository::class);
+        $completion = new FakeCompletionService();
+        $budget     = new FakeBudgetService();
+        $logger     = new NullLogger();
+
+        $orchestrator = new GenerationOrchestrator(
+            $jobs,
+            $logger,
+            $this->stubIngestion($this->stubDocument()),
+            $this->stubAnalyzer($this->stubBrief()),
+            $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
+            $this->get(CapabilityGrantResolver::class),
+            [
+                new ExecutiveSummaryGenerator($jobs, $budget, $logger, $completion),
+                new FaqGenerator($jobs, $budget, $logger, $completion, new TextLabels($this->get(LanguageServiceFactory::class))),
+                new SocialPostGenerator($jobs, $budget, $logger, $completion, new TextLimiter()),
+                new NewsletterGenerator($jobs, $budget, $logger, $completion, new TextLabels($this->get(LanguageServiceFactory::class))),
+            ],
+        );
+        $orchestrator->process($jobUid);
+
+        self::assertSame([], $completion->completeStructuredCalls);
+        $artifacts = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobUid]);
+        self::assertSame(0, $artifacts);
     }
 
     public function testIngestionFailureMarksJobFailedAndRunsNoGenerator(): void

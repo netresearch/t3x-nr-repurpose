@@ -18,7 +18,7 @@
       <trans-unit id="list.column.progress"><source>Progress</source></trans-unit>
       <trans-unit id="list.column.actions"><source>Actions</source></trans-unit>
       <trans-unit id="list.action.details"><source>Details</source></trans-unit>
-      <trans-unit id="list.empty"><source>No jobs yet. Create your first job to turn a URL or PDF into a podcast, a diagram and an Instagram story.</source></trans-unit>
+      <trans-unit id="list.empty"><source>No jobs yet. Create your first job to turn a URL or PDF into a podcast, a diagram, an Instagram story and ready-to-use texts.</source></trans-unit>
 
       <!-- New / create form -->
       <trans-unit id="new.title"><source>New job</source></trans-unit>
@@ -63,6 +63,14 @@
       <trans-unit id="artifact.schaubild.desc"><source>An explanatory diagram image in three design variants. Visualises the key points of the source at a glance — pick the variant you like best.</source></trans-unit>
       <trans-unit id="artifact.story"><source>Story</source></trans-unit>
       <trans-unit id="artifact.story.desc"><source>A vertical 9:16 slide carousel made for Instagram / social-media stories — a cover hook, one slide per key point and an outro with the source attribution.</source></trans-unit>
+      <trans-unit id="artifact.exec_summary"><source>Executive summary</source></trans-unit>
+      <trans-unit id="artifact.exec_summary.desc"><source>Up to eight sentences for decision makers, key facts first.</source></trans-unit>
+      <trans-unit id="artifact.faq"><source>FAQ</source></trans-unit>
+      <trans-unit id="artifact.faq.desc"><source>Up to ten questions with answers taken only from the source, plus schema.org FAQPage JSON-LD.</source></trans-unit>
+      <trans-unit id="artifact.social_post"><source>Social posts</source></trans-unit>
+      <trans-unit id="artifact.social_post.desc"><source>One post each for LinkedIn (up to 3,000 characters), X (up to 280) and Instagram (caption with hashtags, up to 2,200).</source></trans-unit>
+      <trans-unit id="artifact.newsletter"><source>Newsletter</source></trans-unit>
+      <trans-unit id="artifact.newsletter.desc"><source>Subject line, preheader, body in plain paragraphs and one call to action.</source></trans-unit>
 
       <!-- Show view -->
       <trans-unit id="show.title"><source>Job #%d</source></trans-unit>
@@ -82,6 +90,17 @@
       <trans-unit id="show.download.png"><source>Download PNG</source></trans-unit>
       <trans-unit id="show.preview.alt"><source>Preview of the generated %s (%s variant)</source></trans-unit>
       <trans-unit id="show.story.slide.alt"><source>Story slide %s of %s</source></trans-unit>
+      <trans-unit id="show.faq.jsonLd"><source>schema.org FAQPage (JSON-LD)</source></trans-unit>
+      <trans-unit id="show.social.length"><source>%s of %s characters.</source></trans-unit>
+      <trans-unit id="show.social.truncated"><source>Shortened at a sentence boundary to fit the limit.</source></trans-unit>
+      <trans-unit id="show.social.truncated.word"><source>Shortened mid-sentence at a word boundary to fit the limit.</source></trans-unit>
+      <trans-unit id="show.social.hashtagsDropped"><source>%s hashtags left out to fit.</source></trans-unit>
+      <trans-unit id="text.faq.question"><source>Q</source></trans-unit>
+      <trans-unit id="text.faq.answer"><source>A</source></trans-unit>
+      <trans-unit id="text.newsletter.subject"><source>Subject</source></trans-unit>
+      <trans-unit id="text.newsletter.preheader"><source>Preheader</source></trans-unit>
+      <trans-unit id="show.newsletter.subject"><source>Subject</source></trans-unit>
+      <trans-unit id="show.newsletter.preheader"><source>Preheader</source></trans-unit>
 
       <!-- Show view: job-level creation parameters -->
       <trans-unit id="show.section.creation"><source>Creation parameters</source></trans-unit>
