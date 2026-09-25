@@ -168,6 +168,55 @@ of the job are not affected. The text formats make no speech or image call, so
 they need neither the ``generate_audio`` nor the ``generate_vision``
 permission.
 
+.. _usage-ai-label:
+
+AI labelling
+------------
+
+Everything this extension generates is marked as AI-generated, so that a
+published podcast, image or text can be detected as synthetic (EU AI Act,
+Art. 50(2)). The result view shows an "AI-generated" badge on every finished
+artifact and on the story strip. The markers themselves travel with the
+artifact:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 78
+
+   * - Artifact
+     - Marker
+   * - Podcast MP3
+     - An ID3v2.3 tag with ``TXXX:AI-generated = true``,
+       ``TXXX:DigitalSourceType`` (IPTC ``trainedAlgorithmicMedia``), ``TSSE``
+       (``nr_repurpose <version>``) and a ``COMM`` comment naming the speech
+       model. Media players and tools such as ``ffprobe`` show these tags.
+   * - Schaubild and story PNGs
+     - ``tEXt`` chunks ``Software`` and ``Comment`` and an XMP packet (``iTXt``
+       ``XML:com.adobe.xmp``) with ``Iptc4xmpExt:DigitalSourceType``: the full
+       AI image is ``trainedAlgorithmicMedia``, the HTML renders (AI-written
+       copy in the branded template, optionally on an AI background) are
+       ``compositeWithTrainedAlgorithmicMedia``. With the ``aiLabelImages``
+       setting on (the default), the HTML renders also show a small
+       "AI-generated" label in the top corner. An image that already carries a
+       C2PA manifest is stored unchanged, because any change would break the
+       manifest's signature.
+   * - Every stored file (MP3, WebVTT, PNG)
+     - The file's metadata description in the file list: "AI-generated with
+       nr_repurpose …", with the digital source type and the known models.
+   * - Every artifact, text formats included
+     - An ``aiLabel`` block in the artifact metadata: ``aiGenerated: true``,
+       ``generator``, ``digitalSourceType`` and, where known, ``models``. The
+       text formats name no model, because nr-llm does not report which
+       model answered a completion.
+   * - Text formats (optional)
+     - With the ``aiLabelTexts`` setting on, the copy-ready text ends with
+       "This text was created with AI." in the text's language. The FAQ
+       JSON-LD is never changed, so it stays valid schema.org.
+
+The two settings are described in :ref:`configuration-ai-label`. The markers
+survive a download; they do not survive tools that strip metadata, such as
+most social networks' image upload or a re-export in an image editor.
+
 .. _usage-cli:
 
 CLI command

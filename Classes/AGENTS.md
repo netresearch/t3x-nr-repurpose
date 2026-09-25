@@ -45,6 +45,7 @@ Classes/
   Ingestion/       → URL fetch, tiered PDF reader (Poppler runner)
   Persistence/     → JobProcessingRepository (direct DBAL writes from the worker)
   Pipeline/        → GenerationContext, JobProgress, PromptSnippetResolver
+  Provenance/      → AI label: AiProvenance, AiContentMarker (PNG/MP3 markers), AiLabelSettingsFactory (ADR-005)
   Queue/           → GenerateArtifactsMessage + handler (Symfony Messenger)
   Rendering/       → Playwright HTML→PNG, GD compositor, ffmpeg stitcher
   Resource/        → FAL storage (JobFileStorage)

@@ -54,6 +54,14 @@ Decision records
       .. card-footer:: :ref:`Read <adr-004>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-005: AI label on every artifact, embedded at storage
+
+      Why every file carries a machine-readable AI marker written in
+      PHP when it is stored, and which visible labels are optional.
+
+      .. card-footer:: :ref:`Read <adr-005>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -61,3 +69,4 @@ Decision records
    Adr002NodePlaywrightRenderer
    Adr003ProviderCredentialsViaNrLlm
    Adr004TextFormatsAsStructuredOutput
+   Adr005AiGeneratedContentLabel

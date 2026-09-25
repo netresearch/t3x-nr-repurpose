@@ -203,3 +203,35 @@ The check runs before the budget check, so the denied speech and image calls
 are never made, and neither is the transparent diagram render that only the
 ``html_bg`` variant uses. The document analysis and the text parts that stay
 permitted still call the LLM as before.
+
+.. _configuration-ai-label:
+
+AI labelling
+============
+
+Every artifact carries a machine-readable AI marker, whatever the settings
+below say: the ``aiLabel`` block of the artifact metadata, the markers embedded
+in PNG and MP3 files, and the description of the stored file. See
+:ref:`usage-ai-label` for what each artifact carries and :ref:`adr-005` for
+why. Two extension settings (*Admin Tools > Settings > Extension
+Configuration > nr_repurpose*) control the **visible** labels:
+
+``aiLabelImages`` (default: on)
+    Renders a small "AI-generated" label into the top corner of every
+    Schaubild HTML render (variants ``html`` and ``html_bg``) and every story
+    slide, in the language the artifact is written in. The full AI image
+    (``ki_image``) comes straight from the image model and never passes the
+    HTML renderer, so it carries the machine-readable marker only.
+
+``aiLabelTexts`` (default: off)
+    Appends the closing line "This text was created with AI." (German:
+    "Dieser Text wurde mit KI erstellt.") to the copy-ready text of the
+    executive summary, the FAQ, the social posts and the newsletter, in the
+    text's language. It is off by default because editors usually paste these
+    texts into a page, a newsletter tool or a social network that shows its own
+    AI disclosure, where a second one in the text is noise. The social posts
+    reserve the line's length inside their platform limit, so a post with the
+    line still fits.
+
+A setting that is missing — an installation whose extension configuration has
+not been saved since the update — keeps its default.

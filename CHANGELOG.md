@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Every artifact is labelled as AI-generated** (NEXT-182). Published synthetic audio, images and text must be marked in a machine-readable format and be detectable as artificially generated (EU AI Act, Art. 50(2)). Each stored file now carries the marker itself, written in PHP when it is stored, after the last re-encode: the podcast MP3 gets an ID3v2.3 tag with `TXXX:AI-generated = true`, `TXXX:DigitalSourceType`, `TSSE` and a `COMM` comment (it replaces the ID3v2.4 tag ffmpeg writes, which held only ffmpeg's own `TSSE`); every PNG gets `tEXt` `Software`/`Comment` chunks and an XMP packet with the IPTC `DigitalSourceType` — `trainedAlgorithmicMedia` for the full AI image, `compositeWithTrainedAlgorithmicMedia` for the HTML renders. A PNG that already carries a C2PA manifest is stored unchanged, because any change would break its signature. Every stored file (MP3, WebVTT, PNG) also gets a `sys_file_metadata.description` naming the AI origin, and every artifact row, the text formats included, an `aiLabel` block in its metadata (`aiGenerated`, `generator`, `digitalSourceType`, and the models where known — the text formats name none, because nr-llm does not report the completion model). The result view shows an "AI-generated" badge on every finished artifact. Two extension settings control the visible labels: `aiLabelImages` (default on) renders a small "AI-generated" corner label, in the artifact's language, into the Schaubild HTML renders and the story slides — the full AI image is never rendered from HTML and carries the machine-readable marker only; `aiLabelTexts` (default off) appends "This text was created with AI." to the copy-ready text of the text formats, off by default because those texts usually land in a page, newsletter tool or social network with its own disclosure. The social posts reserve the line's length inside their platform limit, and the FAQ JSON-LD is not changed. No database column is added. See ADR-005.
+
 ## [0.6.0] - 2026-09-25
 
 ### Security
