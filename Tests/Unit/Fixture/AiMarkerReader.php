@@ -11,7 +11,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Fixture;
 
 use DOMDocument;
 use DOMXPath;
-use RuntimeException;
+use UnexpectedValueException;
 
 /**
  * Independent readers for the AI markers, written from the PNG and ID3v2 specifications
@@ -26,7 +26,7 @@ final class AiMarkerReader
     public static function pngChunks(string $png): array
     {
         if (!str_starts_with($png, "\x89PNG\r\n\x1a\n")) {
-            throw new RuntimeException('not a PNG');
+            throw new UnexpectedValueException('not a PNG');
         }
 
         $chunks = [];
@@ -76,7 +76,7 @@ final class AiMarkerReader
 
             // compression flag, compression method, then language tag \0 and translated keyword \0.
             if ($rest[0] !== "\0") {
-                throw new RuntimeException('compressed XMP not expected');
+                throw new UnexpectedValueException('compressed XMP not expected');
             }
 
             $parts = explode("\0", substr($rest, 2), 3);
@@ -92,7 +92,7 @@ final class AiMarkerReader
     {
         $document = new DOMDocument();
         if (!$document->loadXML($xmp)) {
-            throw new RuntimeException('XMP is not well-formed XML');
+            throw new UnexpectedValueException('XMP is not well-formed XML');
         }
 
         $xpath = new DOMXPath($document);
@@ -111,7 +111,7 @@ final class AiMarkerReader
     public static function id3(string $mp3): array
     {
         if (!str_starts_with($mp3, 'ID3')) {
-            throw new RuntimeException('no ID3v2 tag');
+            throw new UnexpectedValueException('no ID3v2 tag');
         }
 
         $version = ord($mp3[3]);

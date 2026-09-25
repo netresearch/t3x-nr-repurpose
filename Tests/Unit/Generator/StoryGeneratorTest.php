@@ -72,11 +72,10 @@ final class StoryGeneratorTest extends TestCase
         BudgetServiceInterface $budget,
         ImageCompositorInterface $compositor,
         ?CompletionServiceInterface $completion = null,
-        ?JobFileStorage $storage = null,
     ): StoryGenerator {
         $completion ??= $this->completion($completionResult);
 
-        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage ?? $this->storage()) extends StoryGenerator {
+        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $this->storage()) extends StoryGenerator {
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
@@ -105,9 +104,12 @@ final class StoryGeneratorTest extends TestCase
         };
     }
 
+    /** The storage double the last generator() call was built with. */
+    private ?JobFileStorage $lastStorage = null;
+
     private function storage(): JobFileStorage
     {
-        return new class ($this->createStub(ResourceStorage::class)) extends JobFileStorage {
+        return $this->lastStorage = new class ($this->createStub(ResourceStorage::class)) extends JobFileStorage {
             private int $uid = 0;
 
             public function __construct(private readonly ResourceStorage $falStorage) {}
@@ -178,11 +180,11 @@ final class StoryGeneratorTest extends TestCase
     public function testEverySlideIsStoredAiLabelledAsAComposite(): void
     {
         foreach ([true => ['image' => 'stub-image-model'], false => []] as $withBackground => $models) {
-            $storage = $this->storage();
-            $jobs    = $this->jobs();
-            $budget  = $withBackground ? $this->allowingBudget() : $this->denyingBudget();
+            $jobs   = $this->jobs();
+            $budget = $withBackground ? $this->allowingBudget() : $this->denyingBudget();
 
-            $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(true), $jobs, $budget, $this->compositor(), storage: $storage);
+            $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(true), $jobs, $budget, $this->compositor());
+            $storage   = $this->lastStorage;
             self::assertTrue($generator->generate($this->context(aiLabel: new AiLabelSettings('nr_repurpose 9.9.9'))));
 
             $expected = new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::CompositeWithTrainedAlgorithmicMedia, $models);
@@ -202,7 +204,10 @@ final class StoryGeneratorTest extends TestCase
             /** @var list<array<string, mixed>> */
             public array $renderedVariables = [];
 
-            public function __construct() {}
+            public function __construct()
+            {
+                // No dependencies: only renderSlideHtml() and the template seam run.
+            }
 
             public function exposeRenderSlideHtml(GenerationContext $ctx): string
             {

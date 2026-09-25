@@ -279,7 +279,10 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
                 return '';
             }
 
-            public function generateToFile(string $prompt, string $size, string $outputPath): void {}
+            public function generateToFile(string $prompt, string $size, string $outputPath): void
+            {
+                // Never reached: isAvailable() is false, so the generator skips the call.
+            }
         };
     }
 }
