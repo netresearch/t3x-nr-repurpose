@@ -1,9 +1,10 @@
 # nr_repurpose — Content Repurpose for TYPO3
 
-Turn a webpage (URL) or PDF into three AI-generated media artifacts — a **podcast**
+Turn a webpage (URL) or PDF into AI-generated media artifacts — a **podcast**
 with one to three persona-driven speakers (with transcript + WebVTT subtitles), a
-**diagram** (Schaubild, in three variants), and an **Instagram-story carousel** —
-from the TYPO3 backend.
+**diagram** (Schaubild, in three variants), an **Instagram-story carousel** — and four
+ready-to-use **texts** (executive summary, FAQ, social posts, newsletter), from the
+TYPO3 backend.
 
 Every AI call goes through [`netresearch/nr-llm`](https://github.com/netresearch/t3x-nr-llm):
 nr_repurpose contains no provider code. Any LLM, image or TTS provider works — if
@@ -28,6 +29,12 @@ From one source (URL or PDF) the pipeline derives a single faithful `ContentBrie
   artifact per slide. A single optional AI background is shared by all slides — generated
   at the layout-selected dimensions and scaled to *cover* the design canvas so the
   layout is never distorted.
+- **Text formats** — an executive summary (5–8 sentences, key facts first), an FAQ
+  (5–10 pairs from the source only, plus schema.org `FAQPage` JSON-LD), one social post
+  each for LinkedIn (≤ 3000 characters), X (≤ 280) and Instagram (caption + hashtags,
+  ≤ 2200), and a newsletter text (subject, preheader, paragraphs, one call to action).
+  Each is one schema-validated LLM call; the platform limits are enforced in code by
+  cutting at a sentence boundary.
 
 Each artifact type can be selected per run. Long-running generation runs asynchronously
 via Symfony Messenger (doctrine transport).
@@ -55,7 +62,7 @@ prompt and cost tracking:
 
 | Call | nr-llm Configuration | What you can swap in the backend |
 |------|----------------------|----------------------------------|
-| Analysis + copy (brief, podcast script, diagram body, story copy) | the instance **default** Configuration (import the `nr_repurpose_text` preset and mark it default) | any chat model of any nr-llm provider: OpenAI, Anthropic Claude, Google Gemini, Groq, Mistral, Ollama, OpenRouter |
+| Analysis + copy (brief, podcast script, diagram body, story copy, text formats) | the instance **default** Configuration (import the `nr_repurpose_text` preset and mark it default) | any chat model of any nr-llm provider: OpenAI, Anthropic Claude, Google Gemini, Groq, Mistral, Ollama, OpenRouter |
 | Image generation | `nr_repurpose_image` (fallback `gpt-image-2`) | any model of nr-llm's image services (OpenAI `gpt-image-*` / `dall-e-*`; nr-llm also ships a fal.ai service — see below) |
 | Text-to-speech | `nr_repurpose_tts` (fallback `tts-1`; default voices `nova` + `onyx`, persona snippets can set their own voice per speaker) | any model of nr-llm's TTS service (currently OpenAI `tts-1`/`tts-1-hd`) |
 
@@ -158,4 +165,4 @@ never inside ddev:
 See the rendered documentation under `Documentation/` (Introduction, Installation,
 Configuration, Usage, Architecture, and the Architecture Decision Records). Pipeline:
 ingest (web/PDF) → analyze (one `ContentBrief` via nr-llm) → generate (podcast /
-schaubild×3 / story×N slides) → store in the TYPO3 File Abstraction Layer (FAL).
+schaubild×3 / story×N slides / text formats) → store in the TYPO3 File Abstraction Layer (FAL).

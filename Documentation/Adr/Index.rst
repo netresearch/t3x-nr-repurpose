@@ -46,9 +46,18 @@ Decision records
       .. card-footer:: :ref:`Read <adr-003>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-004: Text formats as schema-validated structured output
+
+      Why the text formats ask nr-llm for schema-validated JSON and
+      enforce limits in the generator, not only in the prompt.
+
+      .. card-footer:: :ref:`Read <adr-004>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
    Adr001AsyncGenerationViaSymfonyMessenger
    Adr002NodePlaywrightRenderer
    Adr003ProviderCredentialsViaNrLlm
+   Adr004TextFormatsAsStructuredOutput

@@ -30,9 +30,10 @@ nr_repurpose
 
 ----
 
-Turn a webpage (URL) or PDF into three AI-generated media artifacts — a
-persona-driven **podcast**, a **diagram** (Schaubild) in three variants, and a 9:16
-**Instagram-story carousel** — straight from the TYPO3 backend. Built on
+Turn a webpage (URL) or PDF into AI-generated media artifacts — a
+persona-driven **podcast**, a **diagram** (Schaubild) in three variants, a 9:16
+**Instagram-story carousel** — and four ready-to-use texts (executive summary,
+FAQ, social posts, newsletter), straight from the TYPO3 backend. Built on
 :composer:`netresearch/nr-llm` for AI access and provider credentials.
 
 ----
@@ -48,7 +49,7 @@ Getting started
 
    .. card:: 📘 Introduction
 
-      Learn what nr_repurpose is, which three artifacts it
+      Learn what nr_repurpose is, which artifacts it
       produces, and how it builds on the nr-llm foundation.
 
       .. card-footer:: :ref:`Read more <introduction>`

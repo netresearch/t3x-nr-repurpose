@@ -6,7 +6,7 @@
 Architecture
 ============
 
-This section describes how nr_repurpose turns one source into three artifacts,
+This section describes how nr_repurpose turns one source into its artifacts,
 and how it composes nr-llm's capabilities with a local rendering toolchain.
 
 .. contents::
@@ -32,6 +32,7 @@ the dashed line runs in the worker process:
    │   1. INGEST    SourceIngestionService   URL fetch | tiered PDF read  → SourceDocument│
    │   2. ANALYZE   DocumentAnalyzer (nr-llm CompletionService, JSON)     → ContentBrief  │
    │   3. GENERATE  PodcastGenerator | SchaubildGenerator | StoryGenerator               │
+   │                ExecutiveSummary | Faq | SocialPost | Newsletter (text formats)       │
    │                  └─ nr-llm completion / TTS / image + local render → PNG/MP3/VTT     │
    │   4. STORE     JobFileStorage → FAL (repurpose/ folder), Artifact rows updated      │
    │                                                                                     │
@@ -121,7 +122,8 @@ Stage 3 — Generation
 ===================
 
 The orchestrator collects the generators tagged ``nr_repurpose.artifact_generator``
-(podcast, Schaubild, story), filters them by ``supports()`` against the job's
+(podcast, Schaubild, story and the four text formats), filters them by
+``supports()`` against the job's
 ``want_*`` flags, and runs each one with a shared per-run :php:`GenerationContext`
 (job row, document, brief, theme, backend user). A generator records its own
 artifact rows and returns a boolean; one failing generator never aborts the
@@ -162,6 +164,10 @@ as "Unattributed". The operation names are constants on
    generatePodcast        podcast dialogue script
    generateDiagram        Schaubild diagram body
    generateStory          story carousel copy
+   generateExecSummary    executive summary
+   generateFaq            FAQ question/answer pairs
+   generateSocialPost     social posts, all platform variants in one call
+   generateNewsletter     newsletter text
 
 :php:`ConfiguredCompletionService`, the decorator every text completion passes
 through, stamps the extension key on options that carry none, so a new call site
@@ -223,6 +229,24 @@ When the image service is available and within budget one portrait AI
 background is generated and composited behind every slide; otherwise the
 slides fall back to flat renders.
 
+.. _architecture-generation-text-formats:
+
+Text formats
+------------
+
+:php:`ExecutiveSummaryGenerator`, :php:`FaqGenerator`,
+:php:`SocialPostGenerator` and :php:`NewsletterGenerator` extend
+:php:`AbstractTextGenerator`. Each makes one
+:php:`CompletionServiceInterface::completeStructured()` call with its own JSON
+schema; nr-llm validates the answer against the schema and asks once more with
+the validation failure when it does not match. The generator then applies what
+a schema cannot express — caps, the platform character limits
+(:php:`TextLimiter`, cut at a sentence boundary), hashtag normalisation — and
+stores the plain text in ``script_text`` and the structured answer in
+``metadata.content``. The social posts become one row per platform variant
+(``linkedin``, ``x``, ``instagram``); the other formats one row each. No file
+is written to FAL. See :ref:`adr-004`.
+
 .. _architecture-rendering:
 
 Rendering toolchain
@@ -272,7 +296,8 @@ How nr-llm capabilities are composed
 nr_repurpose owns no provider code. It depends on three nr-llm surfaces:
 
 -   :php:`CompletionService` — the brief, the podcast script, the diagram body,
-    and the story copy (JSON or Markdown responses, budget-middleware guarded).
+    the story copy and the text formats (JSON, schema-validated JSON or Markdown
+    responses, budget-middleware guarded).
 -   :php:`TextToSpeechService` — wrapped by :php:`OpenAiSpeechSynthesizer` behind
     a local :php:`SpeechSynthesizerInterface` (model resolved through the
     ``nr_repurpose_tts`` nr-llm Configuration, fallback ``tts-1``).

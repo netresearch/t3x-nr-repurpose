@@ -70,6 +70,10 @@ record:
    * - Podcast / Schaubild / Story
      - checkboxes (all on by default)
      - Which artifacts to generate this run.
+   * - Executive summary / FAQ / Social posts / Newsletter
+     - checkboxes (all on by default)
+     - Which text formats to generate this run. *Audience* and *tone of voice*
+       steer them; persona, layout and style do not apply to text.
 
 .. note::
 
@@ -100,6 +104,59 @@ run still shows whatever was produced.
 For transparency, every artifact lists its complete creation parameters: the
 exact system, user and image prompts that produced it, the models, the image
 sizes and the voices used.
+
+.. _usage-text-formats:
+
+Text formats
+------------
+
+Each text format is written by one LLM call that must answer in a fixed JSON
+shape (see :ref:`adr-004`). The result view renders the structured answer; the
+plain-text version of every text is stored on the artifact as well
+(``script_text``), ready to copy.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 32 50
+
+   * - Format
+     - Result view
+     - Rules enforced in code
+   * - Executive summary
+     - one paragraph
+     - At most eight sentences (the first eight are kept). A shorter answer is
+       kept rather than padded: a thin source may not carry five sentences of
+       facts.
+   * - FAQ
+     - a definition list of questions and answers, plus the schema.org
+       ``FAQPage`` JSON-LD in a collapsible block
+     - At most ten pairs; a pair without a question or an answer is dropped.
+       The JSON-LD escapes ``<`` and ``>``, so it can be pasted into a
+       ``<script type="application/ld+json">`` element as it is.
+   * - Social posts
+     - one card per platform (``linkedin``, ``x``, ``instagram``) with the
+       character count
+     - LinkedIn ≤ 3,000, X ≤ 280, Instagram ≤ 2,200 characters including the
+       hashtag line. A longer post is cut at the last sentence end inside the
+       limit (at a word boundary with "…" if the first sentence alone is too
+       long); the card says when a post was shortened. Hashtags are normalised
+       to ``#word``, de-duplicated and capped at 30.
+   * - Newsletter
+     - subject, preheader, body paragraphs and the call to action
+     - Subject, preheader, at least one paragraph and exactly one call to
+       action are required.
+
+Characters are counted as Unicode code points. LinkedIn and Instagram count
+the same way; X weighs some characters double (most emoji, CJK), so a post in
+those scripts can still exceed X's own limit.
+
+The texts are written in the detected source language, like every other
+artifact. When the answer is unusable — the provider fails, the answer does not
+match the JSON shape after nr-llm's one repair round, or a required part is
+empty — the artifact is marked failed with the reason, and the other artifacts
+of the job are not affected. The text formats make no speech or image call, so
+they need neither the ``generate_audio`` nor the ``generate_vision``
+permission.
 
 .. _usage-cli:
 

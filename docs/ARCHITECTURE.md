@@ -4,7 +4,7 @@ Agent-facing component map. For conventions and commands see the root `AGENTS.md
 
 ## System overview
 
-nr_repurpose turns a webpage or PDF into derived artifacts (podcast audio, Schaubild diagram images, Instagram-story slides). A backend module (or the `nr_repurpose:generate` CLI) creates a job; the pipeline ingests the source, condenses it into one `ContentBrief` via nr-llm, runs the tagged generators, and stores the results in FAL. All AI calls go through `netresearch/nr-llm` — this extension contains zero provider code.
+nr_repurpose turns a webpage or PDF into derived artifacts (podcast audio, Schaubild diagram images, Instagram-story slides, and the text formats executive summary, FAQ, social posts and newsletter). A backend module (or the `nr_repurpose:generate` CLI) creates a job; the pipeline ingests the source, condenses it into one `ContentBrief` via nr-llm, runs the tagged generators, and stores the results in FAL. All AI calls go through `netresearch/nr-llm` — this extension contains zero provider code.
 
 ## Components
 
@@ -16,7 +16,7 @@ nr_repurpose turns a webpage or PDF into derived artifacts (podcast audio, Schau
 | Completion decorator | `Classes/Service/ConfiguredCompletionService.php` | Routes generator text completions through the `nr_repurpose_text` named nr-llm configuration |
 | Ingestion | `Classes/Ingestion/` | URL fetch (`SourceIngestionService`) and tiered PDF reading (`PdfFileResolver`, `Poppler/` runner) |
 | Understanding | `Classes/Understanding/DocumentAnalyzer.php` | One `ContentBrief` via nr-llm completion; map-reduce above 24k chars |
-| Generators | `Classes/Generator/` | `PodcastGenerator`, `SchaubildGenerator`, `StoryGenerator` extend `AbstractGenerator`; adapter seams in `Image/` and `Speech/` |
+| Generators | `Classes/Generator/` | `PodcastGenerator`, `SchaubildGenerator`, `StoryGenerator` extend `AbstractGenerator`; the text formats (`ExecutiveSummaryGenerator`, `FaqGenerator`, `SocialPostGenerator`, `NewsletterGenerator`) extend `AbstractTextGenerator` (one schema-validated completion each, ADR-004); adapter seams in `Image/` and `Speech/` |
 | Rendering | `Classes/Rendering/` | Playwright HTML→PNG, GD compositor, ffmpeg audio stitcher behind interfaces |
 | Queue | `Classes/Queue/` | `GenerateArtifactsMessage` + handler (Symfony Messenger, doctrine transport) |
 | Persistence | `Classes/Persistence/JobProcessingRepository.php` | Direct DBAL writes from the worker |
@@ -36,7 +36,7 @@ Derived from `Configuration/Services.yaml` (no phpat architecture test suite exi
 
 1. **Ingest** — `Classes/Ingestion/`: URL fetch or tiered PDF reader (Poppler).
 2. **Analyze** — `DocumentAnalyzer` produces one `ContentBrief` via nr-llm completion (map-reduce above 24k chars).
-3. **Generate** — tagged generators produce podcast (1–3 persona speakers), Schaubild (×3 variants), story (×N slides); async via Symfony Messenger doctrine transport. The worker host needs `ffmpeg`, `chromium` and `poppler`.
+3. **Generate** — tagged generators produce podcast (1–3 persona speakers), Schaubild (×3 variants), story (×N slides) and the four text formats; async via Symfony Messenger doctrine transport. The worker host needs `ffmpeg`, `chromium` and `poppler`.
 4. **Store** — artifacts land in FAL under `repurpose/` via `JobFileStorage`.
 
 ## Key decisions
