@@ -236,6 +236,70 @@ final class AiContentMarkerTest extends TestCase
         self::assertSame($original, $tag['audio']);
     }
 
+    /** 250 characters: a frame size that reads differently as syncsafe and as a plain integer. */
+    private const LONG_ENCODER = 'synthetic-encoder-'
+        . 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+    /**
+     * An ID3v2 tag written here, not by ffmpeg, in front of the real TTS segment: header
+     * flags, an optional extended header, a TSSE frame, a TIT2 frame and 16 bytes of
+     * padding. The TIT2 frame directly behind TSSE is what makes a misread TSSE size
+     * visible: read too long, the TSSE value swallows it (padding alone would be trimmed).
+     */
+    private function synthesisedTag(int $version, int $flags, string $extendedHeader = ''): string
+    {
+        $data  = "\0" . self::LONG_ENCODER;
+        $size  = $version === 4 ? $this->syncsafe(strlen($data)) : pack('N', strlen($data));
+        $title = "\0Title";
+        $body  = $extendedHeader . 'TSSE' . $size . "\x00\x00" . $data
+            . 'TIT2' . ($version === 4 ? $this->syncsafe(strlen($title)) : pack('N', strlen($title))) . "\x00\x00" . $title
+            . str_repeat("\0", 16);
+
+        return 'ID3' . chr($version) . "\x00" . chr($flags) . $this->syncsafe(strlen($body)) . $body
+            . $this->fixture('Audio/tts-segment-without-id3.mp3');
+    }
+
+    private function syncsafe(int $size): string
+    {
+        return chr(($size >> 21) & 0x7F) . chr(($size >> 14) & 0x7F) . chr(($size >> 7) & 0x7F) . chr($size & 0x7F);
+    }
+
+    /** @return array<string, array{0: int, 1: int, 2: string}> */
+    public static function tagsWhoseEncoderIsCarriedOver(): array
+    {
+        return [
+            'ID3v2.4, syncsafe frame size' => [4, 0x00, ''],
+            'ID3v2.3, plain frame size'    => [3, 0x00, ''],
+            // v2.4: syncsafe size including itself, one flag byte, no flags.
+            'ID3v2.4 with an extended header' => [4, 0x40, "\x00\x00\x00\x06\x01\x00"],
+            // v2.3: size excluding itself (6), two flag bytes, padding size.
+            'ID3v2.3 with an extended header' => [3, 0x40, "\x00\x00\x00\x06\x00\x00\x00\x00\x00\x10"],
+        ];
+    }
+
+    #[DataProvider('tagsWhoseEncoderIsCarriedOver')]
+    public function testALongEncoderNameIsCarriedOverExactly(int $version, int $flags, string $extendedHeader): void
+    {
+        $original = $this->synthesisedTag($version, $flags, $extendedHeader);
+        self::assertGreaterThanOrEqual(200, strlen(self::LONG_ENCODER), 'premise: syncsafe and plain sizes differ');
+
+        $tag = AiMarkerReader::id3((new AiContentMarker())->markMp3($original, $this->provenance()));
+
+        self::assertSame(['TXXX', 'TXXX', 'TSSE', 'COMM'], array_column($tag['frames'], 'id'));
+        self::assertSame("\0" . self::LONG_ENCODER, $tag['frames'][2]['data']);
+        self::assertSame($this->fixture('Audio/tts-segment-without-id3.mp3'), $tag['audio']);
+    }
+
+    public function testAnUnsynchronisedTagIsReplacedWithoutReadingItsFrames(): void
+    {
+        $original = $this->synthesisedTag(4, 0x80);
+
+        $tag = AiMarkerReader::id3((new AiContentMarker())->markMp3($original, $this->provenance()));
+
+        self::assertSame(['TXXX', 'TXXX', 'COMM'], array_column($tag['frames'], 'id'));
+        self::assertSame($this->fixture('Audio/tts-segment-without-id3.mp3'), $tag['audio']);
+    }
+
     public function testWebVttGetsANoteBlockAfterTheHeaderAndKeepsEveryCue(): void
     {
         $vtt = (new WebVttBuilder())->build([

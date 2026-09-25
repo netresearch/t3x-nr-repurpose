@@ -180,19 +180,25 @@ final class AiContentMarker
 
     /**
      * The encoder named by the TSSE frame of an ID3v2.3/v2.4 tag, as ASCII; null when the
-     * tag has none or a layout this reader does not walk (v2.2 three-letter frames, an
-     * extended header, unsynchronisation).
+     * tag has none or a layout this reader does not walk: v2.2 (three-letter frame ids)
+     * and an unsynchronised tag (header flag 0x80), whose frame bytes may carry inserted
+     * zero bytes. An extended header (flag 0x40) is skipped: in v2.3 its size field
+     * excludes itself, in v2.4 it is syncsafe and includes itself.
      */
     private function id3Tsse(string $mp3, int $tagSize): ?string
     {
         $version = ord($mp3[3]);
         $flags   = ord($mp3[5]);
-        if (!in_array($version, [3, 4], true) || ($flags & 0xC0) !== 0) {
+        if (!in_array($version, [3, 4], true) || ($flags & 0x80) !== 0) {
             return null;
         }
 
         $body   = substr($mp3, 10, $tagSize);
         $offset = 0;
+        if (($flags & 0x40) !== 0 && strlen($body) >= 4) {
+            $offset = $version === 4 ? $this->syncsafeDecode(substr($body, 0, 4)) : 4 + $this->uint32(substr($body, 0, 4));
+        }
+
         while ($offset + 10 <= strlen($body) && $body[$offset] !== "\0") {
             $id   = substr($body, $offset, 4);
             $size = $version === 4 ? $this->syncsafeDecode(substr($body, $offset + 4, 4)) : $this->uint32(substr($body, $offset + 4, 4));

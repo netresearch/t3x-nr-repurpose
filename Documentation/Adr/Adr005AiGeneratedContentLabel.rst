@@ -82,7 +82,11 @@ Decision
      (ID3v2.3, the version every player reads). The encoder's ``TSSE`` of the
      replaced tag — ffmpeg's ``Lavf…`` — is carried over; this extension does
      not encode audio, so without one it writes no ``TSSE`` and names itself
-     in ``COMM`` only.
+     in ``COMM`` only. The old tag is read as ID3v2.3 (plain frame sizes) or
+     ID3v2.4 (syncsafe frame sizes); an extended header is skipped. An
+     unsynchronised tag (header flag ``0x80``) or an ID3v2.2 tag is replaced
+     without carrying its ``TSSE`` — its frame bytes are not read. The audio
+     after the old tag is kept byte for byte in every case.
    - WebVTT: a ``NOTE`` block naming the AI origin right after the ``WEBVTT``
      header (a comment block players ignore); the cues are unchanged.
    - A file that does not match its extension's format makes the store fail,
