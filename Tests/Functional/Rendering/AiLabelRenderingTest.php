@@ -30,6 +30,8 @@ final class AiLabelRenderingTest extends AbstractFunctionalTestCase
 {
     private const BADGE = '<div class="ai-label">';
 
+    private const BADGE_PARTIAL = 'Job/AiLabel';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -71,7 +73,7 @@ final class AiLabelRenderingTest extends AbstractFunctionalTestCase
 
     public function testResultViewBadgeNamesTheMarkerWhenTheRowCarriesOne(): void
     {
-        $html = $this->renderPartial('Job/AiLabel', ['status' => 'done', 'label' => ['aiGenerated' => true]]);
+        $html = $this->renderPartial(self::BADGE_PARTIAL, ['status' => 'done', 'label' => ['aiGenerated' => true]]);
 
         self::assertStringContainsString('AI-generated', $html);
         self::assertStringContainsString('title="Created with generative AI. The stored artifact carries a machine-readable AI marker."', $html);
@@ -79,7 +81,7 @@ final class AiLabelRenderingTest extends AbstractFunctionalTestCase
 
     public function testResultViewBadgeForARowStoredBeforeTheMarkerMakesNoMarkerClaim(): void
     {
-        $html = $this->renderPartial('Job/AiLabel', ['status' => 'done', 'label' => null]);
+        $html = $this->renderPartial(self::BADGE_PARTIAL, ['status' => 'done', 'label' => null]);
 
         self::assertStringContainsString('AI-generated', $html);
         self::assertStringContainsString('title="Created with generative AI."', $html);
@@ -89,7 +91,7 @@ final class AiLabelRenderingTest extends AbstractFunctionalTestCase
     public function testResultViewHasNoBadgeWithoutAResult(): void
     {
         foreach (['failed', 'pending', null] as $status) {
-            self::assertStringNotContainsString('AI-generated', $this->renderPartial('Job/AiLabel', ['status' => $status]), (string) $status);
+            self::assertStringNotContainsString('AI-generated', $this->renderPartial(self::BADGE_PARTIAL, ['status' => $status]), (string) $status);
         }
     }
 

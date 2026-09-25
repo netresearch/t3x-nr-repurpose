@@ -19,6 +19,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class JobFileStorageTest extends AbstractFunctionalTestCase
 {
+    private const GENERATOR = 'nr_repurpose 9.9.9';
+
     public function testStoreWritesContentAndReturnsResolvableFile(): void
     {
         $storage = $this->get(JobFileStorage::class);
@@ -33,7 +35,7 @@ final class JobFileStorageTest extends AbstractFunctionalTestCase
     public function testWithAProvenanceThePngIsMarkedAndTheFileDescribedAsAiGenerated(): void
     {
         $png        = (string) file_get_contents(__DIR__ . '/../../Fixtures/Image/chromium-render.png');
-        $provenance = new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::TrainedAlgorithmicMedia, ['image' => 'image-model-x']);
+        $provenance = new AiProvenance(self::GENERATOR, DigitalSourceType::TrainedAlgorithmicMedia, ['image' => 'image-model-x']);
 
         $file = $this->get(JobFileStorage::class)->store($png, 'schaubild-ki.png', $provenance);
 
@@ -55,7 +57,7 @@ final class JobFileStorageTest extends AbstractFunctionalTestCase
 
     public function testSubtitlesGetANoteBlockAndTheDescription(): void
     {
-        $provenance = new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::TrainedAlgorithmicMedia);
+        $provenance = new AiProvenance(self::GENERATOR, DigitalSourceType::TrainedAlgorithmicMedia);
 
         $file = $this->get(JobFileStorage::class)->store("WEBVTT\n", 'podcast.vtt', $provenance);
 
@@ -65,7 +67,7 @@ final class JobFileStorageTest extends AbstractFunctionalTestCase
 
     public function testAnotherFileTypeIsDescribedButNotRewritten(): void
     {
-        $provenance = new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::TrainedAlgorithmicMedia);
+        $provenance = new AiProvenance(self::GENERATOR, DigitalSourceType::TrainedAlgorithmicMedia);
 
         $file = $this->get(JobFileStorage::class)->store("plain\n", 'notes.txt', $provenance);
 
