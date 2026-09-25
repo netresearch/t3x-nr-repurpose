@@ -61,15 +61,15 @@ final class FaqGenerator extends AbstractTextGenerator
         return CallerSource::GENERATE_FAQ;
     }
 
-    protected function systemPrompt(): string
+    protected function role(): string
     {
-        return 'You are an editor writing FAQ sections. Output ONLY valid JSON.';
+        return 'You are an editor writing FAQ sections.';
     }
 
     protected function taskInstruction(GenerationContext $ctx): string
     {
-        return 'Write 5 to 10 frequently asked questions a reader of this content would have, each with a '
-            . 'concise answer of one to three sentences. Answer only from the content above; skip a question '
+        return 'Write 5 to 10 frequently asked questions a reader of the source material would have, each with a '
+            . 'concise answer of one to three sentences. Answer only from the source material; skip a question '
             . 'the content does not answer. Output ONLY JSON {"faq":[{"question":"...","answer":"..."}]}.';
     }
 

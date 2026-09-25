@@ -244,7 +244,10 @@ a schema cannot express — caps, the platform character limits
 (:php:`TextLimiter`, cut at a sentence boundary, or at a word boundary when
 that would keep less than half), hashtag normalisation — and
 stores the plain text in ``script_text`` and the structured answer in
-``metadata.content``. The social posts become one row per platform variant
+``metadata.content``. The format's task sits in the system prompt; the user
+prompt carries only the source-derived brief as untrusted data inside
+``<source_material>`` tags, with tag-like ``<source…`` sequences in the data
+neutralised. The social posts become one row per platform variant
 (``linkedin``, ``x``, ``instagram``); the other formats one row each. No file
 is written to FAL. See :ref:`adr-004`.
 

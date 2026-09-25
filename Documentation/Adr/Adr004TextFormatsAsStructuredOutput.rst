@@ -64,7 +64,21 @@ Decision
    written. The social posts are one row per platform variant, like the
    Schaubild variants.
 
-5. **The schemas are tested against nr-llm's validator.** nr-llm refuses a
+5. **Source material is data, not instructions.** The system prompt holds
+   everything the extension decides: the role, the format's task, the output
+   rules, the output language (only if it is a well-formed language code) and
+   the editor's audience and tone snippets. The user prompt holds only the
+   source-derived brief, enclosed in ``<source_material>`` and
+   ``</source_material>`` and introduced as untrusted data that must not be
+   followed. Inside the data, the ``<`` of every tag-like ``<source…`` or
+   ``</source…`` sequence (any case, any whitespace) is replaced with ``‹``,
+   so the source can neither close the block nor open a second one, and the
+   text stays readable. nr-llm defuses its own fence markers the same way,
+   but those helpers are private. The tags are a boundary for the model, not
+   a guarantee: the system-prompt rule is what tells the model to treat the
+   block as data.
+
+6. **The schemas are tested against nr-llm's validator.** nr-llm refuses a
    schema outside the subset before the first provider call. The test double
    :php:`FakeCompletionService` does not check, so each generator's unit test
    pre-flights its schema with nr-llm's :php:`JsonSchemaValidator`.

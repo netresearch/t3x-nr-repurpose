@@ -45,14 +45,14 @@ final class ExecutiveSummaryGenerator extends AbstractTextGenerator
         return CallerSource::GENERATE_EXEC_SUMMARY;
     }
 
-    protected function systemPrompt(): string
+    protected function role(): string
     {
-        return 'You are an editor writing executive summaries for decision makers. Output ONLY valid JSON.';
+        return 'You are an editor writing executive summaries for decision makers.';
     }
 
     protected function taskInstruction(GenerationContext $ctx): string
     {
-        return 'Write an executive summary of this content for decision makers in 5 to 8 sentences. '
+        return 'Write an executive summary of the source material for decision makers in 5 to 8 sentences. '
             . 'Put the key facts, numbers and the conclusion first, then context. One sentence per list '
             . 'entry. Output ONLY JSON {"sentences":["..."]}.';
     }

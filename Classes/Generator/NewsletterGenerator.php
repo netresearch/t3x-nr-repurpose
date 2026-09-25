@@ -57,14 +57,14 @@ final class NewsletterGenerator extends AbstractTextGenerator
         return CallerSource::GENERATE_NEWSLETTER;
     }
 
-    protected function systemPrompt(): string
+    protected function role(): string
     {
-        return 'You are an editor writing e-mail newsletters. Output ONLY valid JSON.';
+        return 'You are an editor writing e-mail newsletters.';
     }
 
     protected function taskInstruction(GenerationContext $ctx): string
     {
-        return 'Write a newsletter text about this content: a subject line of at most 60 characters, a '
+        return 'Write a newsletter text about the source material: a subject line of at most 60 characters, a '
             . 'preheader of at most 100 characters that complements the subject, a body of 2 to 5 plain '
             . 'paragraphs (no headings, no lists, no markup), and exactly one call to action that invites '
             . 'the reader to the source. The body itself contains no call to action. Output ONLY JSON '

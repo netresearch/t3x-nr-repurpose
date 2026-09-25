@@ -71,15 +71,15 @@ final class SocialPostGenerator extends AbstractTextGenerator
         return CallerSource::GENERATE_SOCIAL_POST;
     }
 
-    protected function systemPrompt(): string
+    protected function role(): string
     {
-        return 'You are a social-media editor. Output ONLY valid JSON.';
+        return 'You are a social-media editor.';
     }
 
     protected function taskInstruction(GenerationContext $ctx): string
     {
         return sprintf(
-            'Write one social-media post per platform about this content: "linkedin" — a long-form post of '
+            'Write one social-media post per platform about the source material: "linkedin" — a long-form post of '
             . 'at most %d characters with a strong first line; "x" — a short post of at most %d characters '
             . 'including everything; "instagram" — a caption of at most %d characters plus 3 to 10 relevant '
             . 'hashtags given separately (without the # sign). Output ONLY JSON '
