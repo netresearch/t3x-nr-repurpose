@@ -14,7 +14,14 @@ enum ArtifactType: string
     case Podcast   = 'podcast';
     case Schaubild = 'schaubild';
     case Story     = 'story';
-    case Stub      = 'stub';
+
+    // Text formats. The values must fit the 16-character `type` column.
+    case ExecutiveSummary = 'exec_summary';
+    case Faq              = 'faq';
+    case SocialPost       = 'social_post';
+    case Newsletter       = 'newsletter';
+
+    case Stub = 'stub';
 
     /**
      * LLL key (locallang.xlf) for the human-readable type label.
@@ -29,10 +36,14 @@ enum ArtifactType: string
     public function getIconIdentifier(): string
     {
         return match ($this) {
-            self::Podcast   => 'mimetypes-media-audio',
-            self::Schaubild => 'content-widget-chart',
-            self::Story     => 'actions-device-mobile',
-            self::Stub      => 'miscellaneous-placeholder',
+            self::Podcast          => 'mimetypes-media-audio',
+            self::Schaubild        => 'content-widget-chart',
+            self::Story            => 'actions-device-mobile',
+            self::ExecutiveSummary => 'content-text',
+            self::Faq              => 'content-accordion',
+            self::SocialPost       => 'actions-share-alt',
+            self::Newsletter       => 'actions-envelope',
+            self::Stub             => 'miscellaneous-placeholder',
         };
     }
 }

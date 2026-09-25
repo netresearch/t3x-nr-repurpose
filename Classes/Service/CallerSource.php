@@ -43,4 +43,16 @@ final class CallerSource
 
     /** StoryGenerator carousel copy. */
     public const GENERATE_STORY = 'generateStory';
+
+    /** ExecutiveSummaryGenerator summary text. */
+    public const GENERATE_EXEC_SUMMARY = 'generateExecSummary';
+
+    /** FaqGenerator question/answer pairs. */
+    public const GENERATE_FAQ = 'generateFaq';
+
+    /** SocialPostGenerator posts for all platform variants (one call). */
+    public const GENERATE_SOCIAL_POST = 'generateSocialPost';
+
+    /** NewsletterGenerator subject, preheader, body and call to action. */
+    public const GENERATE_NEWSLETTER = 'generateNewsletter';
 }

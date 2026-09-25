@@ -49,6 +49,10 @@
             <f:if condition="{job.wantPodcast}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.podcast" /></span></f:if>
             <f:if condition="{job.wantSchaubild}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.schaubild" /></span></f:if>
             <f:if condition="{job.wantStory}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story" /></span></f:if>
+            <f:if condition="{job.wantExecSummary}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.exec_summary" /></span></f:if>
+            <f:if condition="{job.wantFaq}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.faq" /></span></f:if>
+            <f:if condition="{job.wantSocialPost}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.social_post" /></span></f:if>
+            <f:if condition="{job.wantNewsletter}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.newsletter" /></span></f:if>
         </dd>
 
         <f:for each="{snippetSelections}" as="selection">
@@ -115,8 +119,8 @@
                                 </f:if>
                             </f:if>
 
-                            <f:comment><!-- Schaubild + Story: image preview + download --></f:comment>
-                            <f:if condition="{artifact.type} != 'podcast'">
+                            <f:comment><!-- Schaubild: image preview + download (story slides render in their own strip below) --></f:comment>
+                            <f:if condition="{artifact.type} == 'schaubild'">
                                 <f:variable name="img" value="{nr:publicUrl(fileUid: artifact.fileUid)}" />
                                 <f:if condition="{img}">
                                     <p>
@@ -130,6 +134,45 @@
                                         </a>
                                     </p>
                                 </f:if>
+                            </f:if>
+
+                            <f:comment><!-- Text formats: structured content from metadata.content; Fluid escapes every value --></f:comment>
+                            <f:variable name="content" value="{artifact.metadataArray.content}" />
+                            <f:if condition="{artifact.type} == 'exec_summary'">
+                                <p>{artifact.scriptText}</p>
+                            </f:if>
+                            <f:if condition="{artifact.type} == 'faq'">
+                                <dl>
+                                    <f:for each="{content.faq}" as="pair">
+                                        <dt>{pair.question}</dt>
+                                        <dd>{pair.answer}</dd>
+                                    </f:for>
+                                </dl>
+                                <f:if condition="{content.jsonLd}">
+                                    <details>
+                                        <summary><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.faq.jsonLd" /></summary>
+                                        <pre style="white-space: pre-wrap;">{content.jsonLd}</pre>
+                                    </details>
+                                </f:if>
+                            </f:if>
+                            <f:if condition="{artifact.type} == 'social_post'">
+                                <pre style="white-space: pre-wrap; font-family: inherit;">{artifact.scriptText}</pre>
+                                <p class="text-muted small">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.social.length" arguments="{0: content.length, 1: content.maxChars}" />
+                                    <f:if condition="{content.truncated}"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.social.truncated" /></f:if>
+                                </p>
+                            </f:if>
+                            <f:if condition="{artifact.type} == 'newsletter'">
+                                <dl>
+                                    <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.newsletter.subject" /></dt>
+                                    <dd>{content.subject}</dd>
+                                    <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.newsletter.preheader" /></dt>
+                                    <dd>{content.preheader}</dd>
+                                </dl>
+                                <f:for each="{content.paragraphs}" as="paragraph">
+                                    <p>{paragraph}</p>
+                                </f:for>
+                                <p><strong>{content.callToAction}</strong></p>
                             </f:if>
                         </f:if>
 

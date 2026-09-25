@@ -102,6 +102,11 @@ final readonly class PromptSnippetResolver
                 self::LABEL_LAYOUT   => $storyLayout,
                 self::LABEL_STYLE    => $byUid[$selection->storyStyle] ?? null,
             ]),
+            // The text formats have no layout or style: audience and tone are the whole steering.
+            textSections: $this->composer->composeSections([
+                self::LABEL_AUDIENCE => $audience,
+                self::LABEL_TONE     => $tone,
+            ]),
             audienceHint: $audience?->getSnippet() ?? '',
             styleHint: $schaubildStyle?->getSnippet() ?? '',
             schaubildImageSize: $this->imageSizeHint($schaubildLayout),
