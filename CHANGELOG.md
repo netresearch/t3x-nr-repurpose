@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-25
+
 ### Security
 
 - **Source text can no longer pose as an instruction in any LLM call** (NEXT-182). The podcast script, the Schaubild diagram body, the story copy and the document analysis put the source-derived text — the raw document, the chunk summaries, the brief — into the same user prompt as their own task, so text in a source could read as an instruction (CWE-1427). They now follow the boundary the text formats introduced: the task, the output rules, the editor's snippets and a validated output language sit in the system prompt, and the source material reaches the model only as one `<source_material>` block introduced as untrusted data, with tag-like `<source…` sequences in it neutralised. One helper (`SourceMaterial`) serves all seven generators and the analyzer. The JSON and HTML the calls return are unchanged; the prompts recorded in each artifact's metadata show the new split. Image-generation prompts and the PDF vision OCR are not covered — see ADR-004.
@@ -275,7 +277,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.3...v0.6.0
 [0.5.3]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.0...v0.5.1
