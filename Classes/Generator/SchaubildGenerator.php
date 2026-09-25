@@ -18,6 +18,7 @@ use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
+use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
@@ -85,7 +86,7 @@ class SchaubildGenerator extends AbstractGenerator
         $imageSize = $this->resolveImageSize($ctx->snippets->schaubildImageSize, self::IMAGE_SIZE);
 
         $ctx->progress?->step('Schaubild: variant html (1/3)', 0.4);
-        $ok = $this->generateHtmlVariant($jobUid, $htmlOpaque, $llmPrompts);
+        $ok = $this->generateHtmlVariant($ctx, $jobUid, $htmlOpaque, $llmPrompts);
         $ctx->progress?->step('Schaubild: variant html_bg (2/3)', 0.6);
         $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent, $llmPrompts, $imageSize) || $ok;
         $ctx->progress?->step('Schaubild: variant ki_image (3/3)', 0.8);
@@ -101,12 +102,14 @@ class SchaubildGenerator extends AbstractGenerator
      *
      * @param array{system: string, user: string} $llmPrompts
      */
-    private function generateHtmlVariant(int $jobUid, string $html, array $llmPrompts): bool
+    private function generateHtmlVariant(GenerationContext $ctx, int $jobUid, string $html, array $llmPrompts): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html', 0, ArtifactStatus::Pending);
         try {
-            $pngPath = $this->renderer->render($html, self::WIDTH, null, 2.0, false);
-            $file    = $this->fileStorage->store((string) file_get_contents($pngPath), 'schaubild-html.png');
+            // AI-written copy set into the human-made branded template.
+            $provenance = $this->provenance($ctx, DigitalSourceType::CompositeWithTrainedAlgorithmicMedia);
+            $pngPath    = $this->renderer->render($html, self::WIDTH, null, 2.0, false);
+            $file       = $this->fileStorage->store((string) file_get_contents($pngPath), 'schaubild-html.png', $provenance);
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid'    => $file->getUid(),
                 'source_html' => $html,
@@ -114,6 +117,7 @@ class SchaubildGenerator extends AbstractGenerator
                     'variant' => 'html',
                     'width'   => self::WIDTH,
                     'prompts' => $this->promptsMetadata(system: $llmPrompts['system'], user: $llmPrompts['user']),
+                    'aiLabel' => $provenance->toArray(),
                 ], JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,
             ]);
@@ -157,7 +161,8 @@ class SchaubildGenerator extends AbstractGenerator
             $outPath = $tmpDir . '/composited.png';
             $this->compositor->overlay($bgPath, $fgPath, $outPath);
 
-            $file = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-html-bg.png');
+            $provenance = $this->provenance($ctx, DigitalSourceType::CompositeWithTrainedAlgorithmicMedia, ['image' => $this->imageGenerator->getModel()]);
+            $file       = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-html-bg.png', $provenance);
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid'    => $file->getUid(),
                 'source_html' => $transparentHtml,
@@ -171,6 +176,7 @@ class SchaubildGenerator extends AbstractGenerator
                         imageModel: $this->imageGenerator->getModel(),
                         imageSize: $imageSize,
                     ),
+                    'aiLabel' => $provenance->toArray(),
                 ], JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,
             ]);
@@ -205,7 +211,10 @@ class SchaubildGenerator extends AbstractGenerator
             $kiPrompt = $this->kiImagePrompt($ctx);
             $this->imageGenerator->generateToFile($kiPrompt, $imageSize, $outPath);
 
-            $file = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-ki.png');
+            // Fully model-rendered. The visible corner label is not applied here: this
+            // variant never passes the HTML renderer (ADR-005).
+            $provenance = $this->provenance($ctx, DigitalSourceType::TrainedAlgorithmicMedia, ['image' => $this->imageGenerator->getModel()]);
+            $file       = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-ki.png', $provenance);
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid'    => $file->getUid(),
                 'source_html' => $referenceHtml,
@@ -217,6 +226,7 @@ class SchaubildGenerator extends AbstractGenerator
                         imageModel: $this->imageGenerator->getModel(),
                         imageSize: $imageSize,
                     ),
+                    'aiLabel' => $provenance->toArray(),
                 ], JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,
             ]);
@@ -287,6 +297,8 @@ class SchaubildGenerator extends AbstractGenerator
             'bodyHtml'    => $bodyHtml,
             'transparent' => $transparent,
             'language'    => $brief->language,
+            // Visible corner label, null when the aiLabelImages setting is off (ADR-005).
+            'aiLabel' => $ctx->aiLabel->imageLabel,
         ]);
     }
 

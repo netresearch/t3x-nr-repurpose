@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Pipeline;
 
+use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
@@ -35,6 +36,8 @@ final readonly class GenerationContext
         public ?JobProgress $progress = null,
         // What the job owner's groups grant; none unless the orchestrator resolved it.
         public CapabilityGrants $grants = new CapabilityGrants(false, false),
+        // AI-label settings of the run (ADR-005); the default shows no visible labels.
+        public AiLabelSettings $aiLabel = new AiLabelSettings(),
     ) {}
 
     public function jobUid(): int
@@ -54,6 +57,7 @@ final readonly class GenerationContext
             $this->snippets,
             $progress,
             $this->grants,
+            $this->aiLabel,
         );
     }
 }

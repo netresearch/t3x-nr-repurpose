@@ -19,6 +19,7 @@ use Netresearch\NrRepurpose\Generator\Support\StorySlide;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
+use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
@@ -268,7 +269,13 @@ class StoryGenerator extends AbstractGenerator
     ): bool {
         $artifactUid   = $this->jobs->insertArtifact($jobUid, ArtifactType::Story, 'slide-' . $index, 0, ArtifactStatus::Pending);
         $hasBackground = $backgroundPath !== null;
-        $metadata      = [
+        // AI-written copy (and optionally an AI background) in the branded template.
+        $provenance = $this->provenance(
+            $ctx,
+            DigitalSourceType::CompositeWithTrainedAlgorithmicMedia,
+            $hasBackground ? ['image' => $this->imageGenerator->getModel()] : [],
+        );
+        $metadata = [
             'width'      => self::WIDTH,
             'height'     => self::HEIGHT,
             'background' => $hasBackground ? 'ki' : 'flat',
@@ -284,6 +291,7 @@ class StoryGenerator extends AbstractGenerator
                 imageModel: $hasBackground ? $this->imageGenerator->getModel() : null,
                 imageSize: $hasBackground ? $imageSize : null,
             ),
+            'aiLabel' => $provenance->toArray(),
         ];
 
         try {
@@ -297,7 +305,7 @@ class StoryGenerator extends AbstractGenerator
                 $pngPath = $this->renderer->render($html, self::WIDTH, self::HEIGHT, 1.0, false);
             }
 
-            $file = $this->fileStorage->store((string) file_get_contents($pngPath), sprintf('story-slide-%d.png', $index));
+            $file = $this->fileStorage->store((string) file_get_contents($pngPath), sprintf('story-slide-%d.png', $index), $provenance);
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid'    => $file->getUid(),
                 'source_html' => $html,
@@ -338,6 +346,8 @@ class StoryGenerator extends AbstractGenerator
             'slideTotal'  => $total,
             'sourceLabel' => $ctx->document->sourceLabel,
             'transparent' => $transparent,
+            // Visible corner label, null when the aiLabelImages setting is off (ADR-005).
+            'aiLabel' => $ctx->aiLabel->imageLabel,
         ]);
     }
 

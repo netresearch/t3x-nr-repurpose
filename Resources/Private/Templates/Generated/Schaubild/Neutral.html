@@ -19,6 +19,7 @@
             </f:if>
         }
         .schaubild {
+            position: relative;
             width: 1200px;
             box-sizing: border-box;
             padding: 64px;
@@ -33,10 +34,27 @@
         .schaubild__title { font-weight: 700; font-size: 48px; line-height: 1.2; margin: 0; }
         .schaubild__body { font-size: 20px; line-height: 1.6; }
         .schaubild__body h2, .schaubild__body h3 { color: var(--accent); }
+        /* Visible AI label (ADR-005): own dark plate, legible over any background. */
+        .ai-label {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.72);
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.4;
+            letter-spacing: 0.3px;
+        }
     </style>
 </head>
 <body>
     <div class="schaubild">
+        <f:if condition="{aiLabel}">
+            <div class="ai-label">{aiLabel}</div>
+        </f:if>
         <header class="schaubild__header">
             <h1 class="schaubild__title">{title}</h1>
         </header>

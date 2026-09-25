@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Provenance\AiProvenance;
+use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\View\ViewFactoryData;
@@ -122,6 +124,18 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
             ],
             static fn (string|array|null $value): bool => $value !== null,
         );
+    }
+
+    /**
+     * The AI-origin statement of an artifact (ADR-005). Its toArray() is stored as the
+     * `aiLabel` block of every done artifact's metadata; passed to JobFileStorage::store()
+     * it also marks the stored file itself. $models names only models that are known.
+     *
+     * @param array<string, string> $models role => model id
+     */
+    protected function provenance(GenerationContext $ctx, DigitalSourceType $sourceType, array $models = []): AiProvenance
+    {
+        return new AiProvenance($ctx->aiLabel->generator, $sourceType, $models);
     }
 
     /**

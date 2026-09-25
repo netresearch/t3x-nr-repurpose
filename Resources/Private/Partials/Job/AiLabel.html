@@ -1,0 +1,15 @@
+<html data-namespace-typo3-fluid="true"
+      xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
+<f:comment><!--
+    Visible "AI-generated" marker of an artifact in the result view (ADR-005). Every
+    artifact this extension produces is AI-generated, rows stored before the marker
+    existed included, so the badge depends only on the artifact having a result.
+    AiLabelRenderingTest renders this partial.
+--></f:comment>
+<f:if condition="{status} == 'done'">
+    <span class="badge badge-notice ms-1"
+          title="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.aiLabel.title')}">
+        <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.aiLabel" />
+    </span>
+</f:if>
+</html>

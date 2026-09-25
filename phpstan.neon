@@ -85,3 +85,14 @@ parameters:
             identifier: identical.alwaysFalse
             path: Classes/Rendering/GdImageCompositor.php
             reportUnmatched: false
+
+        # FAL has no public API to change a file's existing metadata record: the
+        # indexer creates one when the file is written, and the only ways to update
+        # it — MetaDataAspect::save() and MetaDataRepository::update() — are both
+        # @internal. save() is what core's own Indexer calls, and it keeps the File
+        # object's cached metadata in step with the row (ADR-005).
+        -
+            identifier: method.internal
+            message: '#Call to internal method TYPO3\\CMS\\Core\\Resource\\MetaDataAspect::save\(\)#'
+            path: Classes/Resource/JobFileStorage.php
+            count: 1

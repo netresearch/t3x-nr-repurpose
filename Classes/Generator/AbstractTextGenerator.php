@@ -18,6 +18,7 @@ use Netresearch\NrRepurpose\Generator\Support\TextArtifact;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
+use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -111,9 +112,12 @@ abstract class AbstractTextGenerator extends AbstractGenerator
                 plannedCost: self::PLANNED_COST,
             ))->withCallerSource(CallerSource::EXTENSION, $this->operation());
 
-            $artifacts = $this->parse(
-                $this->completion->completeStructured($prompt, $this->responseSchema(), $options),
-                $ctx,
+            $artifacts = $this->withClosingLine(
+                $this->parse(
+                    $this->completion->completeStructured($prompt, $this->responseSchema(), $options),
+                    $ctx,
+                ),
+                $ctx->aiLabel->textLine ?? '',
             );
         } catch (Throwable $e) {
             $artifactUid = $this->jobs->insertArtifact($jobUid, $this->artifactType(), 'default', 0, ArtifactStatus::Pending);
@@ -124,13 +128,15 @@ abstract class AbstractTextGenerator extends AbstractGenerator
 
         // One row per result; a failed write fails only that row, like a story slide.
         $prompts = $this->promptsMetadata(system: $system, user: $prompt);
+        // nr-llm's completion API does not report the model, so none is named (ADR-005).
+        $aiLabel = $this->provenance($ctx, DigitalSourceType::TrainedAlgorithmicMedia)->toArray();
         $ok      = false;
         foreach ($artifacts as $artifact) {
             $artifactUid = $this->jobs->insertArtifact($jobUid, $this->artifactType(), $artifact->variant, 0, ArtifactStatus::Pending);
             try {
                 $this->jobs->updateArtifact($artifactUid, [
                     'script_text' => $artifact->plainText,
-                    'metadata'    => json_encode(['content' => $artifact->content, 'prompts' => $prompts], JSON_THROW_ON_ERROR),
+                    'metadata'    => json_encode(['content' => $artifact->content, 'prompts' => $prompts, 'aiLabel' => $aiLabel], JSON_THROW_ON_ERROR),
                     'status'      => ArtifactStatus::Done->value,
                 ]);
                 $ok = true;
@@ -140,6 +146,41 @@ abstract class AbstractTextGenerator extends AbstractGenerator
         }
 
         return $ok;
+    }
+
+    /**
+     * Append the optional AI closing line (extension setting `aiLabelTexts`, ADR-005) to
+     * the copy-ready plain text, after a blank line, and record it as
+     * `content.closingLine` so the result view can show it next to the structured
+     * content. Only `script_text` changes — never the structured answer, so the FAQ
+     * JSON-LD stays exactly what schema.org defines. '' leaves the texts unchanged.
+     *
+     * A format with a hard length limit must fit the line into the limit in parse()
+     * and override this method (SocialPostGenerator).
+     *
+     * @param non-empty-list<TextArtifact> $artifacts
+     *
+     * @return non-empty-list<TextArtifact>
+     */
+    protected function withClosingLine(array $artifacts, string $line): array
+    {
+        if ($line === '') {
+            return $artifacts;
+        }
+
+        return array_map(
+            static fn (TextArtifact $artifact): TextArtifact => new TextArtifact(
+                $artifact->variant,
+                self::appendClosingLine($artifact->plainText, $line),
+                $artifact->content + ['closingLine' => $line],
+            ),
+            $artifacts,
+        );
+    }
+
+    protected static function appendClosingLine(string $text, string $line): string
+    {
+        return $line === '' ? $text : $text . "\n\n" . $line;
     }
 
     /**

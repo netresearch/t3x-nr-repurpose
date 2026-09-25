@@ -30,6 +30,9 @@ use Psr\Log\LoggerInterface;
  *
  * Each variant is its own artifact row (variant "linkedin" / "x" / "instagram"), like the
  * Schaubild variants; the metadata records the limit and whether the post was cut.
+ *
+ * The optional AI closing line (ADR-005) counts against the limit: its length is
+ * reserved before the post is cut, so a post with the line still fits the platform.
  */
 final class SocialPostGenerator extends AbstractTextGenerator
 {
@@ -115,15 +118,29 @@ final class SocialPostGenerator extends AbstractTextGenerator
     protected function parse(array $data, GenerationContext $ctx): array
     {
         $instagram = is_array($data['instagram'] ?? null) ? $data['instagram'] : [];
+        $line      = $ctx->aiLabel->textLine ?? '';
 
         return [
-            $this->post('linkedin', $this->requirePost($data['linkedin'] ?? null, 'linkedin'), self::LIMIT_LINKEDIN),
-            $this->post('x', $this->requirePost($data['x'] ?? null, 'x'), self::LIMIT_X),
+            $this->post('linkedin', $this->requirePost($data['linkedin'] ?? null, 'linkedin'), self::LIMIT_LINKEDIN, $line),
+            $this->post('x', $this->requirePost($data['x'] ?? null, 'x'), self::LIMIT_X, $line),
             $this->instagramPost(
                 $this->requirePost($instagram['caption'] ?? null, 'instagram'),
                 $this->hashtags($instagram['hashtags'] ?? null),
+                $line,
             ),
         ];
+    }
+
+    /** parse() already fitted the closing line into each platform limit. */
+    protected function withClosingLine(array $artifacts, string $line): array
+    {
+        return $artifacts;
+    }
+
+    /** Characters the closing line takes, including the blank line before it. */
+    private function closingLineLength(string $line): int
+    {
+        return mb_strlen(self::appendClosingLine('', $line));
     }
 
     private function requirePost(mixed $value, string $platform): string
@@ -132,14 +149,15 @@ final class SocialPostGenerator extends AbstractTextGenerator
             ?? throw new InvalidLlmOutputException(sprintf('the answer has no "%s" post', $platform), 1790000301);
     }
 
-    private function post(string $platform, string $text, int $limit): TextArtifact
+    private function post(string $platform, string $text, int $limit, string $line): TextArtifact
     {
-        $cut = $this->limiter->cut($text, $limit);
+        $cut  = $this->limiter->cut($text, $limit - $this->closingLineLength($line));
+        $post = self::appendClosingLine($cut->text, $line);
 
-        return new TextArtifact($platform, $cut->text, [
+        return new TextArtifact($platform, $post, [
             'platform'  => $platform,
-            'text'      => $cut->text,
-            'length'    => mb_strlen($cut->text),
+            'text'      => $post,
+            'length'    => mb_strlen($post),
             'maxChars'  => $limit,
             'truncated' => $cut->wasCut(),
             'cutMode'   => $cut->mode,
@@ -154,7 +172,7 @@ final class SocialPostGenerator extends AbstractTextGenerator
      *
      * @param list<string> $hashtags normalised and de-duplicated, not yet capped
      */
-    private function instagramPost(string $caption, array $hashtags): TextArtifact
+    private function instagramPost(string $caption, array $hashtags, string $line): TextArtifact
     {
         $offered  = count($hashtags);
         $hashtags = array_slice($hashtags, 0, self::MAX_HASHTAGS);
@@ -163,9 +181,9 @@ final class SocialPostGenerator extends AbstractTextGenerator
         }
 
         $hashtagLine = implode(' ', $hashtags);
-        $budget      = self::LIMIT_INSTAGRAM - ($hashtagLine === '' ? 0 : mb_strlen($hashtagLine) + 2);
+        $budget      = self::LIMIT_INSTAGRAM - ($hashtagLine === '' ? 0 : mb_strlen($hashtagLine) + 2) - $this->closingLineLength($line);
         $cut         = $this->limiter->cut($caption, $budget);
-        $post        = $hashtagLine === '' ? $cut->text : $cut->text . "\n\n" . $hashtagLine;
+        $post        = self::appendClosingLine($hashtagLine === '' ? $cut->text : $cut->text . "\n\n" . $hashtagLine, $line);
 
         return new TextArtifact('instagram', $post, [
             'platform'        => 'instagram',

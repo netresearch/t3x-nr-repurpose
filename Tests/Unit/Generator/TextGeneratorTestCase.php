@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
+use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
@@ -19,6 +20,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\AbstractTextGenerator;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
+use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\ArtifactRecordingJobRepository;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
@@ -59,7 +61,7 @@ abstract class TextGeneratorTestCase extends TestCase
 
     abstract protected function expectedLabel(): string;
 
-    protected function context(bool $want = true, ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), string $language = 'de', string $summary = 'Der Umsatz stieg um 12 Prozent.'): GenerationContext
+    protected function context(bool $want = true, ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), string $language = 'de', string $summary = 'Der Umsatz stieg um 12 Prozent.', AiLabelSettings $aiLabel = new AiLabelSettings()): GenerationContext
     {
         // The document's language hint deliberately differs from the brief's detected
         // language: the output must follow the brief, and a generator reading the hint fails.
@@ -82,6 +84,7 @@ abstract class TextGeneratorTestCase extends TestCase
             $snippets,
             // Text formats need no grant: prove it by granting nothing.
             grants: new CapabilityGrants(audio: false, vision: false),
+            aiLabel: $aiLabel,
         );
     }
 
@@ -229,6 +232,44 @@ abstract class TextGeneratorTestCase extends TestCase
             self::assertIsArray($metadata['content']);
             self::assertSame($this->completion->completeStructuredCalls[0]['prompt'], $metadata['prompts']['user']);
             self::assertSame($this->prompts()[0], $metadata['prompts']['system']);
+        }
+    }
+
+    public function testDoneRowsCarryTheAiLabelWithoutAModel(): void
+    {
+        self::assertTrue($this->generatorWithAnswer()->generate($this->context(aiLabel: new AiLabelSettings('nr_repurpose 9.9.9'))));
+
+        foreach ($this->jobs->updates as $update) {
+            self::assertSame(
+                [
+                    'aiGenerated'       => true,
+                    'generator'         => 'nr_repurpose 9.9.9',
+                    'digitalSourceType' => DigitalSourceType::TrainedAlgorithmicMedia->value,
+                ],
+                json_decode((string) $update['metadata'], true)['aiLabel'],
+            );
+        }
+    }
+
+    public function testWithTheClosingLineSettingEveryCopyReadyTextEndsWithIt(): void
+    {
+        $line = 'Dieser Text wurde mit KI erstellt.';
+        self::assertTrue($this->generatorWithAnswer()->generate($this->context(aiLabel: new AiLabelSettings(textLine: $line))));
+
+        self::assertNotSame([], $this->jobs->updates);
+        foreach ($this->jobs->updates as $update) {
+            self::assertStringEndsWith("\n\n" . $line, (string) $update['script_text']);
+            self::assertSame(1, substr_count((string) $update['script_text'], $line));
+        }
+    }
+
+    public function testWithoutTheClosingLineSettingNoTextCarriesIt(): void
+    {
+        self::assertTrue($this->generatorWithAnswer()->generate($this->context()));
+
+        foreach ($this->jobs->updates as $update) {
+            self::assertStringNotContainsString('mit KI erstellt', (string) $update['script_text']);
+            self::assertArrayNotHasKey('closingLine', json_decode((string) $update['metadata'], true)['content']);
         }
     }
 

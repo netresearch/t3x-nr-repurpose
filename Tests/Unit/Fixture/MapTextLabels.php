@@ -24,12 +24,16 @@ final class MapTextLabels extends TextLabels
             'text.faq.answer'           => 'A',
             'text.newsletter.subject'   => 'Subject',
             'text.newsletter.preheader' => 'Preheader',
+            'aiLabel.image'             => 'AI-generated',
+            'aiLabel.text'              => 'This text was created with AI.',
         ],
         'de' => [
             'text.faq.question'         => 'F',
             'text.faq.answer'           => 'A',
             'text.newsletter.subject'   => 'Betreff',
             'text.newsletter.preheader' => 'Preheader',
+            'aiLabel.image'             => 'KI-generiert',
+            'aiLabel.text'              => 'Dieser Text wurde mit KI erstellt.',
         ],
     ];
 
