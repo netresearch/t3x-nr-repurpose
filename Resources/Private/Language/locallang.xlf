@@ -144,6 +144,7 @@
       <trans-unit id="artifact.stub"><source>Stub</source></trans-unit>
       <trans-unit id="show.aiLabel"><source>AI-generated</source></trans-unit>
       <trans-unit id="show.aiLabel.title"><source>Created with generative AI. The stored artifact carries a machine-readable AI marker.</source></trans-unit>
+      <trans-unit id="show.aiLabel.titleGeneric"><source>Created with generative AI.</source></trans-unit>
       <trans-unit id="show.aiLabel.closingLine"><source>Closing line of the copy-ready text:</source></trans-unit>
       <trans-unit id="aiLabel.image"><source>AI-generated</source></trans-unit>
       <trans-unit id="aiLabel.text"><source>This text was created with AI.</source></trans-unit>

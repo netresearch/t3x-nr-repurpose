@@ -4,11 +4,16 @@
     Visible "AI-generated" marker of an artifact in the result view (ADR-005). Every
     artifact this extension produces is AI-generated, rows stored before the marker
     existed included, so the badge depends only on the artifact having a result.
+    The tooltip names the machine-readable marker only when the row carries one
+    ({label} = the aiLabel metadata block); older rows get the generic sentence.
     AiLabelRenderingTest renders this partial.
 --></f:comment>
 <f:if condition="{status} == 'done'">
-    <span class="badge badge-notice ms-1"
-          title="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.aiLabel.title')}">
+    <f:variable name="title" value="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.aiLabel.titleGeneric')}" />
+    <f:if condition="{label.aiGenerated}">
+        <f:variable name="title" value="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.aiLabel.title')}" />
+    </f:if>
+    <span class="badge badge-notice ms-1" title="{title}">
         <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.aiLabel" />
     </span>
 </f:if>

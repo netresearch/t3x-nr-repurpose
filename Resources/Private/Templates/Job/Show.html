@@ -81,7 +81,7 @@
                         <span class="badge badge-{artifact.statusEnum.severity}">
                             <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{artifact.statusEnum.labelKey}" />
                         </span>
-                        <f:render partial="Job/AiLabel" arguments="{status: artifact.status}" />
+                        <f:render partial="Job/AiLabel" arguments="{status: artifact.status, label: artifact.metadataArray.aiLabel}" />
                     </div>
                     <div class="card-body">
                         <f:if condition="{artifact.errorMessage}">
@@ -154,8 +154,8 @@
                         <h3 class="h5 mb-0 d-inline">
                             <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.story" />
                         </h3>
-                        <f:comment><!-- The card holds only slides, all generated: label it once --></f:comment>
-                        <f:render partial="Job/AiLabel" arguments="{status: 'done'}" />
+                        <f:comment><!-- Label the card once, from the first finished slide; no finished slide, no label --></f:comment>
+                        <f:render partial="Job/AiLabel" arguments="{status: job.doneStoryArtifact.status, label: job.doneStoryArtifact.metadataArray.aiLabel}" />
                     </div>
                     <div class="card-body">
                         <div style="display: flex; flex-direction: row; gap: 16px; overflow-x: auto; padding-bottom: 8px;">

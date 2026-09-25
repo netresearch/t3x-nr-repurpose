@@ -9,12 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Provenance;
 
+use Netresearch\NrRepurpose\Generator\Support\WebVttBuilder;
 use Netresearch\NrRepurpose\Provenance\AiContentMarker;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\GdImageCompositor;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\AiMarkerReader;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -142,6 +144,59 @@ final class AiContentMarkerTest extends TestCase
         (new AiContentMarker())->markPng("\xFF\xD8\xFF\xE0 a jpeg", $this->provenance());
     }
 
+    /** @return array<string, array{0: int}> bytes of the real render to keep */
+    public static function truncations(): array
+    {
+        return [
+            '20 bytes: signature and half an IHDR' => [20],
+            '40 bytes: IHDR and the start of IDAT' => [40],
+            'all but the last byte of IEND'        => [604],
+        ];
+    }
+
+    #[DataProvider('truncations')]
+    public function testATruncatedPngIsRefused(int $keep): void
+    {
+        $png = substr($this->fixture('Image/chromium-render.png'), 0, $keep);
+
+        $this->expectException(RenderingException::class);
+        $this->expectExceptionCode(1790000501);
+
+        (new AiContentMarker())->markPng($png, $this->provenance());
+    }
+
+    public function testAPngWithTrailingBytesAfterIendIsRefused(): void
+    {
+        $this->expectException(RenderingException::class);
+        $this->expectExceptionCode(1790000501);
+
+        (new AiContentMarker())->markPng($this->fixture('Image/chromium-render.png') . 'junk', $this->provenance());
+    }
+
+    public function testAnIhdrOfTheWrongLengthIsRefused(): void
+    {
+        $png = $this->fixture('Image/chromium-render.png');
+
+        $this->expectException(RenderingException::class);
+        $this->expectExceptionCode(1790000501);
+
+        // A well-formed chunk sequence whose IHDR carries 12 instead of 13 bytes: only the
+        // IHDR length check can refuse it, the chunk walk itself still ends on IEND.
+        $ihdr = substr($png, 16, 12);
+        $png  = substr($png, 0, 8) . pack('N', 12) . 'IHDR' . $ihdr . pack('N', crc32('IHDR' . $ihdr)) . substr($png, 33);
+
+        (new AiContentMarker())->markPng($png, $this->provenance());
+    }
+
+    public function testXmpDescriptionKeepsUnicodeAndTheTextChunkIsTransliterated(): void
+    {
+        $provenance = new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::TrainedAlgorithmicMedia, ['image' => 'modèle-é']);
+        $marked     = (new AiContentMarker())->markPng($this->fixture('Image/chromium-render.png'), $provenance);
+
+        self::assertStringContainsString('image=modèle-é', (string) AiMarkerReader::pngXmp($marked));
+        self::assertStringContainsString('image=modele-e', AiMarkerReader::pngText($marked)['Comment'] ?? '');
+    }
+
     public function testStitchedMp3GetsAnId3v23TagWithTheAiFramesInPlaceOfFfmpegsTag(): void
     {
         $original = $this->fixture('Audio/stitched-podcast.mp3');
@@ -157,14 +212,15 @@ final class AiContentMarkerTest extends TestCase
             ['AI-generated' => 'true', 'DigitalSourceType' => DigitalSourceType::TrainedAlgorithmicMedia->value],
             AiMarkerReader::id3UserText($tag['frames']),
         );
-        self::assertSame("\0nr_repurpose 9.9.9", $tag['frames'][2]['data']);
+        // The encoder that wrote the audio stays named: ffmpeg's TSSE (UTF-8 in v2.4)
+        // carried into the v2.3 tag as ISO-8859-1, without its terminator.
+        self::assertSame("\0Lavf61.7.100", $tag['frames'][2]['data']);
         self::assertSame(
             "\0eng\0AI-generated with nr_repurpose 9.9.9 (IPTC digital source type: trainedAlgorithmicMedia; models: image=image-model-x).",
             $tag['frames'][3]['data'],
         );
         // The audio frames are untouched; only the tag in front of them was replaced.
         self::assertSame($before['audio'], $tag['audio']);
-        self::assertStringNotContainsString('Lavf', substr($marked, 0, 200));
     }
 
     public function testMp3WithoutATagGetsOneAndKeepsEveryAudioByte(): void
@@ -175,7 +231,44 @@ final class AiContentMarkerTest extends TestCase
         $tag = AiMarkerReader::id3((new AiContentMarker())->markMp3($original, $this->provenance()));
 
         self::assertSame('true', AiMarkerReader::id3UserText($tag['frames'])['AI-generated'] ?? null);
+        // No encoder was named, and this extension did not encode the audio: no TSSE.
+        self::assertSame(['TXXX', 'TXXX', 'COMM'], array_column($tag['frames'], 'id'));
         self::assertSame($original, $tag['audio']);
+    }
+
+    public function testWebVttGetsANoteBlockAfterTheHeaderAndKeepsEveryCue(): void
+    {
+        $vtt = (new WebVttBuilder())->build([
+            ['speaker' => 'Host A', 'text' => 'Revenue grew.', 'durationSeconds' => 1.5],
+            ['speaker' => 'Host B', 'text' => 'By twelve percent.', 'durationSeconds' => 2.0],
+        ]);
+
+        $marked = (new AiContentMarker())->markVtt($vtt, $this->provenance(DigitalSourceType::TrainedAlgorithmicMedia));
+        $blocks = explode("\n\n", $marked);
+
+        self::assertSame('WEBVTT', $blocks[0]);
+        self::assertSame(
+            'NOTE AI-generated with nr_repurpose 9.9.9 (IPTC digital source type: trainedAlgorithmicMedia; models: image=image-model-x).',
+            $blocks[1],
+        );
+        // Removing the NOTE block gives back the file unchanged.
+        self::assertSame($vtt, str_replace($blocks[1] . "\n\n", '', $marked));
+    }
+
+    public function testAHeaderOnlyWebVttGetsTheNoteAppended(): void
+    {
+        self::assertStringStartsWith(
+            "WEBVTT\n\nNOTE AI-generated with",
+            (new AiContentMarker())->markVtt("WEBVTT\n", $this->provenance()),
+        );
+    }
+
+    public function testNonWebVttTextIsRefused(): void
+    {
+        $this->expectException(RenderingException::class);
+        $this->expectExceptionCode(1790000504);
+
+        (new AiContentMarker())->markVtt("1\n00:00:00.000 --> 00:00:01.000\nNo header\n", $this->provenance());
     }
 
     public function testNonMp3BytesAreRefused(): void
@@ -194,6 +287,7 @@ final class AiContentMarkerTest extends TestCase
 
         self::assertNotNull(AiMarkerReader::pngXmp($marker->mark($png, 'story-slide-1.PNG', $this->provenance())));
         self::assertStringStartsWith('ID3', $marker->mark($mp3, 'podcast.mp3', $this->provenance()));
-        self::assertSame("WEBVTT\n", $marker->mark("WEBVTT\n", 'podcast.vtt', $this->provenance()));
+        self::assertStringContainsString("\n\nNOTE AI-generated", $marker->mark("WEBVTT\n", 'podcast.vtt', $this->provenance()));
+        self::assertSame("plain\n", $marker->mark("plain\n", 'notes.txt', $this->provenance()));
     }
 }

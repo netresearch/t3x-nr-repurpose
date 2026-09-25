@@ -119,7 +119,9 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         self::assertSame('true', AiMarkerReader::id3UserText(AiMarkerReader::id3($mp3['contents'])['frames'])['AI-generated'] ?? null);
         self::assertStringStartsWith('AI-generated with nr_repurpose', $mp3['description']);
         self::assertStringContainsString('trainedAlgorithmicMedia', $mp3['description']);
-        self::assertStringStartsWith('AI-generated with nr_repurpose', $this->file((int) $done['podcast/default']['subtitle_file_uid'])['description']);
+        $vtt = $this->file((int) $done['podcast/default']['subtitle_file_uid']);
+        self::assertStringStartsWith('AI-generated with nr_repurpose', $vtt['description']);
+        self::assertStringStartsWith("WEBVTT\n\nNOTE AI-generated with nr_repurpose", $vtt['contents']);
 
         // Schaubild: the stored PNG carries the XMP digital source type, the render the visible label.
         $png = $this->file((int) $done['schaubild/html']['file_uid']);
@@ -131,6 +133,52 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
 
         // FAQ: the copy-ready text ends with the closing line in the text's language.
         self::assertStringEndsWith("\n\nThis text was created with AI.", (string) $done['faq/default']['script_text']);
+    }
+
+    /**
+     * A renderer that hands back something other than a PNG (here: a truncated one) must
+     * not end up in FAL unlabelled: the artifact fails with a readable reason and no
+     * file is written.
+     */
+    public function testAPngThatCannotBeLabelledFailsTheArtifactAndStoresNoFile(): void
+    {
+        $jobUid                     = $this->seedJob(podcast: false, faq: false);
+        $jobs                       = $this->get(JobProcessingRepository::class);
+        $completion                 = new FakeCompletionService();
+        $completion->markdownResult = '<p>Revenue +12 %</p>';
+
+        $filesBefore = $this->fileCount();
+
+        (new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $this->ingestion(),
+            $this->analyzer(),
+            $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
+            $this->grants(),
+            $this->get(AiLabelSettingsFactory::class),
+            [new SchaubildGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(40), new GdImageCompositor(), $this->unavailableImages(), $this->get(JobFileStorage::class))],
+        ))->process($jobUid);
+
+        $row = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->select(['status', 'file_uid', 'error_message'], 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobUid, 'variant' => 'html'])
+            ->fetchAssociative();
+
+        self::assertIsArray($row);
+        self::assertSame('failed', $row['status']);
+        self::assertSame(0, (int) $row['file_uid']);
+        self::assertSame('Schaubild html variant error: Cannot AI-label the file: it is not a complete PNG', $row['error_message']);
+        self::assertSame($filesBefore, $this->fileCount());
+    }
+
+    private function fileCount(): int
+    {
+        return (int) GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('sys_file')
+            ->count('uid', 'sys_file', []);
     }
 
     /**
@@ -158,13 +206,13 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         return ['contents' => $file->getContents(), 'description' => (string) ($row['description'] ?? '')];
     }
 
-    private function seedJob(): int
+    private function seedJob(bool $podcast = true, bool $faq = true): int
     {
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job');
         $conn->insert('tx_nrrepurpose_domain_model_job', [
             'pid'               => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
-            'theme'             => 'nr', 'want_podcast' => 1, 'want_schaubild' => 1, 'want_story' => 0,
-            'want_exec_summary' => 0, 'want_faq' => 1, 'want_social_post' => 0, 'want_newsletter' => 0,
+            'theme'             => 'nr', 'want_podcast' => (int) $podcast, 'want_schaubild' => 1, 'want_story' => 0,
+            'want_exec_summary' => 0, 'want_faq' => (int) $faq, 'want_social_post' => 0, 'want_newsletter' => 0,
             'status'            => 'queued',
         ]);
 
@@ -201,20 +249,24 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         };
     }
 
-    /** Returns the Chromium-rendered fixture and keeps the HTML it was asked to render. */
-    private function renderer(): HtmlToImageRendererInterface
+    /**
+     * Returns the Chromium-rendered fixture — its first $truncateTo bytes when given — and
+     * keeps the HTML it was asked to render.
+     */
+    private function renderer(?int $truncateTo = null): HtmlToImageRendererInterface
     {
-        return new class (self::FIXTURES . 'Image/chromium-render.png') implements HtmlToImageRendererInterface {
+        return new class (self::FIXTURES . 'Image/chromium-render.png', $truncateTo) implements HtmlToImageRendererInterface {
             /** @var list<string> */
             public array $html = [];
 
-            public function __construct(private readonly string $fixture) {}
+            public function __construct(private readonly string $fixture, private readonly ?int $truncateTo) {}
 
             public function render(string $html, int $width, ?int $height, float $deviceScaleFactor = 1.0, bool $transparent = false): string
             {
                 $this->html[] = $html;
                 $out          = sys_get_temp_dir() . '/nrrepurpose_render_' . bin2hex(random_bytes(4)) . '.png';
-                copy($this->fixture, $out);
+                $bytes        = (string) file_get_contents($this->fixture);
+                file_put_contents($out, $this->truncateTo === null ? $bytes : substr($bytes, 0, $this->truncateTo));
 
                 return $out;
             }

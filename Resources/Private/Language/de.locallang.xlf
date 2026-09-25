@@ -144,6 +144,7 @@
       <trans-unit id="artifact.stub"><source>Stub</source><target>Platzhalter</target></trans-unit>
       <trans-unit id="show.aiLabel"><source>AI-generated</source><target>KI-generiert</target></trans-unit>
       <trans-unit id="show.aiLabel.title"><source>Created with generative AI. The stored artifact carries a machine-readable AI marker.</source><target>Mit generativer KI erstellt. Das gespeicherte Ergebnis trägt eine maschinenlesbare KI-Kennzeichnung.</target></trans-unit>
+      <trans-unit id="show.aiLabel.titleGeneric"><source>Created with generative AI.</source><target>Mit generativer KI erstellt.</target></trans-unit>
       <trans-unit id="show.aiLabel.closingLine"><source>Closing line of the copy-ready text:</source><target>Schlusszeile des kopierfertigen Texts:</target></trans-unit>
       <trans-unit id="aiLabel.image"><source>AI-generated</source><target>KI-generiert</target></trans-unit>
       <trans-unit id="aiLabel.text"><source>This text was created with AI.</source><target>Dieser Text wurde mit KI erstellt.</target></trans-unit>

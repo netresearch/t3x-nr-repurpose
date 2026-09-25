@@ -36,13 +36,17 @@ final class AiProvenanceTest extends TestCase
         );
     }
 
-    public function testDescriptionIsPrintableAscii(): void
+    public function testDescriptionKeepsUnicodeAndItsAsciiFormIsTransliterated(): void
     {
-        $description = (new AiProvenance('nr_repurpose', DigitalSourceType::CompositeWithTrainedAlgorithmicMedia, ['image' => "modèl\x01"]))->describe();
+        $provenance = new AiProvenance('nr_repurpose', DigitalSourceType::CompositeWithTrainedAlgorithmicMedia, ['image' => "modèl\x01"]);
 
         self::assertSame(
-            'AI-generated with nr_repurpose (IPTC digital source type: compositeWithTrainedAlgorithmicMedia; models: image=mod??l?).',
-            $description,
+            "AI-generated with nr_repurpose (IPTC digital source type: compositeWithTrainedAlgorithmicMedia; models: image=modèl\x01).",
+            $provenance->describe(),
+        );
+        self::assertSame(
+            'AI-generated with nr_repurpose (IPTC digital source type: compositeWithTrainedAlgorithmicMedia; models: image=model?).',
+            $provenance->describeAscii(),
         );
     }
 

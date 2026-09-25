@@ -69,18 +69,27 @@ final class AiLabelRenderingTest extends AbstractFunctionalTestCase
         self::assertStringContainsString(self::BADGE . '&lt;b&gt;AI&lt;/b&gt;</div>', $html);
     }
 
-    public function testResultViewBadgeForADoneArtifact(): void
+    public function testResultViewBadgeNamesTheMarkerWhenTheRowCarriesOne(): void
     {
-        $html = $this->renderPartial('Job/AiLabel', ['status' => 'done']);
+        $html = $this->renderPartial('Job/AiLabel', ['status' => 'done', 'label' => ['aiGenerated' => true]]);
 
         self::assertStringContainsString('AI-generated', $html);
-        self::assertStringContainsString('title="Created with generative AI.', $html);
+        self::assertStringContainsString('title="Created with generative AI. The stored artifact carries a machine-readable AI marker."', $html);
+    }
+
+    public function testResultViewBadgeForARowStoredBeforeTheMarkerMakesNoMarkerClaim(): void
+    {
+        $html = $this->renderPartial('Job/AiLabel', ['status' => 'done', 'label' => null]);
+
+        self::assertStringContainsString('AI-generated', $html);
+        self::assertStringContainsString('title="Created with generative AI."', $html);
+        self::assertStringNotContainsString('machine-readable', $html);
     }
 
     public function testResultViewHasNoBadgeWithoutAResult(): void
     {
-        foreach (['failed', 'pending'] as $status) {
-            self::assertStringNotContainsString('AI-generated', $this->renderPartial('Job/AiLabel', ['status' => $status]), $status);
+        foreach (['failed', 'pending', null] as $status) {
+            self::assertStringNotContainsString('AI-generated', $this->renderPartial('Job/AiLabel', ['status' => $status]), (string) $status);
         }
     }
 
@@ -88,8 +97,10 @@ final class AiLabelRenderingTest extends AbstractFunctionalTestCase
     {
         $show = (string) file_get_contents(GeneralUtility::getFileAbsFileName('EXT:nr_repurpose/Resources/Private/Templates/Job/Show.html'));
 
-        self::assertStringContainsString('<f:render partial="Job/AiLabel" arguments="{status: artifact.status}" />', $show);
-        self::assertStringContainsString('<f:render partial="Job/AiLabel" arguments="{status: \'done\'}" />', $show);
+        self::assertStringContainsString('<f:render partial="Job/AiLabel" arguments="{status: artifact.status, label: artifact.metadataArray.aiLabel}" />', $show);
+        // The story card: labelled from the first finished slide (Job::getDoneStoryArtifact()), so a
+        // story whose every slide failed carries no badge.
+        self::assertStringContainsString('<f:render partial="Job/AiLabel" arguments="{status: job.doneStoryArtifact.status, label: job.doneStoryArtifact.metadataArray.aiLabel}" />', $show);
     }
 
     /** @return array<string, array{0: string, 1: array<string, mixed>}> */

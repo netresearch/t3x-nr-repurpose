@@ -53,13 +53,23 @@ final class JobFileStorageTest extends AbstractFunctionalTestCase
         self::assertSame('', $this->storedDescription($file->getUid()));
     }
 
-    public function testATextFileIsDescribedButNotRewritten(): void
+    public function testSubtitlesGetANoteBlockAndTheDescription(): void
     {
         $provenance = new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::TrainedAlgorithmicMedia);
 
         $file = $this->get(JobFileStorage::class)->store("WEBVTT\n", 'podcast.vtt', $provenance);
 
-        self::assertSame("WEBVTT\n", $file->getContents());
+        self::assertSame("WEBVTT\n\nNOTE " . $provenance->describe() . "\n", $file->getContents());
+        self::assertSame($provenance->describe(), $this->storedDescription($file->getUid()));
+    }
+
+    public function testAnotherFileTypeIsDescribedButNotRewritten(): void
+    {
+        $provenance = new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::TrainedAlgorithmicMedia);
+
+        $file = $this->get(JobFileStorage::class)->store("plain\n", 'notes.txt', $provenance);
+
+        self::assertSame("plain\n", $file->getContents());
         self::assertSame($provenance->describe(), $this->storedDescription($file->getUid()));
     }
 

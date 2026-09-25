@@ -49,8 +49,8 @@ final readonly class AiProvenance
     }
 
     /**
-     * One ASCII sentence for the human-readable marker fields (PNG Comment, ID3 COMM,
-     * sys_file_metadata.description).
+     * One sentence for the human-readable marker fields that take UTF-8: the XMP
+     * dc:description, the WebVTT NOTE block and sys_file_metadata.description.
      */
     public function describe(): string
     {
@@ -63,21 +63,30 @@ final readonly class AiProvenance
             ));
         }
 
-        return self::ascii(sprintf(
+        return sprintf(
             'AI-generated with %s (IPTC digital source type: %s%s).',
             $this->generator,
             $this->sourceType->term(),
             $models,
-        ));
+        );
+    }
+
+    /** describe() for the fields written as ISO-8859-1 / Latin-1 (ID3 COMM, PNG tEXt Comment). */
+    public function describeAscii(): string
+    {
+        return self::ascii($this->describe());
     }
 
     /**
-     * Printable ASCII only: the ID3 frames are written as ISO-8859-1 and the PNG tEXt
-     * chunks as Latin-1, so anything else in a model id is replaced rather than
-     * mis-encoded.
+     * Printable ASCII only, for the ID3 frames (ISO-8859-1) and PNG tEXt chunks
+     * (Latin-1). Letters are transliterated ("modèl" -> "model") with intl, which
+     * TYPO3 core requires; whatever has no ASCII form, and control characters,
+     * become "?" rather than being mis-encoded.
      */
     public static function ascii(string $value): string
     {
-        return (string) preg_replace('/[^\x20-\x7E]/', '?', $value);
+        $transliterated = transliterator_transliterate('Any-Latin; Latin-ASCII', $value);
+
+        return (string) preg_replace('/[^\x20-\x7E]/', '?', is_string($transliterated) ? $transliterated : $value);
     }
 }
