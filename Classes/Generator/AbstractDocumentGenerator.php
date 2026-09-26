@@ -83,7 +83,9 @@ abstract class AbstractDocumentGenerator extends AbstractTextGenerator
         $pdfPath = $this->pdfRenderer->renderPdf($html, $this->viewportWidth());
         $file    = $this->fileStorage->store((string) file_get_contents($pdfPath), $this->fileName(), $provenance);
         if (is_file($pdfPath)) {
-            unlink($pdfPath);
+            // $pdfPath is the renderer's own temp file (random name in its output dir),
+            // never user input.
+            unlink($pdfPath); // nosemgrep: php.lang.security.unlink-use.unlink-use
         }
 
         return ['file_uid' => $file->getUid(), 'source_html' => $html];
