@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Resource;
 use Netresearch\NrRepurpose\Exception\DefaultStorageUnavailableException;
 use Netresearch\NrRepurpose\Provenance\AiContentMarker;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
+use Throwable;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -77,14 +78,26 @@ class JobFileStorage
                 );
             }
 
-            $file->setContents($content);
+            try {
+                $file->setContents($content);
 
-            if ($provenance instanceof AiProvenance) {
-                // Core field (no custom column): the editor sees the AI origin in the
-                // file list's metadata and can still extend the text.
-                $metaData                = $file->getMetaData();
-                $metaData['description'] = $provenance->describe();
-                $metaData->save();
+                if ($provenance instanceof AiProvenance) {
+                    // Core field (no custom column): the editor sees the AI origin in the
+                    // file list's metadata and can still extend the text.
+                    $metaData                = $file->getMetaData();
+                    $metaData['description'] = $provenance->describe();
+                    $metaData->save();
+                }
+            } catch (Throwable $e) {
+                // The caller never learns this file's uid, so nothing else could
+                // remove it: delete it here, then report the original failure.
+                try {
+                    $storage->deleteFile($file);
+                } catch (Throwable) {
+                    // Best effort; the original failure is what the caller needs.
+                }
+
+                throw $e;
             }
 
             return $file;

@@ -1,0 +1,11 @@
+{
+    "name": "netresearch/nrrepurpose-failing-metadata-fixture",
+    "description": "A file metadata listener that throws on demand, for the functional tests of JobFileStorage. Not shipped.",
+    "type": "typo3-cms-extension",
+    "license": "GPL-2.0-or-later",
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nrrepurpose_failing_metadata_fixture"
+        }
+    }
+}

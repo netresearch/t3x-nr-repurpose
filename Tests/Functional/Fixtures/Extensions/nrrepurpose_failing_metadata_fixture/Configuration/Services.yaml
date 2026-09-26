@@ -1,0 +1,10 @@
+services:
+  # A listener of the file metadata update that JobFileStorage triggers when it
+  # describes a stored artifact. It does nothing until a test switches it on.
+  # Tagged explicitly: this extension's services are not autoconfigured.
+  Netresearch\NrRepurpose\Tests\Functional\Fixtures\FailsOnMetaDataUpdateListener:
+    public: false
+    tags:
+      - name: event.listener
+        identifier: 'nrrepurpose-failing-metadata-fixture/metadata-update'
+        event: TYPO3\CMS\Core\Resource\Event\AfterFileMetaDataUpdatedEvent
