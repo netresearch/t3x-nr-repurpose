@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Resource;
 
 use Netresearch\NrRepurpose\Exception\DefaultStorageUnavailableException;
+use Netresearch\NrRepurpose\Provenance\AiContentMarker;
+use Netresearch\NrRepurpose\Provenance\AiProvenance;
+use Throwable;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -17,15 +20,28 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 /**
  * Stores generated artifact bytes into the default FAL storage under a `repurpose/` folder
  * and returns the resulting sys_file (File). Artifacts reference it by sys_file uid.
+ *
+ * Given an AiProvenance, the file is AI-labelled on the way in (ADR-005): the marker is
+ * embedded into PNG, MP3 and WebVTT bytes (before the file is created, so a file that
+ * cannot be labelled is never written), and the file's sys_file_metadata.description states
+ * the AI origin for every file type. This is the last step after every re-encode, so
+ * nothing downstream in the extension can strip the marker again.
  */
 class JobFileStorage
 {
     private const SUBFOLDER = 'repurpose';
 
-    public function __construct(private readonly StorageRepository $storageRepository) {}
+    public function __construct(
+        private readonly StorageRepository $storageRepository,
+        private readonly AiContentMarker $marker = new AiContentMarker(),
+    ) {}
 
-    public function store(string $content, string $fileName): File
+    public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
     {
+        if ($provenance instanceof AiProvenance) {
+            $content = $this->marker->mark($content, $fileName, $provenance);
+        }
+
         $storage = $this->storageRepository->getDefaultStorage();
         if (!$storage instanceof ResourceStorage) {
             throw new DefaultStorageUnavailableException('No default FAL storage available', 1749379300);
@@ -62,7 +78,27 @@ class JobFileStorage
                 );
             }
 
-            $file->setContents($content);
+            try {
+                $file->setContents($content);
+
+                if ($provenance instanceof AiProvenance) {
+                    // Core field (no custom column): the editor sees the AI origin in the
+                    // file list's metadata and can still extend the text.
+                    $metaData                = $file->getMetaData();
+                    $metaData['description'] = $provenance->describe();
+                    $metaData->save();
+                }
+            } catch (Throwable $e) {
+                // The caller never learns this file's uid, so nothing else could
+                // remove it: delete it here, then report the original failure.
+                try {
+                    $storage->deleteFile($file);
+                } catch (Throwable) {
+                    // Best effort; the original failure is what the caller needs.
+                }
+
+                throw $e;
+            }
 
             return $file;
         } finally {

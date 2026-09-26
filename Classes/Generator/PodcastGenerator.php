@@ -21,6 +21,7 @@ use Netresearch\NrRepurpose\Generator\Support\WebVttBuilder;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
+use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
@@ -146,18 +147,19 @@ final class PodcastGenerator extends AbstractGenerator
             $transcript = implode("\n", $transcriptLines);
             $vtt        = $this->vttBuilder->build($vttSegments);
 
-            $mp3File = $this->fileStorage->store((string) file_get_contents($mp3Path), 'podcast.mp3');
-            $vttFile = $this->fileStorage->store($vtt, 'podcast.vtt');
+            // Synthetic voices reading an AI-written script: generated as a whole.
+            $provenance          = $this->provenance($ctx, DigitalSourceType::TrainedAlgorithmicMedia, ['tts' => $this->speech->getModel()]);
+            $mp3File             = $this->fileStorage->store((string) file_get_contents($mp3Path), 'podcast.mp3', $provenance);
+            $vttFile             = $this->fileStorage->store($vtt, 'podcast.vtt', $provenance);
+            $metadata            = $this->buildMetadata($personaVoices, count($turns), $dialogue['system'], $dialogue['user']);
+            $metadata['aiLabel'] = $provenance->toArray();
 
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid'          => $mp3File->getUid(),
                 'subtitle_file_uid' => $vttFile->getUid(),
                 'script_text'       => $transcript,
-                'metadata'          => json_encode(
-                    $this->buildMetadata($personaVoices, count($turns), $dialogue['system'], $dialogue['user']),
-                    JSON_THROW_ON_ERROR,
-                ),
-                'status' => ArtifactStatus::Done->value,
+                'metadata'          => json_encode($metadata, JSON_THROW_ON_ERROR),
+                'status'            => ArtifactStatus::Done->value,
             ]);
 
             return true;

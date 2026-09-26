@@ -112,6 +112,32 @@ final class JobTest extends TestCase
         self::assertSame([], $job->getStoryArtifacts());
     }
 
+    public function testDoneStoryArtifactIsTheFirstFinishedSlideInSlideOrder(): void
+    {
+        $job    = new Job();
+        $failed = $this->storyArtifact('story', 'slide-1', 13, 1);
+        $second = $this->storyArtifact('story', 'slide-2', 12, 2);
+        $third  = $this->storyArtifact('story', 'slide-3', 11, 3);
+        $failed->_setProperty('status', 'failed');
+        $second->_setProperty('status', 'done');
+        $third->_setProperty('status', 'done');
+        $job->getArtifacts()->attach($third);
+        $job->getArtifacts()->attach($failed);
+        $job->getArtifacts()->attach($second);
+
+        self::assertSame($second, $job->getDoneStoryArtifact());
+    }
+
+    public function testNoDoneStoryArtifactWhenEverySlideFailed(): void
+    {
+        $job   = new Job();
+        $slide = $this->storyArtifact('story', 'slide-1', 11, 1);
+        $slide->_setProperty('status', 'failed');
+        $job->getArtifacts()->attach($slide);
+
+        self::assertNull($job->getDoneStoryArtifact());
+    }
+
     public function testPromptSnippetSelectionIsEmptyByDefault(): void
     {
         $job = new Job();

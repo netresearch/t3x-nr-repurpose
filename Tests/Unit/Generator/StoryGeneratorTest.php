@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
@@ -27,6 +28,8 @@ use Netresearch\NrRepurpose\Generator\Support\StorySlide;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
+use Netresearch\NrRepurpose\Provenance\AiProvenance;
+use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
@@ -52,12 +55,12 @@ final class StoryGeneratorTest extends TestCase
     ]];
 
     /** @param list<string> $keyPoints */
-    private function context(bool $wantStory = true, array $keyPoints = ['Point'], ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null, string $summary = 'A crisp summary.'): GenerationContext
+    private function context(bool $wantStory = true, array $keyPoints = ['Point'], ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null, string $summary = 'A crisp summary.', AiLabelSettings $aiLabel = new AiLabelSettings()): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief    = new ContentBrief('Report', $summary, $keyPoints, [], 'All', 'en');
 
-        return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0], $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all());
+        return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0], $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
     }
 
     /** @param array<mixed>|Throwable $completionResult */
@@ -101,15 +104,22 @@ final class StoryGeneratorTest extends TestCase
         };
     }
 
+    /** The storage double the last generator() call was built with. */
+    private ?JobFileStorage $lastStorage = null;
+
     private function storage(): JobFileStorage
     {
-        return new class ($this->createStub(ResourceStorage::class)) extends JobFileStorage {
+        return $this->lastStorage = new class ($this->createStub(ResourceStorage::class)) extends JobFileStorage {
             private int $uid = 0;
 
             public function __construct(private readonly ResourceStorage $falStorage) {}
 
-            public function store(string $content, string $fileName): File
+            /** @var array<string, ?AiProvenance> file name => provenance passed to store() */
+            public array $provenanceByName = [];
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
             {
+                $this->provenanceByName[$fileName] = $provenance;
                 ++$this->uid;
 
                 return new File(['uid' => $this->uid], $this->falStorage);
@@ -165,6 +175,57 @@ final class StoryGeneratorTest extends TestCase
             $metadata = json_decode((string) $update['metadata'], true);
             self::assertSame('ki', $metadata['background']);
         }
+    }
+
+    public function testEverySlideIsStoredAiLabelledAsAComposite(): void
+    {
+        foreach ([true => ['image' => 'stub-image-model'], false => []] as $withBackground => $models) {
+            $jobs   = $this->jobs();
+            $budget = $withBackground ? $this->allowingBudget() : $this->denyingBudget();
+
+            $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(true), $jobs, $budget, $this->compositor());
+            $storage   = $this->lastStorage;
+            self::assertTrue($generator->generate($this->context(aiLabel: new AiLabelSettings('nr_repurpose 9.9.9'))));
+
+            $expected = new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::CompositeWithTrainedAlgorithmicMedia, $models);
+            self::assertEquals(
+                ['story-slide-1.png' => $expected, 'story-slide-2.png' => $expected, 'story-slide-3.png' => $expected],
+                $storage->provenanceByName,
+            );
+            foreach ($jobs->updates as $update) {
+                self::assertSame($expected->toArray(), json_decode((string) $update['metadata'], true)['aiLabel']);
+            }
+        }
+    }
+
+    public function testTheVisibleLabelSettingReachesTheSlideTemplate(): void
+    {
+        $subject = new class extends StoryGenerator {
+            /** @var list<array<string, mixed>> */
+            public array $renderedVariables = [];
+
+            public function __construct()
+            {
+                // No dependencies: only renderSlideHtml() and the template seam run.
+            }
+
+            public function exposeRenderSlideHtml(GenerationContext $ctx): string
+            {
+                return $this->renderSlideHtml($ctx, new StorySlide(StorySlide::ROLE_COVER, 'Headline', 'Subline'), 1, 3, false);
+            }
+
+            protected function renderTemplate(string $area, string $theme, array $variables): string
+            {
+                $this->renderedVariables[] = $variables;
+
+                return '';
+            }
+        };
+
+        $subject->exposeRenderSlideHtml($this->context(aiLabel: new AiLabelSettings(imageLabel: 'KI-generiert')));
+        $subject->exposeRenderSlideHtml($this->context());
+
+        self::assertSame(['KI-generiert', null], array_column($subject->renderedVariables, 'aiLabel'));
     }
 
     public function testOverBudgetFallsBackToFlatSlides(): void

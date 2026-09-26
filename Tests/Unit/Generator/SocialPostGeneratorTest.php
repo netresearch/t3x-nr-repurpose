@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
+use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
 use Netresearch\NrRepurpose\Generator\SocialPostGenerator;
 use Netresearch\NrRepurpose\Generator\Support\TextLimiter;
 use Netresearch\NrRepurpose\Service\CallerSource;
@@ -93,6 +94,31 @@ final class SocialPostGeneratorTest extends TextGeneratorTestCase
         // Whole sentences only: six end at character 269, the seventh would end at 314.
         self::assertSame(rtrim(str_repeat($sentence, 6)), $this->jobs->row('x')['script_text']);
         self::assertStringEndsWith("percent this quarter.\n\n#growth", (string) $this->jobs->row('instagram')['script_text']);
+    }
+
+    public function testTheClosingLineIsReservedInsideEveryPlatformLimit(): void
+    {
+        $line     = 'Dieser Text wurde mit KI erstellt.';   // 34 characters, 36 with the blank line
+        $sentence = 'Revenue grew by twelve percent this quarter. ';
+        $answer   = [
+            'linkedin'  => str_repeat($sentence, 80),
+            'x'         => str_repeat($sentence, 8),
+            'instagram' => ['caption' => str_repeat($sentence, 60), 'hashtags' => ['growth']],
+        ];
+
+        self::assertTrue($this->generatorWithAnswer($answer)->generate($this->context(aiLabel: new AiLabelSettings(textLine: $line))));
+
+        foreach (['linkedin' => 3000, 'x' => 280, 'instagram' => 2200] as $platform => $limit) {
+            $text    = (string) $this->jobs->row($platform)['script_text'];
+            $content = $this->jobs->metadata($platform)['content'];
+            self::assertLessThanOrEqual($limit, mb_strlen($text), $platform);
+            self::assertSame($text, $content['text'], $platform);
+            self::assertSame(mb_strlen($text), $content['length'], $platform);
+        }
+
+        // Without the line six sentences fit X (269 characters); with 36 reserved, five do.
+        self::assertSame(rtrim(str_repeat($sentence, 5)) . "\n\n" . $line, $this->jobs->row('x')['script_text']);
+        self::assertStringEndsWith("\n\n#growth\n\n" . $line, (string) $this->jobs->row('instagram')['script_text']);
     }
 
     public function testAFailedWriteFailsOnlyThatVariant(): void

@@ -23,6 +23,7 @@
             <pre style="white-space: pre-wrap;">{content.jsonLd}</pre>
         </details>
     </f:if>
+    <f:render section="ClosingLine" arguments="{line: content.closingLine}" />
 </f:if>
 <f:if condition="{artifact.type} == 'social_post'">
     <pre style="white-space: pre-wrap; font-family: inherit;">{artifact.scriptText}</pre>
@@ -47,5 +48,19 @@
         <p>{paragraph}</p>
     </f:for>
     <p><strong>{content.callToAction}</strong></p>
+    <f:render section="ClosingLine" arguments="{line: content.closingLine}" />
 </f:if>
+<f:comment><!--
+    The optional AI closing line (setting aiLabelTexts, ADR-005) is part of the copy-ready
+    text. The executive summary and the social posts show that text itself; the FAQ and
+    the newsletter show their structured content, so the line is shown here.
+--></f:comment>
+<f:section name="ClosingLine">
+    <f:if condition="{line}">
+        <p class="text-muted small">
+            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.aiLabel.closingLine" />
+            {line}
+        </p>
+    </f:if>
+</f:section>
 </html>

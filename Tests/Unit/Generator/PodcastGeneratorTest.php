@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
@@ -26,6 +27,8 @@ use Netresearch\NrRepurpose\Generator\Support\WebVttBuilder;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
+use Netresearch\NrRepurpose\Provenance\AiProvenance;
+use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
@@ -143,10 +146,14 @@ final class PodcastGeneratorTest extends TestCase
 
             public function __construct(private readonly ResourceStorage $falStorage) {}
 
-            public function store(string $content, string $fileName): File
+            /** @var array<string, ?AiProvenance> file name => provenance passed to store() */
+            public array $provenanceByName = [];
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
             {
-                $this->contentByName[$fileName] = $content;
-                $this->order[]                  = $fileName;
+                $this->provenanceByName[$fileName] = $provenance;
+                $this->contentByName[$fileName]    = $content;
+                $this->order[]                     = $fileName;
                 ++$this->uid;
 
                 return new File(['uid' => $this->uid], $this->falStorage);
@@ -496,6 +503,24 @@ final class PodcastGeneratorTest extends TestCase
         self::assertSame('stub-tts-model', $metadata['ttsModel']);
         self::assertSame('stub-tts-model', $prompts['ttsModel']);
         self::assertSame(['Host A' => 'nova', 'Host B' => 'onyx'], $prompts['voices']);
+    }
+
+    public function testTheMp3AndTheSubtitlesAreStoredAiLabelledAndTheMetadataSaysSo(): void
+    {
+        $jobs    = $this->jobs();
+        $storage = $this->storage();
+        $base    = $this->context();
+        $ctx     = new GenerationContext($base->jobRow, $base->document, $base->brief, $base->theme, $base->beUser, $base->snippets, grants: $base->grants, aiLabel: new AiLabelSettings('nr_repurpose 9.9.9'));
+
+        $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new NullLogger(), $this->completion(), $this->speech(), $this->stitcher(), $storage, new WebVttBuilder());
+
+        self::assertTrue($generator->generate($ctx));
+
+        $expected = new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::TrainedAlgorithmicMedia, ['tts' => 'stub-tts-model']);
+        self::assertEquals(['podcast.mp3' => $expected, 'podcast.vtt' => $expected], $storage->provenanceByName);
+
+        $metadata = json_decode((string) $jobs->updates[100]['metadata'], true);
+        self::assertSame($expected->toArray(), $metadata['aiLabel']);
     }
 
     public function testReportsScriptVoicingAndStitchingProgressSteps(): void

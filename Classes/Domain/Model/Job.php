@@ -340,4 +340,20 @@ class Job extends AbstractEntity
 
         return $slides;
     }
+
+    /**
+     * The first finished story slide in slide order, or null when no slide finished.
+     * The result view labels the story card from it: with no finished slide there is
+     * nothing generated to label.
+     */
+    public function getDoneStoryArtifact(): ?Artifact
+    {
+        foreach ($this->getStoryArtifacts() as $slide) {
+            if ($slide->getStatus() === ArtifactStatus::Done->value) {
+                return $slide;
+            }
+        }
+
+        return null;
+    }
 }

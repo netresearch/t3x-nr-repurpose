@@ -29,6 +29,7 @@ use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
+use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
@@ -119,6 +120,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(TechnicalActorContextInterface::class),
             $this->get(ExtensionConfiguration::class),
             $this->get(CapabilityGrantResolver::class),
+            $this->get(AiLabelSettingsFactory::class),
             [$generator],
         );
         $orchestrator->process($jobUid);
@@ -185,6 +187,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(TechnicalActorContextInterface::class),
             $this->get(ExtensionConfiguration::class),
             $this->get(CapabilityGrantResolver::class),
+            $this->get(AiLabelSettingsFactory::class),
             [
                 new ExecutiveSummaryGenerator($jobs, $budget, $logger, $completion),
                 new FaqGenerator($jobs, $budget, $logger, $completion, new TextLabels($this->get(LanguageServiceFactory::class))),
@@ -232,6 +235,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(TechnicalActorContextInterface::class),
             $this->get(ExtensionConfiguration::class),
             $this->get(CapabilityGrantResolver::class),
+            $this->get(AiLabelSettingsFactory::class),
             [
                 new ExecutiveSummaryGenerator($jobs, $budget, $logger, $completion),
                 new FaqGenerator($jobs, $budget, $logger, $completion, new TextLabels($this->get(LanguageServiceFactory::class))),
@@ -287,7 +291,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             }
         };
 
-        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, $this->get(PromptSnippetResolver::class), $this->get(TechnicalActorContextInterface::class), $this->get(ExtensionConfiguration::class), $this->get(CapabilityGrantResolver::class), [$generator]);
+        $orchestrator = new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $analyzer, $this->get(PromptSnippetResolver::class), $this->get(TechnicalActorContextInterface::class), $this->get(ExtensionConfiguration::class), $this->get(CapabilityGrantResolver::class), $this->get(AiLabelSettingsFactory::class), [$generator]);
         $orchestrator->process($jobUid);
 
         $row = $jobs->findRow($jobUid);
@@ -314,6 +318,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(TechnicalActorContextInterface::class),
             $this->get(ExtensionConfiguration::class),
             $this->get(CapabilityGrantResolver::class),
+            $this->get(AiLabelSettingsFactory::class),
             [new RecordingArtifactGenerator($jobs)],
         );
         $orchestrator->process($jobUid);
@@ -347,6 +352,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $actor,
             $this->extensionConfigurationWithActorUid(4711),
             $this->get(CapabilityGrantResolver::class),
+            $this->get(AiLabelSettingsFactory::class),
             [$generator],
         );
         $orchestrator->process($jobUid);
@@ -371,6 +377,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $this->get(TechnicalActorContextInterface::class),
             $this->get(ExtensionConfiguration::class),
             $this->get(CapabilityGrantResolver::class),
+            $this->get(AiLabelSettingsFactory::class),
             [$generator],
         );
         $orchestrator->process($jobUid);
@@ -396,6 +403,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             $actor,
             $this->extensionConfigurationWithActorUid(0),
             $this->get(CapabilityGrantResolver::class),
+            $this->get(AiLabelSettingsFactory::class),
             [new RecordingArtifactGenerator($jobs)],
         );
         $orchestrator->process($jobUid);

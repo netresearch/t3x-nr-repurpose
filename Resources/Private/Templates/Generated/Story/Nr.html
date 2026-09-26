@@ -48,10 +48,27 @@
         .story__subline { font-size: 40px; line-height: 1.4; font-weight: 400; margin: 0; }
         .story__source { font-size: 30px; line-height: 1.4; font-weight: 400; margin: 48px 0 0; opacity: 0.8; word-break: break-all; }
         .story__brand { margin-top: 64px; font-family: 'Raleway', sans-serif; font-weight: 600; font-size: 28px; letter-spacing: 0.5px; }
+        /* Visible AI label (ADR-005): own dark plate, legible over any background. */
+        .ai-label {
+            position: absolute;
+            top: 96px;
+            left: 96px;
+            padding: 8px 20px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.72);
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 600;
+            line-height: 1.4;
+            letter-spacing: 0.5px;
+        }
     </style>
 </head>
 <body>
     <div class="story">
+        <f:if condition="{aiLabel}">
+            <div class="ai-label">{aiLabel}</div>
+        </f:if>
         <f:if condition="{role} != 'cover'">
             <div class="story__indicator">{slideIndex}/{slideTotal}</div>
         </f:if>

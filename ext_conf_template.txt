@@ -1,2 +1,8 @@
 # cat=basic; type=int+; label=Technical backend user for vault access: UID of a backend user the asynchronous job runs as. Jobs execute in a Symfony Messenger consumer or on the CLI, where TYPO3 boots an unauthenticated command-line user - nr_vault then has no actor to authorise and denies every secret read, so the provider connection fails before any artifact is generated. Leave at 0 to keep the previous behaviour.
 technicalBeUserUid = 0
+
+# cat=basic; type=boolean; label=Visible AI label on images: Renders a small "AI-generated" label (in the artifact's language) into the corner of every Schaubild HTML render and story slide. The full AI image (Schaubild ki_image) never passes the HTML renderer and carries the machine-readable marker only. The machine-readable markers in every file and in the artifact metadata are always written, whatever this setting says.
+aiLabelImages = 1
+
+# cat=basic; type=boolean; label=AI closing line on texts: Appends "This text was created with AI." (in the text's language) to the copy-ready text of the executive summary, FAQ, social posts and newsletter. Off by default: editors often paste these texts into places that carry their own AI disclosure, where a second one is noise. The social posts reserve the line's length inside their platform limit.
+aiLabelTexts = 0

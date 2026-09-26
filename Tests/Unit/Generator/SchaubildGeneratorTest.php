@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
@@ -26,6 +27,8 @@ use Netresearch\NrRepurpose\Generator\SchaubildGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
+use Netresearch\NrRepurpose\Provenance\AiProvenance;
+use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
@@ -41,12 +44,12 @@ final class SchaubildGeneratorTest extends TestCase
 {
     use PromptBoundaryAssertions;
 
-    private function context(ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null, string $summary = 'Summary'): GenerationContext
+    private function context(ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null, string $summary = 'Summary', AiLabelSettings $aiLabel = new AiLabelSettings()): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief    = new ContentBrief('Report', $summary, ['A', 'B'], [['heading' => 'H', 'body' => 'B']], 'All', 'en');
 
-        return new GenerationContext(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1], $document, $brief, 'nr', 4, $snippets, grants: $grants ?? CapabilityGrants::all());
+        return new GenerationContext(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1], $document, $brief, 'nr', 4, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
     }
 
     /**
@@ -77,8 +80,13 @@ final class SchaubildGeneratorTest extends TestCase
                 parent::__construct($jobs, $budget, new NullLogger(), $completion, $renderer, $compositor, $imageGenerator, $storage);
             }
 
+            /** @var list<array<string, mixed>> the variables of every theme-template render */
+            public array $renderedVariables = [];
+
             protected function renderTemplate(string $area, string $theme, array $variables): string
             {
+                $this->renderedVariables[] = $variables;
+
                 return sprintf(
                     '<html data-transparent="%d"><body>%s</body></html>',
                     ($variables['transparent'] ?? false) ? 1 : 0,
@@ -291,6 +299,38 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertArrayNotHasKey('user', $ki['prompts']);
     }
 
+    public function testEveryVariantIsStoredAiLabelledWithItsDigitalSourceType(): void
+    {
+        $storage = $this->storage();
+        $jobs    = $this->jobs();
+
+        $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $storage, $jobs, $this->allowingBudget());
+        self::assertTrue($generator->generate($this->context(aiLabel: new AiLabelSettings('nr_repurpose 9.9.9'))));
+
+        $expected = [
+            'html'     => ['schaubild-html.png', new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::CompositeWithTrainedAlgorithmicMedia)],
+            'html_bg'  => ['schaubild-html-bg.png', new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::CompositeWithTrainedAlgorithmicMedia, ['image' => 'stub-image-model'])],
+            'ki_image' => ['schaubild-ki.png', new AiProvenance('nr_repurpose 9.9.9', DigitalSourceType::TrainedAlgorithmicMedia, ['image' => 'stub-image-model'])],
+        ];
+        foreach ($expected as $variant => [$fileName, $provenance]) {
+            self::assertEquals($provenance, $storage->provenanceByName[$fileName] ?? null, $variant);
+            $metadata = json_decode((string) $jobs->updates[$jobs->uidForVariant($variant)]['metadata'], true);
+            self::assertSame($provenance->toArray(), $metadata['aiLabel'], $variant);
+        }
+    }
+
+    public function testTheVisibleLabelSettingReachesEveryDiagramRender(): void
+    {
+        foreach (['KI-generiert', null] as $label) {
+            $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget());
+            $generator->generate($this->context(aiLabel: new AiLabelSettings(imageLabel: $label)));
+
+            // Opaque (html) and transparent (html_bg overlay) render.
+            self::assertCount(2, $generator->renderedVariables);
+            self::assertSame([$label, $label], array_column($generator->renderedVariables, 'aiLabel'));
+        }
+    }
+
     public function testLayoutImageSizeHintDrivesBothAiImageCalls(): void
     {
         $imageGenerator = $this->imageGenerator();
@@ -431,8 +471,12 @@ final class SchaubildGeneratorTest extends TestCase
 
             public function __construct(private readonly ResourceStorage $falStorage) {}
 
-            public function store(string $content, string $fileName): File
+            /** @var array<string, ?AiProvenance> file name => provenance passed to store() */
+            public array $provenanceByName = [];
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
             {
+                $this->provenanceByName[$fileName] = $provenance;
                 ++$this->uid;
 
                 return new File(['uid' => $this->uid], $this->falStorage);

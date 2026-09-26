@@ -39,6 +39,10 @@ services:
   Netresearch\NrRepurpose\Service\CapabilityGrantResolver:
     public: true
 
+  # Public so functional tests can fetch the real factory via $this->get().
+  Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory:
+    public: true
+
   Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface:
     alias: Netresearch\NrRepurpose\Service\CapabilityGrantResolver
 

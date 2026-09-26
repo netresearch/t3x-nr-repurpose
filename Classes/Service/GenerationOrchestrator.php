@@ -17,6 +17,7 @@ use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
+use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Psr\Log\LoggerInterface;
@@ -45,6 +46,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         private TechnicalActorContextInterface $technicalActor,
         private ExtensionConfiguration $extensionConfiguration,
         private CapabilityGrantResolverInterface $grantResolver,
+        private AiLabelSettingsFactory $aiLabelSettings,
         iterable $generators,
     ) {
         $this->generators = $generators instanceof Traversable
@@ -158,6 +160,8 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             beUser: (int) ($row['be_user'] ?? 0),
             snippets: $snippets,
             grants: $this->grantResolver->resolve((int) ($row['be_user'] ?? 0)),
+            // Visible labels in the language the artifacts are written in (ADR-005).
+            aiLabel: $this->aiLabelSettings->create($brief->language),
         );
 
         // 5) Generation — per-artifact isolation; a single failure does not abort siblings.

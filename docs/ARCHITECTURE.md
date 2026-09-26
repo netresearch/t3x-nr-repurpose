@@ -20,7 +20,8 @@ nr_repurpose turns a webpage or PDF into derived artifacts (podcast audio, Schau
 | Rendering | `Classes/Rendering/` | Playwright HTML→PNG, GD compositor, ffmpeg audio stitcher behind interfaces |
 | Queue | `Classes/Queue/` | `GenerateArtifactsMessage` + handler (Symfony Messenger, doctrine transport) |
 | Persistence | `Classes/Persistence/JobProcessingRepository.php` | Direct DBAL writes from the worker |
-| Storage | `Classes/Resource/JobFileStorage.php` | FAL storage under the `repurpose/` folder |
+| Storage | `Classes/Resource/JobFileStorage.php` | FAL storage under the `repurpose/` folder; AI-labels each file on the way in (ADR-005) |
+| AI label | `Classes/Provenance/` | `AiProvenance` (IPTC digital source type, generator, models), `AiContentMarker` (PNG chunks + XMP, MP3 ID3 frames, pure PHP), `AiLabelSettingsFactory` (visible-label settings per run) |
 | DI wiring | `Configuration/Services.yaml` | Interface aliases, `nr_repurpose.artifact_generator` tag, completion bind |
 
 ## Dependency rules
