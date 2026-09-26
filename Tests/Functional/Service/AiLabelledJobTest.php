@@ -62,6 +62,8 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
 {
     private const FIXTURES = __DIR__ . '/../../Fixtures/';
 
+    public const TITLE = 'Quarterly report';
+
     protected array $configurationToUseInTestInstance = [
         'EXTENSIONS' => [
             'nr_repurpose' => ['aiLabelImages' => '1', 'aiLabelTexts' => '1'],
@@ -274,7 +276,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         $jobs                   = $this->get(JobProcessingRepository::class);
         $completion             = new FakeCompletionService();
         $completion->jsonResult = ['slides' => [
-            ['role' => 'cover', 'headline' => 'Quarterly report', 'subline' => 'Q3'],
+            ['role' => 'cover', 'headline' => self::TITLE, 'subline' => 'Q3'],
             ['role' => 'outro', 'headline' => 'Growth continues', 'subline' => 'example.com'],
         ]];
         $slideshow = new class (self::FIXTURES . 'Video/slideshow.mp4') implements SlideshowRendererInterface {
@@ -374,7 +376,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         return new class implements SourceIngestionServiceInterface {
             public function ingest(array $jobRow): SourceDocument
             {
-                return new SourceDocument('Quarterly report', 'Revenue grew by twelve percent.', 'https://example.com/', 0, 'en');
+                return new SourceDocument(AiLabelledJobTest::TITLE, 'Revenue grew by twelve percent.', 'https://example.com/', 0, 'en');
             }
         };
     }
@@ -384,7 +386,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         return new class implements DocumentAnalyzerInterface {
             public function analyze(SourceDocument $document, array $jobRow): ContentBrief
             {
-                return new ContentBrief('Quarterly report', 'Revenue grew.', ['Revenue +12 %'], [], 'Analysts', 'en');
+                return new ContentBrief(AiLabelledJobTest::TITLE, 'Revenue grew.', ['Revenue +12 %'], [], 'Analysts', 'en');
             }
         };
     }

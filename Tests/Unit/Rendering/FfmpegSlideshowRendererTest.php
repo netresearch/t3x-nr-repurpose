@@ -90,6 +90,19 @@ final class FfmpegSlideshowRendererTest extends TestCase
         (new FfmpegSlideshowRenderer($this->runner(1, false)))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
     }
 
+    public function testAFailedRunLeavesNoPartialVideo(): void
+    {
+        try {
+            (new FfmpegSlideshowRenderer($this->runner(1, true), 'ffmpeg', sys_get_temp_dir()))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+            self::fail('Expected a rendering error');
+        } catch (RenderingException) {
+        }
+
+        $out = $this->commands[0][count($this->commands[0]) - 1];
+        self::assertStringEndsWith('.mp4', $out);
+        self::assertFileDoesNotExist($out);
+    }
+
     public function testARunWithoutOutputIsARenderingError(): void
     {
         $this->expectException(RenderingException::class);

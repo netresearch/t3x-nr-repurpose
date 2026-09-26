@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Rendering;
 
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
+use Throwable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -71,8 +72,18 @@ final readonly class FfmpegSlideshowRenderer implements SlideshowRendererInterfa
 
         $command[] = $out;
 
-        $result = $this->processRunner->run($command, null, $this->timeoutSeconds);
+        try {
+            $result = $this->processRunner->run($command, null, $this->timeoutSeconds);
+        } catch (Throwable $e) {
+            // A timeout can leave a partial file behind.
+            $this->removeOutput($out);
+
+            throw $e;
+        }
+
         if (!$result->successful()) {
+            $this->removeOutput($out);
+
             throw RenderingException::because(
                 sprintf('ffmpeg slideshow failed (exit %d): %s', $result->exitCode, trim($result->stderr)),
                 1749400402,
@@ -84,6 +95,15 @@ final readonly class FfmpegSlideshowRenderer implements SlideshowRendererInterfa
         }
 
         return $out;
+    }
+
+    /** Removes what a failed run wrote; the caller only ever gets a complete video. */
+    private function removeOutput(string $out): void
+    {
+        if (is_file($out)) {
+            // $out is this renderer's own temp path (random name in its work dir), never user input.
+            unlink($out); // nosemgrep: php.lang.security.unlink-use.unlink-use
+        }
     }
 
     /**
