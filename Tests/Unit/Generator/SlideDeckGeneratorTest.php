@@ -13,11 +13,13 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrRepurpose\Generator\SlideDeckGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
+use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\HtmlToPdfRendererInterface;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\ArtifactRecordingJobRepository;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\DocumentGeneratorDoubles;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Resource\File;
@@ -145,6 +147,27 @@ final class SlideDeckGeneratorTest extends TextGeneratorTestCase
 
         self::assertSame('Slide deck generation error: the slide deck has no slide with a heading and bullet points', $this->jobs->row()['error_message']);
         self::assertSame([], $this->printer->calls);
+    }
+
+    public function testThePrintedTempFileIsRemovedWhetherStoringWorksOrNot(): void
+    {
+        self::assertTrue($this->generatorWithAnswer()->generate($this->context()));
+        self::assertFileDoesNotExist($this->printer->written[0]);
+
+        $this->storage = new class extends JobFileStorage {
+            public function __construct() {}
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            {
+                throw RenderingException::because('Cannot AI-label the file: it is not a complete PDF', 1790000505);
+            }
+        };
+
+        $this->jobs = new ArtifactRecordingJobRepository();
+        self::assertFalse($this->generatorWithAnswer()->generate($this->context()));
+        self::assertSame('Slide deck (default) file error: Cannot AI-label the file: it is not a complete PDF', $this->jobs->row()['error_message']);
+        self::assertCount(2, $this->printer->written);
+        self::assertFileDoesNotExist($this->printer->written[1]);
     }
 
     public function testAFailedPrintFailsTheRowAndStoresNothing(): void

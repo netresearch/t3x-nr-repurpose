@@ -81,11 +81,15 @@ abstract class AbstractDocumentGenerator extends AbstractTextGenerator
 
         $ctx->progress?->step($this->label() . ': rendering PDF', 0.7);
         $pdfPath = $this->pdfRenderer->renderPdf($html, $this->viewportWidth());
-        $file    = $this->fileStorage->store((string) file_get_contents($pdfPath), $this->fileName(), $provenance);
-        if (is_file($pdfPath)) {
-            // $pdfPath is the renderer's own temp file (random name in its output dir),
-            // never user input.
-            unlink($pdfPath); // nosemgrep: php.lang.security.unlink-use.unlink-use
+        try {
+            $file = $this->fileStorage->store((string) file_get_contents($pdfPath), $this->fileName(), $provenance);
+        } finally {
+            // Also when labelling or the FAL write fails: the worker runs long.
+            if (is_file($pdfPath)) {
+                // $pdfPath is the renderer's own temp file (random name in its output dir),
+                // never user input.
+                unlink($pdfPath); // nosemgrep: php.lang.security.unlink-use.unlink-use
+            }
         }
 
         return ['file_uid' => $file->getUid(), 'source_html' => $html];

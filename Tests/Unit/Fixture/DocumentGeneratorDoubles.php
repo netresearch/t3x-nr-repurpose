@@ -26,11 +26,15 @@ trait DocumentGeneratorDoubles
             /** @var list<array{html: string, width: int}> */
             public array $calls = [];
 
+            /** @var list<string> the temp files it wrote */
+            public array $written = [];
+
             public function renderPdf(string $html, int $viewportWidth): string
             {
                 $this->calls[] = ['html' => $html, 'width' => $viewportWidth];
                 $out           = sys_get_temp_dir() . '/nrrepurpose_test_' . bin2hex(random_bytes(4)) . '.pdf';
                 file_put_contents($out, "%PDF-1.4\n%placeholder\n");
+                $this->written[] = $out;
 
                 return $out;
             }
