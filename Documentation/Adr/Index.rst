@@ -70,6 +70,14 @@ Decision records
       .. card-footer:: :ref:`Read <adr-006>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-007: Approval step and publishing through a webhook
+
+      Why every artifact has an approval state, and why approved
+      social posts leave through a webhook instead of network APIs.
+
+      .. card-footer:: :ref:`Read <adr-007>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -79,3 +87,4 @@ Decision records
    Adr004TextFormatsAsStructuredOutput
    Adr005AiGeneratedContentLabel
    Adr006DocumentFormatsAsPrintedHtml
+   Adr007ApprovalAndWebhookPublishing

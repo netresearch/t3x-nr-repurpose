@@ -1,0 +1,11 @@
+"be_groups"
+,"uid","pid","title","custom_options","subgroup","deleted","hidden"
+,1,0,"Reviewers","nrrepurpose:approve_artifacts","",0,0
+,2,0,"Podcast editors","nrrepurpose:generate_audio","",0,0
+,3,0,"Inherits reviewing","","1",0,0
+"be_users"
+,"uid","pid","username","admin","usergroup","deleted","disable"
+,10,0,"admin",1,"",0,0
+,11,0,"reviewer",0,"1",0,0
+,12,0,"podcaster",0,"2",0,0
+,13,0,"inherits",0,"3",0,0

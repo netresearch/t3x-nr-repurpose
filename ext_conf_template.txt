@@ -6,3 +6,9 @@ aiLabelImages = 1
 
 # cat=basic; type=boolean; label=AI closing line on texts: Appends "This text was created with AI." (in the text's language) to the copy-ready text of the executive summary, FAQ, social posts and newsletter. Off by default: editors often paste these texts into places that carry their own AI disclosure, where a second one is noise. The social posts reserve the line's length inside their platform limit.
 aiLabelTexts = 0
+
+# cat=social; type=string; label=Webhook for social posts: Approved social posts are sent here by HTTP POST as JSON (platform, text, publishAt, sourceUrl, aiGenerated, aiLabel) when their time has come - run the command nr_repurpose:publish-due from the scheduler or cron. A scheduling tool, an automation service or an own endpoint puts them on the network. Empty: nothing is sent, and the command reports the posts that are due.
+socialWebhookUrl =
+
+# cat=social; type=string; label=Webhook signing secret: With a secret, every request carries the header X-Nr-Repurpose-Signature: sha256=<hex HMAC-SHA256 of the body with this secret>, so the receiver can check that the post comes from this installation.
+socialWebhookSecret =

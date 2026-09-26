@@ -8,10 +8,15 @@
 declare(strict_types=1);
 
 use Netresearch\NrRepurpose\Command\GenerateCommand;
+use Netresearch\NrRepurpose\Command\PublishDueCommand;
 
 return [
     'nr_repurpose:generate' => [
         'class'       => GenerateCommand::class,
         'schedulable' => false,
+    ],
+    'nr_repurpose:publish-due' => [
+        'class'       => PublishDueCommand::class,
+        'schedulable' => true,
     ],
 ];

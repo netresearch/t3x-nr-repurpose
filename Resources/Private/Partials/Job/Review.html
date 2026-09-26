@@ -1,0 +1,81 @@
+<html data-namespace-typo3-fluid="true"
+      xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
+<f:comment><!--
+    Approval step of one finished artifact: its review state, the approve/reject
+    buttons for users with the approve permission, and for an approved social post
+    the publishing schedule. Arguments: artifact, job, canReview.
+--></f:comment>
+<f:if condition="{artifact.status} == 'done'">
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-2" data-role="review">
+        <span class="badge badge-{artifact.reviewStatusEnum.severity}">
+            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{artifact.reviewStatusEnum.labelKey}" />
+        </span>
+        <f:if condition="{canReview}">
+            <f:if condition="{artifact.publishStatus} != 'published' && {artifact.publishStatus} != 'publishing'">
+                <f:if condition="{artifact.reviewStatus} != 'approved'">
+                    <f:form action="review" arguments="{artifact: artifact.uid, job: job.uid, decision: 'approved'}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:review.action.approve" />
+                        </button>
+                    </f:form>
+                </f:if>
+                <f:if condition="{artifact.reviewStatus} != 'rejected'">
+                    <f:form action="review" arguments="{artifact: artifact.uid, job: job.uid, decision: 'rejected'}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-default">
+                            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:review.action.reject" />
+                        </button>
+                    </f:form>
+                </f:if>
+            </f:if>
+        </f:if>
+    </div>
+
+    <f:if condition="{artifact.type} == 'social_post' && {artifact.reviewStatus} == 'approved'">
+        <div class="mt-2" data-role="publishing">
+            <f:switch expression="{artifact.publishStatus}">
+                <f:case value="published">
+                    <p class="text-success mb-0">
+                        <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.publishedAt" arguments="{0: '{artifact.publishedAt -> f:format.date(format: \'Y-m-d H:i\')}'}" />
+                    </p>
+                </f:case>
+                <f:case value="publishing">
+                    <p class="mb-0"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.publishing" /></p>
+                </f:case>
+                <f:defaultCase>
+                    <f:if condition="{artifact.publishStatus} == 'scheduled'">
+                        <p class="mb-1">
+                            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.scheduledFor" arguments="{0: '{artifact.publishAt -> f:format.date(format: \'Y-m-d H:i\')}'}" />
+                        </p>
+                    </f:if>
+                    <f:if condition="{artifact.publishStatus} == 'failed'">
+                        <p class="text-danger mb-1">
+                            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.failedWith" arguments="{0: artifact.publishError}" />
+                        </p>
+                    </f:if>
+                    <f:if condition="{canReview}">
+                        <f:form action="schedule" arguments="{artifact: artifact.uid, job: job.uid}" method="post" class="d-flex flex-wrap align-items-end gap-2">
+                            <div>
+                                <label class="form-label mb-0 small" for="nrrepurpose-publishAt-{artifact.uid}">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.at" />
+                                </label>
+                                <input type="datetime-local" name="publishAt" id="nrrepurpose-publishAt-{artifact.uid}" required="required" class="form-control form-control-sm"
+                                       value="{artifact.publishAtLocal}" />
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-primary">
+                                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.action.schedule" />
+                            </button>
+                        </f:form>
+                        <f:if condition="{artifact.publishStatus} == 'scheduled' || {artifact.publishStatus} == 'failed'">
+                            <f:form action="unschedule" arguments="{artifact: artifact.uid, job: job.uid}" method="post" class="mt-1">
+                                <button type="submit" class="btn btn-sm btn-link px-0">
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.action.unschedule" />
+                                </button>
+                            </f:form>
+                        </f:if>
+                    </f:if>
+                </f:defaultCase>
+            </f:switch>
+        </div>
+    </f:if>
+</f:if>
+</html>

@@ -21,6 +21,11 @@ $GLOBALS['TYPO3_CONF_VARS']['BE']['customPermOptions']['nrrepurpose'] = [
             'actions-volume-up',
             'Generate podcast audio (maps to nr_llm capability ' . ModelCapability::AUDIO->value . ')',
         ],
+        'approve_artifacts' => [
+            'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.approve_artifacts',
+            'actions-check',
+            'Approve or reject artifacts and schedule approved social posts',
+        ],
         'generate_vision' => [
             'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.generate_vision',
             'actions-image',

@@ -179,13 +179,16 @@ standard install; override them only if your binaries live elsewhere.
 Backend capability permissions
 =============================
 
-nr_repurpose registers two ``customPermOptions`` under the ``nrrepurpose``
-namespace so backend group editors can gate AI spend per group:
+nr_repurpose registers three ``customPermOptions`` under the ``nrrepurpose``
+namespace. Two gate AI spend per group, the third the approval step:
 
 -   ``generate_audio`` — podcast audio generation (maps to the nr-llm
     ``AUDIO`` capability).
 -   ``generate_vision`` — AI imagery generation (maps to the nr-llm ``VISION``
     capability).
+-   ``approve_artifacts`` — approve or reject artifacts in the result view and
+    schedule approved social posts (see :ref:`usage-review`). Administrators
+    hold it without the option.
 
 nr-llm has no dedicated image/speech capability, so audio generation gates on
 ``AUDIO`` and image/vision generation on ``VISION``.
@@ -235,3 +238,32 @@ Configuration > nr_repurpose*) control the **visible** labels:
 
 A setting that is missing — an installation whose extension configuration has
 not been saved since the update — keeps its default.
+
+.. _configuration-social:
+
+Publishing social posts
+=======================
+
+Approved, scheduled social posts leave through a webhook (see :ref:`adr-007`).
+Two extension settings:
+
+``socialWebhookUrl`` (default: empty)
+    The ``http`` or ``https`` URL that receives each due post by POST as JSON:
+    ``artifactUid``, ``jobUid``, ``platform`` (``linkedin``, ``x``,
+    ``instagram``), ``text``, ``publishAt`` (UTC, ISO 8601), ``sourceUrl``,
+    ``aiGenerated`` (always ``true``) and ``aiLabel``. A 2xx answer marks the
+    post published; anything else marks it failed with the status. Empty: no
+    post is sent.
+
+``socialWebhookSecret`` (default: empty)
+    With a secret, each request carries
+    ``X-Nr-Repurpose-Signature: sha256=<hex HMAC-SHA256 of the body>``, so the
+    receiver can check that it comes from this installation.
+
+The command ``nr_repurpose:publish-due`` sends the posts whose time has come.
+Add it as a task in the scheduler (it is schedulable) or run it from cron every
+few minutes:
+
+.. code-block:: bash
+
+   vendor/bin/typo3 nr_repurpose:publish-due

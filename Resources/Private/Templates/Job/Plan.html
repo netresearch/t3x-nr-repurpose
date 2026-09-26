@@ -1,0 +1,62 @@
+<html data-namespace-typo3-fluid="true"
+      xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers">
+<f:layout name="Module" />
+<f:section name="Content">
+    <h1><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.title" /></h1>
+
+    <p>
+        <f:link.action action="list" class="btn btn-default">
+            <core:icon identifier="actions-view-go-back" size="small" />
+            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.action.back" />
+        </f:link.action>
+    </p>
+
+    <f:if condition="!{channelConfigured}">
+        <f:be.infobox state="1" title="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.noChannel.title')}">
+            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.noChannel.text" />
+        </f:be.infobox>
+    </f:if>
+
+    <f:if condition="{posts}">
+        <f:then>
+            <div class="table-fit">
+                <table class="table table-striped" data-role="plan">
+                    <thead>
+                        <tr>
+                            <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.column.time" /></th>
+                            <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.column.platform" /></th>
+                            <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.column.text" /></th>
+                            <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.column.status" /></th>
+                            <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.column.job" /></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <f:for each="{posts}" as="post">
+                            <tr>
+                                <td class="text-nowrap"><f:format.date format="Y-m-d H:i">{post.publish_at}</f:format.date></td>
+                                <td>{post.variant}</td>
+                                <td><f:format.crop maxCharacters="140" respectWordBoundaries="true">{post.script_text}</f:format.crop></td>
+                                <td>
+                                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.{post.publish_status}" />
+                                    <f:if condition="{post.publish_status} == 'scheduled' && {post.publish_at} <= {now}">
+                                        <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.due" /></span>
+                                    </f:if>
+                                    <f:if condition="{post.publish_error}"><br /><span class="text-danger small">{post.publish_error}</span></f:if>
+                                </td>
+                                <td>
+                                    <f:link.action action="show" arguments="{job: post.job}">#{post.job}</f:link.action>
+                                    <br /><span class="text-muted small">{post.source_value}</span>
+                                </td>
+                            </tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
+        </f:then>
+        <f:else>
+            <p><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.empty" /></p>
+        </f:else>
+    </f:if>
+</f:section>
+</html>
