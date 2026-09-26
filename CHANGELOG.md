@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-27
+
 ### Added
 
 - **The story as a video.** With the new option "Also as video" in the story card (off by default), the finished story slides also become one silent MP4 of 1080×1920: each slide zooms in by 8 % over four seconds and cross-fades into the next for half a second, encoded as H.264 (yuv420p, fast start) by one ffmpeg call (`FfmpegSlideshowRenderer`, zoompan and xfade). It is made from the slides of the same run, so it needs the story and makes no further AI call. ffmpeg writes the AI marker into the MP4 as keys (`comment`, `AIGenerated`, `DigitalSourceType` = `compositeWithTrainedAlgorithmicMedia`); the file also gets the FAL description. A failed render fails only the video; the slides stay done. The result view plays it and offers the download. Checked with ffmpeg 6.1.2 and 8.1.2: three slides give 11.0 s and 275 frames, and `exiftool` reads the keys. One `want_video` column (default 0) is added to `tx_nrrepurpose_domain_model_job` — run the database analyzer after the update.
@@ -293,7 +295,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.3...v0.6.0
 [0.5.3]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.2...v0.5.3
