@@ -206,6 +206,29 @@ at the foot of the handout. Every PDF carries the machine-readable AI label
 (see below). When the print fails, the artifact fails with "file error" and
 the reason; the documents need Chromium on the worker, as the images do.
 
+.. _usage-review:
+
+Approval and social planning
+----------------------------
+
+Every finished artifact shows its review state: *Not reviewed*, *Approved* or
+*Rejected*. Users whose backend groups grant *Approve artifacts* (and
+administrators) see :guilabel:`Approve` and :guilabel:`Reject` next to it.
+
+An approved social post gets a date and time field and :guilabel:`Schedule`.
+The post is sent when the command ``nr_repurpose:publish-due`` next runs after
+that time, through the webhook in the extension configuration (see
+:ref:`configuration-social`). :guilabel:`Remove from schedule` takes it off
+again; rejecting a scheduled post does the same. A published post keeps its
+review and schedule.
+
+:guilabel:`Social planning` in the job list shows every scheduled, published
+and failed post across all jobs, oldest time first, with the channel's reason
+for a failure and a notice when no webhook is configured.
+
+Generating a job again replaces its artifacts, and with them their reviews and
+schedules.
+
 .. _usage-ai-label:
 
 AI labelling

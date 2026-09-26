@@ -159,6 +159,7 @@
                         </f:if>
 
                         <f:render partial="Job/GenerationParameters" arguments="{prompts: artifact.metadataArray.prompts}" />
+                        <f:render partial="Job/Review" arguments="{artifact: artifact, job: job, canReview: canReview}" />
                     </div>
                 </div>
                 </f:if>
@@ -215,6 +216,7 @@
                                     </f:if>
                                     <div style="max-width: 200px; text-align: left;">
                                         <f:render partial="Job/GenerationParameters" arguments="{prompts: slide.metadataArray.prompts}" />
+                                        <f:render partial="Job/Review" arguments="{artifact: slide, job: job, canReview: canReview}" />
                                     </div>
                                 </div>
                             </f:for>

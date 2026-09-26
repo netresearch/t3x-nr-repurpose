@@ -9,15 +9,24 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Controller;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
+use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
+use Netresearch\NrRepurpose\Review\ArtifactReviewService;
+use Netresearch\NrRepurpose\Review\ReviewPermission;
+use Netresearch\NrRepurpose\Review\ReviewRefusedException;
 use Netresearch\NrRepurpose\Service\JobSubmissionService;
+use Netresearch\NrRepurpose\Social\SocialPublisherInterface;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
@@ -31,6 +40,9 @@ class JobController extends ActionController
         protected readonly JobRepository $jobRepository,
         protected readonly JobSubmissionService $jobSubmissionService,
         protected readonly PromptSnippetRepository $promptSnippetRepository,
+        protected readonly ArtifactReviewService $reviewService,
+        protected readonly ReviewPermission $reviewPermission,
+        protected readonly SocialPublisherInterface $socialPublisher,
     ) {}
 
     protected function initializeAction(): void
@@ -113,9 +125,99 @@ class JobController extends ActionController
         $this->moduleTemplate->assignMultiple([
             'job'               => $job,
             'snippetSelections' => $this->resolveSnippetSelections($job->getPromptSnippetSelection()),
+            'canReview'         => $this->reviewPermission->allows($this->backendUser()),
         ]);
 
         return $this->moduleTemplate->renderResponse('Job/Show');
+    }
+
+    /** Approve or reject a finished artifact. */
+    public function reviewAction(int $artifact, int $job, string $decision): ResponseInterface
+    {
+        $status = ReviewStatus::tryFrom($decision);
+
+        return $this->reviewStep($job, function () use ($artifact, $status): string {
+            if ($status === null || $status === ReviewStatus::Open) {
+                throw new ReviewRefusedException('review.refused.decision', 1790400007);
+            }
+
+            $this->reviewService->review($artifact, $status, $this->backendUser()?->getUserId() ?? 0, time());
+
+            return $status === ReviewStatus::Approved ? 'review.done.approved' : 'review.done.rejected';
+        });
+    }
+
+    /** Schedule an approved social post; $publishAt is a datetime-local value in server time. */
+    public function scheduleAction(int $artifact, int $job, string $publishAt = ''): ResponseInterface
+    {
+        return $this->reviewStep($job, function () use ($artifact, $publishAt): string {
+            $time = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $publishAt, new DateTimeZone(date_default_timezone_get()));
+            $this->reviewService->schedule($artifact, $time === false ? 0 : $time->getTimestamp());
+
+            return 'publish.done.scheduled';
+        });
+    }
+
+    public function unscheduleAction(int $artifact, int $job): ResponseInterface
+    {
+        return $this->reviewStep($job, function () use ($artifact): string {
+            $this->reviewService->unschedule($artifact);
+
+            return 'publish.done.unscheduled';
+        });
+    }
+
+    /** The social posts on the schedule and their publishing state, across all jobs. */
+    public function planAction(): ResponseInterface
+    {
+        $this->moduleTemplate->setTitle(
+            $this->moduleTitle(),
+            LocalizationUtility::translate('plan.title', 'nr_repurpose') ?? 'Social planning',
+        );
+        $this->moduleTemplate->assignMultiple([
+            'posts'             => $this->reviewService->planned(),
+            'channelConfigured' => $this->socialPublisher->isConfigured(),
+            'now'               => time(),
+        ]);
+
+        return $this->moduleTemplate->renderResponse('Job/Plan');
+    }
+
+    /**
+     * Runs one review or scheduling step for a user with the approve permission and
+     * returns to the job; the step returns the label of its success message.
+     *
+     * @param callable(): string $step
+     */
+    private function reviewStep(int $job, callable $step): ResponseInterface
+    {
+        if (!$this->reviewPermission->allows($this->backendUser())) {
+            $this->addFlashMessage($this->label('review.refused.permission'), '', ContextualFeedbackSeverity::ERROR);
+
+            // Extbase builds the backend route of the fixed action "show"; $job is an int, not a URL.
+            return $this->redirect('show', null, null, ['job' => $job]); // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
+        }
+
+        try {
+            $this->addFlashMessage($this->label($step()));
+        } catch (ReviewRefusedException $e) {
+            $this->addFlashMessage($this->label($e->getMessage()), '', ContextualFeedbackSeverity::ERROR);
+        }
+
+        // Extbase builds the backend route of the fixed action "show"; $job is an int, not a URL.
+        return $this->redirect('show', null, null, ['job' => $job]); // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
+    }
+
+    private function label(string $key): string
+    {
+        return LocalizationUtility::translate($key, 'nr_repurpose') ?? $key;
+    }
+
+    private function backendUser(): ?BackendUserAuthentication
+    {
+        $user = $GLOBALS['BE_USER'] ?? null;
+
+        return $user instanceof BackendUserAuthentication ? $user : null;
     }
 
     /**

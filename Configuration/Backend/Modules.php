@@ -19,7 +19,7 @@ return [
         'labels'            => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_mod.xlf',
         'extensionName'     => 'NrRepurpose',
         'controllerActions' => [
-            JobController::class => ['list', 'new', 'create', 'show'],
+            JobController::class => ['list', 'new', 'create', 'show', 'review', 'schedule', 'unschedule', 'plan'],
         ],
     ],
 ];

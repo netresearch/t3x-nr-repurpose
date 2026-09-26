@@ -40,8 +40,16 @@ CREATE TABLE tx_nrrepurpose_domain_model_artifact (
     status varchar(16) DEFAULT 'pending' NOT NULL,
     error_message text,
     metadata text,
+    review_status varchar(16) DEFAULT '' NOT NULL,
+    reviewed_by int unsigned DEFAULT 0 NOT NULL,
+    reviewed_at int unsigned DEFAULT 0 NOT NULL,
+    publish_at int unsigned DEFAULT 0 NOT NULL,
+    publish_status varchar(16) DEFAULT '' NOT NULL,
+    published_at int unsigned DEFAULT 0 NOT NULL,
+    publish_error text,
 
     PRIMARY KEY (uid),
     KEY parent (pid),
-    KEY job (job)
+    KEY job (job),
+    KEY publish (publish_status, publish_at)
 );

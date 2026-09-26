@@ -27,8 +27,17 @@ return [
         'status'            => ['label' => 'Status', 'config' => ['type' => 'input', 'readOnly' => true]],
         'error_message'     => ['config' => ['type' => 'text']],
         'metadata'          => ['config' => ['type' => 'passthrough']],
+        // Written by the result view's review and scheduling actions and by the
+        // nr_repurpose:publish-due command, never by the record form.
+        'review_status'  => ['label' => 'Review', 'config' => ['type' => 'input', 'readOnly' => true]],
+        'reviewed_by'    => ['config' => ['type' => 'passthrough']],
+        'reviewed_at'    => ['config' => ['type' => 'passthrough']],
+        'publish_at'     => ['config' => ['type' => 'passthrough']],
+        'publish_status' => ['label' => 'Publishing', 'config' => ['type' => 'input', 'readOnly' => true]],
+        'published_at'   => ['config' => ['type' => 'passthrough']],
+        'publish_error'  => ['config' => ['type' => 'passthrough']],
     ],
     'types' => [
-        '0' => ['showitem' => 'type, variant, status, error_message'],
+        '0' => ['showitem' => 'type, variant, status, error_message, review_status, publish_status'],
     ],
 ];

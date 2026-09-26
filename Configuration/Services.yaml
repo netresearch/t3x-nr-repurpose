@@ -122,3 +122,9 @@ services:
 
   Netresearch\NrRepurpose\Command\GenerateCommand:
     public: true
+
+  Netresearch\NrRepurpose\Command\PublishDueCommand:
+    public: true
+
+  Netresearch\NrRepurpose\Social\SocialPublisherInterface:
+    alias: Netresearch\NrRepurpose\Social\WebhookSocialPublisher
