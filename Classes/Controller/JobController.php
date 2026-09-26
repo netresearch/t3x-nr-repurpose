@@ -194,7 +194,8 @@ class JobController extends ActionController
         if (!$this->reviewPermission->allows($this->backendUser())) {
             $this->addFlashMessage($this->label('review.refused.permission'), '', ContextualFeedbackSeverity::ERROR);
 
-            return $this->redirect('show', null, null, ['job' => $job]);
+            // Extbase builds the backend route of the fixed action "show"; $job is an int, not a URL.
+            return $this->redirect('show', null, null, ['job' => $job]); // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
         }
 
         try {
@@ -203,7 +204,8 @@ class JobController extends ActionController
             $this->addFlashMessage($this->label($e->getMessage()), '', ContextualFeedbackSeverity::ERROR);
         }
 
-        return $this->redirect('show', null, null, ['job' => $job]);
+        // Extbase builds the backend route of the fixed action "show"; $job is an int, not a URL.
+        return $this->redirect('show', null, null, ['job' => $job]); // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
     }
 
     private function label(string $key): string
