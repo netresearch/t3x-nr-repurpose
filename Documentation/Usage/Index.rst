@@ -70,6 +70,10 @@ record:
    * - Podcast / Schaubild / Story
      - checkboxes (all on by default)
      - Which artifacts to generate this run.
+   * - Also as video (in the story card)
+     - checkbox (off by default)
+     - Turns the story slides into one silent MP4 (4 seconds per slide, slow
+       zoom, cross-fades). Only with the story.
    * - Executive summary / FAQ / Social posts / Newsletter
      - checkboxes (all off by default)
      - Which text formats to generate this run. They are opt-in, so an
@@ -104,7 +108,7 @@ The result view (``show``) renders the finished job: it plays the podcast MP3
 with its WebVTT subtitles and shows the speaker-tagged transcript, and it
 displays — and lets you download — every generated image (the three Schaubild
 variants and the story slides, shown as a horizontal, scrollable strip in
-slide order). Each artifact carries its own status, so a partially successful
+slide order) and plays the story video. Each artifact carries its own status, so a partially successful
 run still shows whatever was produced.
 
 For transparency, every artifact lists its complete creation parameters: the
@@ -275,7 +279,21 @@ on the story strip when at least one slide finished. The markers:
        itself; that has not been checked against real output yet (see
        :ref:`adr-005`). A PNG that is incomplete (truncated render) is not
        stored; the artifact fails with the reason.
-   * - Every stored file (MP3, WebVTT, PNG)
+   * - Slide deck and handout PDFs
+     - An update appended to the PDF Chromium printed: the document
+       information gets ``Subject`` (the AI statement), ``Keywords``,
+       ``AIGenerated`` and ``DigitalSourceType`` (``trainedAlgorithmicMedia``),
+       and the catalog an XMP packet as ``/Metadata`` with
+       ``Iptc4xmpExt:DigitalSourceType``. ``pdfinfo`` and ``exiftool`` show
+       them. A PDF that is not complete or not in Chromium's layout is not
+       stored; the artifact fails with the reason (see :ref:`adr-006`).
+   * - Story video (MP4)
+     - MP4 keys written by ffmpeg when it encodes the video: ``comment`` (the
+       AI statement), ``AIGenerated = true`` and ``DigitalSourceType``
+       (``compositeWithTrainedAlgorithmicMedia``); ``ffprobe`` and
+       ``exiftool`` show them. The slides it is made from carry the visible
+       label when ``aiLabelImages`` is on.
+   * - Every stored file (MP3, WebVTT, PNG, PDF, MP4)
      - The file's metadata description in the file list: "AI-generated with
        nr_repurpose …", with the digital source type and the known models.
    * - Every artifact, text formats included

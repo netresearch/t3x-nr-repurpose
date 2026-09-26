@@ -88,8 +88,29 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
             self::assertSame(1, (int) $row[$column], $column);
         }
 
-        foreach (['want_exec_summary', 'want_faq', 'want_social_post', 'want_newsletter', 'want_slide_deck', 'want_handout'] as $column) {
+        foreach (['want_exec_summary', 'want_faq', 'want_social_post', 'want_newsletter', 'want_slide_deck', 'want_handout', 'want_video'] as $column) {
             self::assertSame(0, (int) $row[$column], $column);
         }
+    }
+
+    /** The video is made from the story slides, so asking for it switches the story on. */
+    public function testAskingForTheVideoSwitchesTheStoryOn(): void
+    {
+        $bus = new class implements MessageBusInterface {
+            public function dispatch(object $message, array $stamps = []): Envelope
+            {
+                return new Envelope($message);
+            }
+        };
+        $service = new JobSubmissionService($this->get(JobRepository::class), $this->get(PersistenceManagerInterface::class), $bus);
+
+        $job = new Job();
+        $job->setSourceValue('https://example.com/');
+        $job->setWantStory(false);
+        $job->setWantVideo(true);
+
+        $row = $this->get(JobProcessingRepository::class)->findRow($service->submit($job, 1)) ?? [];
+
+        self::assertSame([1, 1], [(int) $row['want_story'], (int) $row['want_video']]);
     }
 }

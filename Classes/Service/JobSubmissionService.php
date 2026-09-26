@@ -33,6 +33,11 @@ final readonly class JobSubmissionService
     public function submit(Job $job, int $beUser): int
     {
         $job->setBeUser($beUser);
+        // The video is made from the story slides: asking for it asks for the story.
+        if ($job->isWantVideo()) {
+            $job->setWantStory(true);
+        }
+
         $this->jobRepository->add($job);
         $this->persistenceManager->persistAll(); // ensure uid before dispatch
 

@@ -55,6 +55,7 @@
             <f:if condition="{job.wantNewsletter}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.newsletter" /></span></f:if>
             <f:if condition="{job.wantSlideDeck}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.slide_deck" /></span></f:if>
             <f:if condition="{job.wantHandout}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.handout" /></span></f:if>
+            <f:if condition="{job.wantVideo}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.video" /></span></f:if>
         </dd>
 
         <f:for each="{snippetSelections}" as="selection">
@@ -134,6 +135,21 @@
                                     <p>
                                         <a href="{img}" download class="btn btn-sm btn-default">
                                             <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.download.png" />
+                                        </a>
+                                    </p>
+                                </f:if>
+                            </f:if>
+
+                            <f:comment><!-- Story video: player + download --></f:comment>
+                            <f:if condition="{artifact.type} == 'video'">
+                                <f:variable name="mp4" value="{nr:publicUrl(fileUid: artifact.fileUid)}" />
+                                <f:if condition="{mp4}">
+                                    <video controls preload="metadata" playsinline="playsinline" style="max-height: 480px; max-width: 100%;">
+                                        <source src="{mp4}" type="video/mp4" />
+                                    </video>
+                                    <p class="mt-2">
+                                        <a href="{mp4}" download class="btn btn-sm btn-default">
+                                            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.download.mp4" />
                                         </a>
                                     </p>
                                 </f:if>

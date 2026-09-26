@@ -21,6 +21,7 @@ use Netresearch\NrRepurpose\Generator\PodcastGenerator;
 use Netresearch\NrRepurpose\Generator\SchaubildGenerator;
 use Netresearch\NrRepurpose\Generator\SlideDeckGenerator;
 use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
+use Netresearch\NrRepurpose\Generator\StoryGenerator;
 use Netresearch\NrRepurpose\Generator\Support\TextLabels;
 use Netresearch\NrRepurpose\Generator\Support\WebVttBuilder;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
@@ -32,6 +33,7 @@ use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Rendering\GdImageCompositor;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\HtmlToPdfRendererInterface;
+use Netresearch\NrRepurpose\Rendering\SlideshowRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
@@ -59,6 +61,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class AiLabelledJobTest extends AbstractFunctionalTestCase
 {
     private const FIXTURES = __DIR__ . '/../../Fixtures/';
+
+    public const TITLE = 'Quarterly report';
 
     protected array $configurationToUseInTestInstance = [
         'EXTENSIONS' => [
@@ -257,6 +261,66 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         self::assertStringStartsWith('AI-generated with nr_repurpose', $pdf['description']);
     }
 
+    /**
+     * The story with the video option: the slides are rendered (the Chromium PNG
+     * fixture stands in), the "slideshow" returns the MP4 ffmpeg 8.1 made from three
+     * slides, and the video is stored in FAL with the AI statement as its description.
+     * The MP4 bytes are stored as they came: ffmpeg writes the marker keys itself, and
+     * the keys it is asked for are asserted in StoryGeneratorTest.
+     */
+    public function testTheStoryVideoIsStoredWithTheAiDescription(): void
+    {
+        $jobUid = $this->seedJob(podcast: false, faq: false, schaubild: false, document: 'want_story');
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->update('tx_nrrepurpose_domain_model_job', ['want_video' => 1], ['uid' => $jobUid]);
+        $jobs                   = $this->get(JobProcessingRepository::class);
+        $completion             = new FakeCompletionService();
+        $completion->jsonResult = ['slides' => [
+            ['role' => 'cover', 'headline' => self::TITLE, 'subline' => 'Q3'],
+            ['role' => 'outro', 'headline' => 'Growth continues', 'subline' => 'example.com'],
+        ]];
+        $slideshow = new class (self::FIXTURES . 'Video/slideshow.mp4') implements SlideshowRendererInterface {
+            public int $images = 0;
+
+            public function __construct(private readonly string $fixture) {}
+
+            public function render(array $imagePaths, int $width, int $height, float $secondsPerImage, array $metadata): string
+            {
+                $this->images = count($imagePaths);
+                $out          = sys_get_temp_dir() . '/nrrepurpose_video_' . bin2hex(random_bytes(4)) . '.mp4';
+                copy($this->fixture, $out);
+
+                return $out;
+            }
+        };
+
+        (new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $this->ingestion(),
+            $this->analyzer(),
+            $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
+            $this->grants(),
+            $this->get(AiLabelSettingsFactory::class),
+            [new StoryGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(), new GdImageCompositor(), $this->unavailableImages(), $this->get(JobFileStorage::class), $slideshow)],
+        ))->process($jobUid);
+
+        $row = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->select(['status', 'file_uid', 'metadata', 'error_message'], 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobUid, 'type' => 'video'])
+            ->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertSame('done', $row['status'], (string) $row['error_message']);
+        self::assertSame(2, $slideshow->images);
+        self::assertStringEndsWith('compositeWithTrainedAlgorithmicMedia', json_decode((string) $row['metadata'], true)['aiLabel']['digitalSourceType']);
+
+        $video = $this->file((int) $row['file_uid']);
+        self::assertSame((string) file_get_contents(self::FIXTURES . 'Video/slideshow.mp4'), $video['contents']);
+        self::assertStringStartsWith('AI-generated with nr_repurpose', $video['description']);
+    }
+
     private function fileCount(): int
     {
         return (int) GeneralUtility::makeInstance(ConnectionPool::class)
@@ -312,7 +376,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         return new class implements SourceIngestionServiceInterface {
             public function ingest(array $jobRow): SourceDocument
             {
-                return new SourceDocument('Quarterly report', 'Revenue grew by twelve percent.', 'https://example.com/', 0, 'en');
+                return new SourceDocument(AiLabelledJobTest::TITLE, 'Revenue grew by twelve percent.', 'https://example.com/', 0, 'en');
             }
         };
     }
@@ -322,7 +386,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         return new class implements DocumentAnalyzerInterface {
             public function analyze(SourceDocument $document, array $jobRow): ContentBrief
             {
-                return new ContentBrief('Quarterly report', 'Revenue grew.', ['Revenue +12 %'], [], 'Analysts', 'en');
+                return new ContentBrief(AiLabelledJobTest::TITLE, 'Revenue grew.', ['Revenue +12 %'], [], 'Analysts', 'en');
             }
         };
     }

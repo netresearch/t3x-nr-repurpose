@@ -33,6 +33,7 @@ use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Rendering\SlideshowRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
@@ -55,12 +56,12 @@ final class StoryGeneratorTest extends TestCase
     ]];
 
     /** @param list<string> $keyPoints */
-    private function context(bool $wantStory = true, array $keyPoints = ['Point'], ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null, string $summary = 'A crisp summary.', AiLabelSettings $aiLabel = new AiLabelSettings()): GenerationContext
+    private function context(bool $wantStory = true, array $keyPoints = ['Point'], ResolvedPromptSnippets $snippets = new ResolvedPromptSnippets(), ?CapabilityGrants $grants = null, string $summary = 'A crisp summary.', AiLabelSettings $aiLabel = new AiLabelSettings(), bool $wantVideo = false): GenerationContext
     {
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief    = new ContentBrief('Report', $summary, $keyPoints, [], 'All', 'en');
 
-        return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0], $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
+        return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0, 'want_video' => $wantVideo ? 1 : 0], $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
     }
 
     /** @param array<mixed>|Throwable $completionResult */
@@ -72,10 +73,11 @@ final class StoryGeneratorTest extends TestCase
         BudgetServiceInterface $budget,
         ImageCompositorInterface $compositor,
         ?CompletionServiceInterface $completion = null,
+        ?SlideshowRendererInterface $slideshow = null,
     ): StoryGenerator {
         $completion ??= $this->completion($completionResult);
 
-        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $this->storage()) extends StoryGenerator {
+        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $this->storage(), $slideshow) extends StoryGenerator {
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
@@ -84,6 +86,7 @@ final class StoryGeneratorTest extends TestCase
                 ImageCompositorInterface $compositor,
                 ImageGeneratorInterface $imageGenerator,
                 JobFileStorage $storage,
+                ?SlideshowRendererInterface $slideshow,
             ) {
                 parent::__construct(
                     $jobs,
@@ -94,6 +97,7 @@ final class StoryGeneratorTest extends TestCase
                     $compositor,
                     $imageGenerator,
                     $storage,
+                    $slideshow,
                 );
             }
 
@@ -154,6 +158,86 @@ final class StoryGeneratorTest extends TestCase
             self::assertSame(3, $metadata['slideTotal']);
             self::assertSame('flat', $metadata['background']);
         }
+    }
+
+    public function testWithTheVideoOptionTheSlidesBecomeOneLabelledMp4(): void
+    {
+        $renderer  = $this->renderer();
+        $jobs      = $this->jobs();
+        $slideshow = $this->slideshow();
+
+        $generator = $this->generator(self::THREE_SLIDES, $renderer, $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), slideshow: $slideshow);
+
+        self::assertTrue($generator->generate($this->context(wantVideo: true)));
+
+        self::assertSame(['story', 'story', 'story', 'video'], array_column($jobs->inserted, 0));
+        self::assertCount(1, $slideshow->calls);
+        self::assertCount(3, $slideshow->calls[0]['images']);
+        self::assertSame([1080, 1920, StoryGenerator::VIDEO_SECONDS_PER_SLIDE], [$slideshow->calls[0]['width'], $slideshow->calls[0]['height'], $slideshow->calls[0]['seconds']]);
+        self::assertSame('true', $slideshow->calls[0]['metadata']['AIGenerated']);
+        self::assertSame(DigitalSourceType::CompositeWithTrainedAlgorithmicMedia->value, $slideshow->calls[0]['metadata']['DigitalSourceType']);
+        self::assertStringStartsWith('AI-generated with', $slideshow->calls[0]['metadata']['comment']);
+
+        $update = $jobs->updates[$jobs->uidForVariant('default')];
+        self::assertSame('done', $update['status']);
+        self::assertGreaterThan(0, (int) $update['file_uid']);
+        self::assertSame(3, json_decode((string) $update['metadata'], true)['slides']);
+        self::assertSame(
+            DigitalSourceType::CompositeWithTrainedAlgorithmicMedia,
+            $this->lastStorage?->provenanceByName['story-video.mp4']?->sourceType,
+        );
+    }
+
+    public function testWithoutTheVideoOptionNoVideoIsRendered(): void
+    {
+        $jobs      = $this->jobs();
+        $slideshow = $this->slideshow();
+
+        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), slideshow: $slideshow);
+
+        self::assertTrue($generator->generate($this->context()));
+        self::assertSame([], $slideshow->calls);
+        self::assertNotContains('video', array_column($jobs->inserted, 0));
+    }
+
+    public function testAFailedVideoFailsOnlyTheVideoRow(): void
+    {
+        $jobs      = $this->jobs();
+        $slideshow = $this->slideshow(fail: true);
+
+        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), slideshow: $slideshow);
+
+        self::assertTrue($generator->generate($this->context(wantVideo: true)));
+        $update = $jobs->updates[$jobs->uidForVariant('default')];
+        self::assertSame('failed', $update['status']);
+        self::assertSame('Story video error: ffmpeg slideshow failed (exit 1): boom', $update['error_message']);
+        self::assertSame('done', $jobs->updates[$jobs->uidForVariant('slide-1')]['status']);
+    }
+
+    /**
+     * A slideshow renderer that records its calls and writes a placeholder, or fails.
+     */
+    private function slideshow(bool $fail = false): SlideshowRendererInterface
+    {
+        return new class ($fail) implements SlideshowRendererInterface {
+            /** @var list<array{images: list<string>, width: int, height: int, seconds: float, metadata: array<string, string>}> */
+            public array $calls = [];
+
+            public function __construct(private readonly bool $fail) {}
+
+            public function render(array $imagePaths, int $width, int $height, float $secondsPerImage, array $metadata): string
+            {
+                $this->calls[] = ['images' => $imagePaths, 'width' => $width, 'height' => $height, 'seconds' => $secondsPerImage, 'metadata' => $metadata];
+                if ($this->fail) {
+                    throw RenderingException::because('ffmpeg slideshow failed (exit 1): boom', 1749400402);
+                }
+
+                $out = sys_get_temp_dir() . '/nrrepurpose_video_' . bin2hex(random_bytes(4)) . '.mp4';
+                file_put_contents($out, 'mp4');
+
+                return $out;
+            }
+        };
     }
 
     public function testGeneratesSharedKiBackgroundOnceAndCompositesEverySlide(): void

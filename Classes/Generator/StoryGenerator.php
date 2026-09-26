@@ -22,6 +22,7 @@ use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
+use Netresearch\NrRepurpose\Rendering\SlideshowRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
@@ -40,6 +41,10 @@ use Throwable;
  * background is generated and composited behind every slide — visual coherence and a single
  * image cost. The KI background is best-effort: over budget / unavailable / a generation
  * error falls back to flat renders.
+ *
+ * With `want_video` the finished slides also become one silent MP4 (artifact type video):
+ * each slide zooms in slowly for four seconds and cross-fades into the next. It is made
+ * from the slide images of this run, so it needs the story and makes no further AI call.
  */
 class StoryGenerator extends AbstractGenerator
 {
@@ -68,6 +73,8 @@ class StoryGenerator extends AbstractGenerator
 
     private const COPY_SYSTEM_PROMPT = 'You are a social-media copywriter. Output ONLY valid JSON.';
 
+    public const VIDEO_SECONDS_PER_SLIDE = 4.0;
+
     public function __construct(
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
@@ -77,6 +84,8 @@ class StoryGenerator extends AbstractGenerator
         private readonly ImageCompositorInterface $compositor,
         private readonly ImageGeneratorInterface $imageGenerator,
         private readonly JobFileStorage $fileStorage,
+        // Optional so a construction without it keeps working; the container injects it.
+        private readonly ?SlideshowRendererInterface $slideshow = null,
     ) {
         parent::__construct($jobs, $budget, $logger);
     }
@@ -111,15 +120,67 @@ class StoryGenerator extends AbstractGenerator
         $ctx->progress?->step('Story: background image', 0.3);
         $backgroundPath = $this->generateSharedBackground($ctx, $imageSize);
 
-        $total = count($slides);
-        $ok    = false;
+        $total  = count($slides);
+        $images = [];
         foreach ($slides as $i => $slide) {
             $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
-            $slideOk = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
-            $ok      = $slideOk || $ok;
+            $image = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
+            if ($image !== null) {
+                $images[] = $image;
+            }
+        }
+
+        $ok = $images !== [];
+        if ($ok && $this->slideshow instanceof SlideshowRendererInterface && (bool) ($ctx->jobRow['want_video'] ?? false)) {
+            $ctx->progress?->step('Story: video', 0.95);
+            $this->generateVideoArtifact($ctx, $jobUid, $this->slideshow, $images);
         }
 
         return $ok;
+    }
+
+    /**
+     * The story slides as one MP4. A failed render fails only the video row; the slides
+     * stay done, so the story itself still counts as produced.
+     *
+     * @param non-empty-list<string> $images slide PNGs in order
+     */
+    private function generateVideoArtifact(GenerationContext $ctx, int $jobUid, SlideshowRendererInterface $slideshow, array $images): void
+    {
+        $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Video, 'default', 0, ArtifactStatus::Pending);
+        $provenance  = $this->provenance($ctx, DigitalSourceType::CompositeWithTrainedAlgorithmicMedia);
+        $metadata    = [
+            'width'           => self::WIDTH,
+            'height'          => self::HEIGHT,
+            'slides'          => count($images),
+            'secondsPerSlide' => self::VIDEO_SECONDS_PER_SLIDE,
+            'aiLabel'         => $provenance->toArray(),
+        ];
+
+        try {
+            $video = $slideshow->render($images, self::WIDTH, self::HEIGHT, self::VIDEO_SECONDS_PER_SLIDE, [
+                'comment'           => $provenance->describeAscii(),
+                'AIGenerated'       => 'true',
+                'DigitalSourceType' => $provenance->sourceType->value,
+            ]);
+            try {
+                $file = $this->fileStorage->store((string) file_get_contents($video), 'story-video.mp4', $provenance);
+            } finally {
+                // Also when the FAL write fails: the worker runs long.
+                if (is_file($video)) {
+                    // $video is the slideshow renderer's own temp file, never user input.
+                    unlink($video); // nosemgrep: php.lang.security.unlink-use.unlink-use
+                }
+            }
+
+            $this->jobs->updateArtifact($artifactUid, [
+                'file_uid' => $file->getUid(),
+                'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+                'status'   => ArtifactStatus::Done->value,
+            ]);
+        } catch (Throwable $e) {
+            $this->failArtifact($artifactUid, $jobUid, 'Story video error: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -257,7 +318,10 @@ class StoryGenerator extends AbstractGenerator
         }
     }
 
-    /** Render one slide into its own artifact row; a failure fails only this slide. */
+    /**
+     * Render one slide into its own artifact row; a failure fails only this slide.
+     * Returns the rendered PNG for the video, or null when the slide failed.
+     */
     private function generateSlideArtifact(
         GenerationContext $ctx,
         int $jobUid,
@@ -266,7 +330,7 @@ class StoryGenerator extends AbstractGenerator
         int $total,
         ?string $backgroundPath,
         string $imageSize,
-    ): bool {
+    ): ?string {
         $artifactUid   = $this->jobs->insertArtifact($jobUid, ArtifactType::Story, 'slide-' . $index, 0, ArtifactStatus::Pending);
         $hasBackground = $backgroundPath !== null;
         // AI-written copy (and optionally an AI background) in the branded template.
@@ -313,7 +377,7 @@ class StoryGenerator extends AbstractGenerator
                 'status'      => ArtifactStatus::Done->value,
             ]);
 
-            return true;
+            return $pngPath;
         } catch (Throwable $e) {
             // Keep the slide identity on the failed row so the result view can still place it.
             // JSON_THROW_ON_ERROR matches the success path; $metadata is a fixed shape of
@@ -321,7 +385,7 @@ class StoryGenerator extends AbstractGenerator
             $this->jobs->updateArtifact($artifactUid, ['metadata' => json_encode($metadata, JSON_THROW_ON_ERROR)]);
             $this->failArtifact($artifactUid, $jobUid, sprintf('Story slide %d/%d error: %s', $index, $total, $e->getMessage()));
 
-            return false;
+            return null;
         }
     }
 

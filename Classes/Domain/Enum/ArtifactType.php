@@ -14,6 +14,7 @@ enum ArtifactType: string
     case Podcast   = 'podcast';
     case Schaubild = 'schaubild';
     case Story     = 'story';
+    case Video     = 'video';
 
     // Text formats. The values must fit the 16-character `type` column.
     case ExecutiveSummary = 'exec_summary';
@@ -43,6 +44,7 @@ enum ArtifactType: string
             self::Podcast          => 'mimetypes-media-audio',
             self::Schaubild        => 'content-widget-chart',
             self::Story            => 'actions-device-mobile',
+            self::Video            => 'mimetypes-media-video',
             self::ExecutiveSummary => 'content-text',
             self::Faq              => 'content-accordion',
             self::SocialPost       => 'actions-share-alt',

@@ -67,6 +67,9 @@ services:
   Netresearch\NrRepurpose\Rendering\AudioStitcherInterface:
     alias: Netresearch\NrRepurpose\Rendering\FfmpegAudioStitcher
 
+  Netresearch\NrRepurpose\Rendering\SlideshowRendererInterface:
+    alias: Netresearch\NrRepurpose\Rendering\FfmpegSlideshowRenderer
+
   # Generators (Plan 5): provider-agnostic adapter over nr-llm's final Specialized services.
   Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface:
     alias: Netresearch\NrRepurpose\Generator\Speech\OpenAiSpeechSynthesizer
