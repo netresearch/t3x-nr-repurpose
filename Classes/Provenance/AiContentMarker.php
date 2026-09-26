@@ -30,6 +30,12 @@ use Netresearch\NrRepurpose\Rendering\RenderingException;
  *   the replaced tag had one; this extension does not encode audio, so it never
  *   writes a TSSE of its own.
  * - WebVTT: a NOTE block with the AI origin right after the header.
+ * - PDF: an incremental update appended to the file: a new document information
+ *   dictionary (the old entries plus Subject, Keywords, AIGenerated and
+ *   DigitalSourceType), the XMP packet as the catalog's /Metadata stream, and a
+ *   cross-reference section for the three objects. The original bytes stay as they are.
+ *   Only a complete, unencrypted PDF with a classic cross-reference table is accepted,
+ *   which is what Chromium writes; anything else is refused.
  *
  * Other file types are returned unchanged; they carry the marker in the artifact
  * metadata and the FAL description only.
@@ -51,6 +57,7 @@ final class AiContentMarker
             'png'   => $this->markPng($bytes, $provenance),
             'mp3'   => $this->markMp3($bytes, $provenance),
             'vtt'   => $this->markVtt($bytes, $provenance),
+            'pdf'   => $this->markPdf($bytes, $provenance),
             default => $bytes,
         };
     }
@@ -126,6 +133,175 @@ final class AiContentMarker
         $headerEnd = $match[0][1] + strlen($match[0][0]);
 
         return substr($vtt, 0, $headerEnd) . $note . "\n\n" . substr($vtt, $headerEnd);
+    }
+
+    public function markPdf(string $pdf, AiProvenance $provenance): string
+    {
+        if (!str_starts_with($pdf, '%PDF-1.')
+            || preg_match('/startxref\s+(\d+)\s+%%EOF\s*$/', $pdf, $match) !== 1
+        ) {
+            throw RenderingException::because('Cannot AI-label the file: it is not a complete PDF', 1790000505);
+        }
+
+        $previousXref = (int) $match[1];
+        if (substr($pdf, $previousXref, 4) !== 'xref') {
+            throw RenderingException::because('Cannot AI-label the file: the PDF has no classic cross-reference table', 1790000506);
+        }
+
+        $trailerAt = strpos($pdf, 'trailer', $previousXref);
+        $trailer   = $trailerAt === false ? null : $this->pdfDictionary($pdf, $trailerAt);
+        if ($trailer === null
+            || str_contains($trailer, '/Encrypt')
+            || preg_match('/\/Size\s+(\d+)/', $trailer, $size) !== 1
+            || preg_match('/\/Root\s+(\d+)\s+0\s+R/', $trailer, $root) !== 1
+        ) {
+            throw RenderingException::because('Cannot AI-label the file: the PDF trailer is not usable', 1790000507);
+        }
+
+        $catalog = $this->pdfObjectDictionary($pdf, (int) $root[1]);
+        if ($catalog === null) {
+            throw RenderingException::because('Cannot AI-label the file: the PDF catalog is missing', 1790000508);
+        }
+
+        $info = preg_match('/\/Info\s+(\d+)\s+0\s+R/', $trailer, $infoRef) === 1
+            ? ($this->pdfObjectDictionary($pdf, (int) $infoRef[1]) ?? '<<>>')
+            : '<<>>';
+
+        $infoNumber = (int) $size[1];
+        $xmpNumber  = $infoNumber + 1;
+        $xmp        = '<?xpacket begin="' . "\u{FEFF}" . '" id="W5M0MpCehiHzreSzNTczkc9d"?>'
+            . $this->xmp($provenance) . '<?xpacket end="r"?>';
+
+        // Keep every entry the document had, add the AI entries it does not have yet.
+        $entries = [
+            'Subject'           => $this->pdfString($provenance->describeAscii()),
+            'Keywords'          => $this->pdfString('AI-generated; ' . $provenance->sourceType->value),
+            'AIGenerated'       => '(true)',
+            'DigitalSourceType' => $this->pdfString($provenance->sourceType->value),
+        ];
+        $added = '';
+        foreach ($entries as $key => $value) {
+            if (preg_match('/\/' . $key . '(?![A-Za-z0-9])/', $info) !== 1) {
+                $added .= ' /' . $key . ' ' . $value;
+            }
+        }
+
+        $body    = str_ends_with($pdf, "\n") ? '' : "\n";
+        $offsets = [];
+
+        $offsets[(int) $root[1]] = strlen($pdf) + strlen($body);
+        $body .= $root[1] . " 0 obj\n"
+            . substr(preg_replace('/\/Metadata\s+\d+\s+\d+\s+R/', '', $catalog) ?? $catalog, 0, -2)
+            . ' /Metadata ' . $xmpNumber . " 0 R >>\nendobj\n";
+
+        $offsets[$infoNumber] = strlen($pdf) + strlen($body);
+        $body .= $infoNumber . " 0 obj\n" . substr($info, 0, -2) . $added . " >>\nendobj\n";
+
+        $offsets[$xmpNumber] = strlen($pdf) + strlen($body);
+        $body .= $xmpNumber . " 0 obj\n<< /Type /Metadata /Subtype /XML /Length " . strlen($xmp) . " >>\nstream\n"
+            . $xmp . "\nendstream\nendobj\n";
+
+        $xrefAt = strlen($pdf) + strlen($body);
+        ksort($offsets);
+        $xref = "xref\n";
+        foreach ($offsets as $number => $offset) {
+            // One subsection per object: the numbers are not contiguous in general.
+            $xref .= $number . " 1\n" . sprintf("%010d 00000 n\r\n", $offset);
+        }
+
+        $id = preg_match('/\/ID\s*\[[^\]]*\]/', $trailer, $idMatch) === 1 ? ' ' . $idMatch[0] : '';
+
+        return $pdf . $body . $xref
+            . sprintf(
+                "trailer\n<< /Size %d /Root %d 0 R /Info %d 0 R /Prev %d%s >>\nstartxref\n%d\n%%%%EOF\n",
+                $xmpNumber + 1,
+                (int) $root[1],
+                $infoNumber,
+                $previousXref,
+                $id,
+                $xrefAt,
+            );
+    }
+
+    /**
+     * The dictionary ("<< … >>", nesting included) of the last definition of object
+     * $number, or null. The last definition wins, as in an incrementally updated file.
+     */
+    private function pdfObjectDictionary(string $pdf, int $number): ?string
+    {
+        if (preg_match_all('/(?:^|[\r\n])' . $number . '\s+0\s+obj\b/', $pdf, $matches, PREG_OFFSET_CAPTURE) < 1) {
+            return null;
+        }
+
+        $last = $matches[0][count($matches[0]) - 1] ?? null;
+
+        return $last === null ? null : $this->pdfDictionary($pdf, $last[1]);
+    }
+
+    /**
+     * The first dictionary at or after $offset with its nested dictionaries, or null.
+     * Literal strings are skipped, so a "<<" inside "( … )" does not count.
+     */
+    private function pdfDictionary(string $pdf, int $offset): ?string
+    {
+        $start = strpos($pdf, '<<', $offset);
+        if ($start === false) {
+            return null;
+        }
+
+        $depth  = 0;
+        $length = strlen($pdf);
+        for ($i = $start; $i < $length - 1; ++$i) {
+            $char = $pdf[$i];
+            if ($char === '(') {
+                $i = $this->pdfSkipString($pdf, $i);
+                continue;
+            }
+
+            if ($char === '<' && $pdf[$i + 1] === '<') {
+                ++$depth;
+                ++$i;
+                continue;
+            }
+
+            if ($char === '>' && $pdf[$i + 1] === '>') {
+                --$depth;
+                ++$i;
+                if ($depth === 0) {
+                    return substr($pdf, $start, $i - $start + 1);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** The offset of the ")" that closes the literal string opening at $offset. */
+    private function pdfSkipString(string $pdf, int $offset): int
+    {
+        $depth  = 0;
+        $length = strlen($pdf);
+        for ($i = $offset; $i < $length; ++$i) {
+            $char = $pdf[$i];
+            if ($char === '\\') {
+                ++$i;
+                continue;
+            }
+
+            if ($char === '(') {
+                ++$depth;
+            } elseif ($char === ')' && --$depth === 0) {
+                return $i;
+            }
+        }
+
+        return $length;
+    }
+
+    /** A PDF literal string of printable ASCII, backslash and parentheses escaped. */
+    private function pdfString(string $ascii): string
+    {
+        return '(' . strtr(AiProvenance::ascii($ascii), ['\\' => '\\\\', '(' => '\\(', ')' => '\\)']) . ')';
     }
 
     private function xmp(AiProvenance $provenance): string

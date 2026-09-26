@@ -1,0 +1,77 @@
+<f:spaceless>
+<!DOCTYPE html>
+<html lang="{language}">
+<head>
+    <meta charset="utf-8">
+    <title>{content.title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@600;700&family=Open+Sans:wght@400;600&display=swap');
+        @page { size: 1920px 1080px; margin: 0; }
+        html, body { margin: 0; padding: 0; }
+        .slide {
+            position: relative;
+            box-sizing: border-box;
+            width: 1920px;
+            height: 1080px;
+            padding: 120px 160px;
+            overflow: hidden;
+            break-after: page;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Open Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+            color: #0f3f44;
+            background: #ffffff;
+        }
+        .slide:last-child { break-after: auto; }
+        .slide--title, .slide--closing {
+            justify-content: center;
+            color: #ffffff;
+            /* #1d6f77, not the brand #2F99A4: white text keeps 5.8:1 (WCAG AA) on it. */
+            background: linear-gradient(160deg, #1d6f77 0%, #0f3f44 100%);
+        }
+        .accent { width: 160px; height: 14px; background: #FF4D00; margin-bottom: 48px; }
+        h1, h2 { font-family: 'Raleway', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; margin: 0; }
+        h1 { font-size: 104px; line-height: 1.1; }
+        h2 { font-size: 72px; line-height: 1.15; margin-bottom: 64px; }
+        .subtitle { font-size: 44px; line-height: 1.4; margin: 40px 0 0; }
+        ul { margin: 0; padding-left: 56px; }
+        li { font-size: 44px; line-height: 1.4; margin-bottom: 28px; }
+        .takeaway { font-size: 60px; line-height: 1.3; font-weight: 600; margin: 0; }
+        .footer {
+            position: absolute;
+            left: 160px;
+            right: 160px;
+            bottom: 56px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 24px;
+        }
+        .source { word-break: break-all; }
+        .closing-line { font-size: 28px; margin-top: 56px; }
+    </style>
+</head>
+<body>
+    <section class="slide slide--title">
+        <div class="accent"></div>
+        <h1>{content.title}</h1>
+        <f:if condition="{content.subtitle}"><p class="subtitle">{content.subtitle}</p></f:if>
+        <div class="footer"><span>Netresearch DTT GmbH</span><span class="source">{sourceLabel}</span></div>
+    </section>
+    <f:for each="{content.slides}" as="slide" iteration="i">
+        <section class="slide">
+            <h2>{slide.heading}</h2>
+            <ul>
+                <f:for each="{slide.bullets}" as="bullet"><li>{bullet}</li></f:for>
+            </ul>
+            <div class="footer"><span>{content.title}</span><span>{i.cycle}/{i.total}</span></div>
+        </section>
+    </f:for>
+    <section class="slide slide--closing">
+        <div class="accent"></div>
+        <f:if condition="{content.takeaway}"><p class="takeaway">{content.takeaway}</p></f:if>
+        <f:if condition="{content.closingLine}"><p class="closing-line">{content.closingLine}</p></f:if>
+        <div class="footer"><span>Netresearch DTT GmbH</span><span class="source">{sourceLabel}</span></div>
+    </section>
+</body>
+</html>
+</f:spaceless>

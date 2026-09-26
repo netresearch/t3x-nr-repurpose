@@ -168,6 +168,8 @@ as "Unattributed". The operation names are constants on
    generateFaq            FAQ question/answer pairs
    generateSocialPost     social posts, all platform variants in one call
    generateNewsletter     newsletter text
+   generateSlideDeck      slide deck titles and bullet points
+   generateHandout        handout title, lead, sections and key facts
 
 :php:`ConfiguredCompletionService`, the decorator every text completion passes
 through, stamps the extension key on options that carry none, so a new call site

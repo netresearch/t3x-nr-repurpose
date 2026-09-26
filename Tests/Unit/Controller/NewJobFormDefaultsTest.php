@@ -38,6 +38,8 @@ final class NewJobFormDefaultsTest extends TestCase
             'faq'               => ['wantFaq', false],
             'social posts'      => ['wantSocialPost', false],
             'newsletter'        => ['wantNewsletter', false],
+            'slide deck'        => ['wantSlideDeck', false],
+            'handout'           => ['wantHandout', false],
         ];
     }
 

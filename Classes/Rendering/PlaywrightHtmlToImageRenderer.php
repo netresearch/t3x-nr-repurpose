@@ -12,14 +12,14 @@ namespace Netresearch\NrRepurpose\Rendering;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
 
 /**
- * Renders an HTML string to a PNG file by driving Resources/Private/NodeRenderer/render.cjs
- * through Symfony Process. HTML is fed on stdin (avoids argv length limits / shell quoting);
+ * Renders an HTML string to a PNG file, or to a PDF (renderPdf()), by driving
+ * Resources/Private/NodeRenderer/render.cjs through Symfony Process. HTML is fed on stdin (avoids argv length limits / shell quoting);
  * chromium is the apt binary at $chromiumPath, exported into the process env as CHROMIUM_PATH
  * (render.cjs reads it from env, not argv). $height=null renders auto-height (fullPage);
  * a fixed $height clips the screenshot to the viewport. $transparent uses omitBackground —
  * the supplied CSS must set html,body{background:transparent} for it to take effect.
  */
-final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendererInterface
+final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendererInterface, HtmlToPdfRendererInterface
 {
     public function __construct(
         private ProcessRunnerInterface $processRunner,
@@ -37,6 +37,29 @@ final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendere
         float $deviceScaleFactor = 1.0,
         bool $transparent = false,
     ): string {
+        return $this->run(
+            $html,
+            'png',
+            [
+                '--width', (string) $width,
+                '--height', $height === null ? 'auto' : (string) $height,
+                '--scale', $this->formatScale($deviceScaleFactor),
+            ],
+            [$transparent ? '--transparent' : '--opaque'],
+        );
+    }
+
+    public function renderPdf(string $html, int $viewportWidth): string
+    {
+        return $this->run($html, 'pdf', ['--width', (string) $viewportWidth], ['--opaque', '--pdf']);
+    }
+
+    /**
+     * @param list<string> $arguments render.cjs arguments before --out
+     * @param list<string> $flags     render.cjs arguments after --out
+     */
+    private function run(string $html, string $extension, array $arguments, array $flags): string
+    {
         $dir = rtrim($this->outputDir, '/');
         if ($dir === '') {
             $dir = sys_get_temp_dir();
@@ -46,7 +69,7 @@ final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendere
             throw RenderingException::because('Render output dir not writable: ' . $dir, 1749400100);
         }
 
-        $out = $dir . '/' . bin2hex(random_bytes(8)) . '.png';
+        $out = $dir . '/' . bin2hex(random_bytes(8)) . '.' . $extension;
 
         // Default the renderer script to the extension's bundled render.cjs (root-package layout:
         // Classes/Rendering -> extension root -> Resources/Private/NodeRenderer/render.cjs).
@@ -54,15 +77,7 @@ final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendere
             ? $this->scriptPath
             : dirname(__DIR__, 2) . '/Resources/Private/NodeRenderer/render.cjs';
 
-        $command = [
-            $this->nodeBinary,
-            $script,
-            '--width', (string) $width,
-            '--height', $height === null ? 'auto' : (string) $height,
-            '--scale', $this->formatScale($deviceScaleFactor),
-            '--out', $out,
-            $transparent ? '--transparent' : '--opaque',
-        ];
+        $command = [$this->nodeBinary, $script, ...$arguments, '--out', $out, ...$flags];
 
         // CHROMIUM_PATH is passed via the process environment (render.cjs reads it from env).
         $previousChromiumPath = getenv('CHROMIUM_PATH');
@@ -81,7 +96,7 @@ final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendere
         }
 
         if (!is_file($out)) {
-            throw RenderingException::because('Renderer produced no PNG at ' . $out, 1749400102);
+            throw RenderingException::because(sprintf('Renderer produced no %s at %s', strtoupper($extension), $out), 1749400102);
         }
 
         return $out;

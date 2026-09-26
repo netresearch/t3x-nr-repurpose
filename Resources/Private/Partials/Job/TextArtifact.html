@@ -1,7 +1,8 @@
 <html data-namespace-typo3-fluid="true"
       xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
 <f:comment><!--
-    Result of a text format (executive summary, FAQ, social post, newsletter): the
+    Result of a text format (executive summary, FAQ, social post, newsletter, and the
+    content of the document formats slide deck and handout): the
     structured answer from metadata.content. Every value is LLM output and therefore
     untrusted — Fluid's default escaping keeps it inert; never add f:format.raw here.
     TextArtifactRenderingTest renders this partial with markup in every field.
@@ -48,6 +49,31 @@
         <p>{paragraph}</p>
     </f:for>
     <p><strong>{content.callToAction}</strong></p>
+    <f:render section="ClosingLine" arguments="{line: content.closingLine}" />
+</f:if>
+<f:if condition="{artifact.type} == 'slide_deck'">
+    <p><strong>{content.title}</strong><f:if condition="{content.subtitle}"> — {content.subtitle}</f:if></p>
+    <ol>
+        <f:for each="{content.slides}" as="slide">
+            <li>
+                {slide.heading}
+                <ul><f:for each="{slide.bullets}" as="bullet"><li>{bullet}</li></f:for></ul>
+            </li>
+        </f:for>
+    </ol>
+    <f:if condition="{content.takeaway}"><p><em>{content.takeaway}</em></p></f:if>
+    <f:render section="ClosingLine" arguments="{line: content.closingLine}" />
+</f:if>
+<f:if condition="{artifact.type} == 'handout'">
+    <p><strong>{content.title}</strong></p>
+    <p>{content.lead}</p>
+    <f:for each="{content.sections}" as="section">
+        <p class="mb-1"><strong>{section.heading}</strong></p>
+        <f:for each="{section.paragraphs}" as="paragraph"><p>{paragraph}</p></f:for>
+    </f:for>
+    <f:if condition="{content.keyFacts}">
+        <ul><f:for each="{content.keyFacts}" as="fact"><li>{fact}</li></f:for></ul>
+    </f:if>
     <f:render section="ClosingLine" arguments="{line: content.closingLine}" />
 </f:if>
 <f:comment><!--

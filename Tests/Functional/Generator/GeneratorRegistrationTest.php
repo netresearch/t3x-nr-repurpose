@@ -12,9 +12,11 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Generator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\ExecutiveSummaryGenerator;
 use Netresearch\NrRepurpose\Generator\FaqGenerator;
+use Netresearch\NrRepurpose\Generator\HandoutGenerator;
 use Netresearch\NrRepurpose\Generator\NewsletterGenerator;
 use Netresearch\NrRepurpose\Generator\PodcastGenerator;
 use Netresearch\NrRepurpose\Generator\SchaubildGenerator;
+use Netresearch\NrRepurpose\Generator\SlideDeckGenerator;
 use Netresearch\NrRepurpose\Generator\SocialPostGenerator;
 use Netresearch\NrRepurpose\Generator\StoryGenerator;
 use Netresearch\NrRepurpose\Generator\StubArtifactGenerator;
@@ -37,6 +39,8 @@ final class GeneratorRegistrationTest extends AbstractFunctionalTestCase
             FaqGenerator::class,
             SocialPostGenerator::class,
             NewsletterGenerator::class,
+            SlideDeckGenerator::class,
+            HandoutGenerator::class,
         ];
     }
 
@@ -72,7 +76,7 @@ final class GeneratorRegistrationTest extends AbstractFunctionalTestCase
      */
     public function testTheTextGeneratorsUseTheConfiguredCompletionService(): void
     {
-        foreach ([ExecutiveSummaryGenerator::class, FaqGenerator::class, SocialPostGenerator::class, NewsletterGenerator::class] as $class) {
+        foreach ([ExecutiveSummaryGenerator::class, FaqGenerator::class, SocialPostGenerator::class, NewsletterGenerator::class, SlideDeckGenerator::class, HandoutGenerator::class] as $class) {
             $completion = (new ReflectionProperty($class, 'completion'))->getValue($this->get($class));
             self::assertInstanceOf(ConfiguredCompletionService::class, $completion, $class);
         }

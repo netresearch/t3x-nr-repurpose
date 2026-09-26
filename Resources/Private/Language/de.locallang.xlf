@@ -97,6 +97,13 @@
       <trans-unit id="show.social.hashtagsDropped"><source>%s hashtags left out to fit.</source><target>%s Hashtags weggelassen, um das Limit einzuhalten.</target></trans-unit>
       <trans-unit id="text.faq.question"><source>Q</source><target>F</target></trans-unit>
       <trans-unit id="text.faq.answer"><source>A</source><target>A</target></trans-unit>
+      <trans-unit id="artifact.slide_deck"><source>Slide deck (PDF)</source><target>Foliensatz (PDF)</target></trans-unit>
+      <trans-unit id="artifact.slide_deck.desc"><source>A 16:9 presentation: title slide, up to eight content slides with bullet points, a closing takeaway.</source><target>Eine Präsentation im Format 16:9: Titelfolie, bis zu acht Inhaltsfolien mit Stichpunkten, eine Schlussaussage.</target></trans-unit>
+      <trans-unit id="artifact.handout"><source>Handout (PDF)</source><target>Handout (PDF)</target></trans-unit>
+      <trans-unit id="artifact.handout.desc"><source>A printable A4 handout: title, lead, sections and key facts.</source><target>Ein druckbares A4-Handout: Titel, Einleitung, Abschnitte und Kernaussagen.</target></trans-unit>
+      <trans-unit id="show.open.pdf"><source>Open PDF</source><target>PDF öffnen</target></trans-unit>
+      <trans-unit id="show.download.pdf"><source>Download PDF</source><target>PDF herunterladen</target></trans-unit>
+      <trans-unit id="text.handout.keyFacts"><source>Key facts</source><target>Das Wichtigste in Kürze</target></trans-unit>
       <trans-unit id="text.newsletter.subject"><source>Subject</source><target>Betreff</target></trans-unit>
       <trans-unit id="text.newsletter.preheader"><source>Preheader</source><target>Preheader</target></trans-unit>
       <trans-unit id="show.newsletter.subject"><source>Subject</source><target>Betreff</target></trans-unit>

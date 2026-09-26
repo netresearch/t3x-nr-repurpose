@@ -18,6 +18,7 @@ use Netresearch\NrRepurpose\Generator\Support\TextArtifact;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
+use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
@@ -129,16 +130,24 @@ abstract class AbstractTextGenerator extends AbstractGenerator
         // One row per result; a failed write fails only that row, like a story slide.
         $prompts = $this->promptsMetadata(system: $system, user: $prompt);
         // nr-llm's completion API does not report the model, so none is named (ADR-005).
-        $aiLabel = $this->provenance($ctx, DigitalSourceType::TrainedAlgorithmicMedia)->toArray();
-        $ok      = false;
+        $provenance = $this->provenance($ctx, DigitalSourceType::TrainedAlgorithmicMedia);
+        $aiLabel    = $provenance->toArray();
+        $ok         = false;
         foreach ($artifacts as $artifact) {
             $artifactUid = $this->jobs->insertArtifact($jobUid, $this->artifactType(), $artifact->variant, 0, ArtifactStatus::Pending);
+            try {
+                $fileFields = $this->fileFields($artifact, $ctx, $provenance);
+            } catch (Throwable $e) {
+                $this->failArtifact($artifactUid, $jobUid, sprintf('%s (%s) file error: %s', $this->label(), $artifact->variant, $e->getMessage()));
+                continue;
+            }
+
             try {
                 $this->jobs->updateArtifact($artifactUid, [
                     'script_text' => $artifact->plainText,
                     'metadata'    => json_encode(['content' => $artifact->content, 'prompts' => $prompts, 'aiLabel' => $aiLabel], JSON_THROW_ON_ERROR),
                     'status'      => ArtifactStatus::Done->value,
-                ]);
+                ] + $fileFields);
                 $ok = true;
             } catch (Throwable $e) {
                 $this->failArtifact($artifactUid, $jobUid, sprintf('%s (%s) storage error: %s', $this->label(), $artifact->variant, $e->getMessage()));
@@ -146,6 +155,20 @@ abstract class AbstractTextGenerator extends AbstractGenerator
         }
 
         return $ok;
+    }
+
+    /**
+     * Further artifact columns for one result, written with it — a format that also
+     * produces a file stores it here and returns its `file_uid` (and the HTML it was
+     * rendered from as `source_html`). Called after withClosingLine(), so the content
+     * carries the closing line. A throw fails only this result's row. The text formats
+     * store no file.
+     *
+     * @return array<string, int|string>
+     */
+    protected function fileFields(TextArtifact $artifact, GenerationContext $ctx, AiProvenance $provenance): array
+    {
+        return [];
     }
 
     /**

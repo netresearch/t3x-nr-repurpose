@@ -15,9 +15,11 @@ use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\FaqGenerator;
+use Netresearch\NrRepurpose\Generator\HandoutGenerator;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\PodcastGenerator;
 use Netresearch\NrRepurpose\Generator\SchaubildGenerator;
+use Netresearch\NrRepurpose\Generator\SlideDeckGenerator;
 use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
 use Netresearch\NrRepurpose\Generator\Support\TextLabels;
 use Netresearch\NrRepurpose\Generator\Support\WebVttBuilder;
@@ -29,6 +31,7 @@ use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Rendering\GdImageCompositor;
 use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
+use Netresearch\NrRepurpose\Rendering\HtmlToPdfRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
@@ -36,6 +39,7 @@ use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\AiMarkerReader;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -174,6 +178,85 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         self::assertSame($filesBefore, $this->fileCount());
     }
 
+    /**
+     * @return iterable<string, array{string, string, array<string, mixed>}>
+     */
+    public static function documentFormats(): iterable
+    {
+        yield 'slide deck' => ['slide_deck', 'want_slide_deck', [
+            'title'    => 'Quarterly <b>report</b>',
+            'subtitle' => 'Q3 at a glance',
+            'slides'   => [['heading' => 'Revenue', 'bullets' => ['Up by twelve percent', 'Driven by <script>x</script> exports']]],
+            'takeaway' => 'Growth continues.',
+        ]];
+        yield 'handout' => ['handout', 'want_handout', [
+            'title'    => 'Quarterly <b>report</b>',
+            'lead'     => 'Revenue grew by twelve percent.',
+            'sections' => [['heading' => 'Revenue', 'paragraphs' => ['Driven by <script>x</script> exports.']]],
+            'keyFacts' => ['Revenue +12 %'],
+        ]];
+    }
+
+    /**
+     * A document format renders its real Fluid template with the LLM output escaped,
+     * prints it (here: the Chromium PDF fixture stands in for the print) and stores a
+     * PDF that carries the AI entries and the FAL description; the template prints the
+     * closing line (aiLabelTexts is on in this instance).
+     *
+     * @param array<string, mixed> $answer
+     */
+    #[DataProvider('documentFormats')]
+    public function testADocumentFormatStoresALabelledPdf(string $type, string $column, array $answer): void
+    {
+        $jobUid                       = $this->seedJob(podcast: false, faq: false, schaubild: false, document: $column);
+        $jobs                         = $this->get(JobProcessingRepository::class);
+        $completion                   = new FakeCompletionService();
+        $completion->structuredResult = $answer;
+
+        $printer = $this->printer();
+        $storage = $this->get(JobFileStorage::class);
+        $labels  = new TextLabels($this->get(LanguageServiceFactory::class));
+
+        $generator = $type === 'slide_deck'
+            ? new SlideDeckGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $printer, $storage)
+            : new HandoutGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $printer, $storage, $labels);
+
+        (new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $this->ingestion(),
+            $this->analyzer(),
+            $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
+            $this->grants(),
+            $this->get(AiLabelSettingsFactory::class),
+            [$generator],
+        ))->process($jobUid);
+
+        $row = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->select(['status', 'file_uid', 'source_html', 'error_message'], 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobUid, 'type' => $type])
+            ->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertSame('done', $row['status'], (string) $row['error_message']);
+
+        $html = $printer->html[0] ?? '';
+        self::assertSame($html, $row['source_html']);
+        self::assertStringContainsString('Quarterly &lt;b&gt;report&lt;/b&gt;', $html);
+        // Every occurrence escaped: no raw markup from the model anywhere in the document.
+        self::assertStringNotContainsString('<b>report</b>', $html);
+        self::assertStringNotContainsString('<script>x</script>', $html);
+        self::assertStringContainsString('This text was created with AI.', $html);
+        self::assertStringContainsString('<html lang="en">', $html);
+
+        $pdf = $this->file((int) $row['file_uid']);
+        self::assertStringStartsWith('%PDF-1.4', $pdf['contents']);
+        self::assertStringContainsString('/AIGenerated (true)', $pdf['contents']);
+        self::assertStringContainsString(DigitalSourceType::TrainedAlgorithmicMedia->value, $pdf['contents']);
+        self::assertStringStartsWith('AI-generated with nr_repurpose', $pdf['description']);
+    }
+
     private function fileCount(): int
     {
         return (int) GeneralUtility::makeInstance(ConnectionPool::class)
@@ -206,15 +289,20 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         return ['contents' => $file->getContents(), 'description' => (string) ($row['description'] ?? '')];
     }
 
-    private function seedJob(bool $podcast = true, bool $faq = true): int
+    private function seedJob(bool $podcast = true, bool $faq = true, bool $schaubild = true, ?string $document = null): int
     {
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job');
-        $conn->insert('tx_nrrepurpose_domain_model_job', [
+        $row  = [
             'pid'               => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/',
-            'theme'             => 'nr', 'want_podcast' => (int) $podcast, 'want_schaubild' => 1, 'want_story' => 0,
+            'theme'             => 'nr', 'want_podcast' => (int) $podcast, 'want_schaubild' => (int) $schaubild, 'want_story' => 0,
             'want_exec_summary' => 0, 'want_faq' => (int) $faq, 'want_social_post' => 0, 'want_newsletter' => 0,
             'status'            => 'queued',
-        ]);
+        ];
+        if ($document !== null) {
+            $row[$document] = 1;
+        }
+
+        $conn->insert('tx_nrrepurpose_domain_model_job', $row);
 
         return (int) $conn->lastInsertId();
     }
@@ -245,6 +333,29 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
             public function resolve(int $beUserUid): CapabilityGrants
             {
                 return CapabilityGrants::all();
+            }
+        };
+    }
+
+    /**
+     * Stands in for Chromium's print: keeps the HTML and hands back a copy of the PDF
+     * Chromium printed (Tests/Fixtures/Document/chromium-deck.pdf).
+     */
+    private function printer(): HtmlToPdfRendererInterface
+    {
+        return new class (self::FIXTURES . 'Document/chromium-deck.pdf') implements HtmlToPdfRendererInterface {
+            /** @var list<string> */
+            public array $html = [];
+
+            public function __construct(private readonly string $fixture) {}
+
+            public function renderPdf(string $html, int $viewportWidth): string
+            {
+                $this->html[] = $html;
+                $out          = sys_get_temp_dir() . '/nrrepurpose_print_' . bin2hex(random_bytes(4)) . '.pdf';
+                copy($this->fixture, $out);
+
+                return $out;
             }
         };
     }

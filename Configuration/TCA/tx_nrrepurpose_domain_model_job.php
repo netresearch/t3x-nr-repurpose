@@ -78,6 +78,8 @@ return [
         'want_faq'          => ['label' => 'FAQ', 'config' => ['type' => 'check', 'default' => 0]],
         'want_social_post'  => ['label' => 'Social posts', 'config' => ['type' => 'check', 'default' => 0]],
         'want_newsletter'   => ['label' => 'Newsletter', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_slide_deck'   => ['label' => 'Slide deck', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_handout'      => ['label' => 'Handout', 'config' => ['type' => 'check', 'default' => 0]],
         // JSON snapshot of the New-form prompt-snippet selection (PromptSnippetSelection);
         // written by the module form only, hence passthrough (not editable in the record view).
         'prompt_snippets'   => ['config' => ['type' => 'passthrough']],
@@ -97,6 +99,6 @@ return [
         ],
     ],
     'types' => [
-        '0' => ['showitem' => 'source_type, source_value, source_pdf, pdf_mode, theme, want_podcast, want_schaubild, want_story, want_exec_summary, want_faq, want_social_post, want_newsletter, status, progress, current_step, error_message, language_detected, artifacts'],
+        '0' => ['showitem' => 'source_type, source_value, source_pdf, pdf_mode, theme, want_podcast, want_schaubild, want_story, want_exec_summary, want_faq, want_social_post, want_newsletter, want_slide_deck, want_handout, status, progress, current_step, error_message, language_detected, artifacts'],
     ],
 ];

@@ -55,4 +55,10 @@ final class CallerSource
 
     /** NewsletterGenerator subject, preheader, body and call to action. */
     public const GENERATE_NEWSLETTER = 'generateNewsletter';
+
+    /** SlideDeckGenerator slide titles and bullet points. */
+    public const GENERATE_SLIDE_DECK = 'generateSlideDeck';
+
+    /** HandoutGenerator title, lead, sections and key facts. */
+    public const GENERATE_HANDOUT = 'generateHandout';
 }
