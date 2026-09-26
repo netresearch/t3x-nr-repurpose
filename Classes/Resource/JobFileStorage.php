@@ -22,9 +22,10 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
  * and returns the resulting sys_file (File). Artifacts reference it by sys_file uid.
  *
  * Given an AiProvenance, the file is AI-labelled on the way in (ADR-005): the marker is
- * embedded into PNG, MP3 and WebVTT bytes (before the file is created, so a file that
+ * embedded into PNG, MP3, WebVTT and PDF bytes (before the file is created, so a file that
  * cannot be labelled is never written), and the file's sys_file_metadata.description states
- * the AI origin for every file type. This is the last step after every re-encode, so
+ * the AI origin for every file type. An MP4 is stored as it is: ffmpeg writes its marker
+ * when it encodes the video. This is the last step after every re-encode, so
  * nothing downstream in the extension can strip the marker again.
  */
 class JobFileStorage

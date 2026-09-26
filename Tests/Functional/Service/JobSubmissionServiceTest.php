@@ -88,7 +88,7 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
             self::assertSame(1, (int) $row[$column], $column);
         }
 
-        foreach (['want_exec_summary', 'want_faq', 'want_social_post', 'want_newsletter', 'want_slide_deck', 'want_handout'] as $column) {
+        foreach (['want_exec_summary', 'want_faq', 'want_social_post', 'want_newsletter', 'want_slide_deck', 'want_handout', 'want_video'] as $column) {
             self::assertSame(0, (int) $row[$column], $column);
         }
     }

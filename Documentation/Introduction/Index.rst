@@ -16,7 +16,8 @@ PDF — into AI-generated media artifacts and texts, all from the TYPO3 backend:
 
 #. a **podcast** (audio) with one to three persona-driven speakers,
 #. a **Schaubild** (diagram/infographic), rendered in three variants,
-#. a 9:16 **Instagram story** carousel (one image per slide),
+#. a 9:16 **Instagram story** carousel (one image per slide), optionally also
+   as a video,
 #. four **text formats**: an executive summary, an FAQ, social-media posts and
    a newsletter text, and
 #. two **documents** as PDF: a 16:9 slide deck and a printable A4 handout.
@@ -87,6 +88,11 @@ every slide (visual coherence, one image cost), scaled to *cover* the canvas
 (centre-cropped, never distorted), with the transparent text layer composited
 over it; otherwise flat branded renders are used.
 
+With *Also as video*, the finished slides also become one silent MP4 of
+1080×1920: each slide zooms in slowly for four seconds and cross-fades into the
+next (ffmpeg, no further AI call). The video is made from the story of the same
+run, so it needs the story.
+
 .. _introduction-text-formats:
 
 Text formats
@@ -131,8 +137,8 @@ headless Chromium that renders the images (see :ref:`adr-006`):
 
 Each artifact type is opt-in per run (``want_podcast`` / ``want_schaubild`` /
 ``want_story`` / ``want_exec_summary`` / ``want_faq`` / ``want_social_post`` /
-``want_newsletter`` / ``want_slide_deck`` / ``want_handout``). Per-artifact
-failures are isolated — one failing generator
+``want_newsletter`` / ``want_slide_deck`` / ``want_handout``, and ``want_video``
+for the story video). Per-artifact failures are isolated — one failing generator
 does not abort its siblings.
 
 .. _introduction-foundation:

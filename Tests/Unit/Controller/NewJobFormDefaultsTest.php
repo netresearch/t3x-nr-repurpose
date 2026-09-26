@@ -40,6 +40,7 @@ final class NewJobFormDefaultsTest extends TestCase
             'newsletter'        => ['wantNewsletter', false],
             'slide deck'        => ['wantSlideDeck', false],
             'handout'           => ['wantHandout', false],
+            'story video'       => ['wantVideo', false],
         ];
     }
 

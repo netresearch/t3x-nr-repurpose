@@ -51,6 +51,9 @@ class Job extends AbstractEntity
 
     protected bool $wantHandout = false;
 
+    // The story video is opt-in: it adds an ffmpeg render to every story.
+    protected bool $wantVideo = false;
+
     protected string $promptSnippets = '';
 
     protected string $status = 'queued';
@@ -246,6 +249,16 @@ class Job extends AbstractEntity
     public function setWantHandout(bool $wantHandout): void
     {
         $this->wantHandout = $wantHandout;
+    }
+
+    public function isWantVideo(): bool
+    {
+        return $this->wantVideo;
+    }
+
+    public function setWantVideo(bool $wantVideo): void
+    {
+        $this->wantVideo = $wantVideo;
     }
 
     public function getPromptSnippets(): string
