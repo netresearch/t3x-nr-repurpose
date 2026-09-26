@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-27
+
+### Changed
+
+- **Accept nr-llm 0.38.** `composer.json` requires `netresearch/nr-llm` at `^0.35 || ^0.36 || ^0.37 || ^0.38`, and `ext_emconf.php` declares `nr_llm 0.35.0-0.38.99` to match. On a 0.x version `^0.37` does not admit 0.38.0, so this extension kept an installation from moving to nr-llm 0.38. The floor stays at 0.35.
+
 ## [0.8.0] - 2026-09-27
 
 ### Added
@@ -295,7 +301,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.5.3...v0.6.0
