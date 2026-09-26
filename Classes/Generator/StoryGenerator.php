@@ -165,7 +165,8 @@ class StoryGenerator extends AbstractGenerator
             ]);
             $file = $this->fileStorage->store((string) file_get_contents($video), 'story-video.mp4', $provenance);
             if (is_file($video)) {
-                unlink($video);
+                // $video is the slideshow renderer's own temp file, never user input.
+                unlink($video); // nosemgrep: php.lang.security.unlink-use.unlink-use
             }
 
             $this->jobs->updateArtifact($artifactUid, [
