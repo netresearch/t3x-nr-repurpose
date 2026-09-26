@@ -1,0 +1,54 @@
+<f:spaceless>
+<!DOCTYPE html>
+<html lang="{language}">
+<head>
+    <meta charset="utf-8">
+    <title>{content.title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@600;700&family=Open+Sans:wght@400;600&display=swap');
+        @page { size: A4; margin: 18mm 18mm 20mm; }
+        html, body { margin: 0; padding: 0; }
+        body {
+            font-family: 'Open Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+            font-size: 11pt;
+            line-height: 1.55;
+            color: #1f2328;
+        }
+        header { border-bottom: 3pt solid #2F99A4; padding-bottom: 10pt; margin-bottom: 14pt; }
+        /* #1d6f77, not the brand #2F99A4: small text needs 4.5:1 (WCAG AA), #2F99A4 has 3.4:1 on white. */
+        .brand { font-family: 'Raleway', sans-serif; font-weight: 600; font-size: 9pt; color: #1d6f77; letter-spacing: 0.5pt; }
+        h1, h2 { font-family: 'Raleway', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; color: #0f3f44; }
+        h1 { font-size: 22pt; line-height: 1.2; margin: 6pt 0 0; }
+        h2 { font-size: 13pt; margin: 16pt 0 4pt; break-after: avoid; }
+        .lead { font-size: 12.5pt; font-weight: 600; margin: 0 0 6pt; }
+        p { margin: 0 0 6pt; }
+        .facts { margin-top: 16pt; padding: 10pt 14pt; background: #eaf5f6; border-left: 4pt solid #FF4D00; break-inside: avoid; }
+        .facts h2 { margin-top: 0; }
+        .facts ul { margin: 0; padding-left: 16pt; }
+        footer { margin-top: 18pt; padding-top: 8pt; border-top: 0.5pt solid #9ca3af; font-size: 8.5pt; color: #4b5563; }
+        .source { word-break: break-all; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="brand">Netresearch DTT GmbH</div>
+        <h1>{content.title}</h1>
+    </header>
+    <p class="lead">{content.lead}</p>
+    <f:for each="{content.sections}" as="section">
+        <h2>{section.heading}</h2>
+        <f:for each="{section.paragraphs}" as="paragraph"><p>{paragraph}</p></f:for>
+    </f:for>
+    <f:if condition="{content.keyFacts}">
+        <div class="facts">
+            <h2>{labels.keyFacts}</h2>
+            <ul><f:for each="{content.keyFacts}" as="fact"><li>{fact}</li></f:for></ul>
+        </div>
+    </f:if>
+    <footer>
+        <div class="source">{sourceLabel}</div>
+        <f:if condition="{content.closingLine}"><div>{content.closingLine}</div></f:if>
+    </footer>
+</body>
+</html>
+</f:spaceless>

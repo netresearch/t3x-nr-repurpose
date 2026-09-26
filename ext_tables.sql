@@ -12,6 +12,8 @@ CREATE TABLE tx_nrrepurpose_domain_model_job (
     want_faq smallint unsigned DEFAULT 0 NOT NULL,
     want_social_post smallint unsigned DEFAULT 0 NOT NULL,
     want_newsletter smallint unsigned DEFAULT 0 NOT NULL,
+    want_slide_deck smallint unsigned DEFAULT 0 NOT NULL,
+    want_handout smallint unsigned DEFAULT 0 NOT NULL,
     prompt_snippets text,
     status varchar(16) DEFAULT 'queued' NOT NULL,
     progress int unsigned DEFAULT 0 NOT NULL,

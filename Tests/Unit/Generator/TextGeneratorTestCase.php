@@ -295,6 +295,12 @@ abstract class TextGeneratorTestCase extends TestCase
         $ctx          = $this->context()->withProgress(new JobProgress($progressJobs, 31, 30.0, 100.0));
 
         self::assertTrue($this->generatorWithAnswer()->generate($ctx));
-        self::assertSame([$this->expectedLabel() . ': writing text'], $progressJobs->steps());
+        self::assertSame($this->expectedSteps(), $progressJobs->steps());
+    }
+
+    /** @return list<string> the progress steps one successful run reports */
+    protected function expectedSteps(): array
+    {
+        return [$this->expectedLabel() . ': writing text'];
     }
 }

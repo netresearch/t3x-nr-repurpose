@@ -21,6 +21,10 @@ enum ArtifactType: string
     case SocialPost       = 'social_post';
     case Newsletter       = 'newsletter';
 
+    // Document formats: structured text, rendered to a PDF.
+    case SlideDeck = 'slide_deck';
+    case Handout   = 'handout';
+
     case Stub = 'stub';
 
     /**
@@ -43,6 +47,8 @@ enum ArtifactType: string
             self::Faq              => 'content-accordion',
             self::SocialPost       => 'actions-share-alt',
             self::Newsletter       => 'actions-envelope',
+            self::SlideDeck        => 'content-carousel',
+            self::Handout          => 'mimetypes-pdf',
             self::Stub             => 'miscellaneous-placeholder',
         };
     }

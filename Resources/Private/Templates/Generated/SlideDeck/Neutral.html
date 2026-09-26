@@ -1,0 +1,72 @@
+<f:spaceless>
+<!DOCTYPE html>
+<html lang="{language}">
+<head>
+    <meta charset="utf-8">
+    <title>{content.title}</title>
+    <style>
+        @page { size: 1920px 1080px; margin: 0; }
+        html, body { margin: 0; padding: 0; }
+        .slide {
+            position: relative;
+            box-sizing: border-box;
+            width: 1920px;
+            height: 1080px;
+            padding: 120px 160px;
+            overflow: hidden;
+            break-after: page;
+            display: flex;
+            flex-direction: column;
+            font-family: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: #1f2328;
+            background: #ffffff;
+        }
+        .slide:last-child { break-after: auto; }
+        .slide--title, .slide--closing { justify-content: center; background: #f3f4f6; }
+        .accent { width: 160px; height: 10px; background: #1f2328; margin-bottom: 48px; }
+        h1, h2 { font-weight: 700; margin: 0; }
+        h1 { font-size: 100px; line-height: 1.1; }
+        h2 { font-size: 68px; line-height: 1.15; margin-bottom: 64px; }
+        .subtitle { font-size: 42px; line-height: 1.4; margin: 40px 0 0; color: #4b5563; }
+        ul { margin: 0; padding-left: 56px; }
+        li { font-size: 44px; line-height: 1.4; margin-bottom: 28px; }
+        .takeaway { font-size: 58px; line-height: 1.3; font-weight: 600; margin: 0; }
+        .footer {
+            position: absolute;
+            left: 160px;
+            right: 160px;
+            bottom: 56px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 24px;
+            color: #4b5563;
+        }
+        .source { word-break: break-all; }
+        .closing-line { font-size: 28px; margin-top: 56px; color: #4b5563; }
+    </style>
+</head>
+<body>
+    <section class="slide slide--title">
+        <div class="accent"></div>
+        <h1>{content.title}</h1>
+        <f:if condition="{content.subtitle}"><p class="subtitle">{content.subtitle}</p></f:if>
+        <div class="footer"><span></span><span class="source">{sourceLabel}</span></div>
+    </section>
+    <f:for each="{content.slides}" as="slide" iteration="i">
+        <section class="slide">
+            <h2>{slide.heading}</h2>
+            <ul>
+                <f:for each="{slide.bullets}" as="bullet"><li>{bullet}</li></f:for>
+            </ul>
+            <div class="footer"><span>{content.title}</span><span>{i.cycle}/{i.total}</span></div>
+        </section>
+    </f:for>
+    <section class="slide slide--closing">
+        <div class="accent"></div>
+        <f:if condition="{content.takeaway}"><p class="takeaway">{content.takeaway}</p></f:if>
+        <f:if condition="{content.closingLine}"><p class="closing-line">{content.closingLine}</p></f:if>
+        <div class="footer"><span></span><span class="source">{sourceLabel}</span></div>
+    </section>
+</body>
+</html>
+</f:spaceless>

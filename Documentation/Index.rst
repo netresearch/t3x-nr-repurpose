@@ -33,7 +33,7 @@ nr_repurpose
 Turn a webpage (URL) or PDF into AI-generated media artifacts — a
 persona-driven **podcast**, a **diagram** (Schaubild) in three variants, a 9:16
 **Instagram-story carousel** — and four ready-to-use texts (executive summary,
-FAQ, social posts, newsletter), straight from the TYPO3 backend. Built on
+FAQ, social posts, newsletter) and PDF documents (slide deck, handout), straight from the TYPO3 backend. Built on
 :composer:`netresearch/nr-llm` for AI access and provider credentials.
 
 ----

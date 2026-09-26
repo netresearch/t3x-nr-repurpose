@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Two documents as PDF: a slide deck and a handout**. Each is an opt-in checkbox on the job form (off by default) and one schema-validated nr-llm call, like the text formats, then printed by the Chromium the extension already uses for its images: `render.cjs --pdf` calls Playwright's `page.pdf()`, and the template's CSS (`@page`) sets the page size. The slide deck is 16:9 (1920×1080 CSS pixels per page): a title slide, at most eight content slides with at most five bullet points each, and a closing slide with the takeaway; headings and bullet points are cut to fit the fixed slide. The handout is A4: title, lead, at most five sections and six key facts, with the "Key facts" heading in the text's language. Both follow the job's theme; the Netresearch templates use the darker teal `#1d6f77` where text sits on or in teal, because `#2F99A4` has 3.4:1 against white. The PDF is stored in FAL, the HTML it was printed from in `source_html`, and the content as for a text format. The result view has "Open PDF" and "Download PDF". A failed print fails the artifact with "file error". Two `want_*` columns (default 0) are added to `tx_nrrepurpose_domain_model_job` — run the database analyzer after the update. See ADR-006.
+- **The PDF carries the AI label**. `AiContentMarker::markPdf()` appends an incremental update to the file Chromium printed: a document information dictionary with the original entries plus `Subject` (the AI statement), `Keywords`, `AIGenerated` and `DigitalSourceType`, the same XMP packet as the PNG files as the catalog's `/Metadata`, and a cross-reference section pointing back at Chromium's. The printed bytes stay unchanged. Only a complete, unencrypted PDF with a classic cross-reference table is accepted; anything else fails the artifact rather than storing an unlabelled file. Checked with `qpdf --check`, `pdfinfo` and `exiftool`.
+
 ## [0.7.0] - 2026-09-26
 
 ### Added

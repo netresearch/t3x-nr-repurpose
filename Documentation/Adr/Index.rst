@@ -62,6 +62,14 @@ Decision records
       .. card-footer:: :ref:`Read <adr-005>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-006: Document formats as HTML printed to PDF
+
+      Why the slide deck and the handout are Fluid templates printed
+      by Chromium, and how the PDF carries the AI label.
+
+      .. card-footer:: :ref:`Read <adr-006>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -70,3 +78,4 @@ Decision records
    Adr003ProviderCredentialsViaNrLlm
    Adr004TextFormatsAsStructuredOutput
    Adr005AiGeneratedContentLabel
+   Adr006DocumentFormatsAsPrintedHtml

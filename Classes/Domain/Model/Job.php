@@ -46,6 +46,11 @@ class Job extends AbstractEntity
 
     protected bool $wantNewsletter = false;
 
+    // The document formats are opt-in for the same reason.
+    protected bool $wantSlideDeck = false;
+
+    protected bool $wantHandout = false;
+
     protected string $promptSnippets = '';
 
     protected string $status = 'queued';
@@ -221,6 +226,26 @@ class Job extends AbstractEntity
     public function setWantNewsletter(bool $wantNewsletter): void
     {
         $this->wantNewsletter = $wantNewsletter;
+    }
+
+    public function isWantSlideDeck(): bool
+    {
+        return $this->wantSlideDeck;
+    }
+
+    public function setWantSlideDeck(bool $wantSlideDeck): void
+    {
+        $this->wantSlideDeck = $wantSlideDeck;
+    }
+
+    public function isWantHandout(): bool
+    {
+        return $this->wantHandout;
+    }
+
+    public function setWantHandout(bool $wantHandout): void
+    {
+        $this->wantHandout = $wantHandout;
     }
 
     public function getPromptSnippets(): string

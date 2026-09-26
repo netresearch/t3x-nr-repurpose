@@ -1,5 +1,6 @@
-// CommonJS so it runs without ESM config. Reads HTML from stdin, writes a PNG.
-// argv: --width <int> --height <int|auto> --scale <float> --out <path> (--transparent|--opaque)
+// CommonJS so it runs without ESM config. Reads HTML from stdin, writes a PNG,
+// or with --pdf a PDF whose page size and breaks come from the HTML's CSS (@page).
+// argv: --width <int> --height <int|auto> --scale <float> --out <path> (--transparent|--opaque) [--pdf]
 const { chromium } = require('playwright-core');
 
 function arg(name, def) {
@@ -13,6 +14,7 @@ function arg(name, def) {
     const scale = parseFloat(arg('scale', '1'));
     const out = arg('out');
     const transparent = process.argv.includes('--transparent');
+    const pdf = process.argv.includes('--pdf');
 
     if (!out) {
         console.error('render.cjs: missing --out');
@@ -39,6 +41,12 @@ function arg(name, def) {
         const page = await context.newPage();
         await page.setContent(html, { waitUntil: 'networkidle' });
         await page.evaluate(() => document.fonts && document.fonts.ready); // wait for webfonts
+
+        if (pdf) {
+            // Page size and margins from the template's @page rule; backgrounds printed.
+            await page.pdf({ path: out, printBackground: true, preferCSSPageSize: true });
+            return;
+        }
 
         await page.screenshot({
             path: out,

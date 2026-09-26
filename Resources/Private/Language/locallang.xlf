@@ -97,6 +97,13 @@
       <trans-unit id="show.social.hashtagsDropped"><source>%s hashtags left out to fit.</source></trans-unit>
       <trans-unit id="text.faq.question"><source>Q</source></trans-unit>
       <trans-unit id="text.faq.answer"><source>A</source></trans-unit>
+      <trans-unit id="artifact.slide_deck"><source>Slide deck (PDF)</source></trans-unit>
+      <trans-unit id="artifact.slide_deck.desc"><source>A 16:9 presentation: title slide, up to eight content slides with bullet points, a closing takeaway.</source></trans-unit>
+      <trans-unit id="artifact.handout"><source>Handout (PDF)</source></trans-unit>
+      <trans-unit id="artifact.handout.desc"><source>A printable A4 handout: title, lead, sections and key facts.</source></trans-unit>
+      <trans-unit id="show.open.pdf"><source>Open PDF</source></trans-unit>
+      <trans-unit id="show.download.pdf"><source>Download PDF</source></trans-unit>
+      <trans-unit id="text.handout.keyFacts"><source>Key facts</source></trans-unit>
       <trans-unit id="text.newsletter.subject"><source>Subject</source></trans-unit>
       <trans-unit id="text.newsletter.preheader"><source>Preheader</source></trans-unit>
       <trans-unit id="show.newsletter.subject"><source>Subject</source></trans-unit>

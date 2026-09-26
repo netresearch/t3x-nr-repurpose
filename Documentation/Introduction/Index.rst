@@ -16,9 +16,10 @@ PDF — into AI-generated media artifacts and texts, all from the TYPO3 backend:
 
 #. a **podcast** (audio) with one to three persona-driven speakers,
 #. a **Schaubild** (diagram/infographic), rendered in three variants,
-#. a 9:16 **Instagram story** carousel (one image per slide), and
+#. a 9:16 **Instagram story** carousel (one image per slide),
 #. four **text formats**: an executive summary, an FAQ, social-media posts and
-   a newsletter text.
+   a newsletter text, and
+#. two **documents** as PDF: a 16:9 slide deck and a printable A4 handout.
 
 It is a thin orchestration layer on top of :composer:`netresearch/nr-llm`: the
 LLM access (chat/vision completions, text-to-speech, image generation) and the
@@ -113,9 +114,25 @@ selects one:
 See :ref:`usage-text-formats` for what each format stores and how the limits
 are counted.
 
+.. _introduction-documents:
+
+Documents
+---------
+
+Two formats that leave the backend as a PDF. Each is written like a text
+format — one structured LLM call, off by default — and then printed by the same
+headless Chromium that renders the images (see :ref:`adr-006`):
+
+-   **Slide deck** — a 16:9 presentation: a title slide, three to eight content
+    slides with a heading and up to five bullet points, and a closing slide with
+    the takeaway.
+-   **Handout** — one to two A4 pages: title, lead, up to five sections and a
+    box with up to six key facts.
+
 Each artifact type is opt-in per run (``want_podcast`` / ``want_schaubild`` /
 ``want_story`` / ``want_exec_summary`` / ``want_faq`` / ``want_social_post`` /
-``want_newsletter``). Per-artifact failures are isolated — one failing generator
+``want_newsletter`` / ``want_slide_deck`` / ``want_handout``). Per-artifact
+failures are isolated — one failing generator
 does not abort its siblings.
 
 .. _introduction-foundation:

@@ -58,6 +58,9 @@ services:
   Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface:
     alias: Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer
 
+  Netresearch\NrRepurpose\Rendering\HtmlToPdfRendererInterface:
+    alias: Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer
+
   Netresearch\NrRepurpose\Rendering\ImageCompositorInterface:
     alias: Netresearch\NrRepurpose\Rendering\GdImageCompositor
 
@@ -94,6 +97,12 @@ services:
     public: true
     tags: ['nr_repurpose.artifact_generator']
   Netresearch\NrRepurpose\Generator\NewsletterGenerator:
+    public: true
+    tags: ['nr_repurpose.artifact_generator']
+  Netresearch\NrRepurpose\Generator\SlideDeckGenerator:
+    public: true
+    tags: ['nr_repurpose.artifact_generator']
+  Netresearch\NrRepurpose\Generator\HandoutGenerator:
     public: true
     tags: ['nr_repurpose.artifact_generator']
 

@@ -53,6 +53,8 @@
             <f:if condition="{job.wantFaq}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.faq" /></span></f:if>
             <f:if condition="{job.wantSocialPost}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.social_post" /></span></f:if>
             <f:if condition="{job.wantNewsletter}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.newsletter" /></span></f:if>
+            <f:if condition="{job.wantSlideDeck}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.slide_deck" /></span></f:if>
+            <f:if condition="{job.wantHandout}"><span class="badge badge-info me-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:artifact.handout" /></span></f:if>
         </dd>
 
         <f:for each="{snippetSelections}" as="selection">
@@ -137,7 +139,22 @@
                                 </f:if>
                             </f:if>
 
-                            <f:comment><!-- Text formats: executive summary, FAQ, social post, newsletter --></f:comment>
+                            <f:comment><!-- Document formats: the PDF to open or download; their content follows in the text partial --></f:comment>
+                            <f:if condition="{artifact.type} == 'slide_deck' || {artifact.type} == 'handout'">
+                                <f:variable name="pdf" value="{nr:publicUrl(fileUid: artifact.fileUid)}" />
+                                <f:if condition="{pdf}">
+                                    <p>
+                                        <a href="{pdf}" target="_blank" rel="noopener" class="btn btn-sm btn-default">
+                                            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.open.pdf" />
+                                        </a>
+                                        <a href="{pdf}" download class="btn btn-sm btn-default">
+                                            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.download.pdf" />
+                                        </a>
+                                    </p>
+                                </f:if>
+                            </f:if>
+
+                            <f:comment><!-- Text formats: executive summary, FAQ, social post, newsletter, and the content of the document formats --></f:comment>
                             <f:render partial="Job/TextArtifact" arguments="{artifact: artifact}" />
                         </f:if>
 

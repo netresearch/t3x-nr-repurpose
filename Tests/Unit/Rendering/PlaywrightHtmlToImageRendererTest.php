@@ -60,6 +60,19 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
         );
     }
 
+    public function testPdfRenderBuildsPdfArgvAndWritesAPdfPath(): void
+    {
+        $runner = new RecordingProcessRunner();
+        $out    = $this->renderer($runner)->renderPdf('<html><body>deck</body></html>', 1920);
+
+        self::assertSame(
+            ['--width', '1920', '--out', $out, '--opaque', '--pdf'],
+            array_slice($runner->calls[0]['command'], 2),
+        );
+        self::assertSame('<html><body>deck</body></html>', $runner->calls[0]['stdin']);
+        self::assertStringEndsWith('.pdf', $out);
+    }
+
     public function testChromiumPathIsNotPassedViaArgv(): void
     {
         $runner = new RecordingProcessRunner();

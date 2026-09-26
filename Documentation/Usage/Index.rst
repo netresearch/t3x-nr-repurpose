@@ -76,6 +76,10 @@ record:
        upgraded installation makes no additional LLM calls until an editor
        ticks one. *Audience* and *tone of voice* steer them; persona, layout
        and style do not apply to text.
+   * - Slide deck / Handout
+     - checkboxes (both off by default)
+     - Which documents to print as PDF this run (see
+       :ref:`usage-documents`). Steered like the text formats.
 
 .. note::
 
@@ -167,6 +171,40 @@ empty — the artifact is marked failed with the reason, and the other artifacts
 of the job are not affected. The text formats make no speech or image call, so
 they need neither the ``generate_audio`` nor the ``generate_vision``
 permission.
+
+.. _usage-documents:
+
+Documents
+---------
+
+The slide deck and the handout are written like a text format and then
+printed to a PDF by Chromium (see :ref:`adr-006`). The result view has
+:guilabel:`Open PDF` and :guilabel:`Download PDF` and shows the content below;
+``script_text`` holds the outline of the deck or the text of the handout.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 32 50
+
+   * - Format
+     - PDF
+     - Rules enforced in code
+   * - Slide deck
+     - 1920×1080 CSS pixels per page: title slide, content slides, closing
+       slide
+     - At most eight content slides, five bullet points each; headings are
+       cut at 80 and bullet points at 140 characters, because a slide has a
+       fixed size. A slide without a heading or bullet point is dropped.
+   * - Handout
+     - A4, 18 mm margins
+     - At most five sections with two paragraphs each and six key facts. A
+       title and a lead are required.
+
+Both follow the job's theme (Netresearch CI or neutral). With the
+``aiLabelTexts`` setting on, the closing line is printed on the last slide or
+at the foot of the handout. Every PDF carries the machine-readable AI label
+(see below). When the print fails, the artifact fails with "file error" and
+the reason; the documents need Chromium on the worker, as the images do.
 
 .. _usage-ai-label:
 
