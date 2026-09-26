@@ -163,10 +163,14 @@ class StoryGenerator extends AbstractGenerator
                 'AIGenerated'       => 'true',
                 'DigitalSourceType' => $provenance->sourceType->value,
             ]);
-            $file = $this->fileStorage->store((string) file_get_contents($video), 'story-video.mp4', $provenance);
-            if (is_file($video)) {
-                // $video is the slideshow renderer's own temp file, never user input.
-                unlink($video); // nosemgrep: php.lang.security.unlink-use.unlink-use
+            try {
+                $file = $this->fileStorage->store((string) file_get_contents($video), 'story-video.mp4', $provenance);
+            } finally {
+                // Also when the FAL write fails: the worker runs long.
+                if (is_file($video)) {
+                    // $video is the slideshow renderer's own temp file, never user input.
+                    unlink($video); // nosemgrep: php.lang.security.unlink-use.unlink-use
+                }
             }
 
             $this->jobs->updateArtifact($artifactUid, [
