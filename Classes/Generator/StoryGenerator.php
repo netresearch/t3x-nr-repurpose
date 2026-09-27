@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\StorySlideRole;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\Support\StorySlide;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -270,10 +271,8 @@ class StoryGenerator extends AbstractGenerator
             }
 
             $subline = is_scalar($raw['subline'] ?? null) ? trim((string) $raw['subline']) : '';
-            $role    = is_scalar($raw['role'] ?? null) ? (string) $raw['role'] : '';
-            if (!in_array($role, [StorySlide::ROLE_COVER, StorySlide::ROLE_POINT, StorySlide::ROLE_OUTRO], true)) {
-                $role = StorySlide::ROLE_POINT;
-            }
+            $role    = (is_scalar($raw['role'] ?? null) ? StorySlideRole::tryFrom((string) $raw['role']) : null)
+                ?? StorySlideRole::Point;
 
             $slides[] = new StorySlide(
                 $role,
@@ -343,7 +342,7 @@ class StoryGenerator extends AbstractGenerator
             'width'      => self::WIDTH,
             'height'     => self::HEIGHT,
             'background' => $hasBackground ? 'ki' : 'flat',
-            'role'       => $slide->role,
+            'role'       => $slide->role->value,
             'slideIndex' => $index,
             'slideTotal' => $total,
             // Every slide carries the full copy prompts; the shared background image
@@ -405,7 +404,7 @@ class StoryGenerator extends AbstractGenerator
         return $this->renderTemplate('Story', $ctx->theme, [
             'headline'    => $slide->headline,
             'subline'     => $slide->subline,
-            'role'        => $slide->role,
+            'role'        => $slide->role->value,
             'slideIndex'  => $index,
             'slideTotal'  => $total,
             'sourceLabel' => $ctx->document->sourceLabel,

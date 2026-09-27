@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Generator\Support;
 
 use InvalidArgumentException;
+use Netresearch\NrRepurpose\Domain\Enum\CutMode;
 
 /**
  * Cuts a text to a character limit without leaving half a sentence behind.
@@ -48,7 +49,7 @@ final class TextLimiter
 
         $text = trim($text);
         if (mb_strlen($text) <= $maxChars) {
-            return new TextCut($text, TextCut::NONE);
+            return new TextCut($text, CutMode::None);
         }
 
         // Look one character past the limit: a sentence end exactly AT the limit is
@@ -63,7 +64,7 @@ final class TextLimiter
 
             // The last fitting sentence end is the longest cut; an earlier one is shorter.
             if ($cut !== '' && mb_strlen($cut) * 2 >= $maxChars) {
-                return new TextCut($cut, TextCut::SENTENCE);
+                return new TextCut($cut, CutMode::Sentence);
             }
 
             break;
@@ -76,6 +77,6 @@ final class TextLimiter
             $head = substr($head, 0, $lastSpace[1]);
         }
 
-        return new TextCut(preg_replace('/(?:' . self::WHITESPACE . '|[,;:\-])+$/u', '', $head) . self::ELLIPSIS, TextCut::WORD);
+        return new TextCut(preg_replace('/(?:' . self::WHITESPACE . '|[,;:\-])+$/u', '', $head) . self::ELLIPSIS, CutMode::Word);
     }
 }

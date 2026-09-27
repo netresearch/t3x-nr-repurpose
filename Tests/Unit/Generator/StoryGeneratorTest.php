@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\StorySlideRole;
 use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
@@ -103,7 +104,7 @@ final class StoryGeneratorTest extends TestCase
 
             protected function renderSlideHtml(GenerationContext $ctx, StorySlide $slide, int $index, int $total, bool $transparent): string
             {
-                return sprintf('<html><body>SLIDE %d/%d %s | %s | %s</body></html>', $index, $total, $slide->role, $slide->headline, $slide->subline);
+                return sprintf('<html><body>SLIDE %d/%d %s | %s | %s</body></html>', $index, $total, $slide->role->value, $slide->headline, $slide->subline);
             }
         };
     }
@@ -295,7 +296,7 @@ final class StoryGeneratorTest extends TestCase
 
             public function exposeRenderSlideHtml(GenerationContext $ctx): string
             {
-                return $this->renderSlideHtml($ctx, new StorySlide(StorySlide::ROLE_COVER, 'Headline', 'Subline'), 1, 3, false);
+                return $this->renderSlideHtml($ctx, new StorySlide(StorySlideRole::Cover, 'Headline', 'Subline'), 1, 3, false);
             }
 
             protected function renderTemplate(string $area, string $theme, array $variables): string
@@ -310,6 +311,8 @@ final class StoryGeneratorTest extends TestCase
         $subject->exposeRenderSlideHtml($this->context());
 
         self::assertSame(['KI-generiert', null], array_column($subject->renderedVariables, 'aiLabel'));
+        // The template compares {role} with the string 'cover', so it must get the value, not the enum.
+        self::assertSame(['cover', 'cover'], array_column($subject->renderedVariables, 'role'));
     }
 
     public function testOverBudgetFallsBackToFlatSlides(): void
