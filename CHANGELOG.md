@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **The usage chapter shows the backend module.** Six screenshots in `Documentation/Images/Usage/`: the job list with its pager, the *New job* form, the top of a result view, the story strip, social posts in the approval step, and the social planning view.
+
 ### Fixed
 
 - **The job list fits the module again.** A long source URL (a 400-character tracking URL) did not wrap and pushed every column after "Source" out of view: at 1440 and 1280 px only the ID column was visible without scrolling the table. The source cell now uses the core column class `col-responsive` (one line, ellipsis, full URL in the `title`, the full text still in the cell for copying and screen readers); the artifact icons, progress and action columns use `col-nowrap`, `col-progress` and `col-control`. All six columns are visible at 1280 px and at 200 % zoom, and every row is one line high. The social-planning table does the same for its source column.

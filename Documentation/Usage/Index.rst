@@ -31,6 +31,16 @@ it: ``queued → ingesting → analyzing → generating → done`` (or
 ``partially_done`` / ``failed``). From here you open the *New job* form or a
 job's result view.
 
+.. figure:: /Images/Usage/JobList.png
+   :alt: Repurpose job list with the New job and Social planning buttons, jobs
+       30 to 6 with source URL, status badge, artifact icons, a progress bar and
+       a Details button each, and the pagination below the table
+   :zoom: lightbox
+   :class: with-border with-shadow
+
+   The job list, newest job first, 25 jobs per page. A long source URL is cut
+   with an ellipsis; the full URL is in the tooltip.
+
 .. _usage-new:
 
 Create a job
@@ -91,6 +101,17 @@ record:
    to the job record via the record edit view; the *New job* form sets the
    source type, URL and extraction mode.
 
+.. figure:: /Images/Usage/JobNew.png
+   :alt: New job form with source type, source URL, PDF extraction mode, theme,
+       audience and tone of voice selects, the Podcast, Schaubild and Story
+       cards with their persona, layout and style selects, and the text and
+       document format checkboxes
+   :zoom: lightbox
+   :class: with-border with-shadow
+
+   The *New job* form. The snippet selects offer the nr-llm prompt snippets of
+   their tag; without snippets they offer only "(none)".
+
 After submitting, a flash message confirms the job was created and queued, and
 you are redirected to the list. The worker picks the job up and processes it
 asynchronously.
@@ -114,6 +135,24 @@ run still shows whatever was produced.
 For transparency, every artifact lists its complete creation parameters: the
 exact system, user and image prompts that produced it, the models, the image
 sizes and the voices used.
+
+.. figure:: /Images/Usage/JobResult.png
+   :alt: Result view of job 30 with source, status and creation parameters, the
+       podcast card with audio player, download buttons and the expanded
+       generation parameters, and the first Schaubild variant with its preview
+   :zoom: lightbox
+   :class: with-border with-shadow
+
+   The top of a result view: the podcast with its generation parameters opened,
+   followed by the first Schaubild variant.
+
+.. figure:: /Images/Usage/JobResultStory.png
+   :alt: Story card with five 9:16 slides side by side, each with its slide
+       number, a Download PNG link and its review state
+   :zoom: lightbox
+   :class: with-border with-shadow
+
+   The story slides as a horizontal strip in slide order.
 
 .. _usage-text-formats:
 
@@ -226,9 +265,28 @@ that time, through the webhook in the extension configuration (see
 again; rejecting a scheduled post does the same. A published post keeps its
 review and schedule.
 
+.. figure:: /Images/Usage/JobReview.png
+   :alt: Three social post cards: LinkedIn approved and scheduled for 2026-10-01
+       09:00 with Publish at field, Schedule and Remove from schedule; X
+       approved and published; Instagram not reviewed with Approve and Reject
+   :zoom: lightbox
+   :class: with-border with-shadow
+
+   Social posts in the three states of the approval step: scheduled, published
+   and not yet reviewed.
+
 :guilabel:`Social planning` in the job list shows every scheduled, published
 and failed post across all jobs, oldest time first, with the channel's reason
 for a failure and a notice when no webhook is configured.
+
+.. figure:: /Images/Usage/SocialPlanning.png
+   :alt: Social planning view with the No publishing channel notice and a table
+       of six posts with publish time, platform, post text, status (published,
+       failed with the webhook's reason, scheduled) and the job they belong to
+   :zoom: lightbox
+   :class: with-border with-shadow
+
+   The social planning view without a configured webhook.
 
 Generating a job again replaces its artifacts, and with them their reviews and
 schedules.
