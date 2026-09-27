@@ -26,5 +26,7 @@ jobs:
       run-fractor: true
       run-unit-tests: true
       run-functional-tests: true
+      # Uploads unit and functional coverage to Codecov (codecov.yml).
+      upload-coverage: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
