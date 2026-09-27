@@ -83,7 +83,13 @@
             "config": "Build/captainhook.json"
         },
         "typo3/cms": {
+            "Package": {
+                "providesPackages": {
+                    "smalot/pdfparser": ""
+                }
+            },
             "extension-key": "nr_repurpose",
+            "version": "0.8.2",
             "web-dir": ".Build/Web"
         }
     }
