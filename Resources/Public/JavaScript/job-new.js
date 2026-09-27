@@ -15,6 +15,7 @@
 function init() {
     const form = document.querySelector('form[name="newJob"]');
     const button = document.getElementById('nrrepurpose-submit');
+    const status = document.getElementById('nrrepurpose-submit-status');
     if (!form || !button) {
         return;
     }
@@ -24,13 +25,16 @@ function init() {
         setTimeout(() => {
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
+            // The spinner is decoration; the status region below announces the state.
             const spinner = document.createElement('span');
             spinner.className = 'spinner-border spinner-border-sm';
-            spinner.setAttribute('role', 'status');
             spinner.setAttribute('aria-hidden', 'true');
             // textContent path (not innerHTML): the label is an overridable
             // XLF string and must never become an HTML injection point.
             button.replaceChildren(spinner, document.createTextNode(' ' + button.dataset.submittingLabel));
+            if (status) {
+                status.textContent = button.dataset.submittingLabel ?? '';
+            }
         }, 0);
     });
 }

@@ -78,6 +78,20 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertFileExists(GeneralUtility::getFileAbsFileName('EXT:nr_repurpose/Resources/Public/JavaScript/job-new.js'));
     }
 
+    #[Test]
+    public function newActionRendersAnEmptyStatusRegionForTheSubmitState(): void
+    {
+        $body = $this->renderNewAction();
+
+        // job-new.js writes the submitting label into this region; a live region is
+        // announced only when it is already in the page before its text changes.
+        self::assertMatchesRegularExpression(
+            '#<span class="visually-hidden" role="status" id="nrrepurpose-submit-status"></span>#',
+            $body,
+            'The new-job page must render an empty role="status" region for the submit state.',
+        );
+    }
+
     private function renderNewAction(): string
     {
         $this->importCSVDataSet(__DIR__ . '/Fixtures/BeUsers.csv');
