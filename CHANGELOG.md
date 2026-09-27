@@ -9,6 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - **The record forms, the permission options and the extension settings are translated.** The titles, field labels and select items of the job and artifact records were English strings in the TCA, the descriptions of the three custom permissions were English strings in `ext_localconf.php`, and the extension settings had English labels. They now come from the new `locallang_db.xlf`, from `locallang.xlf` and from the new `locallang_em.xlf`, each with a German translation. The records use the registered icon identifiers (`typeicon_classes`) instead of the SVG paths. The permission descriptions name the nr-llm capabilities `audio` and `vision` as text now, no longer from the nr-llm enum.
+- **The extension icon is the Netresearch [n] symbol.** `Resources/Public/Icons/Extension.svg` was a teal tile with a white refresh glyph and an orange spark, which the brand standard reserves for the backend module. It now carries the [n] mark with the teal frame `#2F99A4` and the anthracite letter `#585961`, as fill attributes rather than a `<style>` block, since the icon registry inlines the SVG into the backend. The backend module keeps its own glyph, `module.svg`.
 
 ### Security
 
