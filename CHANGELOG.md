@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The "Create & queue" button gives its feedback again.** Its script sat inline in the new-job template, and the TYPO3 backend Content Security Policy refuses an inline `<script>` without a nonce, so the browser never ran it: the button was never disabled and never showed the spinner, and a double click could queue the same job twice. The script is now the ES module `Resources/Public/JavaScript/job-new.js`, registered under the import-map prefix `@netresearch/nr-repurpose/` (`Configuration/JavaScriptModules.php`) and loaded by the new-job action only.
+
 ## [0.8.1] - 2026-09-27
 
 ### Changed

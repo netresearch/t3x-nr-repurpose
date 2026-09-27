@@ -26,6 +26,7 @@ use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
@@ -43,6 +44,7 @@ class JobController extends ActionController
         protected readonly ArtifactReviewService $reviewService,
         protected readonly ReviewPermission $reviewPermission,
         protected readonly SocialPublisherInterface $socialPublisher,
+        protected readonly PageRenderer $pageRenderer,
     ) {}
 
     protected function initializeAction(): void
@@ -75,6 +77,9 @@ class JobController extends ActionController
             'layoutOptions'   => $this->snippetOptions('layout'),
             'styleOptions'    => $this->snippetOptions('style'),
         ]);
+        // Submit feedback (disable the button, show a spinner) as an ES module: the
+        // backend Content Security Policy blocks an inline <script> without a nonce.
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-repurpose/job-new.js');
 
         return $this->moduleTemplate->renderResponse('Job/New');
     }
