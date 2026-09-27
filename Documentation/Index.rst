@@ -97,6 +97,22 @@ Getting started
       .. card-footer:: :ref:`Read more <adr>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: 🧑‍💻 Developer
+
+      Run the test suites, add a generator, or put another
+      image or speech backend behind the adapters.
+
+      .. card-footer:: :ref:`Read more <developer>`
+         :button-style: btn btn-secondary stretched-link
+
+   .. card:: 🩺 Troubleshooting
+
+      Jobs that stay queued, denied secrets, missing
+      binaries, and what each error message means.
+
+      .. card-footer:: :ref:`Read more <troubleshooting>`
+         :button-style: btn btn-secondary stretched-link
+
 ----
 
 .. card-grid::
@@ -126,6 +142,8 @@ Getting started
    Usage/Index
    Architecture/Index
    Adr/Index
+   Developer/Index
+   Troubleshooting/Index
    Changelog
 
 .. Meta Menu
