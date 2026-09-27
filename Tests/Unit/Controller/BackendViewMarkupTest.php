@@ -247,7 +247,7 @@ final class BackendViewMarkupTest extends TestCase
             'audio player fits the card'          => ['.nrrepurpose-audio', ['width: 100%;', 'max-width: 640px;']],
             'story strip scrolls, not the page'   => ['.nrrepurpose-story-strip', ['display: flex;', 'overflow-x: auto;']],
             'slides keep their size in the strip' => ['.nrrepurpose-story-slide', ['flex: 0 0 auto;']],
-            'progress track is drawn'             => ['.nrrepurpose-progress-track', ['flex: 1 1 auto;', 'height: .5rem;', 'background-color: var(--typo3-surface-container-high);']],
+            'progress track is drawn'             => ['.nrrepurpose-progress-track', ['flex: 1 1 auto;', 'min-width: 3rem;', 'height: .5rem;', 'background-color: var(--typo3-surface-container-high);']],
             'progress fill colour'                => ['.nrrepurpose-progress-fill', ['height: 100%;', 'background-color: var(--typo3-component-primary-color);']],
         ];
     }
@@ -261,6 +261,53 @@ final class BackendViewMarkupTest extends TestCase
 
         foreach ($declarations as $declaration) {
             self::assertStringContainsString($declaration, $rule[1], $selector);
+        }
+    }
+
+    public function testTheProgressBarItselfHasNoMinimumWidth(): void
+    {
+        $css = (string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css');
+        self::assertSame(1, preg_match('/^\.nrrepurpose-progress \{([^}]*)\}/m', $css, $rule));
+
+        // min-width: 8rem here widened the job list to 661 px in a 657 px container at 1280 px
+        // and cut off the actions column; the minimum belongs to the track (3rem).
+        self::assertStringNotContainsString('min-width', $rule[1]);
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function trackedTranslations(): array
+    {
+        $cases = [];
+        foreach (glob(self::RESOURCES . 'Private/Language/*.xlf') ?: [] as $file) {
+            $cases[basename($file)] = [$file];
+        }
+
+        return $cases;
+    }
+
+    /** A target that drops a %d or %s of its source renders without the value (the job number of a label). */
+    #[DataProvider('trackedTranslations')]
+    public function testEveryTranslationKeepsThePlaceholdersOfItsSource(string $file): void
+    {
+        $xliff = simplexml_load_file($file);
+        self::assertNotFalse($xliff, $file);
+        $units = $xliff->xpath('//*[local-name()="trans-unit"]') ?: [];
+        self::assertNotSame([], $units, $file);
+
+        foreach ($units as $unit) {
+            $source = (string) $unit->source;
+            $target = isset($unit->target) ? (string) $unit->target : null;
+            if ($target === null) {
+                continue;
+            }
+
+            preg_match_all('/%[ds]/', $source, $expected);
+            preg_match_all('/%[ds]/', $target, $actual);
+            $want = $expected[0];
+            $have = $actual[0];
+            sort($want);
+            sort($have);
+            self::assertSame($want, $have, basename($file) . ' ' . $unit['id']);
         }
     }
 
