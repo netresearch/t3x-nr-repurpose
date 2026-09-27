@@ -89,7 +89,7 @@ Build/           → project files
 - `ci.yml` matrix: PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3 — lint + unit tests per version
 - `run-cgl`, `run-phpstan`, `run-rector` are `true`; `run-functional-tests: false` is the only gate still off
 - `checks.yml` (drift-enforced): security (Opengrep SAST, composer audit), betterleaks, zizmor, fuzz, license-check, CodeQL, Scorecard, dependency-review, pr-quality — all behind one required `All security checks` gate; SonarCloud + DCO run as apps
-- Release: signed annotated tag `vX.Y.Z` triggers `release.yml` (skip-ter/packagist/docs set — not published there yet)
+- Release: signed annotated tag `vX.Y.Z` triggers `release.yml`, which publishes to TER, verifies Packagist, dispatches the docs.typo3.org render without gating the release, then creates the signed GitHub release
 <!-- AGENTS-GENERATED:END ci-rules -->
 
 ## Boundaries
