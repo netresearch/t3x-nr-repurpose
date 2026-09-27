@@ -14,14 +14,19 @@ use function assert;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
+use FilesystemIterator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use Sabberworm\CSS\OutputFormat;
 use Sabberworm\CSS\Parser;
 use Sabberworm\CSS\Property\Selector;
 use Sabberworm\CSS\RuleSet\DeclarationBlock;
 use Sabberworm\CSS\Settings;
 use SimpleXMLElement;
+use SplFileInfo;
+use TYPO3Fluid\Fluid\Core\Parser\TemplateProcessor\RemoveCommentsTemplateProcessor;
 
 /**
  * The backend module's markup follows the core backend: tables use the core table and
@@ -52,21 +57,31 @@ final class BackendViewMarkupTest extends TestCase
         ];
     }
 
+    /**
+     * No template carries inline styling, in any branch, whether a render reaches it or not: the
+     * source after Fluid's own comment removal has no `<style` element, no `style` attribute
+     * (either quote) and no `style` key in an argument array such as `additionalAttributes`
+     * (tag or inline syntax, quoted or bare key). The backend CSP allows inline styles, so each
+     * would override backend.css unseen. The one exception is the progress fill width, the
+     * job's value, matched as the exact element in the job list.
+     */
     #[DataProvider('backendTemplates')]
     public function testNoInlineStyles(string $template): void
     {
-        $styled = [];
-        foreach ($this->xpath($template)->query('//*[@style]') ?: [] as $element) {
-            assert($element instanceof DOMElement);
-            // The progress fill width is the job's value, not layout: the one inline style kept.
-            if ($element->getAttribute('class') === 'nrrepurpose-progress-fill' && $element->getAttribute('style') === 'width: {job.progress}%;') {
-                continue;
-            }
-
-            $styled[] = $element->nodeName . ' style="' . $element->getAttribute('style') . '"';
+        $code = $this->fluidCode($template);
+        if ($template === 'Private/Templates/Job/List.html') {
+            $fill = '<div class="nrrepurpose-progress-fill" style="width: {job.progress}%;"></div>';
+            self::assertSame(1, substr_count($code, $fill), 'the progress fill');
+            $code = str_replace($fill, '', $code);
         }
 
-        self::assertSame([], $styled);
+        foreach ([
+            'a <style> element'          => '/<style\b/i',
+            'a style attribute'          => '/\sstyle\s*=/i',
+            'a style key in an argument' => '/[{,]\s*[\'"]?style[\'"]?\s*:/i',
+        ] as $what => $pattern) {
+            self::assertSame(0, preg_match($pattern, $code), $template . ': ' . $what);
+        }
     }
 
     /** @return array<string, array{0: string}> */
@@ -224,13 +239,27 @@ final class BackendViewMarkupTest extends TestCase
         self::assertStringNotContainsString('text-danger', substr($source, $offset));
     }
 
-    /** The list above covers every template, partial and layout of the module: a new file cannot be missed. */
+    /**
+     * The list above equals every `*.html` file under Private/Templates, Private/Partials and
+     * Private/Layouts, subfolders included, except Templates/Generated (the image templates the
+     * renderer turns into PNGs, not backend views). A backend template added anywhere there fails
+     * this test until it is listed, and so gets every check that runs over the list.
+     */
     public function testTheTemplateListCoversEveryBackendTemplate(): void
     {
         $found = [];
-        foreach (['Private/Templates/Job/*.html', 'Private/Partials/Job/*.html', 'Private/Layouts/*.html', 'Private/Layouts/**/*.html'] as $pattern) {
-            foreach (glob(self::RESOURCES . $pattern) ?: [] as $file) {
-                $found[] = substr($file, strlen(self::RESOURCES));
+        foreach (['Private/Templates', 'Private/Partials', 'Private/Layouts'] as $directory) {
+            if (!is_dir(self::RESOURCES . $directory)) {
+                continue;
+            }
+
+            $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(self::RESOURCES . $directory, FilesystemIterator::SKIP_DOTS));
+            foreach ($files as $file) {
+                assert($file instanceof SplFileInfo);
+                $path = substr($file->getPathname(), strlen(self::RESOURCES));
+                if ($file->getExtension() === 'html' && !str_starts_with($path, 'Private/Templates/Generated/')) {
+                    $found[] = $path;
+                }
             }
         }
 
@@ -245,13 +274,13 @@ final class BackendViewMarkupTest extends TestCase
      * but is deprecated since TYPO3 14.2, and the rendered page cannot tell the two apart, so the
      * template source is the one place the difference shows. The argument name is refused in any
      * form (tag or inline syntax, any namespace alias) once the Fluid comments, which may name
-     * it, are removed; each `<f:asset.script>` tag must also carry `csp="true"`.
+     * it, are removed the way Fluid removes them; each `<f:asset.script>` tag must also carry
+     * `csp="true"`.
      */
     #[DataProvider('backendTemplates')]
     public function testInlineScriptsUseTheCspArgument(string $template): void
     {
-        $source = (string) file_get_contents(self::RESOURCES . $template);
-        $code   = (string) preg_replace('#<f:comment>.*?</f:comment>#s', '', $source);
+        $code = $this->fluidCode($template);
         self::assertStringNotContainsString('useNonce', $code, $template);
 
         preg_match_all('/<f:asset\.script\b[^>]*>/', $code, $tags);
@@ -609,6 +638,12 @@ final class BackendViewMarkupTest extends TestCase
         self::assertNotSame([], $units, $file);
 
         return array_values($units);
+    }
+
+    /** The template source as Fluid parses it: comments removed by Fluid's own processor. */
+    private function fluidCode(string $template): string
+    {
+        return (new RemoveCommentsTemplateProcessor())->preProcessSource((string) file_get_contents(self::RESOURCES . $template));
     }
 
     private function xpath(string $template): DOMXPath

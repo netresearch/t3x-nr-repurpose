@@ -184,7 +184,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * Every page the module renders, filled like the demo (a running job with a failed artifact,
+     * Every page the module renders, filled like the demo (a queued, non-terminal job with a failed artifact,
      * a scheduled post): each <script> carries a src or a nonce, since the backend CSP silently
      * blocks any other; and the module body has no <style> element and no style attribute except
      * the progress fill width. The backend CSP allows inline styles, so either would override
@@ -214,7 +214,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertIsInt($start, $action . ': module body not found');
         $moduleBody = substr($body, $start);
         self::assertSame(0, preg_match('/<style\b/i', $moduleBody), $action . ': <style> element in the module body');
-        preg_match_all('/<[^>]*\sstyle="[^"]*"[^>]*>/i', $moduleBody, $styled);
+        preg_match_all('/<[^>]*\sstyle\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)[^>]*>/i', $moduleBody, $styled);
         foreach ($styled[0] as $tag) {
             self::assertMatchesRegularExpression('/^<div class="nrrepurpose-progress-fill" style="width: \d+%;">$/', $tag, $action . ': inline style');
         }
