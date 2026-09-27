@@ -1,10 +1,25 @@
 # nr_repurpose — Content Repurpose for TYPO3
 
+[![CI](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/netresearch/t3x-nr-repurpose/graph/badge.svg)](https://codecov.io/gh/netresearch/t3x-nr-repurpose)
+[![Documentation](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/docs.yml/badge.svg)](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/docs.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/netresearch/t3x-nr-repurpose/badge)](https://securityscorecards.dev/viewer/?uri=github.com/netresearch/t3x-nr-repurpose)
+[![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg)](https://phpstan.org/)
+[![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-blue.svg)](https://www.php.net/)
+[![TYPO3 v14.3](https://img.shields.io/badge/TYPO3-v14.3-orange.svg)](https://typo3.org/)
+[![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/netresearch/t3x-nr-repurpose)](https://github.com/netresearch/t3x-nr-repurpose/releases)
+[![TER version](https://typo3-badges.dev/badge/nr_repurpose/version/shields.svg)](https://extensions.typo3.org/extension/nr_repurpose)
+[![TER TYPO3](https://typo3-badges.dev/badge/nr_repurpose/typo3/shields.svg)](https://extensions.typo3.org/extension/nr_repurpose)
+
+A TYPO3 extension by [Netresearch DTT GmbH](https://www.netresearch.de/).
+
 Turn a webpage (URL) or PDF into AI-generated media artifacts — a **podcast**
 with one to three persona-driven speakers (with transcript + WebVTT subtitles), a
-**diagram** (Schaubild, in three variants), an **Instagram-story carousel** — and four
-ready-to-use **texts** (executive summary, FAQ, social posts, newsletter), from the
-TYPO3 backend.
+**diagram** (Schaubild, in three variants), an **Instagram-story carousel** (optionally
+also as a video) — plus four ready-to-use **texts** (executive summary, FAQ, social
+posts, newsletter) and two **PDF documents** (slide deck, handout), from the TYPO3
+backend.
 
 Every AI call goes through [`netresearch/nr-llm`](https://github.com/netresearch/t3x-nr-llm):
 nr_repurpose contains no provider code. Any LLM, image or TTS provider works — if
@@ -29,6 +44,10 @@ From one source (URL or PDF) the pipeline derives a single faithful `ContentBrie
   artifact per slide. A single optional AI background is shared by all slides — generated
   at the layout-selected dimensions and scaled to *cover* the design canvas so the
   layout is never distorted.
+- **Story video** — with *Also as video*, the finished slides also become one silent
+  1080×1920 MP4: each slide zooms in slowly for four seconds and cross-fades into the
+  next (ffmpeg, no further AI call). It is made from the story of the same run, so it
+  needs the story.
 - **Text formats** — an executive summary (5–8 sentences asked for, key facts first), an
   FAQ (5–10 pairs from the source only asked for — more are cut, fewer kept as they come —
   plus schema.org `FAQPage` JSON-LD), one social post
@@ -36,6 +55,11 @@ From one source (URL or PDF) the pipeline derives a single faithful `ContentBrie
   ≤ 2200), and a newsletter text (subject, preheader, paragraphs, one call to action).
   Each is one schema-validated LLM call; the platform limits are enforced in code by
   cutting at a sentence boundary (or a word boundary when that keeps more). The text formats are off by default — tick them per job.
+- **Documents (PDF)** — a 16:9 **slide deck** (title slide, three to eight content
+  slides with up to five bullet points, closing slide with the takeaway) and a one- to
+  two-page A4 **handout** (title, lead, up to five sections, a box with up to six key
+  facts). Each is one schema-validated LLM call like a text format, printed to PDF by
+  the same headless Chromium that renders the images; off by default.
 
 Each artifact type can be selected per run. Long-running generation runs asynchronously
 via Symfony Messenger (doctrine transport).
@@ -120,6 +144,29 @@ the AI usage stays under the operator's control:
 - `ffmpeg`, `poppler-utils` and `chromium` (+ Node.js for the renderer) on the
   host that runs the worker — baked into the DDEV web image.
 
+## Installation
+
+### Composer
+
+```bash
+composer require netresearch/nr-repurpose
+vendor/bin/typo3 extension:setup nr_repurpose
+```
+
+Composer pulls in nr-llm and nr-vault. Then hand the provider key to nr-llm, import
+the three `nr_repurpose_*` configuration presets, and run a Messenger worker — see
+the [Installation](Documentation/Installation/Index.rst) and
+[Configuration](Documentation/Configuration/Index.rst) chapters.
+
+### TER / classic mode
+
+The extension is published in the TYPO3 Extension Repository as
+[`nr_repurpose`](https://extensions.typo3.org/extension/nr_repurpose). In a classic
+(non-Composer) installation, install `nr_llm` and `nr_vault` from the TER first, in
+the versions `nr_repurpose` declares as dependencies, then `nr_repurpose` via
+**Admin Tools › Extensions**. The system binaries, the Node renderer and the worker
+are needed in the same way as for a Composer installation.
+
 ## Local development (DDEV)
 
 Prerequisites: Docker + DDEV.
@@ -168,3 +215,13 @@ Configuration, Usage, Architecture, and the Architecture Decision Records). Pipe
 ingest (web/PDF) → analyze (one `ContentBrief` via nr-llm) → generate (podcast /
 schaubild×3 / story×N slides / text formats) → store in the TYPO3 File Abstraction Layer (FAL); the
 text formats write no file, their text lives on the artifact row.
+
+## License
+
+GPL-2.0-or-later. See [LICENSE](LICENSE).
+
+## Credits
+
+Developed and maintained by [Netresearch DTT GmbH](https://www.netresearch.de/).
+
+Copyright (c) 2025-2026 [Netresearch DTT GmbH](https://www.netresearch.de/).
