@@ -1,0 +1,11 @@
+# Code Owners for the nr_repurpose TYPO3 extension
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Review requests only: the t3x-pull-request ruleset has require_code_owner_review
+# disabled, so an owner's approval is not a merge condition.
+#
+# A team owner needs write access to this repository. @netresearch/typo3 (the
+# owner in t3x-nr-llm) has none here yet; replace the user below with the team
+# once it is granted write access.
+
+* @CybotTM
