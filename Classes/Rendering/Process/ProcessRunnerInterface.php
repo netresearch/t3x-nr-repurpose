@@ -15,8 +15,12 @@ interface ProcessRunnerInterface
      * Run a command (argv form, no shell) with optional stdin. Never throws on a non-zero
      * exit — the caller inspects ProcessResult and raises a RenderingException with context.
      *
-     * @param list<string> $command argv: [binary, arg, ...]
-     * @param string|null  $stdin   fed to the process stdin (e.g. HTML for the renderer)
+     * @param list<string>          $command argv: [binary, arg, ...]
+     * @param string|null           $stdin   fed to the process stdin (e.g. HTML for the renderer)
+     * @param array<string, string> $env     variables set for the child on top of the inherited
+     *                                       environment; putenv() is no substitute, because
+     *                                       Symfony Process forwards only getenv() keys that
+     *                                       are also in $_SERVER
      */
-    public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0): ProcessResult;
+    public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0, array $env = []): ProcessResult;
 }

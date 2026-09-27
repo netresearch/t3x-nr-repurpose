@@ -15,7 +15,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Renders an HTML string to a PNG file, or to a PDF (renderPdf()), by driving
  * Resources/Private/NodeRenderer/render.cjs through Symfony Process. HTML is fed on stdin (avoids argv length limits / shell quoting);
- * chromium is the apt binary at $chromiumPath, exported into the process env as CHROMIUM_PATH
+ * chromium is the apt binary at $chromiumPath, passed to the child's environment as CHROMIUM_PATH
  * (render.cjs reads it from env, not argv). $height=null renders auto-height (fullPage);
  * a fixed $height clips the screenshot to the viewport. $transparent uses omitBackground —
  * the supplied CSS must set html,body{background:transparent} for it to take effect.
@@ -86,14 +86,9 @@ final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendere
 
         $command = [$this->nodeBinary, $script, ...$arguments, '--out', $out, ...$flags];
 
-        // CHROMIUM_PATH is passed via the process environment (render.cjs reads it from env).
-        $previousChromiumPath = getenv('CHROMIUM_PATH');
-        putenv('CHROMIUM_PATH=' . $this->chromiumPath);
-        try {
-            $result = $this->processRunner->run($command, $html, $this->timeoutSeconds);
-        } finally {
-            putenv($previousChromiumPath === false ? 'CHROMIUM_PATH' : 'CHROMIUM_PATH=' . $previousChromiumPath);
-        }
+        // render.cjs reads CHROMIUM_PATH from its environment. It is handed to the runner
+        // explicitly: a putenv() here would not reach the child through Symfony Process.
+        $result = $this->processRunner->run($command, $html, $this->timeoutSeconds, ['CHROMIUM_PATH' => $this->chromiumPath]);
 
         if (!$result->successful()) {
             // stderr holds the Chromium launch line (profile directory, script path).

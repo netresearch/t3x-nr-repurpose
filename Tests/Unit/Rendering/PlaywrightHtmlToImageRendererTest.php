@@ -80,6 +80,19 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
         self::assertStringEndsWith('.pdf', $out);
     }
 
+    /**
+     * Symfony Process forwards only getenv() keys that are also in $_SERVER, so a putenv()
+     * in this process never reaches render.cjs and Playwright falls back to its own browser.
+     * The configured path has to travel in the process environment passed to the runner.
+     */
+    public function testChromiumPathIsPassedInTheProcessEnvironment(): void
+    {
+        $runner = new RecordingProcessRunner();
+        $this->renderer($runner)->render('<html></html>', 800, 600, 1.0, false);
+
+        self::assertSame(['CHROMIUM_PATH' => self::CHROMIUM], $runner->calls[0]['env']);
+    }
+
     public function testChromiumPathIsNotPassedViaArgv(): void
     {
         $runner = new RecordingProcessRunner();
@@ -133,7 +146,7 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
     {
         // A successful exit that writes no file.
         $runner = new class implements ProcessRunnerInterface {
-            public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0): ProcessResult
+            public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0, array $env = []): ProcessResult
             {
                 return new ProcessResult(0, '', '');
             }

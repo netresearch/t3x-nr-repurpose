@@ -19,9 +19,10 @@ use Symfony\Component\Process\Process;
  */
 final class SymfonyProcessRunner implements ProcessRunnerInterface
 {
-    public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0): ProcessResult
+    public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0, array $env = []): ProcessResult
     {
-        $process = new Process($command);
+        // Symfony adds the inherited environment to $env; entries in $env win.
+        $process = new Process($command, null, $env);
         $process->setTimeout($timeoutSeconds);
         if ($stdin !== null) {
             $process->setInput($stdin);

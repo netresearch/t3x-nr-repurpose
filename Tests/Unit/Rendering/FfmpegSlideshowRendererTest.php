@@ -31,7 +31,7 @@ final class FfmpegSlideshowRendererTest extends TestCase
             /** @param list<list<string>> $commands */
             public function __construct(private array &$commands, private readonly int $exitCode, private readonly bool $writeOutput) {}
 
-            public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0): ProcessResult
+            public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0, array $env = []): ProcessResult
             {
                 $this->commands[] = $command;
                 if ($this->writeOutput) {

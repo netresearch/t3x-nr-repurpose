@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The renderer uses the configured Chromium again.** `PlaywrightHtmlToImageRenderer` set `CHROMIUM_PATH` with `putenv()`, but Symfony Process passes on only those variables of `getenv()` that are also in `$_SERVER`, so `render.cjs` never saw it and Playwright looked for its own downloaded browser, which the extension does not install. The DDEV image hid this because it sets `CHROMIUM_PATH` itself. The path is now handed to the process as its environment: `ProcessRunnerInterface::run()` takes an optional `$env` array, which `SymfonyProcessRunner` sets on top of the inherited environment. A custom `ProcessRunnerInterface` implementation has to add the parameter.
+
 ### Security
 
 - **HTML renders no longer run scripts or reach the network.** The Schaubild body is LLM output derived from the fetched page or PDF and is inserted unescaped, so a prompt-injected `<script>` ran in the worker's Chromium, and any `<img>`, CSS background or navigation in it was fetched from the worker's network. `render.cjs` now creates its browser context with JavaScript disabled and service workers blocked, and aborts every request except the Google Fonts stylesheet and font files (`fonts.googleapis.com`, `fonts.gstatic.com`, HTTPS, GET) the templates `@import`. The Schaubild PNGs and the slide-deck and handout PDFs render as before (PNGs byte-identical, PDFs identical except for the creation date).
