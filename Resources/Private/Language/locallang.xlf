@@ -16,6 +16,7 @@
       <trans-unit id="list.column.source"><source>Source</source></trans-unit>
       <trans-unit id="list.column.status"><source>Status</source></trans-unit>
       <trans-unit id="list.column.progress"><source>Progress</source></trans-unit>
+      <trans-unit id="list.progress.label"><source>Progress of job %d</source></trans-unit>
       <trans-unit id="list.column.actions"><source>Actions</source></trans-unit>
       <trans-unit id="list.action.details"><source>Details</source></trans-unit>
       <trans-unit id="list.empty"><source>No jobs yet. Create your first job to turn a URL or PDF into a podcast, a diagram, an Instagram story and ready-to-use texts.</source></trans-unit>

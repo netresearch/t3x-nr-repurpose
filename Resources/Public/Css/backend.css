@@ -12,18 +12,19 @@
 
 /*
  * Job progress in the list. Core v14 has no .progress/.progress-bar rules, and the core
- * <typo3-backend-progress-bar> is @internal and cannot be named. Fill and track colours
- * measured >= 6.14:1 (fill/card) and >= 5.32:1 (fill/track) in both schemes, 13.4 and 14.3.
+ * <typo3-backend-progress-bar> is @internal and cannot be named. Measured in the job list
+ * rows of TYPO3 14.3.7: fill against track 4.24:1 dark, 7.97:1 light; fill against the row
+ * 5.07:1 dark, about 8.7:1 light.
  */
 .nrrepurpose-progress {
     display: flex;
     align-items: center;
     gap: calc(var(--typo3-spacing, 1rem) / 2);
-    min-width: 8rem;
 }
 
 .nrrepurpose-progress-track {
     flex: 1 1 auto;
+    min-width: 3rem;
     height: .5rem;
     overflow: hidden;
     border-radius: .25rem;
