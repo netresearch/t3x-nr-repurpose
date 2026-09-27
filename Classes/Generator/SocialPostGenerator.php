@@ -36,13 +36,13 @@ use Psr\Log\LoggerInterface;
  */
 final class SocialPostGenerator extends AbstractTextGenerator
 {
-    public const LIMIT_LINKEDIN = 3000;
+    public const int LIMIT_LINKEDIN = 3000;
 
-    public const LIMIT_X = 280;
+    public const int LIMIT_X = 280;
 
-    public const LIMIT_INSTAGRAM = 2200;
+    public const int LIMIT_INSTAGRAM = 2200;
 
-    public const MAX_HASHTAGS = 30;
+    public const int MAX_HASHTAGS = 30;
 
     public function __construct(
         JobProcessingRepository $jobs,

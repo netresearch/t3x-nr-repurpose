@@ -21,7 +21,7 @@ use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
  */
 class TextLabels
 {
-    private const FILE = 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:';
+    private const string FILE = 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:';
 
     public function __construct(private readonly LanguageServiceFactory $languageServiceFactory) {}
 

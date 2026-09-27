@@ -25,9 +25,9 @@ use TYPO3\CMS\Core\View\ViewFactoryInterface;
  */
 final class TextArtifactRenderingTest extends AbstractFunctionalTestCase
 {
-    private const PAYLOAD = '<script>alert(1)</script>';
+    private const string PAYLOAD = '<script>alert(1)</script>';
 
-    private const ESCAPED = '&lt;script&gt;alert(1)&lt;/script&gt;';
+    private const string ESCAPED = '&lt;script&gt;alert(1)&lt;/script&gt;';
 
     protected function setUp(): void
     {

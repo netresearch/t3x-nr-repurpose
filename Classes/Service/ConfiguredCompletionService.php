@@ -46,7 +46,7 @@ use Psr\Log\LoggerInterface;
 final class ConfiguredCompletionService implements CompletionServiceInterface
 {
     /** The nr-llm Configuration record (identifier) steering text generation. */
-    public const CONFIGURATION = 'nr_repurpose_text';
+    public const string CONFIGURATION = 'nr_repurpose_text';
 
     /** Resolved configuration, memoized once per instance (null = fall back to default). */
     private ?LlmConfiguration $configuration = null;
