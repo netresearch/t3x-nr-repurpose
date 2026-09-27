@@ -12,9 +12,9 @@ namespace Netresearch\NrRepurpose\Ingestion;
 use DOMDocument;
 use DOMNode;
 use DOMXPath;
+use GuzzleHttp\ClientInterface;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Psr\Http\Client\ClientExceptionInterface;
-use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 
 /**
@@ -26,6 +26,12 @@ class WebPageFetcher
 {
     /** Node names removed wholesale before text extraction. */
     private const BOILERPLATE_TAGS = ['script', 'style', 'nav', 'header', 'footer', 'aside', 'form', 'noscript', 'svg'];
+
+    /** Largest page accepted: 5 MiB is far above any article's HTML. */
+    public const MAX_BYTES = 5 * 1024 * 1024;
+
+    /** Total seconds for connecting and reading one page. */
+    public const TIMEOUT_SECONDS = 30.0;
 
     public function __construct(
         private readonly ClientInterface $httpClient,
@@ -41,7 +47,7 @@ class WebPageFetcher
         $this->guard->assertAllowed($request->getUri());
 
         try {
-            $response = $this->httpClient->sendRequest($request);
+            $response = $this->httpClient->send($request, BoundedResponseReader::requestOptions(self::TIMEOUT_SECONDS));
         } catch (ClientExceptionInterface $e) {
             throw new IngestionException('URL not reachable: ' . $url, 1749379410, $e);
         }
@@ -51,7 +57,7 @@ class WebPageFetcher
             throw new IngestionException(sprintf('URL returned HTTP %d: %s', $status, $url), 1749379411);
         }
 
-        $html = (string) $response->getBody();
+        $html = BoundedResponseReader::read($response, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
         if (trim($html) === '') {
             throw new IngestionException('URL returned an empty body: ' . $url, 1749379412);
         }

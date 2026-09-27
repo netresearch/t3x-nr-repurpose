@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion;
 
+use GuzzleHttp\ClientInterface;
 use Psr\Http\Client\ClientExceptionInterface;
-use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use TYPO3\CMS\Core\Resource\Exception\FileDoesNotExistException;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -22,6 +22,12 @@ use TYPO3\CMS\Core\Resource\ResourceFactory;
  */
 class PdfFileResolver
 {
+    /** Largest PDF downloaded: 50 MiB covers long illustrated reports. */
+    public const MAX_BYTES = 50 * 1024 * 1024;
+
+    /** Total seconds for connecting and downloading one PDF. */
+    public const TIMEOUT_SECONDS = 120.0;
+
     public function __construct(
         private readonly ResourceFactory $resourceFactory,
         private readonly ClientInterface $httpClient,
@@ -76,7 +82,7 @@ class PdfFileResolver
         $this->guard->assertAllowed($request->getUri());
 
         try {
-            $response = $this->httpClient->sendRequest($request);
+            $response = $this->httpClient->send($request, BoundedResponseReader::requestOptions(self::TIMEOUT_SECONDS));
         } catch (ClientExceptionInterface $e) {
             throw new IngestionException('PDF URL not reachable: ' . $url, 1749379445, $e);
         }
@@ -86,7 +92,7 @@ class PdfFileResolver
             throw new IngestionException(sprintf('PDF URL returned HTTP %d: %s', $status, $url), 1749379446);
         }
 
-        $bytes = (string) $response->getBody();
+        $bytes = BoundedResponseReader::read($response, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
         if ($bytes === '') {
             throw new IngestionException('PDF URL returned an empty body: ' . $url, 1749379447);
         }
