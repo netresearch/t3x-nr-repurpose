@@ -122,8 +122,10 @@ jobs:
             | select(contains("/"))
             | select(. != "netresearch/typo3-ci-workflows" and (startswith("phpunit/") | not))' composer.json)
           # Resolving without a lock file is the purpose of this job, so there is
-          # no lock-enforcing alternative to Sonar's githubactions:S8546 here.
-          composer update --prefer-lowest --prefer-stable --with-all-dependencies --no-interaction --no-progress --prefer-dist "${packages[@]}" # NOSONAR
+          # no lock-enforcing alternative to Sonar's githubactions:S8546 here; the
+          # finding is to be accepted in SonarCloud (NOSONAR is not honoured
+          # inside a run block).
+          composer update --prefer-lowest --prefer-stable --with-all-dependencies --no-interaction --no-progress --prefer-dist "${packages[@]}"
           composer show --direct
 
       - name: Unit tests
