@@ -25,11 +25,16 @@ It has three views, backed by the :php:`JobController` actions ``list``,
 Job list
 --------
 
-The landing view lists all jobs regardless of their storage page. Each row shows
-the source, the selected artifacts, and the live status as the worker advances
-it: ``queued → ingesting → analyzing → generating → done`` (or
-``partially_done`` / ``failed``). From here you open the *New job* form or a
-job's result view.
+The landing view lists the jobs of all storage pages, newest first, 25 per
+page. Each row shows the source, the selected artifacts, and the live status as
+the worker advances it: ``queued → ingesting → analyzing → generating → done``
+(or ``partially_done`` / ``failed``). From here you open the *New job* form or
+a job's result view.
+
+With more than 25 jobs, a pager below the table shows the record range
+(*Records 1 - 25*), links to the first, previous, next and last page, and a
+page-number field: enter a number and press :kbd:`Enter` to open that page. A
+page number beyond the last page shows the last page.
 
 .. figure:: /Images/Usage/JobList.png
    :alt: Repurpose job list with the New job and Social planning buttons, jobs
@@ -38,8 +43,8 @@ job's result view.
    :zoom: lightbox
    :class: with-border with-shadow
 
-   The job list, newest job first, 25 jobs per page. A long source URL is cut
-   with an ellipsis; the full URL is in the tooltip.
+   The first of two pages of the job list. A long source URL is cut with an
+   ellipsis; the full URL is in the tooltip.
 
 .. _usage-new:
 
