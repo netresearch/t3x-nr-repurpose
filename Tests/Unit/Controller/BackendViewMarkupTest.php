@@ -262,7 +262,8 @@ final class BackendViewMarkupTest extends TestCase
      * The last declaration of each property across every rule whose selector list contains the
      * class, in source order. declarations() makes that the value the cascade applies: every
      * rule is a plain top-level rule (no at-rule, no nesting), no declaration is !important, and
-     * every selector naming a module class is exactly that class, so all have one specificity.
+     * every selector in the file is one plain module class written as `.nrrepurpose-name` (no
+     * attribute selector, escape, type prefix or combinator), so all have one specificity.
      *
      * @param array<string, string> $expected
      */
@@ -312,7 +313,8 @@ final class BackendViewMarkupTest extends TestCase
      * Every declaration of backend.css, parsed strictly, in source order. Strict mode rejects what
      * the lenient parser would flatten or skip (nested rules, an unclosed rule, a stray `}`), and
      * three assertions make source order equal the cascade for the module classes: only plain
-     * top-level rules, no !important, and every selector naming a module class is exactly `.class`.
+     * top-level rules, no !important, and every selector is one plain module class written as
+     * `.nrrepurpose-name`.
      *
      * @return list<array{0: list<string>, 1: string, 2: string}> selectors, property, value
      */
@@ -325,9 +327,11 @@ final class BackendViewMarkupTest extends TestCase
             self::assertInstanceOf(DeclarationBlock::class, $item, 'backend.css: only plain rules, no at-rules');
             $selectors = array_map(static fn (Selector $selector): string => $selector->render($format), $item->getSelectors());
             foreach ($selectors as $selector) {
-                if (preg_match('/\.nrrepurpose-/', $selector) === 1) {
-                    self::assertMatchesRegularExpression('/^\.nrrepurpose-[a-z-]+$/', $selector, 'backend.css: a module class is selected alone');
-                }
+                // The stylesheet styles the module's own classes only. Anything else could reach a
+                // module element with a different specificity or under a spelling this reader does
+                // not match: an attribute selector ([class~="nrrepurpose-pre"]), an escaped name
+                // (.nrrepurpose\-pre, .nrrepurpose\2d pre), a type prefix, a combinator.
+                self::assertMatchesRegularExpression('/^\.nrrepurpose-[a-z]+(?:-[a-z]+)*$/', $selector, 'backend.css: every selector is one plain module class');
             }
 
             foreach ($item->getDeclarations() as $declaration) {
