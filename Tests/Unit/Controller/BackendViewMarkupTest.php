@@ -19,6 +19,8 @@ use PHPUnit\Framework\TestCase;
 use Sabberworm\CSS\OutputFormat;
 use Sabberworm\CSS\Parser;
 use Sabberworm\CSS\Property\Selector;
+use Sabberworm\CSS\RuleSet\DeclarationBlock;
+use Sabberworm\CSS\Settings;
 use SimpleXMLElement;
 
 /**
@@ -257,8 +259,10 @@ final class BackendViewMarkupTest extends TestCase
     }
 
     /**
-     * The value that wins for each property: the last declaration across every rule whose
-     * selector names the class, wherever in the file that rule stands.
+     * The last declaration of each property across every rule whose selector list contains the
+     * class, in source order. declarations() makes that the value the cascade applies: every
+     * rule is a plain top-level rule (no at-rule, no nesting), no declaration is !important, and
+     * every selector naming a module class is exactly that class, so all have one specificity.
      *
      * @param array<string, string> $expected
      */
@@ -297,26 +301,37 @@ final class BackendViewMarkupTest extends TestCase
 
         foreach ($declarations as [$selectors, $property, $value]) {
             // Colours come from core custom properties only, so the dark scheme applies.
-            self::assertSame(0, preg_match('/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/i', $value), $selectors . ' ' . $property . ': ' . $value);
+            self::assertSame(0, preg_match('/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/i', $value), implode(',', $selectors) . ' ' . $property . ': ' . $value);
             if ($property === 'font-family') {
-                self::assertSame('inherit', $value, $selectors);
+                self::assertSame('inherit', $value, implode(',', $selectors));
             }
         }
     }
 
     /**
-     * Every declaration of backend.css, parsed, in source order.
+     * Every declaration of backend.css, parsed strictly, in source order. Strict mode rejects what
+     * the lenient parser would flatten or skip (nested rules, an unclosed rule, a stray `}`), and
+     * three assertions make source order equal the cascade for the module classes: only plain
+     * top-level rules, no !important, and every selector naming a module class is exactly `.class`.
      *
-     * @return list<array{0: string, 1: string, 2: string}> selectors, property, value
+     * @return list<array{0: list<string>, 1: string, 2: string}> selectors, property, value
      */
     private function declarations(): array
     {
-        $document = (new Parser((string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css')))->parse();
+        $document = (new Parser((string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css'), Settings::create()->beStrict()))->parse();
         $format   = OutputFormat::createCompact();
         $all      = [];
-        foreach ($document->getAllDeclarationBlocks() as $block) {
-            $selectors = implode(',', array_map(static fn (Selector $selector): string => $selector->render($format), $block->getSelectors()));
-            foreach ($block->getDeclarations() as $declaration) {
+        foreach ($document->getContents() as $item) {
+            self::assertInstanceOf(DeclarationBlock::class, $item, 'backend.css: only plain rules, no at-rules');
+            $selectors = array_map(static fn (Selector $selector): string => $selector->render($format), $item->getSelectors());
+            foreach ($selectors as $selector) {
+                if (preg_match('/\.nrrepurpose-/', $selector) === 1) {
+                    self::assertMatchesRegularExpression('/^\.nrrepurpose-[a-z-]+$/', $selector, 'backend.css: a module class is selected alone');
+                }
+            }
+
+            foreach ($item->getDeclarations() as $declaration) {
+                self::assertFalse($declaration->getIsImportant(), 'backend.css: ' . implode(',', $selectors) . ' ' . $declaration->getPropertyName() . ' is !important');
                 $value = $declaration->getValue();
                 $all[] = [$selectors, $declaration->getPropertyName(), is_string($value) ? $value : $value->render($format)];
             }
@@ -325,14 +340,12 @@ final class BackendViewMarkupTest extends TestCase
         return $all;
     }
 
-    /** @return list<array{0: string, 1: string}> property, value of every rule whose selector names the class */
+    /** @return list<array{0: string, 1: string}> property, value of every rule whose selector list contains the class */
     private function declarationsFor(string $class): array
     {
-        $pattern = '/' . preg_quote($class, '/') . '(?![\w-])/';
-
         return array_values(array_map(
             static fn (array $declaration): array => [$declaration[1], $declaration[2]],
-            array_filter($this->declarations(), static fn (array $declaration): bool => preg_match($pattern, $declaration[0]) === 1),
+            array_filter($this->declarations(), static fn (array $declaration): bool => in_array($class, $declaration[0], true)),
         ));
     }
 
@@ -348,7 +361,7 @@ final class BackendViewMarkupTest extends TestCase
     /** A value as the parser renders it, so the expectations can be written as in the stylesheet. */
     private function normalised(string $value): string
     {
-        $declarations = (new Parser('a{x:' . $value . '}'))->parse()->getAllDeclarationBlocks()[0]->getDeclarations();
+        $declarations = (new Parser('a{x:' . $value . '}', Settings::create()->beStrict()))->parse()->getAllDeclarationBlocks()[0]->getDeclarations();
         $parsed       = $declarations[0]->getValue();
 
         return is_string($parsed) ? $parsed : $parsed->render(OutputFormat::createCompact());
