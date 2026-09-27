@@ -94,10 +94,11 @@ Shared helpers — generator base methods, `Classes/Generator/Support/*` (text l
 
 <!-- AGENTS-GENERATED:START ci-rules -->
 ## CI (reusable netresearch/typo3-ci-workflows)
-- `ci.yml` matrix: PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3 — lint, unit and functional (SQLite) tests per version
-- `run-cgl`, `run-phpstan`, `run-rector`, `run-functional-tests` are `true`
+- `ci.yml` sets `run-cgl`, `run-phpstan`, `run-rector`, `run-unit-tests`, `run-functional-tests: true`; matrix PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3
+- Per PHP version: lint, PHPStan, unit, functional (SQLite, the reusable default); once on PHP 8.3 (first matrix entry): cgl, rector; plus a docs render of `Documentation/guides.xml` — all behind the `All CI checks` gate
 - `checks.yml` (drift-enforced): security (Opengrep SAST, composer audit), betterleaks, zizmor, fuzz, license-check, CodeQL, Scorecard, dependency-review, pr-quality — all behind one required `All security checks` gate; SonarCloud + DCO run as apps
 - Release: signed annotated tag `vX.Y.Z` triggers `release.yml`, which publishes to TER, verifies Packagist, then creates the signed GitHub release; the tag push itself triggers the docs.typo3.org render through the repository webhook, and the release only checks that the render reached docs.typo3.org, without gating on it
+- `republish.yml` (manual, `tag` + `target`): re-uploads to TER only if the version is missing there, only checks Packagist and docs.typo3.org, never touches the GitHub release — details in `CONTRIBUTING.md` § Releasing
 <!-- AGENTS-GENERATED:END ci-rules -->
 
 ## Boundaries
