@@ -1,0 +1,82 @@
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+/*
+ * Backend module "Repurpose": only what the core backend CSS has no class for.
+ * Tables, buttons, badges and typography use the core classes unchanged. Every
+ * colour and spacing value is a core custom property, so the light and dark
+ * scheme both apply; the fallbacks cover a property missing in an older core.
+ */
+
+/* Audio player of a podcast artifact: full width up to a readable line. */
+.nrrepurpose-audio {
+    display: block;
+    width: 100%;
+    max-width: 640px;
+}
+
+/* Image and video previews: never wider than the card, never taller than 480px. */
+.nrrepurpose-preview {
+    display: block;
+    max-width: 100%;
+    max-height: 480px;
+    height: auto;
+}
+
+.nrrepurpose-preview-framed {
+    border: var(--typo3-component-border-width, 1px) solid var(--typo3-component-border-color, var(--bs-border-color));
+}
+
+/* Story: the slides as one horizontal, scrollable strip. */
+.nrrepurpose-story-strip {
+    display: flex;
+    flex-direction: row;
+    gap: var(--typo3-spacing, 1rem);
+    overflow-x: auto;
+    padding-bottom: calc(var(--typo3-spacing, 1rem) / 2);
+}
+
+.nrrepurpose-story-slide {
+    flex: 0 0 auto;
+    text-align: center;
+}
+
+.nrrepurpose-story-slide-image {
+    display: block;
+    height: 320px;
+    width: auto;
+    border: var(--typo3-component-border-width, 1px) solid var(--typo3-component-border-color, var(--bs-border-color));
+}
+
+.nrrepurpose-story-slide-placeholder {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 320px;
+    width: 180px;
+    padding: calc(var(--typo3-spacing, 1rem) / 2);
+    border: var(--typo3-component-border-width, 1px) dashed var(--typo3-component-border-color, var(--bs-border-color));
+}
+
+.nrrepurpose-story-slide-meta {
+    max-width: 200px;
+    text-align: start;
+}
+
+/*
+ * Generated text and prompts: keep the line breaks of the source, wrap long
+ * lines and unbroken tokens (URLs) inside the card instead of scrolling.
+ */
+.nrrepurpose-pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* Copy-ready text (social post): the body font, not the monospace of <pre>. */
+.nrrepurpose-pre-text {
+    font-family: inherit;
+    font-size: inherit;
+}
