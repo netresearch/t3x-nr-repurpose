@@ -12,9 +12,11 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Controller;
 use Netresearch\NrRepurpose\Controller\JobController;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\Router;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -25,11 +27,12 @@ use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 
 /**
- * Renders the new-job form through the real module stack and checks that its
+ * Renders the module actions through the real module stack: the new-job form's
  * script reaches the browser in a form the backend Content Security Policy
- * lets run: as an ES module from the import map, not as an inline <script>
- * without a nonce (which the browser refuses, leaving the double-submit guard
- * dead).
+ * lets run (an ES module from the import map, not an inline <script> without
+ * a nonce, which the browser refuses, leaving the double-submit guard dead),
+ * the module stylesheet is linked, and the job list keeps a long source URL
+ * on one line.
  */
 #[CoversClass(JobController::class)]
 final class JobControllerTest extends AbstractFunctionalTestCase
@@ -92,13 +95,51 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         );
     }
 
+    /** @return array<string, array{0: string}> */
+    public static function renderedActions(): array
+    {
+        return ['list' => ['list'], 'new' => ['new'], 'plan' => ['plan']];
+    }
+
+    #[Test]
+    #[DataProvider('renderedActions')]
+    public function everyActionLoadsTheModuleStylesheet(string $action): void
+    {
+        self::assertMatchesRegularExpression(
+            '#<link rel="stylesheet" href="[^"]*nr_repurpose/Resources/Public/Css/backend\.css(?:\?[^"]*)?"#',
+            $this->renderAction($action),
+        );
+        self::assertFileExists(GeneralUtility::getFileAbsFileName('EXT:nr_repurpose/Resources/Public/Css/backend.css'));
+    }
+
+    #[Test]
+    public function listActionCutsALongSourceToOneLineAndKeepsTheFullValue(): void
+    {
+        // The demo's job 2: a tracking URL of about 400 characters without a break opportunity.
+        $url = 'https://www.example.com/de-de/explorer/paris/?utm_source=google&utm_medium=cpc&gclid=' . str_repeat('Cj0KCQjw', 45);
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->insert('tx_nrrepurpose_domain_model_job', ['pid' => 0, 'source_type' => 'url', 'source_value' => $url, 'status' => 'failed']);
+
+        $body    = $this->renderAction('list');
+        $escaped = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5);
+
+        self::assertStringContainsString('<table class="table table-striped table-hover" aria-labelledby="nrrepurpose-list-title">', $body);
+        self::assertStringContainsString('<td class="col-responsive" title="' . $escaped . '">' . $escaped . '</td>', $body);
+        self::assertMatchesRegularExpression('#<td class="col-control">\s*<a [^>]*class="btn btn-sm btn-default"#', $body);
+    }
+
     private function renderNewAction(): string
+    {
+        return $this->renderAction('new');
+    }
+
+    private function renderAction(string $action): string
     {
         $this->importCSVDataSet(__DIR__ . '/Fixtures/BeUsers.csv');
         $backendUser     = $this->setUpBackendUser(1);
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
-        $request = $this->createBackendRequest();
+        $request = $this->createBackendRequest($action);
         // Extbase reads its configuration while the controller is built, so the
         // ConfigurationManager needs the request before the container hands it out.
         $this->get(ConfigurationManagerInterface::class)->setRequest($request);
@@ -112,13 +153,13 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         return (string) $response->getBody();
     }
 
-    private function createBackendRequest(): ExtbaseRequest
+    private function createBackendRequest(string $action): ExtbaseRequest
     {
         $extbaseParameters = new ExtbaseRequestParameters(JobController::class);
         $extbaseParameters->setPluginName('web_nrrepurpose');
         $extbaseParameters->setControllerExtensionName('NrRepurpose');
         $extbaseParameters->setControllerName('Job');
-        $extbaseParameters->setControllerActionName('new');
+        $extbaseParameters->setControllerActionName($action);
         $extbaseParameters->setFormat('html');
 
         $route = $this->get(Router::class)->getRoute('web_nrrepurpose');

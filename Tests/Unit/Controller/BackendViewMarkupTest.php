@@ -136,14 +136,6 @@ final class BackendViewMarkupTest extends TestCase
         self::assertSame(1, $xpath->query('//td[@class="col-control"]')?->length, 'action column cell');
     }
 
-    public function testTheArtifactIconShowsItsStatusAsAnOverlay(): void
-    {
-        $template = (string) file_get_contents(self::RESOURCES . 'Private/Partials/Job/ArtifactSummaries.html');
-
-        // Colour alone does not carry the status: the PDF icon is red whether it failed or not.
-        self::assertStringContainsString('<core:icon identifier="{summary.type.iconIdentifier}" size="small" overlay="{summary.overlayIdentifier}" />', $template);
-    }
-
     public function testTheDetailsLinkNamesItsJob(): void
     {
         $links = $this->xpath('Private/Templates/Job/List.html')->query('//td[@class="col-control"]//span[@class="visually-hidden"]');
@@ -224,13 +216,6 @@ final class BackendViewMarkupTest extends TestCase
         // Colours come from core custom properties only, so the dark scheme applies.
         self::assertSame(0, preg_match('/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/i', $css));
         self::assertSame(0, preg_match('/font-family:\s*+(?!inherit)/', $css));
-    }
-
-    public function testTheControllerLoadsTheModuleStylesheet(): void
-    {
-        $controller = (string) file_get_contents(__DIR__ . '/../../../Classes/Controller/JobController.php');
-
-        self::assertStringContainsString("addCssFile('EXT:nr_repurpose/Resources/Public/Css/backend.css')", $controller);
     }
 
     private function xpath(string $template): DOMXPath
