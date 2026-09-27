@@ -1,7 +1,7 @@
 #!/bin/bash
-## Description: Install TYPO3 v14.3 into .Build/Web and activate nr_repurpose + nr_llm
-## Usage: install
-## Example: ddev install
+## Description: Install TYPO3 v14.3 into .Build/Web and activate nr_repurpose + nr_llm (one-shot setup)
+## Usage: setup
+## Example: ddev setup
 set -eu
 
 cd /var/www/html
