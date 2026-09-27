@@ -11,10 +11,12 @@
  */
 
 /*
- * Job progress in the list. Core v14 has no .progress/.progress-bar rules, and the core
- * <typo3-backend-progress-bar> is @internal and cannot be named. Measured in the job list
- * rows of TYPO3 14.3.7: fill against track 4.24:1 dark, 7.97:1 light; fill against the row
- * 5.07:1 dark, about 8.7:1 light.
+ * Job progress in the list: a native <progress>, which carries the progressbar role, its value,
+ * range and accessible name itself. Core v14 has no .progress/.progress-bar rules, and the core
+ * <typo3-backend-progress-bar> is @internal and cannot be named. Each engine draws the bar
+ * through its own pseudo-elements, so every one needs a rule of its own: a selector list with an
+ * unknown pseudo-element would drop the whole rule. Colours are core tokens: fill
+ * --typo3-component-primary-color on a --typo3-surface-container-high track.
  */
 .nrrepurpose-progress {
     display: flex;
@@ -23,16 +25,31 @@
 }
 
 .nrrepurpose-progress-track {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
     flex: 1 1 auto;
     min-width: 3rem;
     height: .5rem;
+    /* A <progress> is about 10em wide by default, and that width would become its flex basis
+       and widen the job list beyond 1280 px; start small and grow into the cell instead. */
+    width: 3rem;
     overflow: hidden;
+    border: 0;
     border-radius: .25rem;
+    background-color: var(--typo3-surface-container-high);
+    color: var(--typo3-component-primary-color);
+}
+
+.nrrepurpose-progress-track::-webkit-progress-bar {
     background-color: var(--typo3-surface-container-high);
 }
 
-.nrrepurpose-progress-fill {
-    height: 100%;
+.nrrepurpose-progress-track::-webkit-progress-value {
+    background-color: var(--typo3-component-primary-color);
+}
+
+.nrrepurpose-progress-track::-moz-progress-bar {
     background-color: var(--typo3-component-primary-color);
 }
 
