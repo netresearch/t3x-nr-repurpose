@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Ingestion;
 
 use Psr\Http\Message\UriInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * SSRF guard for the editor-supplied source URL (url and pdf_url jobs). The
@@ -52,6 +54,7 @@ final readonly class RemoteSourceGuard
 
     public function __construct(
         private HostResolverInterface $resolver,
+        private LoggerInterface $logger = new NullLogger(),
     ) {}
 
     /**
@@ -81,8 +84,15 @@ final readonly class RemoteSourceGuard
 
         foreach ($addresses as $address) {
             if ($this->isBlocked($address)) {
+                // The address stays out of the message: it would tell every module user
+                // what an internal name resolves to. The host is the editor's own input.
+                $this->logger->warning('Source URL refused: host resolves to a blocked address', [
+                    'host'    => $host,
+                    'address' => $address,
+                ]);
+
                 throw new IngestionException(
-                    sprintf('Source URL host %s resolves to %s, a loopback, private, link-local or reserved address', $host, $address),
+                    sprintf('Source URL host %s resolves to a loopback, private, link-local or reserved address', $host),
                     1749379463,
                 );
             }

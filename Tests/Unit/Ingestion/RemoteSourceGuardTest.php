@@ -16,6 +16,8 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UriInterface;
+use Psr\Log\AbstractLogger;
+use Stringable;
 
 final class RemoteSourceGuardTest extends TestCase
 {
@@ -149,5 +151,30 @@ final class RemoteSourceGuardTest extends TestCase
         $uri->method('getHost')->willReturn('');
 
         (new RemoteSourceGuard(new StaticHostResolver()))->assertAllowed($uri);
+    }
+
+    public function testTheRefusalDoesNotDiscloseTheResolvedAddressButLogsIt(): void
+    {
+        $logger = new class extends AbstractLogger {
+            /** @var list<array<mixed>> */
+            public array $contexts = [];
+
+            public function log($level, Stringable|string $message, array $context = []): void
+            {
+                $this->contexts[] = $context;
+            }
+        };
+        $guard = new RemoteSourceGuard(new StaticHostResolver(['wiki.corp.example' => ['10.20.30.40']]), $logger);
+
+        try {
+            $guard->assertAllowed(new Uri('https://wiki.corp.example/'));
+            self::fail('A private address must be refused');
+        } catch (IngestionException $e) {
+            self::assertSame(1749379463, $e->getCode());
+            self::assertStringNotContainsString('10.20.30.40', $e->getMessage());
+            self::assertStringContainsString('wiki.corp.example', $e->getMessage());
+        }
+
+        self::assertSame([['host' => 'wiki.corp.example', 'address' => '10.20.30.40']], $logger->contexts);
     }
 }

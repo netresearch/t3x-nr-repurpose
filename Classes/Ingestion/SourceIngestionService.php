@@ -14,6 +14,8 @@ use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
+use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Single ingestion entry point. URL sources go through WebPageFetcher; PDF sources are
@@ -40,6 +42,7 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         private PdfVisionExtractor $visionExtractor,
         private PdfLayoutExtractor $layoutExtractor,
         private CapabilityGrantResolverInterface $grantResolver,
+        private LoggerInterface $logger,
     ) {}
 
     public function ingest(array $jobRow): SourceDocument
@@ -72,6 +75,16 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         $absPath = $this->pdfFileResolver->resolve($jobRow);
         try {
             return $this->readPdf($absPath, $mode, $beUser);
+        } catch (Throwable $e) {
+            // The exception message becomes the job's error, which every module user
+            // sees, so it never carries the server path; the path goes to the log.
+            $this->logger->error('PDF ingestion failed', [
+                'job'       => (int) ($jobRow['uid'] ?? 0),
+                'path'      => $absPath,
+                'exception' => $e,
+            ]);
+
+            throw $e;
         } finally {
             // A downloaded pdf_url copy goes once it is read, also when reading failed.
             $this->pdfFileResolver->release($absPath);
@@ -115,7 +128,7 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         }
 
         if ($body === '') {
-            throw new IngestionException('No text could be extracted from the PDF: ' . $absPath, 1749379452);
+            throw new IngestionException('No text could be extracted from the PDF', 1749379452);
         }
 
         $meta = ['tiersUsed' => $this->orderTiers($tiers)];
