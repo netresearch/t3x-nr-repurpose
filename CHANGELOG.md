@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **The source URL can no longer reach the host or the internal network.** An editor enters a free URL for a `url` or `pdf_url` job, and the worker fetched it from inside the hosting network with no restriction, so a job could read a service on localhost, on the private network or the cloud metadata endpoint `169.254.169.254` and have its answer analysed into artifacts. `WebPageFetcher` and `PdfFileResolver` now pass the URL through one `RemoteSourceGuard` before the request: only `http` and `https` are fetched, and the host is refused when it does not resolve or when any of its addresses — or the IP literal in the URL — lies in loopback, RFC 1918, carrier-grade NAT, link-local, unique-local IPv6, unspecified, multicast or the reserved `240.0.0.0/4` block (IPv4-mapped IPv6 addresses count as IPv4). The job fails with the reason. TYPO3's `allowed_hosts` setting does not cover this: it is a host allow-list, and the HTTP client the container injects is built without the context it needs.
+
 ## [0.8.2] - 2026-09-27
 
 ### Fixed

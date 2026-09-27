@@ -20,6 +20,7 @@ use Netresearch\NrRepurpose\Ingestion\Poppler\SymfonyProcessPopplerRunner;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -71,8 +72,8 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
         $runner  = new SymfonyProcessPopplerRunner();
 
         return new SourceIngestionService(
-            new WebPageFetcher($client, $factory),
-            new PdfFileResolver($this->get(ResourceFactory::class), $client, $factory),
+            new WebPageFetcher($client, $factory, StaticHostResolver::publicGuard()),
+            new PdfFileResolver($this->get(ResourceFactory::class), $client, $factory, StaticHostResolver::publicGuard()),
             new PdfTextExtractor(),
             $vision,
             new PdfLayoutExtractor($runner),

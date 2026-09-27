@@ -11,7 +11,9 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
 
 use GuzzleHttp\Psr7\HttpFactory;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
+use Netresearch\NrRepurpose\Ingestion\RemoteSourceGuard;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
@@ -38,7 +40,7 @@ final class WebPageFetcherTest extends TestCase
     public function testExtractsTitleAndMainContentDroppingBoilerplate(): void
     {
         $html    = (string) file_get_contents(__DIR__ . '/../../Fixtures/Web/article.html');
-        $fetcher = new WebPageFetcher($this->client(200, $html), new HttpFactory());
+        $fetcher = new WebPageFetcher($this->client(200, $html), new HttpFactory(), StaticHostResolver::publicGuard());
 
         $doc = $fetcher->fetch('https://example.com/q1');
 
@@ -57,15 +59,39 @@ final class WebPageFetcherTest extends TestCase
 
     public function testThrowsIngestionExceptionOnNon2xx(): void
     {
-        $fetcher = new WebPageFetcher($this->client(404, 'Not found'), new HttpFactory());
+        $fetcher = new WebPageFetcher($this->client(404, 'Not found'), new HttpFactory(), StaticHostResolver::publicGuard());
 
         $this->expectException(IngestionException::class);
         $fetcher->fetch('https://example.com/missing');
     }
 
+    public function testRefusesAnInternalAddressBeforeSendingAnyRequest(): void
+    {
+        $client = new class implements ClientInterface {
+            public int $calls = 0;
+
+            public function sendRequest(RequestInterface $request): ResponseInterface
+            {
+                ++$this->calls;
+
+                return (new HttpFactory())->createResponse(200);
+            }
+        };
+        $fetcher = new WebPageFetcher($client, new HttpFactory(), new RemoteSourceGuard(new StaticHostResolver()));
+
+        try {
+            $fetcher->fetch('http://169.254.169.254/latest/meta-data/');
+            self::fail('The metadata endpoint must be refused');
+        } catch (IngestionException $e) {
+            self::assertSame(1749379463, $e->getCode());
+        }
+
+        self::assertSame(0, $client->calls);
+    }
+
     public function testThrowsIngestionExceptionOnEmptyBody(): void
     {
-        $fetcher = new WebPageFetcher($this->client(200, '   '), new HttpFactory());
+        $fetcher = new WebPageFetcher($this->client(200, '   '), new HttpFactory(), StaticHostResolver::publicGuard());
 
         $this->expectException(IngestionException::class);
         $fetcher->fetch('https://example.com/empty');

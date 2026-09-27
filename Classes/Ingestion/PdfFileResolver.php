@@ -26,6 +26,7 @@ class PdfFileResolver
         private readonly ResourceFactory $resourceFactory,
         private readonly ClientInterface $httpClient,
         private readonly RequestFactoryInterface $requestFactory,
+        private readonly RemoteSourceGuard $guard,
     ) {}
 
     /** @param array<string,mixed> $jobRow */
@@ -72,6 +73,7 @@ class PdfFileResolver
         $request = $this->requestFactory->createRequest('GET', $url)
             ->withHeader('User-Agent', 'nr_repurpose/0.1 (+https://www.netresearch.de)')
             ->withHeader('Accept', 'application/pdf');
+        $this->guard->assertAllowed($request->getUri());
 
         try {
             $response = $this->httpClient->sendRequest($request);

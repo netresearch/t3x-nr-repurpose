@@ -30,6 +30,7 @@ class WebPageFetcher
     public function __construct(
         private readonly ClientInterface $httpClient,
         private readonly RequestFactoryInterface $requestFactory,
+        private readonly RemoteSourceGuard $guard,
     ) {}
 
     public function fetch(string $url): SourceDocument
@@ -37,6 +38,7 @@ class WebPageFetcher
         $request = $this->requestFactory->createRequest('GET', $url)
             ->withHeader('User-Agent', 'nr_repurpose/0.1 (+https://www.netresearch.de)')
             ->withHeader('Accept', 'text/html,application/xhtml+xml');
+        $this->guard->assertAllowed($request->getUri());
 
         try {
             $response = $this->httpClient->sendRequest($request);
