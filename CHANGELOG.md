@@ -15,6 +15,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **Most temp files of a run are now removed.** Every run left `/tmp/nrrepurpose_*` directories with the generated images and podcast segments, the Schaubild's Chromium renders, and the downloaded `pdf_url` PDF, and the long-running worker never removed them. The Schaubild now deletes its renders and temp directories after each variant, also when the variant fails; the orchestrator removes whatever temp directory a generator made once that generator is done (the story's composited slides and background, the podcast segments), also when it threw; and a downloaded PDF is deleted once it has been read. An attached `pdf_fal` file is never touched. The Chromium renders of the story slides still remain in the renderer's output directory.
+- **A podcast turn with a nested value is no longer voiced as "Array".** The dialogue script is decoded LLM JSON, and a turn whose `text` or `speaker` came back as an object or a list was cast to the string `Array`, which the TTS then read out (with a PHP warning). Both dialogue shapes now take a field only when it is a scalar: a turn without usable text is dropped, and a speaker that is not a scalar falls back to the default speaker, as a missing one already did.
 
 ## [0.8.2] - 2026-09-27
 

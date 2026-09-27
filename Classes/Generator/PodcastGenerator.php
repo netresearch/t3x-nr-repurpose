@@ -241,8 +241,8 @@ final class PodcastGenerator extends AbstractGenerator
 
         $turns = [];
         foreach ($rawTurns as $raw) {
-            $speaker = (string) ($raw['speaker'] ?? 'Host A');
-            $text    = trim((string) ($raw['text'] ?? ''));
+            $speaker = $this->scalarField($raw, 'speaker') ?? 'Host A';
+            $text    = trim($this->scalarField($raw, 'text') ?? '');
             if ($text === '') {
                 continue;
             }
@@ -314,12 +314,12 @@ final class PodcastGenerator extends AbstractGenerator
 
         $turns = [];
         foreach ($rawTurns as $raw) {
-            $speaker = (string) ($raw['speaker'] ?? '');
+            $speaker = $this->scalarField($raw, 'speaker') ?? '';
             if (!isset($personaVoices[$speaker])) {
                 $speaker = $names[0];
             }
 
-            $text = trim((string) ($raw['text'] ?? ''));
+            $text = trim($this->scalarField($raw, 'text') ?? '');
             if ($text === '') {
                 continue;
             }
@@ -332,6 +332,19 @@ final class PodcastGenerator extends AbstractGenerator
         }
 
         return ['turns' => $turns, 'system' => $systemPrompt, 'user' => $prompt];
+    }
+
+    /**
+     * One field of a decoded LLM turn as a string, or null when the turn is not an object
+     * or the field is missing or not scalar (a nested array must not be voiced as "Array").
+     */
+    private function scalarField(mixed $turn, string $key): ?string
+    {
+        if (!is_array($turn) || !is_scalar($turn[$key] ?? null)) {
+            return null;
+        }
+
+        return (string) $turn[$key];
     }
 
     /**
