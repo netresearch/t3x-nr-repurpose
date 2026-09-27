@@ -115,12 +115,15 @@ jobs:
           # Same reason as the reusable workflow: the floors of a range may
           # carry advisories, and the solver would otherwise skip them.
           composer config --no-plugins audit.block-insecure false
-          composer update --no-interaction --no-progress --prefer-dist
+          # No lock file exists (AGENTS.md: none is committed), so install
+          # resolves the newest versions, as in the reusable workflow.
+          composer install --no-interaction --no-progress --prefer-dist
           mapfile -t packages < <(jq -r '(.require + ."require-dev") | keys[]
             | select(contains("/"))
             | select(. != "netresearch/typo3-ci-workflows" and (startswith("phpunit/") | not))' composer.json)
-          composer update --prefer-lowest --prefer-stable --with-all-dependencies \
-            --no-interaction --no-progress --prefer-dist "${packages[@]}"
+          # Resolving without a lock file is the purpose of this job, so there is
+          # no lock-enforcing alternative to Sonar's githubactions:S8546 here.
+          composer update --prefer-lowest --prefer-stable --with-all-dependencies --no-interaction --no-progress --prefer-dist "${packages[@]}" # NOSONAR
           composer show --direct
 
       - name: Unit tests
