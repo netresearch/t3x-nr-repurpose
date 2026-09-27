@@ -167,6 +167,19 @@ the versions `nr_repurpose` declares as dependencies, then `nr_repurpose` via
 **Admin Tools › Extensions**. The system binaries, the Node renderer and the worker
 are needed in the same way as for a Composer installation.
 
+### Verifying a release
+
+Every GitHub release carries the extension as `nr-repurpose-X.Y.Z.zip` and
+`nr-repurpose-X.Y.Z.tar.gz` with a signed SLSA build provenance attestation. The
+release is built by the shared workflow in `netresearch/typo3-ci-workflows`, so
+the verification names that repository as the signer:
+
+```bash
+gh attestation verify nr-repurpose-X.Y.Z.zip \
+  --repo netresearch/t3x-nr-repurpose \
+  --signer-repo netresearch/typo3-ci-workflows
+```
+
 ## Local development (DDEV)
 
 Prerequisites: Docker + DDEV.
