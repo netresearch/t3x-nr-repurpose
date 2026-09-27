@@ -65,3 +65,60 @@ jobs:
         composer ci:test:php:functional -- --coverage-clover=coverage-functional.xml --fail-on-skipped
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # The matrix above installs the newest version each constraint allows. This
+  # leg installs the lowest of every package the extension declares (nr-llm
+  # 0.35, nr-vault 0.16, TYPO3 14.3.0, symfony, smalot/pdfparser) and runs the
+  # unit tests and PHPStan against them. The reusable workflow has no input
+  # for it.
+  #
+  # The QA tools stay at their newest version: typo3-ci-workflows and phpunit
+  # are left out of the lowest update. At their floors the tool set does not
+  # load: typo3-ci-workflows 1.5.0 configures ergebnis/phpstan-rules options
+  # that its own lowest allowed ergebnis (2.6.0) does not know.
+  #
+  # Locally: ./Build/Scripts/runTests.sh -p 8.3 -s composer update ... with
+  # the same two update calls, then -s unit and -s composer ci:test:php:phpstan.
+  lowest-dependencies:
+    name: Lowest dependencies (PHP 8.3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.3'
+          extensions: intl, mbstring, xml
+          tools: composer:v2
+          ini-values: zend.assertions=1
+          coverage: none
+
+      - name: Install the lowest declared versions
+        run: |
+          # Same reason as the reusable workflow: the floors of a range may
+          # carry advisories, and the solver would otherwise skip them.
+          composer config --no-plugins audit.block-insecure false
+          composer update --no-interaction --no-progress --prefer-dist
+          mapfile -t packages < <(jq -r '(.require + ."require-dev") | keys[]
+            | select(contains("/"))
+            | select(. != "netresearch/typo3-ci-workflows" and (startswith("phpunit/") | not))' composer.json)
+          composer update --prefer-lowest --prefer-stable --with-all-dependencies \
+            --no-interaction --no-progress --prefer-dist "${packages[@]}"
+          composer show --direct
+
+      - name: Unit tests
+        run: composer ci:test:php:unit
+
+      - name: PHPStan
+        run: composer ci:test:php:phpstan -- --error-format=github --no-progress
