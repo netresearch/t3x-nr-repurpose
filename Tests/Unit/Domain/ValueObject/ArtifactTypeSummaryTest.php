@@ -80,6 +80,19 @@ final class ArtifactTypeSummaryTest extends TestCase
         );
     }
 
+    public function testOverlayMarksEveryStatusButDoneWithoutColour(): void
+    {
+        self::assertNull((new ArtifactTypeSummary(ArtifactType::Podcast, ArtifactStatus::Done))->getOverlayIdentifier());
+        self::assertSame(
+            'overlay-missing',
+            (new ArtifactTypeSummary(ArtifactType::Podcast, ArtifactStatus::Failed))->getOverlayIdentifier(),
+        );
+        self::assertSame(
+            'overlay-scheduled',
+            (new ArtifactTypeSummary(ArtifactType::Podcast, ArtifactStatus::Pending))->getOverlayIdentifier(),
+        );
+    }
+
     public function testEmptyStatusListIsRejected(): void
     {
         $this->expectException(InvalidArgumentException::class);

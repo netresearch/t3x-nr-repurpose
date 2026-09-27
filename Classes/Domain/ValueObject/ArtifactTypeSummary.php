@@ -55,6 +55,22 @@ final readonly class ArtifactTypeSummary
         };
     }
 
+    /**
+     * Core icon overlay that shows the aggregate status on the list icon without relying
+     * on colour: several type icons carry their own colour (the PDF icon is always red),
+     * so the text colour alone cannot tell a failed artifact from a finished one.
+     * Null for a finished type: no overlay, as core shows an unremarkable record.
+     * `get` prefix so Fluid `{summary.overlayIdentifier}` resolves it.
+     */
+    public function getOverlayIdentifier(): ?string
+    {
+        return match ($this->status) {
+            ArtifactStatus::Done    => null,
+            ArtifactStatus::Failed  => 'overlay-missing',
+            ArtifactStatus::Pending => 'overlay-scheduled',
+        };
+    }
+
     /** @param non-empty-list<ArtifactStatus> $statuses */
     private static function aggregate(array $statuses): ArtifactStatus
     {

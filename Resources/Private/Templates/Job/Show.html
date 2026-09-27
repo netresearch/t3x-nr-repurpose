@@ -7,7 +7,7 @@
 
     <dl class="row">
         <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.field.source" /></dt>
-        <dd class="col-sm-10">{job.sourceValue}</dd>
+        <dd class="col-sm-10 text-break">{job.sourceValue}</dd>
 
         <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.field.status" /></dt>
         <dd class="col-sm-10">
@@ -24,7 +24,7 @@
 
         <f:if condition="{job.errorMessage}">
             <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.field.error" /></dt>
-            <dd class="col-sm-10 text-danger">{job.errorMessage}</dd>
+            <dd class="col-sm-10 text-danger text-break">{job.errorMessage}</dd>
         </f:if>
     </dl>
 
@@ -86,9 +86,11 @@
                         </span>
                         <f:render partial="Job/AiLabel" arguments="{status: artifact.status, label: artifact.metadataArray.aiLabel}" />
                     </div>
-                    <div class="card-body">
+                    <f:comment><!-- LLM text can carry long unbroken tokens (URLs): break them inside the card. --></f:comment>
+                    <div class="card-body text-break">
                         <f:if condition="{artifact.errorMessage}">
-                            <p class="text-danger">{artifact.errorMessage}</p>
+                            <f:comment><!-- Core error box: .text-danger on the card background is 4.49:1 in the dark scheme (below AA). --></f:comment>
+                            <f:be.infobox state="2"><span class="text-break">{artifact.errorMessage}</span></f:be.infobox>
                         </f:if>
 
                         <f:if condition="{artifact.status} == 'done'">
@@ -97,7 +99,7 @@
                                 <f:variable name="mp3" value="{nr:publicUrl(fileUid: artifact.fileUid)}" />
                                 <f:variable name="vtt" value="{nr:publicUrl(fileUid: artifact.subtitleFileUid)}" />
                                 <f:if condition="{mp3}">
-                                    <audio controls preload="metadata" style="width: 100%; max-width: 640px;">
+                                    <audio controls preload="metadata" class="nrrepurpose-audio">
                                         <source src="{mp3}" type="audio/mpeg" />
                                         <f:if condition="{vtt}">
                                             <track kind="subtitles" src="{vtt}" srclang="{job.languageDetected}"
@@ -118,7 +120,7 @@
                                 <f:if condition="{artifact.scriptText}">
                                     <details>
                                         <summary><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.podcast.transcript" /></summary>
-                                        <pre style="white-space: pre-wrap;">{artifact.scriptText}</pre>
+                                        <pre class="nrrepurpose-pre">{artifact.scriptText}</pre>
                                     </details>
                                 </f:if>
                             </f:if>
@@ -130,7 +132,7 @@
                                     <p>
                                         <img src="{img}"
                                              alt="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.preview.alt', arguments: {0: artifact.type, 1: artifact.variant})}"
-                                             style="max-width: 100%; max-height: 480px; border: 1px solid var(--typo3-component-border-color, var(--bs-border-color));" />
+                                             class="nrrepurpose-preview nrrepurpose-preview-framed" />
                                     </p>
                                     <p>
                                         <a href="{img}" download class="btn btn-sm btn-default">
@@ -144,7 +146,7 @@
                             <f:if condition="{artifact.type} == 'video'">
                                 <f:variable name="mp4" value="{nr:publicUrl(fileUid: artifact.fileUid)}" />
                                 <f:if condition="{mp4}">
-                                    <video controls preload="metadata" playsinline="playsinline" style="max-height: 480px; max-width: 100%;">
+                                    <video controls preload="metadata" playsinline="playsinline" class="nrrepurpose-preview">
                                         <source src="{mp4}" type="video/mp4" />
                                     </video>
                                     <p class="mt-2">
@@ -192,9 +194,9 @@
                         <f:render partial="Job/AiLabel" arguments="{status: job.doneStoryArtifact.status, label: job.doneStoryArtifact.metadataArray.aiLabel}" />
                     </div>
                     <div class="card-body">
-                        <div style="display: flex; flex-direction: row; gap: 16px; overflow-x: auto; padding-bottom: 8px;">
+                        <div class="nrrepurpose-story-strip">
                             <f:for each="{job.storyArtifacts}" as="slide">
-                                <div style="flex: 0 0 auto; text-align: center;">
+                                <div class="nrrepurpose-story-slide">
                                     <f:if condition="{slide.status} == 'done'">
                                         <f:then>
                                             <f:variable name="img" value="{nr:publicUrl(fileUid: slide.fileUid)}" />
@@ -206,7 +208,7 @@
                                                 </f:if>
                                                 <img src="{img}"
                                                      alt="{slideAlt}"
-                                                     style="height: 320px; width: auto; border: 1px solid var(--typo3-component-border-color, var(--bs-border-color)); display: block;" />
+                                                     class="nrrepurpose-story-slide-image" />
                                                 <p class="text-muted mt-1 mb-0">
                                                     <f:if condition="{slide.metadataArray.slideIndex}">{slide.metadataArray.slideIndex}/{slide.metadataArray.slideTotal} — </f:if>
                                                     <a href="{img}" download>
@@ -216,8 +218,7 @@
                                             </f:if>
                                         </f:then>
                                         <f:else>
-                                            <div title="{slide.errorMessage}"
-                                                 style="box-sizing: border-box; height: 320px; width: 180px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--typo3-component-border-color, var(--bs-border-color)); padding: 8px;">
+                                            <div title="{slide.errorMessage}" class="nrrepurpose-story-slide-placeholder">
                                                 <span class="badge badge-{slide.statusEnum.severity}">
                                                     <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{slide.statusEnum.labelKey}" />
                                                 </span>
@@ -230,7 +231,7 @@
                                             </p>
                                         </f:else>
                                     </f:if>
-                                    <div style="max-width: 200px; text-align: left;">
+                                    <div class="nrrepurpose-story-slide-meta">
                                         <f:render partial="Job/GenerationParameters" arguments="{prompts: slide.metadataArray.prompts}" />
                                         <f:render partial="Job/Review" arguments="{artifact: slide, job: job, canReview: canReview}" />
                                     </div>
