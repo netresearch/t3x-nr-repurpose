@@ -23,6 +23,7 @@ use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Http\Response;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -68,7 +69,7 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
     private function service(ClientInterface $client, PdfVisionExtractor $vision): SourceIngestionService
     {
         $factory = new HttpFactory();
-        $runner  = new SymfonyProcessPopplerRunner();
+        $runner  = new SymfonyProcessPopplerRunner(new NullLogger());
 
         return new SourceIngestionService(
             new WebPageFetcher($client, $factory),

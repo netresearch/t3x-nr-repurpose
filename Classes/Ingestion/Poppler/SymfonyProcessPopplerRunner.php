@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Ingestion\Poppler;
 
 use Netresearch\NrRepurpose\Exception\PopplerEmptyOutputException;
 use Netresearch\NrRepurpose\Exception\PopplerProcessFailedException;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 
@@ -21,6 +22,8 @@ use Symfony\Component\Process\Process;
 final class SymfonyProcessPopplerRunner implements PopplerRunnerInterface
 {
     private const PROCESS_TIMEOUT = 120.0;
+
+    public function __construct(private readonly LoggerInterface $logger) {}
 
     public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
     {
@@ -46,7 +49,7 @@ final class SymfonyProcessPopplerRunner implements PopplerRunnerInterface
 
             return $bytes;
         } catch (ProcessFailedException $e) {
-            throw new PopplerProcessFailedException('pdftoppm failed for page ' . $page . ': ' . $e->getMessage(), 1749379431, $e);
+            throw $this->failed('pdftoppm failed for page ' . $page, 1749379431, $e);
         } finally {
             // $pngPath is an internally-generated temp render path (makeTempDir), never user input.
             if (is_file($pngPath)) {
@@ -72,9 +75,21 @@ final class SymfonyProcessPopplerRunner implements PopplerRunnerInterface
         try {
             $process->mustRun();
         } catch (ProcessFailedException $e) {
-            throw new PopplerProcessFailedException('pdftotext -layout failed for page ' . $page . ': ' . $e->getMessage(), 1749379432, $e);
+            throw $this->failed('pdftotext -layout failed for page ' . $page, 1749379432, $e);
         }
 
         return rtrim($process->getOutput());
+    }
+
+    /**
+     * Symfony's message holds the command line (the stored PDF's absolute path) and the
+     * binary's stderr. The ingestion error reaches the job's error message, shown to every
+     * module user, so the thrown message stays fixed and the detail goes to the server log.
+     */
+    private function failed(string $message, int $code, ProcessFailedException $e): PopplerProcessFailedException
+    {
+        $this->logger->error($message, ['exception' => $e]);
+
+        return new PopplerProcessFailedException($message, $code, $e);
     }
 }
