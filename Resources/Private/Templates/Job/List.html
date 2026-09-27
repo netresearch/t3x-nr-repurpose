@@ -43,7 +43,7 @@
                                     </span>
                                 </td>
                                 <td class="col-nowrap">
-                                    <f:render partial="Job/ArtifactSummaries" arguments="{summaries: job.artifactTypeSummaries}" />
+                                    <f:render partial="Job/ArtifactSummaries" arguments="{summaries: '{artifactSummaries.{job.uid}}'}" />
                                 </td>
                                 <td class="col-progress">
                                     <f:comment><!--

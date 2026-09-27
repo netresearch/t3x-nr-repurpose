@@ -14,6 +14,7 @@ use DateTimeZone;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
 use Netresearch\NrRepurpose\Domain\Model\Job;
+use Netresearch\NrRepurpose\Domain\Repository\ArtifactRepository;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Review\ArtifactReviewService;
@@ -40,6 +41,7 @@ class JobController extends ActionController
     public function __construct(
         protected readonly ModuleTemplateFactory $moduleTemplateFactory,
         protected readonly JobRepository $jobRepository,
+        protected readonly ArtifactRepository $artifactRepository,
         protected readonly JobSubmissionService $jobSubmissionService,
         protected readonly PromptSnippetRepository $promptSnippetRepository,
         protected readonly ArtifactReviewService $reviewService,
@@ -62,7 +64,14 @@ class JobController extends ActionController
     public function listAction(): ResponseInterface
     {
         $this->moduleTemplate->setTitle($this->moduleTitle());
-        $this->moduleTemplate->assign('jobs', $this->jobRepository->findAll());
+        $jobs = $this->jobRepository->findAll()->toArray();
+        $this->moduleTemplate->assignMultiple([
+            'jobs' => $jobs,
+            // One grouped query for the artifact column instead of loading each row's artifacts.
+            'artifactSummaries' => $this->artifactRepository->findTypeSummariesByJobs(
+                array_map(static fn (Job $job): int => (int) $job->getUid(), $jobs),
+            ),
+        ]);
 
         return $this->moduleTemplate->renderResponse('Job/List');
     }

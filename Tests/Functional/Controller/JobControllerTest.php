@@ -13,6 +13,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Netresearch\NrRepurpose\Controller\JobController;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Functional\Controller\Fixtures\QueryCountingMiddleware;
 use Netresearch\NrRepurpose\Tests\Functional\Controller\Fixtures\RecordingLogWriter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -33,6 +34,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
+use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Service\ExtensionService;
 
 /**
@@ -58,6 +60,15 @@ final class JobControllerTest extends AbstractFunctionalTestCase
 
     /** @var array<string, mixed> */
     protected array $configurationToUseInTestInstance = [
+        'DB' => [
+            'Connections' => [
+                'Default' => [
+                    'driverMiddlewares' => [
+                        'nrrepurpose-query-counter' => ['target' => QueryCountingMiddleware::class],
+                    ],
+                ],
+            ],
+        ],
         'LOG' => [
             'Netresearch' => [
                 'NrRepurpose' => [
@@ -75,13 +86,15 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     {
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/Fixtures/BeUsers.csv');
-        RecordingLogWriter::$records = [];
+        RecordingLogWriter::$records      = [];
+        QueryCountingMiddleware::$queries = [];
     }
 
     protected function tearDown(): void
     {
         unset($GLOBALS['BE_USER'], $GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
-        RecordingLogWriter::$records = [];
+        RecordingLogWriter::$records      = [];
+        QueryCountingMiddleware::$queries = [];
         parent::tearDown();
     }
 
@@ -184,6 +197,56 @@ final class JobControllerTest extends AbstractFunctionalTestCase
             $body,
         );
         self::assertStringNotContainsString('typo3-backend-progress-bar', $body);
+    }
+
+    #[Test]
+    public function listActionRunsTheSameNumberOfQueriesForOneJobAsForAFullPage(): void
+    {
+        $one  = $this->countListQueries(1);
+        $many = $this->countListQueries(20);
+
+        self::assertGreaterThan(0, $one, 'The query counter recorded nothing: the driver middleware is not attached.');
+        self::assertSame($one, $many, "The job list runs queries per row:\n" . implode("\n", QueryCountingMiddleware::$queries));
+    }
+
+    /** Renders the list over $jobs jobs of two artifacts each and returns the queries the action ran. */
+    private function countListQueries(int $jobs): int
+    {
+        foreach (['tx_nrrepurpose_domain_model_job', 'tx_nrrepurpose_domain_model_artifact'] as $table) {
+            GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable($table)->truncate($table);
+        }
+
+        for ($i = 0; $i < $jobs; ++$i) {
+            $job = $this->insertJob('https://example.com/report-' . $i, 'done');
+            $this->insertArtifact($job, ['type' => 'podcast']);
+            $this->insertArtifact($job, ['type' => 'schaubild', 'status' => 'failed']);
+        }
+
+        $backendUser     = $this->setUpBackendUser(self::ADMIN);
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+        $request         = $this->createBackendRequest('list');
+        $this->get(ConfigurationManagerInterface::class)->setRequest($request);
+        $controller = $this->get(JobController::class);
+        self::assertInstanceOf(JobController::class, $controller);
+        // The persistence session caches mapped objects; a warm one would hide the per-row loads.
+        $this->get(PersistenceManagerInterface::class)->clearState();
+
+        QueryCountingMiddleware::$queries = [];
+        $response                         = $controller->processRequest($request);
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string) $response->getBody();
+        self::assertSame($jobs, substr_count($body, '<td class="col-control">'));
+        // Every row still shows its summaries: the finished podcast and the failed Schaubild.
+        self::assertSame($jobs, substr_count($body, '<span class="text-success" role="img" title="Podcast: Done"'));
+        self::assertSame($jobs, substr_count($body, '<span class="text-danger" role="img" title="Schaubild: Failed"'));
+
+        // The backend session write-back varies between requests and has nothing to do with the list.
+        QueryCountingMiddleware::$queries = array_values(array_filter(
+            QueryCountingMiddleware::$queries,
+            static fn (string $sql): bool => !str_contains($sql, '"be_sessions"'),
+        ));
+
+        return count(QueryCountingMiddleware::$queries);
     }
 
     #[Test]
