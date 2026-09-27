@@ -122,3 +122,18 @@ jobs:
 
       - name: PHPStan
         run: composer ci:test:php:phpstan -- --error-format=github --no-progress
+
+  # Mutation testing (Infection, infection.json.dist) through the shared fuzz
+  # workflow, as in nr-llm. The fuzz job of that workflow skips itself: this
+  # extension has no fuzz testsuite. Runs on pull requests and on the weekly
+  # schedule; the reusable step is continue-on-error, so a score below the
+  # thresholds reports and does not block. The thresholds are the measured
+  # Covered Code MSI (65.8 %, 3000 mutants), not a target.
+  mutation:
+    uses: netresearch/typo3-ci-workflows/.github/workflows/fuzz.yml@main
+    permissions:
+      contents: read
+    with:
+      run-mutation-tests: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+      mutation-min-msi: 65
+      mutation-min-covered-msi: 65
