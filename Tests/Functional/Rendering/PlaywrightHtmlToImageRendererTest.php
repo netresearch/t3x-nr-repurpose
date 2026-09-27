@@ -13,6 +13,7 @@ use Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer;
 use Netresearch\NrRepurpose\Rendering\Process\SymfonyProcessRunner;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Psr\Log\NullLogger;
 
 final class PlaywrightHtmlToImageRendererTest extends AbstractFunctionalTestCase
 {
@@ -29,6 +30,7 @@ final class PlaywrightHtmlToImageRendererTest extends AbstractFunctionalTestCase
 
         return new PlaywrightHtmlToImageRenderer(
             new SymfonyProcessRunner(),
+            new NullLogger(),
             'node',
             $script,
             sys_get_temp_dir() . '/nrrepurpose-func-render',

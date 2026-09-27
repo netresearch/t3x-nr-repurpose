@@ -11,9 +11,12 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
 
 use Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessResult;
+use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Rendering\Fixture\RecordingProcessRunner;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
 
 final class PlaywrightHtmlToImageRendererTest extends TestCase
 {
@@ -25,9 +28,13 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
 
     private const CHROMIUM = '/usr/bin/chromium';
 
+    private RecordingLogger $logger;
+
     private function renderer(RecordingProcessRunner $runner): PlaywrightHtmlToImageRenderer
     {
-        return new PlaywrightHtmlToImageRenderer($runner, self::NODE, self::SCRIPT, self::OUT_DIR, self::CHROMIUM);
+        $this->logger = new RecordingLogger();
+
+        return new PlaywrightHtmlToImageRenderer($runner, $this->logger, self::NODE, self::SCRIPT, self::OUT_DIR, self::CHROMIUM);
     }
 
     public function testDiagramRenderBuildsAutoHeightTransparentArgvAndFeedsHtmlOnStdin(): void
@@ -82,13 +89,67 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
         self::assertStringEndsWith('.png', $out);
     }
 
-    public function testNonZeroExitRaisesRenderingExceptionWithStderr(): void
+    /**
+     * render.cjs stderr holds the Chromium launch line (profile directory, script path) and
+     * the renderer's own error text. The exception message reaches the artifact's
+     * error_message, shown to every module user, so stderr goes to the server log only.
+     */
+    public function testNonZeroExitRaisesAFixedMessageAndLogsStderr(): void
     {
-        $runner = new RecordingProcessRunner(new ProcessResult(1, '', 'chromium crashed'));
+        $stderr = 'browserType.launch: Target closed <launching> /usr/bin/chromium --user-data-dir=/tmp/playwright_chromiumdev_profile-AbC123';
+        $runner = new RecordingProcessRunner(new ProcessResult(1, '', $stderr));
 
-        $this->expectException(RenderingException::class);
-        $this->expectExceptionMessageMatches('/chromium crashed/');
+        try {
+            $this->renderer($runner)->render('<html></html>', 1080, 1920, 1.0, false);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('HTML render failed (exit 1)', $e->getMessage());
+            self::assertStringNotContainsString('playwright_chromiumdev_profile', $e->getMessage());
+        }
 
-        $this->renderer($runner)->render('<html></html>', 1080, 1920, 1.0, false);
+        self::assertCount(1, $this->logger->records);
+        self::assertSame(LogLevel::ERROR, $this->logger->records[0]['level']);
+        self::assertSame($stderr, $this->logger->records[0]['context']['stderr'] ?? null);
+    }
+
+    public function testAnUnwritableOutputDirRaisesAFixedMessageAndLogsThePath(): void
+    {
+        $dir          = '/proc/nrrepurpose-not-creatable';
+        $this->logger = new RecordingLogger();
+        $renderer     = new PlaywrightHtmlToImageRenderer(new RecordingProcessRunner(), $this->logger, self::NODE, self::SCRIPT, $dir, self::CHROMIUM);
+
+        try {
+            $renderer->render('<html></html>', 1080, 1920, 1.0, false);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('Render output dir not writable', $e->getMessage());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame($dir, $this->logger->records[0]['context']['path'] ?? null);
+    }
+
+    public function testAMissingOutputFileRaisesAFixedMessageAndLogsThePath(): void
+    {
+        // A successful exit that writes no file.
+        $runner = new class implements ProcessRunnerInterface {
+            public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0): ProcessResult
+            {
+                return new ProcessResult(0, '', '');
+            }
+        };
+        $this->logger = new RecordingLogger();
+        $renderer     = new PlaywrightHtmlToImageRenderer($runner, $this->logger, self::NODE, self::SCRIPT, self::OUT_DIR, self::CHROMIUM);
+
+        try {
+            $renderer->render('<html></html>', 1080, 1920, 1.0, false);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('Renderer produced no PNG', $e->getMessage());
+            self::assertStringNotContainsString(self::OUT_DIR, $e->getMessage());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertStringStartsWith(self::OUT_DIR . '/', (string) ($this->logger->records[0]['context']['path'] ?? ''));
     }
 }
