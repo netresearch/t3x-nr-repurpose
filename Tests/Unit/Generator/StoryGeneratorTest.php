@@ -75,10 +75,11 @@ final class StoryGeneratorTest extends TestCase
         ImageCompositorInterface $compositor,
         ?CompletionServiceInterface $completion = null,
         ?SlideshowRendererInterface $slideshow = null,
+        ?JobFileStorage $storage = null,
     ): StoryGenerator {
         $completion ??= $this->completion($completionResult);
 
-        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $this->storage(), $slideshow) extends StoryGenerator {
+        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage ?? $this->storage(), $slideshow) extends StoryGenerator {
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
@@ -226,9 +227,13 @@ final class StoryGeneratorTest extends TestCase
 
             public function __construct(private readonly bool $fail) {}
 
+            /** @var list<string> slide images that did not exist when render() was called */
+            public array $missingImages = [];
+
             public function render(array $imagePaths, int $width, int $height, float $secondsPerImage, array $metadata): string
             {
-                $this->calls[] = ['images' => $imagePaths, 'width' => $width, 'height' => $height, 'seconds' => $secondsPerImage, 'metadata' => $metadata];
+                $this->calls[]       = ['images' => $imagePaths, 'width' => $width, 'height' => $height, 'seconds' => $secondsPerImage, 'metadata' => $metadata];
+                $this->missingImages = [...$this->missingImages, ...array_values(array_filter($imagePaths, static fn (string $path): bool => !is_file($path)))];
                 if ($this->fail) {
                     throw RenderingException::because('ffmpeg slideshow failed (exit 1): boom', 1749400402);
                 }
@@ -667,6 +672,9 @@ final class StoryGeneratorTest extends TestCase
     private function renderer(): HtmlToImageRendererInterface
     {
         return new class implements HtmlToImageRendererInterface {
+            /** @var list<string> every file render() produced */
+            public array $outputs = [];
+
             /** @var list<int> */
             public array $widths = [];
 
@@ -684,9 +692,66 @@ final class StoryGeneratorTest extends TestCase
                 $path                 = sys_get_temp_dir() . '/story_' . bin2hex(random_bytes(4)) . '.png';
                 file_put_contents($path, 'PNG');
 
-                return $path;
+                return $this->outputs[] = $path;
             }
         };
+    }
+
+    public function testLeavesNoRenderBehindWithFlatSlidesAndTheVideo(): void
+    {
+        $renderer  = $this->renderer();
+        $slideshow = $this->slideshow();
+        $generator = $this->generator(self::THREE_SLIDES, $renderer, $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor(), slideshow: $slideshow);
+
+        self::assertTrue($generator->generate($this->context(wantVideo: true)));
+
+        // The video is made from the flat renders themselves: they must exist until then.
+        self::assertSame($renderer->outputs, $slideshow->calls[0]['images']);
+        self::assertSame([], $slideshow->missingImages);
+        self::assertCount(3, $renderer->outputs);
+        $this->assertAllGone($renderer->outputs);
+    }
+
+    public function testLeavesNoRenderBehindWithAKiBackground(): void
+    {
+        $renderer  = $this->renderer();
+        $slideshow = $this->slideshow();
+        $generator = $this->generator(self::THREE_SLIDES, $renderer, $this->imageGenerator(true), $this->jobs(), $this->allowingBudget(), $this->compositor(), slideshow: $slideshow);
+
+        self::assertTrue($generator->generate($this->context(wantVideo: true)));
+
+        self::assertSame([], $slideshow->missingImages);
+        self::assertCount(3, $renderer->outputs);   // the transparent foregrounds
+        $this->assertAllGone([...$renderer->outputs, ...$slideshow->calls[0]['images']]);
+    }
+
+    public function testLeavesNoRenderBehindWhenStoringTheSlidesFails(): void
+    {
+        $renderer = $this->renderer();
+        $jobs     = $this->jobs();
+        $storage  = new class extends JobFileStorage {
+            public function __construct() {}
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            {
+                throw new RuntimeException('FAL write failed');
+            }
+        };
+        $generator = $this->generator(self::THREE_SLIDES, $renderer, $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), storage: $storage);
+
+        self::assertFalse($generator->generate($this->context()));
+
+        self::assertSame('failed', $jobs->updates[$jobs->uidForVariant('slide-1')]['status']);
+        self::assertCount(3, $renderer->outputs);
+        $this->assertAllGone($renderer->outputs);
+    }
+
+    /** @param list<string> $paths */
+    private function assertAllGone(array $paths): void
+    {
+        foreach ($paths as $path) {
+            self::assertFileDoesNotExist($path);
+        }
     }
 
     private function compositor(): ImageCompositorInterface

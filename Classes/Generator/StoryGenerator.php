@@ -123,21 +123,29 @@ class StoryGenerator extends AbstractGenerator
 
         $total  = count($slides);
         $images = [];
-        foreach ($slides as $i => $slide) {
-            $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
-            $image = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
-            if ($image !== null) {
-                $images[] = $image;
+        try {
+            foreach ($slides as $i => $slide) {
+                $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
+                $image = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
+                if ($image !== null) {
+                    $images[] = $image;
+                }
+            }
+
+            $ok = $images !== [];
+            if ($ok && $this->slideshow instanceof SlideshowRendererInterface && (bool) ($ctx->jobRow['want_video'] ?? false)) {
+                $ctx->progress?->step('Story: video', 0.95);
+                $this->generateVideoArtifact($ctx, $jobUid, $this->slideshow, $images);
+            }
+
+            return $ok;
+        } finally {
+            // The slide images are kept until the video is made from them. A flat slide is
+            // the renderer's own output file; the worker runs long, so remove them here.
+            foreach ($images as $image) {
+                $this->discardRenderedFile($image);
             }
         }
-
-        $ok = $images !== [];
-        if ($ok && $this->slideshow instanceof SlideshowRendererInterface && (bool) ($ctx->jobRow['want_video'] ?? false)) {
-            $ctx->progress?->step('Story: video', 0.95);
-            $this->generateVideoArtifact($ctx, $jobUid, $this->slideshow, $images);
-        }
-
-        return $ok;
     }
 
     /**
@@ -319,7 +327,8 @@ class StoryGenerator extends AbstractGenerator
 
     /**
      * Render one slide into its own artifact row; a failure fails only this slide.
-     * Returns the rendered PNG for the video, or null when the slide failed.
+     * Returns the rendered PNG for the video, or null when the slide failed. The caller
+     * removes the returned PNG; every other render is removed here.
      */
     private function generateSlideArtifact(
         GenerationContext $ctx,
@@ -357,6 +366,8 @@ class StoryGenerator extends AbstractGenerator
             'aiLabel' => $provenance->toArray(),
         ];
 
+        $fgPath  = null;
+        $pngPath = null;
         try {
             $html = $this->renderSlideHtml($ctx, $slide, $index, $total, $backgroundPath !== null);
 
@@ -383,8 +394,13 @@ class StoryGenerator extends AbstractGenerator
             // local scalars, so encoding cannot actually fail here.
             $this->jobs->updateArtifact($artifactUid, ['metadata' => json_encode($metadata, JSON_THROW_ON_ERROR)]);
             $this->failArtifact($artifactUid, $jobUid, sprintf('Story slide %d/%d error: %s', $index, $total, $e->getMessage()));
+            // Not handed to the caller, so nobody else removes it.
+            $this->discardRenderedFile($pngPath);
 
             return null;
+        } finally {
+            // The transparent foreground is composited into $pngPath and not needed after.
+            $this->discardRenderedFile($fgPath);
         }
     }
 
