@@ -23,6 +23,7 @@ jobs:
       run-cgl: true
       run-phpstan: true
       run-rector: true
+      run-fractor: true
       run-unit-tests: true
       run-functional-tests: true
     secrets:

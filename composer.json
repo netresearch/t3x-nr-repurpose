@@ -70,6 +70,7 @@
         ],
         "ci:test:php:cgl": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff \"$@\"; else ./Build/Scripts/runTests.sh -s cgl -n \"$@\"; fi' --",
         "ci:test:php:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite unit \"$@\"; else ./Build/Scripts/runTests.sh -s unit \"$@\"; fi' --",
+        "ci:test:php:fractor": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then fractor process --config Build/fractor.php --dry-run \"$@\"; else ./Build/Scripts/runTests.sh -s fractor -n \"$@\"; fi' --",
         "ci:test:php:functional": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/FunctionalTests.xml \"$@\"; else ./Build/Scripts/runTests.sh -s functional \"$@\"; fi' --",
         "ci:test:php:lint": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then find Classes Configuration Tests -name \"*.php\" -print0 | xargs -0 -n1 php -l >/dev/null; else ./Build/Scripts/runTests.sh -s lint; fi'",
         "ci:test:php:phpstan": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpstan analyse \"$@\"; else ./Build/Scripts/runTests.sh -s phpstan \"$@\"; fi' --",
