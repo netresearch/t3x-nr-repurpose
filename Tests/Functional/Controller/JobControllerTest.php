@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Controller;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Netresearch\NrRepurpose\Controller\JobController;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Functional\Controller\Fixtures\RecordingLogWriter;
@@ -323,6 +325,113 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertSame(['review_status' => 'approved', 'reviewed_by' => 0, 'reviewed_at' => 0, 'publish_status' => 'scheduled', 'publish_at' => 1790000000], $this->reviewState($artifact));
         self::assertCount(1, RecordingLogWriter::$records);
         self::assertSame(['action' => $action, 'backendUser' => self::EDITOR, 'artifact' => $artifact, 'job' => $job], RecordingLogWriter::$records[0]->getData());
+    }
+
+    /** @return array<string, array{0: int, 1: string, 2: string}> */
+    public static function permittedDecisions(): array
+    {
+        return [
+            'admin approves'    => [self::ADMIN, 'approved', 'The artifact is approved.'],
+            'admin rejects'     => [self::ADMIN, 'rejected', 'The artifact is rejected.'],
+            'reviewer approves' => [self::REVIEWER, 'approved', 'The artifact is approved.'],
+            'reviewer rejects'  => [self::REVIEWER, 'rejected', 'The artifact is rejected.'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('permittedDecisions')]
+    public function aPermittedUserRecordsTheDecision(int $user, string $decision, string $message): void
+    {
+        $job      = $this->insertJob('https://example.com/report', 'done');
+        $artifact = $this->insertArtifact($job, ['type' => 'podcast']);
+        $before   = time();
+
+        $response = $this->dispatch('review', ['artifact' => $artifact, 'job' => $job, 'decision' => $decision], $user, 'POST');
+
+        $this->assertRedirectsToJob($response, $job);
+        self::assertSame([[$message, ContextualFeedbackSeverity::OK]], $this->flashMessages());
+        $state = $this->reviewState($artifact);
+        self::assertSame($decision, $state['review_status']);
+        self::assertSame($user, $state['reviewed_by']);
+        self::assertGreaterThanOrEqual($before, $state['reviewed_at']);
+        self::assertSame([], RecordingLogWriter::$records);
+    }
+
+    #[Test]
+    public function aPermittedUserCannotSendTheOpenDecision(): void
+    {
+        $job      = $this->insertJob('https://example.com/report', 'done');
+        $artifact = $this->insertArtifact($job, ['type' => 'podcast', 'review_status' => 'approved', 'reviewed_by' => 1, 'reviewed_at' => 1790000000]);
+
+        // ReviewStatus::Open is the empty string; 'open' is no decision at all and neither may reset one.
+        $response = $this->dispatch('review', ['artifact' => $artifact, 'job' => $job, 'decision' => 'open'], self::REVIEWER, 'POST');
+
+        $this->assertRedirectsToJob($response, $job);
+        self::assertSame([['Unknown review decision.', ContextualFeedbackSeverity::ERROR]], $this->flashMessages());
+        self::assertSame(['review_status' => 'approved', 'reviewed_by' => 1, 'reviewed_at' => 1790000000, 'publish_status' => '', 'publish_at' => 0], $this->reviewState($artifact));
+        self::assertSame([], RecordingLogWriter::$records);
+    }
+
+    #[Test]
+    public function aUserWithoutThePermissionIsRefusedBeforeTheDecisionIsRead(): void
+    {
+        $job      = $this->insertJob('https://example.com/report', 'done');
+        $artifact = $this->insertArtifact($job, ['type' => 'podcast']);
+
+        $response = $this->dispatch('review', ['artifact' => $artifact, 'job' => $job, 'decision' => 'open'], self::EDITOR, 'POST');
+
+        $this->assertRedirectsToJob($response, $job);
+        self::assertSame(
+            [['You may not approve artifacts. An administrator grants "Approve artifacts" in the backend group.', ContextualFeedbackSeverity::ERROR]],
+            $this->flashMessages(),
+        );
+        self::assertSame(['review_status' => '', 'reviewed_by' => 0, 'reviewed_at' => 0, 'publish_status' => '', 'publish_at' => 0], $this->reviewState($artifact));
+        self::assertCount(1, RecordingLogWriter::$records);
+    }
+
+    #[Test]
+    public function scheduleActionPutsAnApprovedPostOnTheScheduleAtTheServerTime(): void
+    {
+        $job      = $this->insertJob('https://example.com/report', 'done');
+        $artifact = $this->insertArtifact($job, ['type' => 'social_post', 'variant' => 'linkedin', 'review_status' => 'approved']);
+        $expected = (new DateTimeImmutable('2026-10-01 09:30:00', new DateTimeZone(date_default_timezone_get())))->getTimestamp();
+
+        $response = $this->dispatch('schedule', ['artifact' => $artifact, 'job' => $job, 'publishAt' => '2026-10-01T09:30'], self::REVIEWER, 'POST');
+
+        $this->assertRedirectsToJob($response, $job);
+        self::assertSame([['The post is scheduled.', ContextualFeedbackSeverity::OK]], $this->flashMessages());
+        $state = $this->reviewState($artifact);
+        self::assertSame('scheduled', $state['publish_status']);
+        self::assertSame($expected, $state['publish_at']);
+    }
+
+    #[Test]
+    public function scheduleActionRefusesAnUnparsableTime(): void
+    {
+        $job      = $this->insertJob('https://example.com/report', 'done');
+        $artifact = $this->insertArtifact($job, ['type' => 'social_post', 'variant' => 'linkedin', 'review_status' => 'approved']);
+
+        $response = $this->dispatch('schedule', ['artifact' => $artifact, 'job' => $job, 'publishAt' => 'tomorrow 9am'], self::REVIEWER, 'POST');
+
+        $this->assertRedirectsToJob($response, $job);
+        self::assertSame([['Enter a date and time for publishing.', ContextualFeedbackSeverity::ERROR]], $this->flashMessages());
+        self::assertSame(['review_status' => 'approved', 'reviewed_by' => 0, 'reviewed_at' => 0, 'publish_status' => '', 'publish_at' => 0], $this->reviewState($artifact));
+    }
+
+    #[Test]
+    public function unscheduleActionTakesThePostOffTheSchedule(): void
+    {
+        $job      = $this->insertJob('https://example.com/report', 'done');
+        $artifact = $this->insertArtifact($job, ['type' => 'social_post', 'variant' => 'linkedin', 'review_status' => 'approved', 'publish_status' => 'scheduled', 'publish_at' => 1790000000]);
+
+        $response = $this->dispatch('unschedule', ['artifact' => $artifact, 'job' => $job], self::REVIEWER, 'POST');
+
+        $this->assertRedirectsToJob($response, $job);
+        self::assertSame([['The post is no longer scheduled.', ContextualFeedbackSeverity::OK]], $this->flashMessages());
+        $state = $this->reviewState($artifact);
+        self::assertSame('', $state['publish_status']);
+        self::assertSame(0, $state['publish_at']);
+        self::assertSame('approved', $state['review_status']);
     }
 
     #[Test]
