@@ -26,7 +26,42 @@ jobs:
       run-fractor: true
       run-unit-tests: true
       run-functional-tests: true
-      # Uploads unit and functional coverage to Codecov (codecov.yml).
+      # Unit coverage comes from the built-in ci:test:php:unit call; the
+      # functional command below writes coverage-functional.xml itself, as
+      # the reusable workflow requires of a custom command.
       upload-coverage: true
+      # The reusable workflow has no input for system packages, so the
+      # functional command installs what the real-binary tests need before
+      # it runs them: ffmpeg (with libmp3lame) for FfmpegAudioStitcherTest,
+      # poppler-utils for SymfonyProcessPopplerRunnerTest, and the
+      # NodeRenderer's node_modules for PlaywrightHtmlToImageRendererTest,
+      # which also needs a Chromium at /usr/bin/chromium. apt's `chromium` on
+      # Ubuntu is a snap stub, so an existing Chromium or Chrome of the
+      # runner image is linked there instead.
+      #
+      # --fail-on-skipped: each of those tests skips itself when its binary is
+      # missing, and five of them were skipped in every CI run until now
+      # without anything turning red.
+      functional-test-command: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq --no-install-recommends ffmpeg poppler-utils
+        if [ ! -x /usr/bin/chromium ]; then
+          for candidate in chromium-browser google-chrome google-chrome-stable; do
+            path=$(command -v "$candidate" || true)
+            if [ -n "$path" ]; then
+              sudo ln -sf "$(readlink -f "$path")" /usr/bin/chromium
+              break
+            fi
+          done
+        fi
+        /usr/bin/chromium --version
+        # A here-string, not a pipe: under pipefail `grep -q` closing the pipe
+        # early would fail the step through ffmpeg's SIGPIPE.
+        grep -q libmp3lame <<<"$(ffmpeg -hide_banner -encoders)"
+        pdftoppm -v
+        pdftotext -v
+        node --version
+        npm ci --prefix Resources/Private/NodeRenderer --ignore-scripts --no-audit --no-fund
+        composer ci:test:php:functional -- --coverage-clover=coverage-functional.xml --fail-on-skipped
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
