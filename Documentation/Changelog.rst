@@ -9,12 +9,373 @@ Changelog
 All notable changes to Content Repurpose (``nr_repurpose``) are documented here.
 
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and the
-project adheres to `Semantic Versioning <https://semver.org/>`_.
+project adheres to `Semantic Versioning <https://semver.org/>`_. This page
+lists the main points of each release; the full entries, with the reasoning
+behind each change, are in the repository's
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
+
+.. _version-0-8-2:
+
+Version 0.8.2 (2026-09-27)
+==========================
+
+Fixed
+-----
+
+-   The *Create & queue* button gives its feedback again: its script is now an
+    ES module instead of an inline script the backend Content Security Policy
+    refused, so a double click can no longer queue a job twice.
+-   An alt-text generator listening to FAL events no longer fails every PNG
+    artifact: files are written with their bytes in place before FAL indexes
+    them. The podcast subtitles (``vtt``) are added to ``textfile_ext``.
+
+.. _version-0-8-1:
+
+Version 0.8.1 (2026-09-27)
+==========================
+
+Changed
+-------
+
+-   Accepts nr-llm 0.38 (``^0.35 || ^0.36 || ^0.37 || ^0.38``).
+
+.. _version-0-8-0:
+
+Version 0.8.0 (2026-09-27)
+==========================
+
+Added
+-----
+
+-   **Story video**: the finished story slides can also become one silent
+    1080×1920 MP4 (option *Also as video*).
+-   **Approval step** for every artifact, gated by the custom permission
+    ``nrrepurpose:approve_artifacts``. See :ref:`adr-007`.
+-   **Social planning**: approved social posts are scheduled and sent to a
+    webhook by the command ``nr_repurpose:publish-due``. See
+    :ref:`configuration-social`.
+-   **Two documents as PDF**: a 16:9 slide deck and an A4 handout, printed by
+    the headless Chromium. See :ref:`adr-006`.
+-   The PDF carries the AI label in its document information and XMP
+    metadata.
+
+New database columns: run the database analyzer after the update.
+
+.. _version-0-7-0:
+
+Version 0.7.0 (2026-09-26)
+==========================
+
+Added
+-----
+
+-   **Every artifact is labelled as AI-generated**, machine-readable in each
+    stored file and in the artifact metadata; the visible labels are
+    controlled by ``aiLabelImages`` and ``aiLabelTexts``. See
+    :ref:`configuration-ai-label` and :ref:`adr-005`.
+
+.. _version-0-6-0:
+
+Version 0.6.0 (2026-09-25)
+==========================
+
+Security
+--------
+
+-   Source text can no longer pose as an instruction in any LLM call: the
+    source material reaches the model only as one block marked as untrusted
+    data (CWE-1427).
+
+Added
+-----
+
+-   **Four text formats**: executive summary, FAQ, social posts and
+    newsletter text, each one schema-validated nr-llm call, off by default.
+    See :ref:`adr-004`.
+
+New database columns: run the database analyzer after the update.
+
+.. _version-0-5-3:
+
+Version 0.5.3 (2026-09-24)
+==========================
+
+Changed
+-------
+
+-   Accepts nr-llm 0.37 (``^0.35 || ^0.36 || ^0.37``).
+
+.. _version-0-5-2:
+
+Version 0.5.2 (2026-09-23)
+==========================
+
+Changed
+-------
+
+-   Accepts nr-llm 0.36 (``^0.35 || ^0.36``).
+
+Fixed
+-----
+
+-   The permissions ``generate_audio`` and ``generate_vision`` are enforced.
+    Editors whose groups do not carry them no longer get podcast audio and AI
+    imagery. See :ref:`configuration-permissions` and :ref:`adr-008`.
+
+.. _version-0-5-1:
+
+Version 0.5.1 (2026-09-17)
+==========================
+
+Fixed
+-----
+
+-   :path:`ext_emconf.php` declares ``nr_llm 0.35.0-0.35.99``, matching
+    :path:`composer.json`.
+
+.. _version-0-5-0:
+
+Version 0.5.0 (2026-09-17)
+==========================
+
+Changed
+-------
+
+-   Requires nr-llm ``^0.35``.
+
+Fixed
+-----
+
+-   The ``nr_repurpose_text`` preset is declared once; the duplicate made
+    nr-llm's Configurations module answer with an error.
+-   The fallback to the instance-default configuration works again with
+    nr-llm 0.35's value-object parameter.
+
+.. _version-0-4-9:
+
+Version 0.4.9 (2026-09-03)
+==========================
+
+Fixed
+-----
+
+-   The ``nr_repurpose_text`` preset asks only for the ``chat`` capability,
+    so it can be imported.
+-   :path:`ext_emconf.php` declares ``nr_vault``.
+
+.. _version-0-4-8:
+
+Version 0.4.8 (2026-09-03)
+==========================
+
+Added
+-----
+
+-   The **Content Repurpose Starter** use-case pack. See
+    :ref:`configuration-starter-pack`.
+
+Changed
+-------
+
+-   Requires nr-llm ``^0.34``.
+
+.. _version-0-4-7:
+
+Version 0.4.7 (2026-08-21)
+==========================
+
+Changed
+-------
+
+-   Requires nr-llm ``^0.33``.
+
+.. _version-0-4-6:
+
+Version 0.4.6 (2026-08-21)
+==========================
+
+Added
+-----
+
+-   Every nr-llm call names this extension and its pipeline step, so nr-llm's
+    analytics attribute usage and cost to ``nr_repurpose``.
+
+Changed
+-------
+
+-   Requires nr-llm ``^0.32``.
+
+.. _version-0-4-5:
+
+Version 0.4.5 (2026-08-20)
+==========================
+
+Changed
+-------
+
+-   Requires nr-llm ``^0.31``.
+
+.. _version-0-4-4:
+
+Version 0.4.4 (2026-08-19)
+==========================
+
+Changed
+-------
+
+-   Requires nr-llm ``^0.30``.
+
+.. _version-0-4-3:
+
+Version 0.4.3 (2026-08-13)
+==========================
+
+Changed
+-------
+
+-   Accepts nr-llm 0.29 alongside 0.28.
+
+.. _version-0-4-2:
+
+Version 0.4.2 (2026-08-11)
+==========================
+
+Added
+-----
+
+-   The extension setting :confval:`technicalBeUserUid <technicalbeuseruid>`.
+
+Fixed
+-----
+
+-   Generation jobs no longer fail in the analysis step with a denied
+    nr-vault read, once a technical backend user is configured.
+
+Changed
+-------
+
+-   Requires nr-vault ``^0.15``.
+
+.. _version-0-4-1:
+
+Version 0.4.1 (2026-08-10)
+==========================
+
+Changed
+-------
+
+-   Requires nr-llm ``^0.28``.
+
+.. _version-0-4-0:
+
+Version 0.4.0 (2026-08-07)
+==========================
+
+Changed
+-------
+
+-   Requires nr-llm ``^0.26``.
+
+Removed
+-------
+
+-   The public alias for nr-llm's capability permission service, which
+    nr-llm 0.26 removed.
+
+.. _version-0-3-1:
+
+Version 0.3.1 (2026-07-31)
+==========================
+
+Changed
+-------
+
+-   Accepts nr-vault 0.12 (``^0.10.0 || ^0.11.0 || ^0.12.0``).
+
+Fixed
+-----
+
+-   :path:`Documentation/guides.xml` states the released version.
+
+.. _version-0-3-0:
+
+Version 0.3.0 (2026-07-24)
+==========================
+
+Changed
+-------
+
+-   Requires nr-llm ``^0.25``.
+
+.. _version-0-2-3:
+
+Version 0.2.3 (2026-07-22)
+==========================
+
+Changed
+-------
+
+-   Accepts Symfony 8 for ``symfony/process`` and ``symfony/messenger``.
+
+Fixed
+-----
+
+-   Composer resolves the latest tag: the explicit ``version`` field is removed
+    from :path:`composer.json`.
+
+.. _version-0-2-2:
+
+Version 0.2.2 (2026-07-22)
+==========================
+
+Added
+-----
+
+-   nr-llm 0.23 support (``completeStructured()``), and a documentation render
+    job in CI.
+
+Fixed
+-----
+
+-   The documentation renders again (repaired :path:`guides.xml`).
+
+.. _version-0-2-1:
+
+Version 0.2.1 (2026-07-21)
+==========================
+
+Changed
+-------
+
+-   Backend icons in the TYPO3 v14 style, and a record icon for artifacts.
+-   Accepts nr-vault 0.11.
+
+Fixed
+-----
+
+-   Borders in the job detail view follow the dark scheme.
+
+.. _version-0-2-0:
+
+Version 0.2.0 (2026-07-18)
+==========================
+
+Added
+-----
+
+-   **One-click nr-llm configuration presets** for ``nr_repurpose_text``,
+    ``nr_repurpose_image`` and ``nr_repurpose_tts``.
+-   Text generation routes through the ``nr_repurpose_text`` configuration.
+
+Changed
+-------
+
+-   Requires nr-llm ``^0.22.0``.
 
 .. _version-0-1-0:
 
-Version 0.1.0
-=============
+Version 0.1.0 (2026-06-12)
+==========================
 
 Initial alpha release.
 

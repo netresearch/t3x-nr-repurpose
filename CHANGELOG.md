@@ -19,6 +19,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **The configuration chapter documents `technicalBeUserUid`.** It said the extension has no configuration of its own, while `ext_conf_template.txt` declares five settings; the setting a worker needs to read provider keys from nr-vault was documented nowhere. The chapter now lists the five settings and describes `technicalBeUserUid`.
 - **The installation chapter states the nr-llm range `composer.json` requires** (`^0.35 || ^0.36 || ^0.37 || ^0.38`, it said `^0.25`), adds nr-vault to the requirements, and describes a classic-mode installation from the TER.
+- **The changelog page of the rendered documentation covers every release up to 0.8.2.** It stopped at 0.1.0.
 
 ## [0.8.2] - 2026-09-27
 
