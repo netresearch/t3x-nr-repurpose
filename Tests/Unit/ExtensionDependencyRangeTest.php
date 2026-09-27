@@ -24,8 +24,9 @@ final class ExtensionDependencyRangeTest extends TestCase
 {
     private const ROOT = __DIR__ . '/../../';
 
-    /** Composer package => extension key, for every extension this one depends on. */
+    /** Composer requirement => ext_emconf.php depends key, for PHP and every extension this one depends on. */
     private const EXTENSIONS = [
+        'php'                  => 'php',
         'typo3/cms-core'       => 'typo3',
         'netresearch/nr-llm'   => 'nr_llm',
         'netresearch/nr-vault' => 'nr_vault',
@@ -81,6 +82,7 @@ final class ExtensionDependencyRangeTest extends TestCase
             'consecutive 0.x minors'  => ['^0.15 || ^0.16', '0.15.0-0.16.99'],
             'four 0.x minors'         => ['^0.35 || ^0.36 || ^0.37 || ^0.38', '0.35.0-0.38.99'],
             'a major from a minor on' => ['^14.3', '14.3.0-14.99.99'],
+            'php'                     => ['^8.3', '8.3.0-8.99.99'],
         ];
     }
 
@@ -128,24 +130,54 @@ final class ExtensionDependencyRangeTest extends TestCase
     }
 
     /**
-     * constraints.depends of ext_emconf.php, read from the source rather than executed: the file
-     * writes into the global $EM_CONF, and re-including it per test would need require (not _once).
+     * constraints.depends of ext_emconf.php, read from the PHP tokens without executing the file.
+     * Executing it would need `require` per test (the file only assigns the global $EM_CONF, so
+     * `require_once` leaves every later test with nothing). Reading tokens instead of text skips
+     * comments, so a commented-out or trailing range in a comment is not mistaken for the real one,
+     * and accepts single- and double-quoted strings alike.
      *
      * @return array{constraints: array{depends: array<string, string>}}
      */
     private function emconf(): array
     {
-        $source = (string) file_get_contents(self::ROOT . 'ext_emconf.php');
-        self::assertSame(1, preg_match("/'depends'\\s*=>\\s*\\[(.*?)\\]/s", $source, $block), 'no depends block in ext_emconf.php');
-        preg_match_all("/'([a-z0-9_]+)'\\s*=>\\s*'([^']*)'/", $block[1], $pairs, PREG_SET_ORDER);
+        $tokens = array_values(array_filter(
+            token_get_all((string) file_get_contents(self::ROOT . 'ext_emconf.php')),
+            static fn (array|string $token): bool => !is_array($token) || !in_array($token[0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true),
+        ));
 
         $depends = [];
-        foreach ($pairs as [, $key, $range]) {
-            $depends[$key] = $range;
+        $count   = count($tokens);
+        for ($i = 0; $i < $count; ++$i) {
+            if ($this->literal($tokens[$i]) !== 'depends' || ($tokens[$i + 1][0] ?? null) !== T_DOUBLE_ARROW || ($tokens[$i + 2] ?? null) !== '[') {
+                continue;
+            }
+
+            self::assertSame([], $depends, 'more than one depends block in ext_emconf.php');
+            for ($j = $i + 3; $j < $count && $tokens[$j] !== ']'; ++$j) {
+                $key = $this->literal($tokens[$j]);
+                if ($key === null || ($tokens[$j + 1][0] ?? null) !== T_DOUBLE_ARROW) {
+                    continue;
+                }
+
+                $range = $this->literal($tokens[$j + 2] ?? '');
+                self::assertIsString($range, 'depends.' . $key . ' is not a string literal');
+                self::assertArrayNotHasKey($key, $depends, 'depends.' . $key . ' is declared twice');
+                $depends[$key] = $range;
+            }
         }
 
-        self::assertNotSame([], $depends, 'empty depends block in ext_emconf.php');
+        self::assertNotSame([], $depends, 'no depends entries found in ext_emconf.php');
 
         return ['constraints' => ['depends' => $depends]];
+    }
+
+    /** The value of a plain string literal token ('…' or "…" without interpolation), else null. */
+    private function literal(array|string $token): ?string
+    {
+        if (!is_array($token) || $token[0] !== T_CONSTANT_ENCAPSED_STRING) {
+            return null;
+        }
+
+        return stripcslashes(substr($token[1], 1, -1));
     }
 }
