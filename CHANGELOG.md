@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-09-27
+
 ### Fixed
 
 - **The "Create & queue" button gives its feedback again.** Its script sat inline in the new-job template, and the TYPO3 backend Content Security Policy refuses an inline `<script>` without a nonce, so the browser never ran it: the button was never disabled and never showed the spinner, and a double click could queue the same job twice. The script is now the ES module `Resources/Public/JavaScript/job-new.js`, registered under the import-map prefix `@netresearch/nr-repurpose/` (`Configuration/JavaScriptModules.php`) and loaded by the new-job action only.
@@ -306,7 +308,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.6.0...v0.7.0
