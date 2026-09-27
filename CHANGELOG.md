@@ -9,6 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **`LICENSE`** with the GPL-2.0 text. `composer.json` and `ext_emconf.php` declare `GPL-2.0-or-later`; the repository did not ship the licence text.
+- **ADR-008** records the capability-permission gate that 0.5.2 introduced: `generate_audio` and `generate_vision` are checked for the job's creator, once per run, before the budget.
 
 ### Changed
 

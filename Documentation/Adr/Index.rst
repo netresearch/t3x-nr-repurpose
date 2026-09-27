@@ -78,6 +78,14 @@ Decision records
       .. card-footer:: :ref:`Read <adr-007>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-008: Capability permissions checked before spend
+
+      Why the extension checks ``generate_audio`` and
+      ``generate_vision`` itself, for the job's creator, before the budget.
+
+      .. card-footer:: :ref:`Read <adr-008>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -88,3 +96,4 @@ Decision records
    Adr005AiGeneratedContentLabel
    Adr006DocumentFormatsAsPrintedHtml
    Adr007ApprovalAndWebhookPublishing
+   Adr008CapabilityPermissionGate
