@@ -9,11 +9,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **`LICENSE`** with the GPL-2.0 text. `composer.json` and `ext_emconf.php` declare `GPL-2.0-or-later`; the repository did not ship the licence text.
+- **A developer chapter and a troubleshooting page** in the documentation: running the test suites, adding a generator, swapping the image or speech adapter; and the error messages a job or artifact shows when the worker, nr-vault, Chromium, ffmpeg, poppler, a permission or the budget stops it.
+- **The README explains how to verify a release**: `gh attestation verify` with `--signer-repo netresearch/typo3-ci-workflows`, because the shared release workflow signs the build provenance.
 - **ADR-008** records the capability-permission gate that 0.5.2 introduced: `generate_audio` and `generate_vision` are checked for the job's creator, once per run, before the budget.
 
 ### Changed
 
 - **README**: a badge row (CI, codecov, documentation, OpenSSF Scorecard, PHPStan, PHP, TYPO3, licence, latest release, TER), an installation section for Composer and for TER / classic mode, the story video and the two PDF documents in the feature list, and a licence and credits section naming Netresearch DTT GmbH.
+- The configuration and architecture chapters are split into subpages (nr-llm wiring, worker environment, AI labelling and publishing; generators). Every link target keeps its name.
 
 ### Fixed
 
