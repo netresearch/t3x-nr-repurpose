@@ -31,6 +31,7 @@
     "require-dev": {
         "netresearch/typo3-ci-workflows": "^1.5",
         "phpunit/phpunit": "^11.5",
+        "sabberworm/php-css-parser": "^9.5",
         "typo3/cms-belog": "^14.3",
         "typo3/cms-beuser": "^14.3",
         "typo3/cms-filelist": "^14.3",

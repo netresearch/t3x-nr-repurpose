@@ -16,6 +16,9 @@ use DOMElement;
 use DOMXPath;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Sabberworm\CSS\OutputFormat;
+use Sabberworm\CSS\Parser;
+use Sabberworm\CSS\Property\Selector;
 use SimpleXMLElement;
 
 /**
@@ -221,12 +224,12 @@ final class BackendViewMarkupTest extends TestCase
 
     public function testEveryModuleClassIsDefinedInTheModuleStylesheet(): void
     {
-        $css  = (string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css');
         $used = [];
         foreach (self::backendTemplates() as [$template]) {
-            preg_match_all('/\bnrrepurpose-[a-z-]+(?=[\s"])/', (string) file_get_contents(self::RESOURCES . $template), $matches);
+            $source = (string) file_get_contents(self::RESOURCES . $template);
+            preg_match_all('/\bnrrepurpose-[a-z-]+(?=[\s"])/', $source, $matches);
             foreach ($matches[0] as $class) {
-                if (preg_match('/class="[^"]*\b' . preg_quote($class, '/') . '\b/', (string) file_get_contents(self::RESOURCES . $template)) === 1) {
+                if (preg_match('/class="[^"]*\b' . preg_quote($class, '/') . '\b/', $source) === 1) {
                     $used[$class] = true;
                 }
             }
@@ -234,54 +237,121 @@ final class BackendViewMarkupTest extends TestCase
 
         self::assertNotSame([], $used);
         foreach (array_keys($used) as $class) {
-            self::assertStringContainsString('.' . $class . ' {', $css, $class);
+            self::assertNotSame([], $this->declarationsFor('.' . $class), $class . ' has no rule in backend.css');
         }
     }
 
-    /** @return array<string, array{0: string, 1: list<string>}> */
+    /** @return array<string, array{0: string, 1: array<string, string>}> */
     public static function keyDeclarations(): array
     {
         return [
-            'prompt and generated text wraps'     => ['.nrrepurpose-pre', ['white-space: pre-wrap;', 'overflow-wrap: anywhere;']],
-            'copy-ready text keeps the body font' => ['.nrrepurpose-pre-text', ['font-family: inherit;']],
-            'previews never wider than the card'  => ['.nrrepurpose-preview', ['max-width: 100%;', 'max-height: 480px;', 'height: auto;']],
-            'audio player fits the card'          => ['.nrrepurpose-audio', ['width: 100%;', 'max-width: 640px;']],
-            'story strip scrolls, not the page'   => ['.nrrepurpose-story-strip', ['display: flex;', 'overflow-x: auto;']],
-            'slides keep their size in the strip' => ['.nrrepurpose-story-slide', ['flex: 0 0 auto;']],
-            'progress track is drawn'             => ['.nrrepurpose-progress-track', ['flex: 1 1 auto;', 'min-width: 3rem;', 'height: .5rem;', 'background-color: var(--typo3-surface-container-high);']],
-            'progress fill colour'                => ['.nrrepurpose-progress-fill', ['height: 100%;', 'background-color: var(--typo3-component-primary-color);']],
+            'prompt and generated text wraps'     => ['.nrrepurpose-pre', ['white-space' => 'pre-wrap', 'overflow-wrap' => 'anywhere']],
+            'copy-ready text keeps the body font' => ['.nrrepurpose-pre-text', ['font-family' => 'inherit']],
+            'previews never wider than the card'  => ['.nrrepurpose-preview', ['max-width' => '100%', 'max-height' => '480px', 'height' => 'auto']],
+            'audio player fits the card'          => ['.nrrepurpose-audio', ['width' => '100%', 'max-width' => '640px']],
+            'story strip scrolls, not the page'   => ['.nrrepurpose-story-strip', ['display' => 'flex', 'overflow-x' => 'auto']],
+            'slides keep their size in the strip' => ['.nrrepurpose-story-slide', ['flex' => '0 0 auto']],
+            'progress track is drawn'             => ['.nrrepurpose-progress-track', ['flex' => '1 1 auto', 'min-width' => '3rem', 'height' => '.5rem', 'background-color' => 'var(--typo3-surface-container-high)']],
+            'progress fill colour'                => ['.nrrepurpose-progress-fill', ['height' => '100%', 'background-color' => 'var(--typo3-component-primary-color)']],
         ];
     }
 
-    /** @param list<string> $declarations */
+    /**
+     * The value that wins for each property: the last declaration across every rule whose
+     * selector names the class, wherever in the file that rule stands.
+     *
+     * @param array<string, string> $expected
+     */
     #[DataProvider('keyDeclarations')]
-    public function testTheModuleStylesheetKeepsItsKeyDeclarations(string $selector, array $declarations): void
+    public function testTheModuleStylesheetKeepsItsKeyDeclarations(string $class, array $expected): void
     {
-        $css = (string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css');
-        self::assertSame(1, preg_match('/^' . preg_quote($selector, '/') . ' \{([^}]*)\}/m', $css, $rule), $selector);
+        $effective = [];
+        foreach ($this->declarationsFor($class) as [$property, $value]) {
+            $effective[$property] = $value;
+        }
 
-        foreach ($declarations as $declaration) {
-            self::assertStringContainsString($declaration, $rule[1], $selector);
+        foreach ($expected as $property => $value) {
+            self::assertArrayHasKey($property, $effective, $class . ' ' . $property);
+            self::assertSame($this->normalised($value), $effective[$property], $class . ' ' . $property);
         }
     }
 
     public function testTheProgressBarItselfHasNoMinimumWidth(): void
     {
-        $css = (string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css');
-        self::assertSame(1, preg_match('/^\.nrrepurpose-progress \{([^}]*)\}/m', $css, $rule));
-
-        // min-width: 8rem here widened the job list to 661 px in a 657 px container at 1280 px
+        // min-width: 8rem on the bar widened the job list to 661 px in a 657 px container at 1280 px
         // and cut off the actions column; the minimum belongs to the track (3rem).
-        self::assertStringNotContainsString('min-width', $rule[1]);
+        self::assertSame([], $this->valuesOf('.nrrepurpose-progress', 'min-width'));
     }
 
     public function testTheProgressTrackDeclaresItsMinimumWidthOnce(): void
     {
-        $css = (string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css');
-        self::assertSame(1, preg_match('/^\.nrrepurpose-progress-track \{([^}]*)\}/m', $css, $rule));
+        // A second min-width, in the same rule or in another rule for the track anywhere later in
+        // the file, wins over the 3rem and brings the 1280 px overflow back.
+        self::assertSame([$this->normalised('3rem')], $this->valuesOf('.nrrepurpose-progress-track', 'min-width'));
+    }
 
-        // A second min-width later in the block wins over the 3rem and brings the 1280 px overflow back.
-        self::assertSame(1, preg_match_all('/(?:^|[;\s])min-width\s*:/', $rule[1]));
+    public function testTheModuleStylesheetUsesNoFixedColour(): void
+    {
+        $declarations = $this->declarations();
+        self::assertNotSame([], $declarations);
+
+        foreach ($declarations as [$selectors, $property, $value]) {
+            // Colours come from core custom properties only, so the dark scheme applies.
+            self::assertSame(0, preg_match('/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/i', $value), $selectors . ' ' . $property . ': ' . $value);
+            if ($property === 'font-family') {
+                self::assertSame('inherit', $value, $selectors);
+            }
+        }
+    }
+
+    /**
+     * Every declaration of backend.css, parsed, in source order.
+     *
+     * @return list<array{0: string, 1: string, 2: string}> selectors, property, value
+     */
+    private function declarations(): array
+    {
+        $document = (new Parser((string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css')))->parse();
+        $format   = OutputFormat::createCompact();
+        $all      = [];
+        foreach ($document->getAllDeclarationBlocks() as $block) {
+            $selectors = implode(',', array_map(static fn (Selector $selector): string => $selector->render($format), $block->getSelectors()));
+            foreach ($block->getDeclarations() as $declaration) {
+                $value = $declaration->getValue();
+                $all[] = [$selectors, $declaration->getPropertyName(), is_string($value) ? $value : $value->render($format)];
+            }
+        }
+
+        return $all;
+    }
+
+    /** @return list<array{0: string, 1: string}> property, value of every rule whose selector names the class */
+    private function declarationsFor(string $class): array
+    {
+        $pattern = '/' . preg_quote($class, '/') . '(?![\w-])/';
+
+        return array_values(array_map(
+            static fn (array $declaration): array => [$declaration[1], $declaration[2]],
+            array_filter($this->declarations(), static fn (array $declaration): bool => preg_match($pattern, $declaration[0]) === 1),
+        ));
+    }
+
+    /** @return list<string> */
+    private function valuesOf(string $class, string $property): array
+    {
+        return array_values(array_map(
+            static fn (array $declaration): string => $declaration[1],
+            array_filter($this->declarationsFor($class), static fn (array $declaration): bool => $declaration[0] === $property),
+        ));
+    }
+
+    /** A value as the parser renders it, so the expectations can be written as in the stylesheet. */
+    private function normalised(string $value): string
+    {
+        $declarations = (new Parser('a{x:' . $value . '}'))->parse()->getAllDeclarationBlocks()[0]->getDeclarations();
+        $parsed       = $declarations[0]->getValue();
+
+        return is_string($parsed) ? $parsed : $parsed->render(OutputFormat::createCompact());
     }
 
     /** @return array<string, array{0: string, 1: string}> */
@@ -320,6 +390,13 @@ final class BackendViewMarkupTest extends TestCase
             $id = (string) $unit['id'];
             self::assertArrayHasKey($id, $reference, basename($file) . ' ' . $id . ' has no English label');
             self::assertSame($this->placeholders($reference[$id]), $this->placeholders((string) $unit->target), basename($file) . ' ' . $id);
+            // A label with placeholders goes through sprintf, where a `%` that starts no placeholder
+            // (`50 % von %s`) is a ValueError. Labels without placeholders are rendered as they are.
+            if ($this->placeholders($reference[$id]) !== []) {
+                self::assertFalse($this->hasLonePercent((string) $unit->target), basename($file) . ' ' . $id . ': lone %');
+                self::assertFalse($this->hasLonePercent($reference[$id]), basename($file) . ' ' . $id . ': lone % in the English label');
+            }
+
             ++$compared;
         }
 
@@ -335,6 +412,30 @@ final class BackendViewMarkupTest extends TestCase
             'escaped percent'     => ['%s of 100%%', ['1:s']],
             'escaped then letter' => ['%s of %%s', ['1:s']],
         ];
+    }
+
+    /** @return array<string, array{0: string, 1: bool}> */
+    public static function percentSigns(): array
+    {
+        return [
+            'placeholders only'        => ['%s of %d', false],
+            'escaped percent'          => ['%s of 100%%', false],
+            'positional'               => ['%2$d of %1$s', false],
+            'lone percent before text' => ['50 % von %s', true],
+            'lone percent at the end'  => ['%s of 100%', true],
+        ];
+    }
+
+    #[DataProvider('percentSigns')]
+    public function testTheLonePercentReading(string $text, bool $lone): void
+    {
+        self::assertSame($lone, $this->hasLonePercent($text));
+    }
+
+    /** A `%` that is neither `%%` nor the start of a %d / %s / %N$d / %N$s placeholder. */
+    private function hasLonePercent(string $text): bool
+    {
+        return preg_match('/%(?!(?:\d+\$)?[ds])/', str_replace('%%', '', $text)) === 1;
     }
 
     /** @param list<string> $expected */
@@ -379,15 +480,6 @@ final class BackendViewMarkupTest extends TestCase
         self::assertNotSame([], $units, $file);
 
         return array_values($units);
-    }
-
-    public function testTheModuleStylesheetUsesNoFixedColour(): void
-    {
-        $css = (string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css');
-
-        // Colours come from core custom properties only, so the dark scheme applies.
-        self::assertSame(0, preg_match('/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/i', $css));
-        self::assertSame(0, preg_match('/font-family:\s*+(?!inherit)/', $css));
     }
 
     private function xpath(string $template): DOMXPath
