@@ -138,7 +138,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         // Own progressbar (core v14 has no .progress CSS; the core element is @internal and unnamed):
         // role, value range and name on one element, the fill width is the value, the percentage visible.
         self::assertMatchesRegularExpression(
-            '#<div class="nrrepurpose-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"\s+aria-label="Progress">\s*'
+            '#<div class="nrrepurpose-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"\s+aria-label="Progress of job 1">\s*'
             . '<div class="nrrepurpose-progress-track"><div class="nrrepurpose-progress-fill" style="width: 0%;"></div></div>\s*'
             . '<span class="nrrepurpose-progress-value">0%</span>#',
             $body,
@@ -167,7 +167,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     {
         $job = $this->insertJob('https://example.com/report', 'queued');
 
-        // csp="true" (useNonce is deprecated in 14.3): the inline reload needs the nonce, or the backend CSP blocks it.
+        // csp="true" (useNonce is deprecated since 14.2): the inline reload needs the nonce, or the backend CSP blocks it.
         self::assertMatchesRegularExpression(
             '#<script nonce="[^"]+">setTimeout\(\(\) => window\.location\.reload\(\), 5000\);</script>#',
             $this->renderAction('show', ['job' => $job]),

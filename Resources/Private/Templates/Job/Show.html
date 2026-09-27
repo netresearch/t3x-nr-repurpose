@@ -35,7 +35,7 @@
                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.action.reload" />
             </f:link.action>
         </div>
-        <f:comment><!-- Live progress: reload while the job is non-terminal (csp="true" adds the nonce the BE CSP needs; useNonce is deprecated in 14.3) --></f:comment>
+        <f:comment><!-- Live progress: reload while the job is non-terminal (csp="true" adds the nonce the BE CSP needs; useNonce is deprecated since 14.2) --></f:comment>
         <f:asset.script identifier="nrRepurposeJobAutoRefresh" csp="true">setTimeout(() => window.location.reload(), 5000);</f:asset.script>
     </f:if>
 

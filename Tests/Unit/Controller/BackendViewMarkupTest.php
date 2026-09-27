@@ -140,7 +140,9 @@ final class BackendViewMarkupTest extends TestCase
             ['progressbar', '{job.progress}', '0', '100'],
             [$bar->getAttribute('role'), $bar->getAttribute('aria-valuenow'), $bar->getAttribute('aria-valuemin'), $bar->getAttribute('aria-valuemax')],
         );
-        self::assertStringContainsString('list.column.progress', $bar->getAttribute('aria-label'));
+        // One name per row, like the Details link: "Progress of job 4", not nine identical "Progress".
+        self::assertStringContainsString('list.progress.label', $bar->getAttribute('aria-label'));
+        self::assertStringContainsString('arguments: {0: job.uid}', $bar->getAttribute('aria-label'));
         self::assertSame(1, $xpath->query('.//span[@class="nrrepurpose-progress-value"][normalize-space(.)="{job.progress}%"]', $bar)?->length);
         self::assertSame(0, $xpath->query('//typo3-backend-progress-bar')?->length);
         // Matched on the source: how an HTML parser nests an unknown, self-closed <f:render/>
@@ -245,7 +247,7 @@ final class BackendViewMarkupTest extends TestCase
             'audio player fits the card'          => ['.nrrepurpose-audio', ['width: 100%;', 'max-width: 640px;']],
             'story strip scrolls, not the page'   => ['.nrrepurpose-story-strip', ['display: flex;', 'overflow-x: auto;']],
             'slides keep their size in the strip' => ['.nrrepurpose-story-slide', ['flex: 0 0 auto;']],
-            'progress track colour'               => ['.nrrepurpose-progress-track', ['background-color: var(--typo3-surface-container-high);']],
+            'progress track is drawn'             => ['.nrrepurpose-progress-track', ['flex: 1 1 auto;', 'height: .5rem;', 'background-color: var(--typo3-surface-container-high);']],
             'progress fill colour'                => ['.nrrepurpose-progress-fill', ['height: 100%;', 'background-color: var(--typo3-component-primary-color);']],
         ];
     }

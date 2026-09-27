@@ -52,7 +52,7 @@
                                         Core v14 ships no .progress/.progress-bar CSS. The width is the job's value.
                                     --></f:comment>
                                     <div class="nrrepurpose-progress" role="progressbar" aria-valuenow="{job.progress}" aria-valuemin="0" aria-valuemax="100"
-                                         aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.progress')}">
+                                         aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.progress.label', arguments: {0: job.uid})}">
                                         <div class="nrrepurpose-progress-track"><div class="nrrepurpose-progress-fill" style="width: {job.progress}%;"></div></div>
                                         <span class="nrrepurpose-progress-value">{job.progress}%</span>
                                     </div>
