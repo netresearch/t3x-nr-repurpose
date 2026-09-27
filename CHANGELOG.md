@@ -14,6 +14,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **README**: a badge row (CI, codecov, documentation, OpenSSF Scorecard, PHPStan, PHP, TYPO3, licence, latest release, TER), an installation section for Composer and for TER / classic mode, the story video and the two PDF documents in the feature list, and a licence and credits section naming Netresearch DTT GmbH.
 
+### Fixed
+
+- **The configuration chapter documents `technicalBeUserUid`.** It said the extension has no configuration of its own, while `ext_conf_template.txt` declares five settings; the setting a worker needs to read provider keys from nr-vault was documented nowhere. The chapter now lists the five settings and describes `technicalBeUserUid`.
+
 ## [0.8.2] - 2026-09-27
 
 ### Fixed
