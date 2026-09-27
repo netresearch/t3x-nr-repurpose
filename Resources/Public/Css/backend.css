@@ -10,6 +10,38 @@
  * scheme both apply; the fallbacks cover a property missing in an older core.
  */
 
+/*
+ * Job progress in the list. Core v14 has no .progress/.progress-bar rules, and the core
+ * <typo3-backend-progress-bar> is @internal and cannot be named. Fill and track colours
+ * measured >= 6.14:1 (fill/card) and >= 5.32:1 (fill/track) in both schemes, 13.4 and 14.3.
+ */
+.nrrepurpose-progress {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--typo3-spacing, 1rem) / 2);
+    min-width: 8rem;
+}
+
+.nrrepurpose-progress-track {
+    flex: 1 1 auto;
+    height: .5rem;
+    overflow: hidden;
+    border-radius: .25rem;
+    background-color: var(--typo3-surface-container-high);
+}
+
+.nrrepurpose-progress-fill {
+    height: 100%;
+    background-color: var(--typo3-component-primary-color);
+}
+
+.nrrepurpose-progress-value {
+    flex: 0 0 auto;
+    min-width: 3.5ch;
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+}
+
 /* Audio player of a podcast artifact: full width up to a readable line. */
 .nrrepurpose-audio {
     display: block;

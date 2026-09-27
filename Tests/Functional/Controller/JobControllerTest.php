@@ -128,18 +128,92 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertMatchesRegularExpression('#<td class="col-control">\s*<a [^>]*class="btn btn-sm btn-default"#', $body);
     }
 
+    #[Test]
+    public function listActionDrawsANamedProgressBar(): void
+    {
+        $this->insertJob('https://example.com/report', 'queued');
+
+        $body = $this->renderAction('list');
+
+        // Own progressbar (core v14 has no .progress CSS; the core element is @internal and unnamed):
+        // role, value range and name on one element, the fill width is the value, the percentage visible.
+        self::assertMatchesRegularExpression(
+            '#<div class="nrrepurpose-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"\s+aria-label="Progress">\s*'
+            . '<div class="nrrepurpose-progress-track"><div class="nrrepurpose-progress-fill" style="width: 0%;"></div></div>\s*'
+            . '<span class="nrrepurpose-progress-value">0%</span>#',
+            $body,
+        );
+        self::assertStringNotContainsString('typo3-backend-progress-bar', $body);
+    }
+
+    #[Test]
+    public function showActionPutsAFailedArtifactIntoTheCoreErrorBoxAndBreaksLongValues(): void
+    {
+        $url = 'https://www.example.com/?gclid=' . str_repeat('Cj0KCQjw', 45);
+        $job = $this->insertJob($url, 'partially_done');
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->insert('tx_nrrepurpose_domain_model_artifact', ['pid' => 0, 'job' => $job, 'type' => 'podcast', 'status' => 'failed', 'error_message' => 'TTS refused ' . $url]);
+
+        $body    = $this->renderAction('show', ['job' => $job]);
+        $escaped = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5);
+
+        self::assertStringContainsString('<dd class="col-sm-10 text-break">' . $escaped . '</dd>', $body);
+        self::assertStringContainsString('<div class="card-body text-break">', $body);
+        self::assertMatchesRegularExpression('#class="[^"]*\bcallout-danger\b.*?<span class="text-break">TTS refused ' . preg_quote($escaped, '#') . '</span>#s', $body);
+    }
+
+    #[Test]
+    public function showActionReloadsARunningJobWithANonceScript(): void
+    {
+        $job = $this->insertJob('https://example.com/report', 'queued');
+
+        // csp="true" (useNonce is deprecated in 14.3): the inline reload needs the nonce, or the backend CSP blocks it.
+        self::assertMatchesRegularExpression(
+            '#<script nonce="[^"]+">setTimeout\(\(\) => window\.location\.reload\(\), 5000\);</script>#',
+            $this->renderAction('show', ['job' => $job]),
+        );
+    }
+
+    #[Test]
+    public function planActionCutsTheSourceOfAPostToOneLine(): void
+    {
+        $url = 'https://www.example.com/?gclid=' . str_repeat('Cj0KCQjw', 45);
+        $job = $this->insertJob($url, 'done');
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->insert('tx_nrrepurpose_domain_model_artifact', [
+                'pid'           => 0, 'job' => $job, 'type' => 'social_post', 'variant' => 'linkedin', 'status' => 'done', 'script_text' => 'Post',
+                'review_status' => 'approved', 'publish_status' => 'failed', 'publish_at' => 1790000000, 'publish_error' => 'HTTP 500',
+            ]);
+
+        $body    = $this->renderAction('plan');
+        $escaped = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5);
+
+        self::assertStringContainsString('<table class="table table-striped table-hover" data-role="plan" aria-labelledby="nrrepurpose-plan-title">', $body);
+        self::assertStringContainsString('<td class="col-responsive" title="' . $escaped . '">', $body);
+        self::assertStringContainsString('<span class="small text-break">HTTP 500</span>', $body);
+    }
+
+    private function insertJob(string $url, string $status): int
+    {
+        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job');
+        $connection->insert('tx_nrrepurpose_domain_model_job', ['pid' => 0, 'source_type' => 'url', 'source_value' => $url, 'status' => $status]);
+
+        return (int) $connection->lastInsertId();
+    }
+
     private function renderNewAction(): string
     {
         return $this->renderAction('new');
     }
 
-    private function renderAction(string $action): string
+    /** @param array<string, int|string> $arguments */
+    private function renderAction(string $action, array $arguments = []): string
     {
         $this->importCSVDataSet(__DIR__ . '/Fixtures/BeUsers.csv');
         $backendUser     = $this->setUpBackendUser(1);
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
-        $request = $this->createBackendRequest($action);
+        $request = $this->createBackendRequest($action, $arguments);
         // Extbase reads its configuration while the controller is built, so the
         // ConfigurationManager needs the request before the container hands it out.
         $this->get(ConfigurationManagerInterface::class)->setRequest($request);
@@ -153,7 +227,8 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         return (string) $response->getBody();
     }
 
-    private function createBackendRequest(string $action): ExtbaseRequest
+    /** @param array<string, int|string> $arguments */
+    private function createBackendRequest(string $action, array $arguments = []): ExtbaseRequest
     {
         $extbaseParameters = new ExtbaseRequestParameters(JobController::class);
         $extbaseParameters->setPluginName('web_nrrepurpose');
@@ -161,6 +236,9 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         $extbaseParameters->setControllerName('Job');
         $extbaseParameters->setControllerActionName($action);
         $extbaseParameters->setFormat('html');
+        foreach ($arguments as $name => $value) {
+            $extbaseParameters->setArgument($name, $value);
+        }
 
         $route = $this->get(Router::class)->getRoute('web_nrrepurpose');
 
