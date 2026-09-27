@@ -177,6 +177,49 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         );
     }
 
+    /** @return array<string, array{0: string}> */
+    public static function modulePages(): array
+    {
+        return ['list' => ['list'], 'new' => ['new'], 'show' => ['show'], 'plan' => ['plan']];
+    }
+
+    /**
+     * Every page the module renders, filled like the demo (a running job with a failed artifact,
+     * a scheduled post): each <script> carries a src or a nonce, since the backend CSP silently
+     * blocks any other; and the module body has no <style> element and no style attribute except
+     * the progress fill width. The backend CSP allows inline styles, so either would override
+     * backend.css unseen by the stylesheet tests.
+     */
+    #[Test]
+    #[DataProvider('modulePages')]
+    public function modulePagesRenderNoRawScriptAndNoInlineStyle(string $action): void
+    {
+        $job = $this->insertJob('https://example.com/report', 'queued');
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->insert('tx_nrrepurpose_domain_model_artifact', ['pid' => 0, 'job' => $job, 'type' => 'podcast', 'status' => 'failed', 'error_message' => 'TTS refused']);
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->insert('tx_nrrepurpose_domain_model_artifact', [
+                'pid'           => 0, 'job' => $job, 'type' => 'social_post', 'variant' => 'linkedin', 'status' => 'done', 'script_text' => 'Post',
+                'review_status' => 'approved', 'publish_status' => 'scheduled', 'publish_at' => 1790000000,
+            ]);
+
+        $body = $this->renderAction($action, $action === 'show' ? ['job' => $job] : []);
+
+        self::assertGreaterThan(0, preg_match_all('/<script\b[^>]*>/i', $body, $scripts));
+        foreach ($scripts[0] as $tag) {
+            self::assertMatchesRegularExpression('/\s(?:src|nonce)=/i', $tag, $action . ': ' . $tag);
+        }
+
+        $start = strpos($body, '<div class="module-body t3js-module-body">');
+        self::assertIsInt($start, $action . ': module body not found');
+        $moduleBody = substr($body, $start);
+        self::assertSame(0, preg_match('/<style\b/i', $moduleBody), $action . ': <style> element in the module body');
+        preg_match_all('/<[^>]*\sstyle="[^"]*"[^>]*>/i', $moduleBody, $styled);
+        foreach ($styled[0] as $tag) {
+            self::assertMatchesRegularExpression('/^<div class="nrrepurpose-progress-fill" style="width: \d+%;">$/', $tag, $action . ': inline style');
+        }
+    }
+
     #[Test]
     public function planActionCutsTheSourceOfAPostToOneLine(): void
     {

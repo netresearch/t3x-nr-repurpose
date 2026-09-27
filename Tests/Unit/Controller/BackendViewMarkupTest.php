@@ -224,26 +224,46 @@ final class BackendViewMarkupTest extends TestCase
         self::assertStringNotContainsString('text-danger', substr($source, $offset));
     }
 
-    /**
-     * Inline scripts ask for the CSP nonce with `csp="true"`. `useNonce` renders the same nonce
-     * but is deprecated since TYPO3 14.2, and the rendered page cannot tell the two apart, so the
-     * template source is the one place the difference shows. Matched per tag: a Fluid comment
-     * may name the old argument.
-     */
-    public function testInlineScriptsUseTheCspArgument(): void
+    /** The list above covers every template, partial and layout of the module: a new file cannot be missed. */
+    public function testTheTemplateListCoversEveryBackendTemplate(): void
     {
-        $checked = 0;
-        foreach (self::backendTemplates() as [$template]) {
-            preg_match_all('/<f:asset\.script\b[^>]*>/', (string) file_get_contents(self::RESOURCES . $template), $tags);
-            foreach ($tags[0] as $tag) {
-                self::assertDoesNotMatchRegularExpression('/\buseNonce=/', $tag, $template);
-                self::assertMatchesRegularExpression('/\bcsp="true"/', $tag, $template);
-                ++$checked;
+        $found = [];
+        foreach (['Private/Templates/Job/*.html', 'Private/Partials/Job/*.html', 'Private/Layouts/*.html', 'Private/Layouts/**/*.html'] as $pattern) {
+            foreach (glob(self::RESOURCES . $pattern) ?: [] as $file) {
+                $found[] = substr($file, strlen(self::RESOURCES));
             }
         }
 
-        // The job detail view's reload script; a count of 0 would mean the pattern matched nothing.
-        self::assertGreaterThan(0, $checked);
+        $listed = array_column(self::backendTemplates(), 0);
+        sort($found);
+        sort($listed);
+        self::assertSame($found, $listed);
+    }
+
+    /**
+     * Inline scripts ask for the CSP nonce with `csp="true"`. `useNonce` renders the same nonce
+     * but is deprecated since TYPO3 14.2, and the rendered page cannot tell the two apart, so the
+     * template source is the one place the difference shows. The argument name is refused in any
+     * form (tag or inline syntax, any namespace alias) once the Fluid comments, which may name
+     * it, are removed; each `<f:asset.script>` tag must also carry `csp="true"`.
+     */
+    #[DataProvider('backendTemplates')]
+    public function testInlineScriptsUseTheCspArgument(string $template): void
+    {
+        $source = (string) file_get_contents(self::RESOURCES . $template);
+        $code   = (string) preg_replace('#<f:comment>.*?</f:comment>#s', '', $source);
+        self::assertStringNotContainsString('useNonce', $code, $template);
+
+        preg_match_all('/<f:asset\.script\b[^>]*>/', $code, $tags);
+        foreach ($tags[0] as $tag) {
+            self::assertMatchesRegularExpression('/\bcsp="true"/', $tag, $template);
+        }
+    }
+
+    public function testTheJobDetailReloadScriptIsChecked(): void
+    {
+        // The job detail view's reload script; if this pattern matched nothing, the per-tag check would check nothing.
+        self::assertSame(1, preg_match_all('/<f:asset\.script\b[^>]*\bcsp="true"/', (string) file_get_contents(self::RESOURCES . 'Private/Templates/Job/Show.html')));
     }
 
     public function testEveryModuleClassIsDefinedInTheModuleStylesheet(): void
