@@ -224,6 +224,28 @@ final class BackendViewMarkupTest extends TestCase
         self::assertStringNotContainsString('text-danger', substr($source, $offset));
     }
 
+    /**
+     * Inline scripts ask for the CSP nonce with `csp="true"`. `useNonce` renders the same nonce
+     * but is deprecated since TYPO3 14.2, and the rendered page cannot tell the two apart, so the
+     * template source is the one place the difference shows. Matched per tag: a Fluid comment
+     * may name the old argument.
+     */
+    public function testInlineScriptsUseTheCspArgument(): void
+    {
+        $checked = 0;
+        foreach (self::backendTemplates() as [$template]) {
+            preg_match_all('/<f:asset\.script\b[^>]*>/', (string) file_get_contents(self::RESOURCES . $template), $tags);
+            foreach ($tags[0] as $tag) {
+                self::assertDoesNotMatchRegularExpression('/\buseNonce=/', $tag, $template);
+                self::assertMatchesRegularExpression('/\bcsp="true"/', $tag, $template);
+                ++$checked;
+            }
+        }
+
+        // The job detail view's reload script; a count of 0 would mean the pattern matched nothing.
+        self::assertGreaterThan(0, $checked);
+    }
+
     public function testEveryModuleClassIsDefinedInTheModuleStylesheet(): void
     {
         $used = [];
@@ -260,10 +282,10 @@ final class BackendViewMarkupTest extends TestCase
 
     /**
      * The last declaration of each property across every rule whose selector list contains the
-     * class, in source order. declarations() makes that the value the cascade applies: every
-     * rule is a plain top-level rule (no at-rule, no nesting), no declaration is !important, and
-     * every selector in the file is one plain module class written as `.nrrepurpose-name` (no
-     * attribute selector, escape, type prefix or combinator), so all have one specificity.
+     * class, in source order: the property's own value. Whether another property overrides it
+     * (`all: revert`, `min-inline-size`, `text-wrap-mode`) is not judged here; the complete
+     * declaration set is pinned in testTheStylesheetDeclaresExactlyThePinnedSet(), so no such
+     * declaration can be added without that test failing.
      *
      * @param array<string, string> $expected
      */
@@ -279,6 +301,75 @@ final class BackendViewMarkupTest extends TestCase
             self::assertArrayHasKey($property, $effective, $class . ' ' . $property);
             self::assertSame($this->normalised($value), $effective[$property], $class . ' ' . $property);
         }
+    }
+
+    /**
+     * The complete set of declarations in backend.css, rule by rule, in source order. Any
+     * declaration added, removed, reordered or changed fails here with the difference, whatever
+     * property it uses, so a property that overrides a checked one (`all: revert`,
+     * `min-inline-size` against `min-width`, `text-wrap-mode` against `white-space`) cannot slip
+     * in beside the targeted tests. Its limit: a change made on purpose must update this list in
+     * the same commit, and the list says nothing about whether the new value is right; that is
+     * what the targeted tests above and the review are for. Rules from the core backend CSS are
+     * outside this file and outside this test.
+     */
+    public function testTheStylesheetDeclaresExactlyThePinnedSet(): void
+    {
+        $pinned = [
+            ['.nrrepurpose-progress', 'display', 'flex'],
+            ['.nrrepurpose-progress', 'align-items', 'center'],
+            ['.nrrepurpose-progress', 'gap', 'calc(var(--typo3-spacing, 1rem) / 2)'],
+            ['.nrrepurpose-progress-track', 'flex', '1 1 auto'],
+            ['.nrrepurpose-progress-track', 'min-width', '3rem'],
+            ['.nrrepurpose-progress-track', 'height', '.5rem'],
+            ['.nrrepurpose-progress-track', 'overflow', 'hidden'],
+            ['.nrrepurpose-progress-track', 'border-radius', '.25rem'],
+            ['.nrrepurpose-progress-track', 'background-color', 'var(--typo3-surface-container-high)'],
+            ['.nrrepurpose-progress-fill', 'height', '100%'],
+            ['.nrrepurpose-progress-fill', 'background-color', 'var(--typo3-component-primary-color)'],
+            ['.nrrepurpose-progress-value', 'flex', '0 0 auto'],
+            ['.nrrepurpose-progress-value', 'min-width', '3.5ch'],
+            ['.nrrepurpose-progress-value', 'text-align', 'end'],
+            ['.nrrepurpose-progress-value', 'font-variant-numeric', 'tabular-nums'],
+            ['.nrrepurpose-audio', 'display', 'block'],
+            ['.nrrepurpose-audio', 'width', '100%'],
+            ['.nrrepurpose-audio', 'max-width', '640px'],
+            ['.nrrepurpose-preview', 'display', 'block'],
+            ['.nrrepurpose-preview', 'max-width', '100%'],
+            ['.nrrepurpose-preview', 'max-height', '480px'],
+            ['.nrrepurpose-preview', 'height', 'auto'],
+            ['.nrrepurpose-preview-framed', 'border', 'var(--typo3-component-border-width, 1px) solid var(--typo3-component-border-color, var(--bs-border-color))'],
+            ['.nrrepurpose-story-strip', 'display', 'flex'],
+            ['.nrrepurpose-story-strip', 'flex-direction', 'row'],
+            ['.nrrepurpose-story-strip', 'gap', 'var(--typo3-spacing, 1rem)'],
+            ['.nrrepurpose-story-strip', 'overflow-x', 'auto'],
+            ['.nrrepurpose-story-strip', 'padding-bottom', 'calc(var(--typo3-spacing, 1rem) / 2)'],
+            ['.nrrepurpose-story-slide', 'flex', '0 0 auto'],
+            ['.nrrepurpose-story-slide', 'text-align', 'center'],
+            ['.nrrepurpose-story-slide-image', 'display', 'block'],
+            ['.nrrepurpose-story-slide-image', 'height', '320px'],
+            ['.nrrepurpose-story-slide-image', 'width', 'auto'],
+            ['.nrrepurpose-story-slide-image', 'border', 'var(--typo3-component-border-width, 1px) solid var(--typo3-component-border-color, var(--bs-border-color))'],
+            ['.nrrepurpose-story-slide-placeholder', 'box-sizing', 'border-box'],
+            ['.nrrepurpose-story-slide-placeholder', 'display', 'flex'],
+            ['.nrrepurpose-story-slide-placeholder', 'align-items', 'center'],
+            ['.nrrepurpose-story-slide-placeholder', 'justify-content', 'center'],
+            ['.nrrepurpose-story-slide-placeholder', 'height', '320px'],
+            ['.nrrepurpose-story-slide-placeholder', 'width', '180px'],
+            ['.nrrepurpose-story-slide-placeholder', 'padding', 'calc(var(--typo3-spacing, 1rem) / 2)'],
+            ['.nrrepurpose-story-slide-placeholder', 'border', 'var(--typo3-component-border-width, 1px) dashed var(--typo3-component-border-color, var(--bs-border-color))'],
+            ['.nrrepurpose-story-slide-meta', 'max-width', '200px'],
+            ['.nrrepurpose-story-slide-meta', 'text-align', 'start'],
+            ['.nrrepurpose-pre', 'white-space', 'pre-wrap'],
+            ['.nrrepurpose-pre', 'overflow-wrap', 'anywhere'],
+            ['.nrrepurpose-pre-text', 'font-family', 'inherit'],
+            ['.nrrepurpose-pre-text', 'font-size', 'inherit'],
+        ];
+
+        $expected = array_map(fn (array $d): string => $d[0] . ' { ' . $d[1] . ': ' . $this->normalised($d[2]) . ' }', $pinned);
+        $actual   = array_map(static fn (array $d): string => implode(', ', $d[0]) . ' { ' . $d[1] . ': ' . $d[2] . ' }', $this->declarations());
+
+        self::assertSame($expected, $actual);
     }
 
     public function testTheProgressBarItselfHasNoMinimumWidth(): void
@@ -312,9 +403,10 @@ final class BackendViewMarkupTest extends TestCase
     /**
      * Every declaration of backend.css, parsed strictly, in source order. Strict mode rejects what
      * the lenient parser would flatten or skip (nested rules, an unclosed rule, a stray `}`), and
-     * three assertions make source order equal the cascade for the module classes: only plain
-     * top-level rules, no !important, and every selector is one plain module class written as
-     * `.nrrepurpose-name`.
+     * three assertions make source order equal the cascade among these rules for the same
+     * property: only plain top-level rules, no !important, and every selector is one plain module
+     * class written as `.nrrepurpose-name`. Overrides by other properties are closed by the pinned
+     * declaration set, not here.
      *
      * @return list<array{0: list<string>, 1: string, 2: string}> selectors, property, value
      */
