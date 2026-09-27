@@ -18,7 +18,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  */
 final class ReviewPermission
 {
-    public const OPTION = 'nrrepurpose:approve_artifacts';
+    public const string OPTION = 'nrrepurpose:approve_artifacts';
 
     public function allows(?BackendUserAuthentication $user): bool
     {
