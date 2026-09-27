@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **`composer.json` requires `netresearch/nr-vault` at `^0.16`.** It allowed `^0.15 || ^0.16`, but every nr-llm version this extension accepts (0.35 to 0.38) requires `netresearch/nr-vault: ^0.16.0`, so the `^0.15` branch could never resolve.
+
 ## [0.8.2] - 2026-09-27
 
 ### Fixed
