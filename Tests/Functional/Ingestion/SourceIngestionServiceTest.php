@@ -20,6 +20,7 @@ use Netresearch\NrRepurpose\Ingestion\PdfVisionExtractor;
 use Netresearch\NrRepurpose\Ingestion\Poppler\SymfonyProcessPopplerRunner;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
+use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
@@ -64,6 +65,7 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
             new PdfTextExtractor(),
             $vision,
             new PdfLayoutExtractor($runner),
+            $this->get(CapabilityGrantResolverInterface::class),
         );
     }
 

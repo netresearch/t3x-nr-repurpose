@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
 
+use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\PdfLayoutExtractor;
@@ -17,17 +18,22 @@ use Netresearch\NrRepurpose\Ingestion\PdfVisionExtractor;
 use Netresearch\NrRepurpose\Ingestion\Poppler\PopplerRunnerInterface;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
+use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use PHPUnit\Framework\TestCase;
 
 final class SourceIngestionServiceTest extends TestCase
 {
+    private PdfVisionExtractor $vision;
+
+    private CapabilityGrantResolverInterface $grantResolver;
+
     /**
      * Builds a service whose PDF text tier returns fixed per-page descriptors, and whose
      * vision/layout tiers return tagged strings so the dispatcher routing is observable.
      *
      * @param list<array{page:int,text:string,isSparse:bool}> $textPages
      */
-    private function service(array $textPages, string $resolvedPath = '/abs/doc.pdf'): SourceIngestionService
+    private function service(array $textPages, string $resolvedPath = '/abs/doc.pdf', ?CapabilityGrants $grants = null): SourceIngestionService
     {
         $text = new class ($textPages) extends PdfTextExtractor {
             /** @param list<array{page:int,text:string,isSparse:bool}> $pages */
@@ -52,13 +58,19 @@ final class SourceIngestionServiceTest extends TestCase
         };
 
         $vision = new class extends PdfVisionExtractor {
+            public int $calls = 0;
+
             public function __construct() {}
 
             public function ocrPage(string $absPdfPath, int $page, int $beUser, int $dpi = 200): string
             {
+                ++$this->calls;
+
                 return 'VISION-P' . $page;
             }
         };
+        $this->vision = $vision;
+
         $layout = new PdfLayoutExtractor($runner);
 
         $fetcher = new class extends WebPageFetcher {
@@ -76,7 +88,22 @@ final class SourceIngestionServiceTest extends TestCase
             }
         };
 
-        return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout);
+        $grantResolver = new class ($grants ?? CapabilityGrants::all()) implements CapabilityGrantResolverInterface {
+            /** @var list<int> */
+            public array $askedFor = [];
+
+            public function __construct(private readonly CapabilityGrants $grants) {}
+
+            public function resolve(int $beUserUid): CapabilityGrants
+            {
+                $this->askedFor[] = $beUserUid;
+
+                return $this->grants;
+            }
+        };
+        $this->grantResolver = $grantResolver;
+
+        return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout, $grantResolver);
     }
 
     public function testAutoModeRoutesEachPageByDensityAndTabularity(): void
@@ -197,6 +224,68 @@ final class SourceIngestionServiceTest extends TestCase
         } finally {
             unlink($attached);
             rmdir($dir);
+        }
+    }
+
+    public function testForcedVisionModeWithoutTheVisionGrantReadsTheEmbeddedTextInstead(): void
+    {
+        $service = $this->service([
+            ['page' => 1, 'text' => 'embedded one', 'isSparse' => false],
+            ['page' => 2, 'text' => 'embedded two', 'isSparse' => false],
+        ], grants: new CapabilityGrants(audio: true, vision: false));
+
+        $doc = $service->ingest([
+            'uid' => 13, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'vision', 'be_user' => 7,
+        ]);
+
+        self::assertSame("embedded one\n\nembedded two", $doc->text);
+        self::assertSame(['text'], $doc->meta['tiersUsed']);
+        self::assertTrue($doc->meta['visionDenied']);
+        self::assertSame(0, $this->vision->calls);
+        self::assertSame([7], $this->grantResolver->askedFor);
+    }
+
+    public function testAutoModeWithoutTheVisionGrantKeepsASparsePageOnTheTextTier(): void
+    {
+        $service = $this->service([
+            ['page' => 1, 'text' => 'dense narrative text', 'isSparse' => false],
+            ['page' => 2, 'text' => 'thin', 'isSparse' => true],
+        ], grants: CapabilityGrants::none());
+
+        $doc = $service->ingest([
+            'uid' => 14, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'auto', 'be_user' => 7,
+        ]);
+
+        self::assertSame("dense narrative text\n\nthin", $doc->text);
+        self::assertSame(0, $this->vision->calls);
+    }
+
+    public function testAScannedPdfWithoutTheVisionGrantFailsNamingThePermission(): void
+    {
+        $service = $this->service([
+            ['page' => 1, 'text' => '', 'isSparse' => true],
+        ], grants: CapabilityGrants::none());
+
+        try {
+            $service->ingest([
+                'uid' => 15, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'auto', 'be_user' => 7,
+            ]);
+            self::fail('A scanned PDF without the grant has no text to read');
+        } catch (IngestionException $e) {
+            self::assertSame(1749379453, $e->getCode());
+            self::assertStringContainsString('nrrepurpose:generate_vision', $e->getMessage());
+        }
+
+        self::assertSame(0, $this->vision->calls);
+    }
+
+    public function testTheGrantIsNotLookedUpForTheTextAndTablesModes(): void
+    {
+        foreach (['text', 'tables'] as $mode) {
+            $this->service([['page' => 1, 'text' => 'dense', 'isSparse' => false]], grants: CapabilityGrants::none())
+                ->ingest(['uid' => 16, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => $mode, 'be_user' => 7]);
+
+            self::assertSame([], $this->grantResolver->askedFor, $mode);
         }
     }
 }
