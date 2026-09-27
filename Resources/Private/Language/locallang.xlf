@@ -5,7 +5,9 @@
       <trans-unit id="job.created"><source>Job created and queued for generation.</source></trans-unit>
       <trans-unit id="perm.header"><source>Content Repurpose</source></trans-unit>
       <trans-unit id="perm.generate_audio"><source>Generate podcast audio</source></trans-unit>
+      <trans-unit id="perm.generate_audio.description"><source>Generate podcast audio (maps to nr_llm capability audio)</source></trans-unit>
       <trans-unit id="perm.generate_vision"><source>Generate AI imagery</source></trans-unit>
+      <trans-unit id="perm.generate_vision.description"><source>Generate AI imagery (maps to nr_llm capability vision)</source></trans-unit>
 
       <!-- Module-wide -->
       <trans-unit id="module.title"><source>Repurpose</source></trans-unit>
@@ -101,6 +103,7 @@
       <trans-unit id="artifact.video.option"><source>Also as video (MP4, silent, 4 seconds per slide; turns the story on)</source></trans-unit>
       <trans-unit id="show.download.mp4"><source>Download MP4</source></trans-unit>
       <trans-unit id="perm.approve_artifacts"><source>Approve artifacts and schedule social posts</source></trans-unit>
+      <trans-unit id="perm.approve_artifacts.description"><source>Approve or reject artifacts and schedule approved social posts</source></trans-unit>
       <trans-unit id="list.action.plan"><source>Social planning</source></trans-unit>
       <trans-unit id="review.open"><source>Not reviewed</source></trans-unit>
       <trans-unit id="review.approved"><source>Approved</source></trans-unit>

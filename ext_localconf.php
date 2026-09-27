@@ -9,27 +9,26 @@ declare(strict_types=1);
 
 defined('TYPO3') || exit;
 
-use Netresearch\NrLlm\Domain\Enum\ModelCapability;
-
 // Backend capability permission options for nr_repurpose runs. nr-llm has no dedicated
-// IMAGE/SPEECH capability, so audio generation gates on AUDIO and image/vision on VISION.
+// IMAGE/SPEECH capability, so audio generation gates on AUDIO and image/vision on VISION;
+// the descriptions name those capability values ("audio", "vision") in locallang.xlf.
 $GLOBALS['TYPO3_CONF_VARS']['BE']['customPermOptions']['nrrepurpose'] = [
     'header' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.header',
     'items'  => [
         'generate_audio' => [
             'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.generate_audio',
             'actions-volume-up',
-            'Generate podcast audio (maps to nr_llm capability ' . ModelCapability::AUDIO->value . ')',
+            'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.generate_audio.description',
         ],
         'approve_artifacts' => [
             'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.approve_artifacts',
             'actions-check',
-            'Approve or reject artifacts and schedule approved social posts',
+            'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.approve_artifacts.description',
         ],
         'generate_vision' => [
             'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.generate_vision',
             'actions-image',
-            'Generate AI imagery (maps to nr_llm capability ' . ModelCapability::VISION->value . ')',
+            'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:perm.generate_vision.description',
         ],
     ],
 ];
