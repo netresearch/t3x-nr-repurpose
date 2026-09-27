@@ -16,6 +16,7 @@ use DOMElement;
 use DOMXPath;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use SimpleXMLElement;
 
 /**
  * The backend module's markup follows the core backend: tables use the core table and
@@ -274,41 +275,110 @@ final class BackendViewMarkupTest extends TestCase
         self::assertStringNotContainsString('min-width', $rule[1]);
     }
 
-    /** @return array<string, array{0: string}> */
+    public function testTheProgressTrackDeclaresItsMinimumWidthOnce(): void
+    {
+        $css = (string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css');
+        self::assertSame(1, preg_match('/^\.nrrepurpose-progress-track \{([^}]*)\}/m', $css, $rule));
+
+        // A second min-width later in the block wins over the 3rem and brings the 1280 px overflow back.
+        self::assertSame(1, preg_match_all('/(?:^|[;\s])min-width\s*:/', $rule[1]));
+    }
+
+    /** @return array<string, array{0: string, 1: string}> */
     public static function trackedTranslations(): array
     {
         $cases = [];
-        foreach (glob(self::RESOURCES . 'Private/Language/*.xlf') ?: [] as $file) {
-            $cases[basename($file)] = [$file];
+        foreach (glob(self::RESOURCES . 'Private/Language/*.*.xlf') ?: [] as $file) {
+            // de.locallang.xlf translates locallang.xlf: the English file is what the target must match.
+            $english                = dirname($file) . '/' . preg_replace('/^[a-z]{2}(?:_[A-Z]{2})?\./', '', basename($file));
+            $cases[basename($file)] = [$file, $english];
         }
 
         return $cases;
     }
 
-    /** A target that drops a %d or %s of its source renders without the value (the job number of a label). */
+    /**
+     * A target that drops a %d or %s of the English label renders without the value (the job
+     * number of a label). The reference is the English file, matched by id: the <source> copied
+     * into a translation file is never rendered and can be as stale as its target.
+     */
     #[DataProvider('trackedTranslations')]
-    public function testEveryTranslationKeepsThePlaceholdersOfItsSource(string $file): void
+    public function testEveryTranslationKeepsThePlaceholdersOfTheEnglishLabel(string $file, string $english): void
+    {
+        self::assertFileExists($english);
+        $reference = [];
+        foreach ($this->transUnits($english) as $unit) {
+            $reference[(string) $unit['id']] = (string) $unit->source;
+        }
+
+        $compared = 0;
+        foreach ($this->transUnits($file) as $unit) {
+            if (!isset($unit->target)) {
+                continue;
+            }
+
+            $id = (string) $unit['id'];
+            self::assertArrayHasKey($id, $reference, basename($file) . ' ' . $id . ' has no English label');
+            self::assertSame($this->placeholders($reference[$id]), $this->placeholders((string) $unit->target), basename($file) . ' ' . $id);
+            ++$compared;
+        }
+
+        self::assertGreaterThan(0, $compared, basename($file));
+    }
+
+    /** @return array<string, array{0: string, 1: list<string>}> */
+    public static function placeholderShapes(): array
+    {
+        return [
+            'plain in order'      => ['%s of %d', ['1:s', '2:d']],
+            'positional reorder'  => ['%2$d of %1$s', ['1:s', '2:d']],
+            'escaped percent'     => ['%s of 100%%', ['1:s']],
+            'escaped then letter' => ['%s of %%s', ['1:s']],
+        ];
+    }
+
+    /** @param list<string> $expected */
+    #[DataProvider('placeholderShapes')]
+    public function testThePlaceholderReading(string $text, array $expected): void
+    {
+        self::assertSame($expected, $this->placeholders($text));
+    }
+
+    /**
+     * The sprintf arguments a label consumes, as sorted "position:type": `%%` is a literal percent
+     * sign, unnumbered placeholders take positions in order, `%2$s` names its position, so a
+     * translation may reorder with positional placeholders.
+     *
+     * @return list<string>
+     */
+    private function placeholders(string $text): array
+    {
+        preg_match_all('/%(?:(\d+)\$)?([ds])|%%/', $text, $matches, PREG_SET_ORDER);
+        $next = 1;
+        $used = [];
+        foreach ($matches as $match) {
+            if ($match[0] === '%%') {
+                continue;
+            }
+
+            $position = $match[1] !== '' ? (int) $match[1] : $next++;
+            $used[]   = $position . ':' . $match[2];
+        }
+
+        sort($used);
+
+        return array_values(array_unique($used));
+    }
+
+    /** @return list<SimpleXMLElement> */
+    private function transUnits(string $file): array
     {
         $xliff = simplexml_load_file($file);
         self::assertNotFalse($xliff, $file);
         $units = $xliff->xpath('//*[local-name()="trans-unit"]') ?: [];
         self::assertNotSame([], $units, $file);
 
-        foreach ($units as $unit) {
-            $source = (string) $unit->source;
-            $target = isset($unit->target) ? (string) $unit->target : null;
-            if ($target === null) {
-                continue;
-            }
-
-            preg_match_all('/%[ds]/', $source, $expected);
-            preg_match_all('/%[ds]/', $target, $actual);
-            $want = $expected[0];
-            $have = $actual[0];
-            sort($want);
-            sort($have);
-            self::assertSame($want, $have, basename($file) . ' ' . $unit['id']);
-        }
+        return array_values($units);
     }
 
     public function testTheModuleStylesheetUsesNoFixedColour(): void
