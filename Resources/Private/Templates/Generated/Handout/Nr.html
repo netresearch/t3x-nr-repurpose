@@ -14,7 +14,10 @@
             line-height: 1.55;
             color: #1f2328;
         }
-        header { border-bottom: 3pt solid #2F99A4; padding-bottom: 10pt; margin-bottom: 14pt; }
+        header { display: flex; align-items: center; gap: 12pt; border-bottom: 3pt solid #2F99A4; padding-bottom: 10pt; margin-bottom: 14pt; }
+        /* Symbol-only [n] logo (netresearch-branding logo.md); the viewBox carries the clear space. */
+        .nr-logo { flex: none; display: block; width: 44px; height: 44px; }
+        .nr-logo svg { display: block; width: 100%; height: 100%; }
         /* #1d6f77, not the brand #2F99A4: small text needs 4.5:1 (WCAG AA), #2F99A4 has 3.4:1 on white. */
         .brand { font-family: 'Raleway', sans-serif; font-weight: 600; font-size: 9pt; color: #1d6f77; letter-spacing: 0.5pt; }
         h1, h2 { font-family: 'Raleway', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; color: #0f3f44; }
@@ -26,13 +29,17 @@
         .facts h2 { margin-top: 0; }
         .facts ul { margin: 0; padding-left: 16pt; }
         footer { margin-top: 18pt; padding-top: 8pt; border-top: 0.5pt solid #9ca3af; font-size: 8.5pt; color: #4b5563; }
+        footer a { color: #1d6f77; text-decoration: none; }
         .source { word-break: break-all; }
     </style>
 </head>
 <body>
     <header>
-        <div class="brand">Netresearch DTT GmbH</div>
-        <h1>{content.title}</h1>
+        <a class="nr-logo" href="https://www.netresearch.de/" aria-label="Netresearch DTT GmbH"><svg viewBox="-75 -75 440 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Netresearch symbol logo"><title>Netresearch DTT GmbH</title><path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242a26.38,26.38,0,0,1-26.44,26.44H209.6V300h47.93a42.77,42.77,0,0,0,42.86-42.86V42.89A42.76,42.76,0,0,0,257.53,0ZM43.25,0A42.76,42.76,0,0,0,.39,42.89V257.18A42.76,42.76,0,0,0,43.25,300H91.18V268.46H58.4A26.38,26.38,0,0,1,32,242v-184A26.37,26.37,0,0,1,58.4,31.62H91.18V0Z" transform="translate(-0.39 -0.04)"/><path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82-26.62,0-48.54,7.74-64.17,26.56l-.7-22.06-28.31.06V232.94h31.59V124.69c7.14-18.38,32.14-34.8,53-34.5,27.38.4,25.2,26.24,26,45.81v96.94h31.58" transform="translate(-0.39 -0.04)"/></svg></a>
+        <div>
+            <div class="brand">Netresearch DTT GmbH</div>
+            <h1>{content.title}</h1>
+        </div>
     </header>
     <p class="lead">{content.lead}</p>
     <f:for each="{content.sections}" as="section">
@@ -46,6 +53,7 @@
         </div>
     </f:if>
     <footer>
+        <div><a href="https://www.netresearch.de/">Netresearch DTT GmbH</a></div>
         <div class="source">{sourceLabel}</div>
         <f:if condition="{content.closingLine}"><div>{content.closingLine}</div></f:if>
     </footer>
