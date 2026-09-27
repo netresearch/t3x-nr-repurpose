@@ -294,6 +294,15 @@ reference files by ``sys_file`` uid (audio as ``file_uid``, subtitles as
 the podcast and display every image. Because each artifact tracks its own status
 and FAL references, a partially successful run is fully renderable.
 
+The bytes are in the file before FAL indexes it
+(:php:`ResourceStorage::addFile()` from a temporary file), so a listener of the
+metadata record FAL creates at that moment, such as an alt-text generator, reads
+the finished file. Stored files pass the same extension and MIME-type check as an
+upload; the extension adds ``vtt`` to
+``$GLOBALS['TYPO3_CONF_VARS']['SYS']['textfile_ext']`` for the podcast
+subtitles, because TYPO3 14 enforces that list on a new installation and does
+not contain it.
+
 .. _architecture-nr-llm:
 
 How nr-llm capabilities are composed
