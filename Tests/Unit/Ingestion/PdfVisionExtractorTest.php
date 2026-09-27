@@ -13,6 +13,7 @@ use LogicException;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Service\Feature\VisionServiceInterface;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
+use Netresearch\NrRepurpose\Exception\EmptyArtifactContentException;
 use Netresearch\NrRepurpose\Ingestion\PdfVisionExtractor;
 use Netresearch\NrRepurpose\Ingestion\Poppler\PopplerRunnerInterface;
 use Netresearch\NrRepurpose\Service\CallerSource;
@@ -91,12 +92,33 @@ final class PdfVisionExtractorTest extends TestCase
         self::assertSame(2000, $vision->receivedOptions->getMaxTokens());
     }
 
-    private function runner(): PopplerRunnerInterface
+    /**
+     * Issue #78: an empty image becomes the bare "data:image/png;base64," prefix, which
+     * the vision API rejects as "Invalid base64 image_url." It is refused before the call.
+     */
+    public function testAnEmptyRasterizedPageIsRefusedBeforeTheVisionCall(): void
     {
-        return new class implements PopplerRunnerInterface {
+        $vision = $this->vision('text');
+
+        try {
+            (new PdfVisionExtractor($this->runner(''), $vision))->ocrPage('/abs/doc.pdf', 3, beUser: 7);
+            self::fail('An empty page image must be refused.');
+        } catch (EmptyArtifactContentException $e) {
+            self::assertSame(1790000603, $e->getCode());
+            self::assertStringContainsString('page 3', $e->getMessage());
+        }
+
+        self::assertSame('', $vision->receivedImageUrl, 'The vision service must not be called.');
+    }
+
+    private function runner(string $png = 'PNG'): PopplerRunnerInterface
+    {
+        return new class ($png) implements PopplerRunnerInterface {
+            public function __construct(private readonly string $png) {}
+
             public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
             {
-                return 'PNG';
+                return $this->png;
             }
 
             public function extractLayout(string $absPdfPath, int $page): string

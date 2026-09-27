@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Ingestion;
 
 use Netresearch\NrLlm\Service\Feature\VisionServiceInterface;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
+use Netresearch\NrRepurpose\Exception\EmptyArtifactContentException;
 use Netresearch\NrRepurpose\Ingestion\Poppler\PopplerRunnerInterface;
 use Netresearch\NrRepurpose\Service\CallerSource;
 
@@ -41,7 +42,16 @@ class PdfVisionExtractor
      */
     public function ocrPage(string $absPdfPath, int $page, int $beUser, int $dpi = 200): string
     {
-        $png     = $this->poppler->rasterizePage($absPdfPath, $page, $dpi);
+        $png = $this->poppler->rasterizePage($absPdfPath, $page, $dpi);
+        // An empty image becomes the bare prefix "data:image/png;base64,", which the
+        // vision API rejects as "Invalid base64 image_url." — refuse it before the call.
+        if ($png === '') {
+            throw new EmptyArtifactContentException(
+                sprintf('PDF vision OCR: page %d rasterized to an empty image, nothing to send', $page),
+                1790000603,
+            );
+        }
+
         $dataUri = 'data:image/png;base64,' . base64_encode($png);
 
         $options = (new VisionOptions())

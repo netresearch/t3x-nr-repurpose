@@ -59,9 +59,14 @@ final class JobFileStorageTest extends AbstractFunctionalTestCase
     {
         $provenance = new AiProvenance(self::GENERATOR, DigitalSourceType::TrainedAlgorithmicMedia);
 
-        $file = $this->get(JobFileStorage::class)->store("WEBVTT\n", 'podcast.vtt', $provenance);
+        // A cue, as WebVttBuilder writes one per dialogue turn: the file passes FAL's
+        // extension/MIME check like an upload, and libmagic reads a header-only file as
+        // text/plain, which that check rejects for .vtt. The functional instance enforces
+        // the allowed-extensions list, so this case also proves ext_localconf.php's "vtt".
+        $cue  = "\n1\n00:00:00.000 --> 00:00:02.000\nHost: Hallo\n";
+        $file = $this->get(JobFileStorage::class)->store("WEBVTT\n" . $cue, 'podcast.vtt', $provenance);
 
-        self::assertSame("WEBVTT\n\nNOTE " . $provenance->describe() . "\n", $file->getContents());
+        self::assertSame("WEBVTT\n\nNOTE " . $provenance->describe() . "\n\n1\n00:00:00.000 --> 00:00:02.000\nHost: Hallo\n", $file->getContents());
         self::assertSame($provenance->describe(), $this->storedDescription($file->getUid()));
     }
 

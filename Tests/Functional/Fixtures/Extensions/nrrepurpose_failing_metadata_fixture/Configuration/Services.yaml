@@ -8,3 +8,13 @@ services:
       - name: event.listener
         identifier: 'nrrepurpose-failing-metadata-fixture/metadata-update'
         event: TYPO3\CMS\Core\Resource\Event\AfterFileMetaDataUpdatedEvent
+
+  # A reader of the metadata record FAL creates while indexing a new file, as an
+  # alt-text generator is (issue #78). Idle until a test switches it on.
+  Netresearch\NrRepurpose\Tests\Functional\Fixtures\ReadsFileOnMetaDataCreatedListener:
+    public: false
+    autowire: true
+    tags:
+      - name: event.listener
+        identifier: 'nrrepurpose-failing-metadata-fixture/metadata-created'
+        event: TYPO3\CMS\Core\Resource\Event\AfterFileMetaDataCreatedEvent

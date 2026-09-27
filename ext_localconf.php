@@ -33,3 +33,13 @@ $GLOBALS['TYPO3_CONF_VARS']['BE']['customPermOptions']['nrrepurpose'] = [
         ],
     ],
 ];
+
+// The podcast writes WebVTT subtitles (podcast.vtt). JobFileStorage stores every artifact
+// through ResourceStorage::addFile(), which applies the allowed-extensions list that a
+// fresh TYPO3 14 installation enforces; "vtt" is not in it (its sibling "srt" is).
+$nrRepurposeTextFileExtensions = (string) ($GLOBALS['TYPO3_CONF_VARS']['SYS']['textfile_ext'] ?? '');
+if (!in_array('vtt', array_map(strtolower(...), array_map(trim(...), explode(',', $nrRepurposeTextFileExtensions))), true)) {
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['textfile_ext'] = ltrim($nrRepurposeTextFileExtensions . ',vtt', ',');
+}
+
+unset($nrRepurposeTextFileExtensions);
