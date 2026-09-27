@@ -62,6 +62,12 @@ jobs:
         pdftotext -v
         node --version
         npm ci --prefix Resources/Private/NodeRenderer --ignore-scripts --no-audit --no-fund
+        # Set as the worker image does (.ddev/web-build/Dockerfile). Without it
+        # the renderer's own chromiumPath never reaches node: it is putenv()'d,
+        # and Symfony Process only forwards getenv() keys that are also in
+        # $_SERVER, so Playwright falls back to its bundled browser and fails.
+        # That defect is in Classes/ and is reported separately.
+        export CHROMIUM_PATH=/usr/bin/chromium
         composer ci:test:php:functional -- --coverage-clover=coverage-functional.xml --fail-on-skipped
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
