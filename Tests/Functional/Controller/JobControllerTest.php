@@ -167,11 +167,27 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     {
         $job = $this->insertJob('https://example.com/report', 'queued');
 
-        // csp="true" (useNonce is deprecated since 14.2): the inline reload needs the nonce, or the backend CSP blocks it.
+        // Collect the deprecations raised while the page renders. `useNonce` renders the same
+        // nonce as `csp="true"` but is deprecated since 14.2, so only the deprecation tells them apart.
+        $deprecations = [];
+        set_error_handler(static function (int $level, string $message) use (&$deprecations): bool {
+            $deprecations[] = $message;
+
+            return true;
+        }, E_USER_DEPRECATED | E_DEPRECATED);
+
+        try {
+            $body = $this->renderAction('show', ['job' => $job]);
+        } finally {
+            restore_error_handler();
+        }
+
+        // The inline reload needs the nonce, or the backend CSP blocks it.
         self::assertMatchesRegularExpression(
             '#<script nonce="[^"]+">setTimeout\(\(\) => window\.location\.reload\(\), 5000\);</script>#',
-            $this->renderAction('show', ['job' => $job]),
+            $body,
         );
+        self::assertSame([], array_values(array_filter($deprecations, static fn (string $message): bool => str_contains($message, 'f:asset.script'))));
     }
 
     #[Test]
