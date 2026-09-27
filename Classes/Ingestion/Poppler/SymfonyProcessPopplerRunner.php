@@ -19,11 +19,11 @@ use Symfony\Component\Process\Process;
  * Real Poppler invocations via Symfony Process. Binaries (pdftoppm/pdftotext) are baked into
  * the DDEV web image in Plan 1 Task 2 (poppler-utils). No Ghostscript needed (Poppler renders natively).
  */
-final class SymfonyProcessPopplerRunner implements PopplerRunnerInterface
+final readonly class SymfonyProcessPopplerRunner implements PopplerRunnerInterface
 {
     private const PROCESS_TIMEOUT = 120.0;
 
-    public function __construct(private readonly LoggerInterface $logger) {}
+    public function __construct(private LoggerInterface $logger) {}
 
     public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
     {
