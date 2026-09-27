@@ -227,7 +227,12 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertMatchesRegularExpression('#<span id="nrrepurpose-pagination" class="page-link">\s*Records 1 - 25\s*<span class="visually-hidden">, Page 1 of 2</span>#', $first);
         // The next and last links carry an accessible name, not only an icon.
         self::assertMatchesRegularExpression('#<a class="page-link" href="[^"]*currentPage[^"]*=2[^"]*" aria-label="Next" title="Next">#', $first);
-        self::assertMatchesRegularExpression('#<input type="number"[^>]*name="paginator-target-page"[^>]*aria-label="Go to page"#', $first);
+        // Core structure: the label and "of N" around the jump form, the form holding only the field.
+        self::assertMatchesRegularExpression(
+            '#<li class="page-item">\s*<span class="page-link">Page <form class="form-inline" data-global-event="submit" data-action-navigate="\$form=~s/\$value/" data-navigate-value="[^"]*currentPage=%24%5Bvalue%5D"[^>]*>'
+            . '<input type="number" name="paginator-target-page" min="1" max="2" value="1" [^>]*aria-label="Go to page" /></form> of 2</span>\s*</li>#',
+            $first,
+        );
 
         $second = $this->renderAction('list', ['currentPage' => 2]);
         self::assertSame(5, substr_count($second, '<td class="col-control">'));

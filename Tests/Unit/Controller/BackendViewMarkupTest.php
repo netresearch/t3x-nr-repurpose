@@ -188,6 +188,31 @@ final class BackendViewMarkupTest extends TestCase
         self::assertStringContainsString('show.title', $this->innerXml($hidden));
     }
 
+    /**
+     * As in core (cms-beuser SimplePagination, cms-backend ListNavigation): the jump form holds the
+     * page-number field and nothing else, so the "Page … of N" label stays on one line around it.
+     * With the label inside the inline form the pager cell broke over three lines.
+     */
+    public function testThePagerFormHoldsOnlyThePageNumberField(): void
+    {
+        $forms = $this->xpath('Private/Partials/Job/Pagination.html')->query('//form');
+        self::assertNotFalse($forms);
+        self::assertSame(1, $forms->length);
+        $form = $forms->item(0);
+        assert($form instanceof DOMElement);
+
+        $children = [];
+        foreach ($form->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                $children[] = $child->tagName . '[name=' . $child->getAttribute('name') . ']';
+            } elseif (trim((string) $child->textContent) !== '') {
+                $children[] = 'text: ' . trim((string) $child->textContent);
+            }
+        }
+
+        self::assertSame(['input[name=paginator-target-page]'], $children);
+    }
+
     /** @return array<string, array{0: string, 1: string}> */
     public static function longValues(): array
     {

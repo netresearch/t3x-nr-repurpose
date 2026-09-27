@@ -27,18 +27,15 @@
                     <li class="page-item disabled" aria-hidden="true"><span class="page-link"><core:icon identifier="actions-view-paging-previous" /></span></li>
                 </f:else>
             </f:if>
+            <f:comment><!--
+                As in core: the form holds only the page-number field (cms-beuser SimplePagination), and the
+                label around it is the core "Page %1$s of %2$d" with the field as its first argument
+                (cms-backend ListNavigation). The backend's global event handler, loaded by ModuleTemplate,
+                navigates to the entered page.
+            --></f:comment>
+            <f:variable name="pageInput"><form class="form-inline" data-global-event="submit" data-action-navigate="$form=~s/$value/" data-navigate-value="{f:uri.action(action: 'list', arguments: '{currentPage: \'$[value]\'}')}" data-value-selector="input[name='paginator-target-page']"><input type="number" name="paginator-target-page" min="1" max="{paginator.numberOfPages}" value="{paginator.currentPageNumber}" size="3" class="form-control form-control-sm paginator-input" aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.pagination.pageInput')}" /></form></f:variable>
             <li class="page-item">
-                <span class="page-link">
-                    <f:comment><!-- The backend's global event handler (loaded by ModuleTemplate) navigates to the entered page. --></f:comment>
-                    <form class="form-inline"
-                          data-global-event="submit"
-                          data-action-navigate="$form=~s/$value/"
-                          data-navigate-value="{f:uri.action(action: 'list', arguments: '{currentPage: \'$[value]\'}')}"
-                          data-value-selector="input[name='paginator-target-page']">
-                        <f:variable name="pageInput"><input type="number" name="paginator-target-page" min="1" max="{paginator.numberOfPages}" value="{paginator.currentPageNumber}" size="3" class="form-control form-control-sm paginator-input" aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.pagination.pageInput')}" /></f:variable>
-                        <f:format.raw><f:translate key="pageIndicator" domain="core.mod_web_list" arguments="{0: pageInput, 1: paginator.numberOfPages}" /></f:format.raw>
-                    </form>
-                </span>
+                <span class="page-link"><f:format.raw><f:translate key="pageIndicator" domain="core.mod_web_list" arguments="{0: pageInput, 1: paginator.numberOfPages}" /></f:format.raw></span>
             </li>
             <f:if condition="{pagination.nextPageNumber}">
                 <f:then>
