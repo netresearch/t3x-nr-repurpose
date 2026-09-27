@@ -47,13 +47,13 @@ final class BackendViewMarkupTest extends TestCase
     }
 
     #[DataProvider('backendTemplates')]
-    public function testNoInlineStylesExceptTheProgressValue(string $template): void
+    public function testNoInlineStyles(string $template): void
     {
         $styled = [];
         foreach ($this->xpath($template)->query('//*[@style]') ?: [] as $element) {
             assert($element instanceof DOMElement);
-            // The progress bar width is the job's value, not layout: the one inline style kept.
-            if ($element->getAttribute('class') === 'progress-bar' && $element->getAttribute('style') === 'width: {job.progress}%;') {
+            // The progress fill width is the job's value, not layout: the one inline style kept.
+            if ($element->getAttribute('class') === 'nrrepurpose-progress-fill' && $element->getAttribute('style') === 'width: {job.progress}%;') {
                 continue;
             }
 
@@ -130,7 +130,19 @@ final class BackendViewMarkupTest extends TestCase
     {
         $xpath = $this->xpath('Private/Templates/Job/List.html');
 
-        self::assertSame(1, $xpath->query('//td[@class="col-progress"]/div[contains(@class, "progress")]')?->length, 'progress column');
+        // Core v14 has no .progress/.progress-bar CSS, and <typo3-backend-progress-bar> is @internal with an
+        // unnameable shadow-DOM progressbar: the module draws its own, named, with the value visible.
+        $bars = $xpath->query('//td[@class="col-progress"]/div[@class="nrrepurpose-progress"]');
+        self::assertSame(1, $bars?->length, 'progress column');
+        $bar = $bars->item(0);
+        assert($bar instanceof DOMElement);
+        self::assertSame(
+            ['progressbar', '{job.progress}', '0', '100'],
+            [$bar->getAttribute('role'), $bar->getAttribute('aria-valuenow'), $bar->getAttribute('aria-valuemin'), $bar->getAttribute('aria-valuemax')],
+        );
+        self::assertStringContainsString('list.column.progress', $bar->getAttribute('aria-label'));
+        self::assertSame(1, $xpath->query('.//span[@class="nrrepurpose-progress-value"][normalize-space(.)="{job.progress}%"]', $bar)?->length);
+        self::assertSame(0, $xpath->query('//typo3-backend-progress-bar')?->length);
         // Matched on the source: how an HTML parser nests an unknown, self-closed <f:render/>
         // differs between libxml builds (CI's differs from the runTests.sh image).
         self::assertMatchesRegularExpression(
@@ -220,6 +232,33 @@ final class BackendViewMarkupTest extends TestCase
         self::assertNotSame([], $used);
         foreach (array_keys($used) as $class) {
             self::assertStringContainsString('.' . $class . ' {', $css, $class);
+        }
+    }
+
+    /** @return array<string, array{0: string, 1: list<string>}> */
+    public static function keyDeclarations(): array
+    {
+        return [
+            'prompt and generated text wraps'     => ['.nrrepurpose-pre', ['white-space: pre-wrap;', 'overflow-wrap: anywhere;']],
+            'copy-ready text keeps the body font' => ['.nrrepurpose-pre-text', ['font-family: inherit;']],
+            'previews never wider than the card'  => ['.nrrepurpose-preview', ['max-width: 100%;', 'max-height: 480px;', 'height: auto;']],
+            'audio player fits the card'          => ['.nrrepurpose-audio', ['width: 100%;', 'max-width: 640px;']],
+            'story strip scrolls, not the page'   => ['.nrrepurpose-story-strip', ['display: flex;', 'overflow-x: auto;']],
+            'slides keep their size in the strip' => ['.nrrepurpose-story-slide', ['flex: 0 0 auto;']],
+            'progress track colour'               => ['.nrrepurpose-progress-track', ['background-color: var(--typo3-surface-container-high);']],
+            'progress fill colour'                => ['.nrrepurpose-progress-fill', ['height: 100%;', 'background-color: var(--typo3-component-primary-color);']],
+        ];
+    }
+
+    /** @param list<string> $declarations */
+    #[DataProvider('keyDeclarations')]
+    public function testTheModuleStylesheetKeepsItsKeyDeclarations(string $selector, array $declarations): void
+    {
+        $css = (string) file_get_contents(self::RESOURCES . 'Public/Css/backend.css');
+        self::assertSame(1, preg_match('/^' . preg_quote($selector, '/') . ' \{([^}]*)\}/m', $css, $rule), $selector);
+
+        foreach ($declarations as $declaration) {
+            self::assertStringContainsString($declaration, $rule[1], $selector);
         }
     }
 
