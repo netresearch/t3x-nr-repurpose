@@ -131,8 +131,8 @@ final class ExtensionDependencyRangeTest extends TestCase
 
     /**
      * constraints.depends of ext_emconf.php, read from the PHP tokens without executing the file.
-     * Executing it would need `require` per test (the file only assigns the global $EM_CONF, so
-     * `require_once` leaves every later test with nothing). Reading tokens instead of text skips
+     * Executing it would need `require` per test (the file assigns $EM_CONF in the including
+     * scope, so `require_once` leaves every later test with nothing). Reading tokens instead of text skips
      * comments, so a commented-out or trailing range in a comment is not mistaken for the real one,
      * and accepts single- and double-quoted strings alike.
      *
@@ -153,17 +153,24 @@ final class ExtensionDependencyRangeTest extends TestCase
             }
 
             self::assertSame([], $depends, 'more than one depends block in ext_emconf.php');
-            for ($j = $i + 3; $j < $count && $tokens[$j] !== ']'; ++$j) {
-                $key = $this->literal($tokens[$j]);
-                if ($key === null || ($tokens[$j + 1][0] ?? null) !== T_DOUBLE_ARROW) {
-                    continue;
-                }
-
+            // Strictly `'key' => 'range'` entries separated by commas: anything else (a concatenation
+            // after the range, a nested expression) would make the value read here differ from the
+            // value PHP computes, so it fails instead of being read approximately.
+            $j = $i + 3;
+            while (($tokens[$j] ?? null) !== ']') {
+                $key = $this->literal($tokens[$j] ?? '');
+                self::assertIsString($key, 'depends: expected a string key at token ' . $j);
+                self::assertSame(T_DOUBLE_ARROW, $tokens[$j + 1][0] ?? null, 'depends.' . $key . ': expected =>');
                 $range = $this->literal($tokens[$j + 2] ?? '');
                 self::assertIsString($range, 'depends.' . $key . ' is not a string literal');
+                self::assertContains($tokens[$j + 3] ?? null, [',', ']'], 'depends.' . $key . ': the range is followed by an expression');
                 self::assertArrayNotHasKey($key, $depends, 'depends.' . $key . ' is declared twice');
                 $depends[$key] = $range;
+                $j += ($tokens[$j + 3] === ',') ? 4 : 3;
             }
+
+            // `] + [...]` or any other operator after the array would add entries this reader never sees.
+            self::assertContains($tokens[$j + 1] ?? null, [',', ']'], 'depends: the array is followed by an expression');
         }
 
         self::assertNotSame([], $depends, 'no depends entries found in ext_emconf.php');
