@@ -114,8 +114,7 @@ class JobController extends ActionController
             storyStyle: $snippetStoryStyle,
         ));
 
-        $beUser = (int) ($GLOBALS['BE_USER']->user['uid'] ?? 0);
-        $this->jobSubmissionService->submit($newJob, $beUser);
+        $this->jobSubmissionService->submit($newJob, $this->backendUser()?->getUserId() ?? 0);
         $this->addFlashMessage(
             LocalizationUtility::translate('job.created', 'nr_repurpose') ?? 'Job created and queued for generation.',
         );
@@ -221,6 +220,10 @@ class JobController extends ActionController
         return LocalizationUtility::translate($key, 'nr_repurpose') ?? $key;
     }
 
+    /**
+     * The one place this controller reads $GLOBALS['BE_USER']: the review permission needs the
+     * authentication object for check(), which the Context's backend.user aspect does not expose.
+     */
     private function backendUser(): ?BackendUserAuthentication
     {
         $user = $GLOBALS['BE_USER'] ?? null;
