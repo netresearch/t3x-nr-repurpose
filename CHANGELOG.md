@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`LICENSE`** with the GPL-2.0 text. `composer.json` and `ext_emconf.php` declare `GPL-2.0-or-later`; the repository did not ship the licence text.
+
 ## [0.8.2] - 2026-09-27
 
 ### Fixed
