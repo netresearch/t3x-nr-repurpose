@@ -1,0 +1,56 @@
+<html data-namespace-typo3-fluid="true"
+      xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers">
+<f:comment><!--
+    Pager of the job list in the core backend markup (the file list's pagination partial, with
+    the page-number jump form of the backend-user module). The icon-only links carry an
+    aria-label; disabled ends are hidden from assistive technology. The labels come from EXT:core,
+    except the name of the page-number field.
+    Arguments: paginator (QueryResultPaginator), pagination (SimplePagination).
+--></f:comment>
+<f:if condition="{paginator.numberOfPages} > 1">
+    <nav aria-labelledby="nrrepurpose-pagination">
+        <ul class="pagination">
+            <li class="page-item">
+                <span id="nrrepurpose-pagination" class="page-link">
+                    <f:translate key="rangeIndicator" domain="core.mod_web_list" arguments="{0: pagination.startRecordNumber, 1: pagination.endRecordNumber}" />
+                    <span class="visually-hidden">, <f:translate key="pageIndicator" domain="core.mod_web_list" arguments="{0: paginator.currentPageNumber, 1: paginator.numberOfPages}" /></span>
+                </span>
+            </li>
+            <f:if condition="{pagination.previousPageNumber}">
+                <f:then>
+                    <li class="page-item"><a class="page-link" href="{f:uri.action(action: 'list', arguments: {currentPage: 1})}" aria-label="{f:translate(key: 'first', domain: 'core.common')}" title="{f:translate(key: 'first', domain: 'core.common')}"><core:icon identifier="actions-view-paging-first" /></a></li>
+                    <li class="page-item"><a class="page-link" href="{f:uri.action(action: 'list', arguments: {currentPage: pagination.previousPageNumber})}" aria-label="{f:translate(key: 'previous', domain: 'core.common')}" title="{f:translate(key: 'previous', domain: 'core.common')}"><core:icon identifier="actions-view-paging-previous" /></a></li>
+                </f:then>
+                <f:else>
+                    <li class="page-item disabled" aria-hidden="true"><span class="page-link"><core:icon identifier="actions-view-paging-first" /></span></li>
+                    <li class="page-item disabled" aria-hidden="true"><span class="page-link"><core:icon identifier="actions-view-paging-previous" /></span></li>
+                </f:else>
+            </f:if>
+            <li class="page-item">
+                <span class="page-link">
+                    <f:comment><!-- The backend's global event handler (loaded by ModuleTemplate) navigates to the entered page. --></f:comment>
+                    <form class="form-inline"
+                          data-global-event="submit"
+                          data-action-navigate="$form=~s/$value/"
+                          data-navigate-value="{f:uri.action(action: 'list', arguments: '{currentPage: \'$[value]\'}')}"
+                          data-value-selector="input[name='paginator-target-page']">
+                        <f:variable name="pageInput"><input type="number" name="paginator-target-page" min="1" max="{paginator.numberOfPages}" value="{paginator.currentPageNumber}" size="3" class="form-control form-control-sm paginator-input" aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.pagination.pageInput')}" /></f:variable>
+                        <f:format.raw><f:translate key="pageIndicator" domain="core.mod_web_list" arguments="{0: pageInput, 1: paginator.numberOfPages}" /></f:format.raw>
+                    </form>
+                </span>
+            </li>
+            <f:if condition="{pagination.nextPageNumber}">
+                <f:then>
+                    <li class="page-item"><a class="page-link" href="{f:uri.action(action: 'list', arguments: {currentPage: pagination.nextPageNumber})}" aria-label="{f:translate(key: 'next', domain: 'core.common')}" title="{f:translate(key: 'next', domain: 'core.common')}"><core:icon identifier="actions-view-paging-next" /></a></li>
+                    <li class="page-item"><a class="page-link" href="{f:uri.action(action: 'list', arguments: {currentPage: paginator.numberOfPages})}" aria-label="{f:translate(key: 'last', domain: 'core.common')}" title="{f:translate(key: 'last', domain: 'core.common')}"><core:icon identifier="actions-view-paging-last" /></a></li>
+                </f:then>
+                <f:else>
+                    <li class="page-item disabled" aria-hidden="true"><span class="page-link"><core:icon identifier="actions-view-paging-next" /></span></li>
+                    <li class="page-item disabled" aria-hidden="true"><span class="page-link"><core:icon identifier="actions-view-paging-last" /></span></li>
+                </f:else>
+            </f:if>
+        </ul>
+    </nav>
+</f:if>
+</html>

@@ -52,6 +52,8 @@ final class JobControllerTest extends AbstractFunctionalTestCase
 
     private const ADMIN = 1;
 
+    private const JOBS_PER_PAGE = 25;
+
     /** A non-admin without the approve permission. */
     private const EDITOR = 2;
 
@@ -200,13 +202,56 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function listActionRunsTheSameNumberOfQueriesForOneJobAsForAFullPage(): void
+    public function listActionShowsNoPagerWhenAllJobsFitOnOnePage(): void
+    {
+        for ($i = 0; $i < self::JOBS_PER_PAGE; ++$i) {
+            $this->insertJob('https://example.com/report-' . $i, 'done');
+        }
+
+        $body = $this->renderAction('list');
+
+        self::assertSame(self::JOBS_PER_PAGE, substr_count($body, '<td class="col-control">'));
+        self::assertStringNotContainsString('class="pagination', $body);
+    }
+
+    #[Test]
+    public function listActionPagesTheJobsWithTheCorePager(): void
+    {
+        for ($i = 0; $i < self::JOBS_PER_PAGE + 5; ++$i) {
+            $this->insertJob('https://example.com/report-' . $i, 'done');
+        }
+
+        $first = $this->renderAction('list');
+        self::assertSame(self::JOBS_PER_PAGE, substr_count($first, '<td class="col-control">'));
+        self::assertMatchesRegularExpression('#<nav aria-labelledby="nrrepurpose-pagination">\s*<ul class="pagination">#', $first);
+        self::assertMatchesRegularExpression('#<span id="nrrepurpose-pagination" class="page-link">\s*Records 1 - 25\s*<span class="visually-hidden">, Page 1 of 2</span>#', $first);
+        // The next and last links carry an accessible name, not only an icon.
+        self::assertMatchesRegularExpression('#<a class="page-link" href="[^"]*currentPage[^"]*=2[^"]*" aria-label="Next" title="Next">#', $first);
+        self::assertMatchesRegularExpression('#<input type="number"[^>]*name="paginator-target-page"[^>]*aria-label="Go to page"#', $first);
+
+        $second = $this->renderAction('list', ['currentPage' => 2]);
+        self::assertSame(5, substr_count($second, '<td class="col-control">'));
+        self::assertMatchesRegularExpression('#<span id="nrrepurpose-pagination" class="page-link">\s*Records 26 - 30\s*<span class="visually-hidden">, Page 2 of 2</span>#', $second);
+    }
+
+    #[Test]
+    public function listActionTreatsAPageBelowOneAsTheFirstPage(): void
+    {
+        $this->insertJob('https://example.com/report', 'done');
+
+        self::assertSame(1, substr_count($this->renderAction('list', ['currentPage' => 0]), '<td class="col-control">'));
+    }
+
+    #[Test]
+    public function listActionRunsTheSameNumberOfQueriesForOneJobAsForMoreThanAPage(): void
     {
         $one  = $this->countListQueries(1);
-        $many = $this->countListQueries(20);
+        $many = $this->countListQueries(40);
 
         self::assertGreaterThan(0, $one, 'The query counter recorded nothing: the driver middleware is not attached.');
         self::assertSame($one, $many, "The job list runs queries per row:\n" . implode("\n", QueryCountingMiddleware::$queries));
+        // The paginator's two COUNTs, the page of jobs and the grouped artifact summaries.
+        self::assertLessThanOrEqual(4, $many, implode("\n", QueryCountingMiddleware::$queries));
     }
 
     /** Renders the list over $jobs jobs of two artifacts each and returns the queries the action ran. */
@@ -235,10 +280,11 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         $response                         = $controller->processRequest($request);
         self::assertSame(200, $response->getStatusCode());
         $body = (string) $response->getBody();
-        self::assertSame($jobs, substr_count($body, '<td class="col-control">'));
+        $rows = min($jobs, self::JOBS_PER_PAGE);
+        self::assertSame($rows, substr_count($body, '<td class="col-control">'));
         // Every row still shows its summaries: the finished podcast and the failed Schaubild.
-        self::assertSame($jobs, substr_count($body, '<span class="text-success" role="img" title="Podcast: Done"'));
-        self::assertSame($jobs, substr_count($body, '<span class="text-danger" role="img" title="Schaubild: Failed"'));
+        self::assertSame($rows, substr_count($body, '<span class="text-success" role="img" title="Podcast: Done"'));
+        self::assertSame($rows, substr_count($body, '<span class="text-danger" role="img" title="Schaubild: Failed"'));
 
         // The backend session write-back varies between requests and has nothing to do with the list.
         QueryCountingMiddleware::$queries = array_values(array_filter(

@@ -54,6 +54,7 @@ final class BackendViewMarkupTest extends TestCase
             'parameters partial'    => ['Private/Partials/Job/GenerationParameters.html'],
             'ai label partial'      => ['Private/Partials/Job/AiLabel.html'],
             'artifacts partial'     => ['Private/Partials/Job/ArtifactSummaries.html'],
+            'pagination partial'    => ['Private/Partials/Job/Pagination.html'],
         ];
     }
 

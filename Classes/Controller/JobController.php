@@ -29,13 +29,18 @@ use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\Pagination\SimplePagination;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
+use TYPO3\CMS\Extbase\Pagination\QueryResultPaginator;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 #[AsController]
 class JobController extends ActionController
 {
+    /** Rows per page of the job list. */
+    private const JOBS_PER_PAGE = 25;
+
     protected ModuleTemplate $moduleTemplate;
 
     public function __construct(
@@ -61,12 +66,20 @@ class JobController extends ActionController
         $this->pageRenderer->addCssFile('EXT:nr_repurpose/Resources/Public/Css/backend.css');
     }
 
-    public function listAction(): ResponseInterface
+    /** @param int $currentPage 1-based; a lower value shows the first page, a higher one the last. */
+    public function listAction(int $currentPage = 1): ResponseInterface
     {
         $this->moduleTemplate->setTitle($this->moduleTitle());
-        $jobs = $this->jobRepository->findAll()->toArray();
+        $paginator = new QueryResultPaginator($this->jobRepository->findAll(), max(1, $currentPage), self::JOBS_PER_PAGE);
+        $jobs      = [];
+        foreach ($paginator->getPaginatedItems() as $job) {
+            $jobs[] = $job;
+        }
+
         $this->moduleTemplate->assignMultiple([
-            'jobs' => $jobs,
+            'jobs'       => $jobs,
+            'paginator'  => $paginator,
+            'pagination' => new SimplePagination($paginator),
             // One grouped query for the artifact column instead of loading each row's artifacts.
             'artifactSummaries' => $this->artifactRepository->findTypeSummariesByJobs(
                 array_map(static fn (Job $job): int => (int) $job->getUid(), $jobs),
