@@ -89,7 +89,7 @@
                     <f:comment><!-- LLM text can carry long unbroken tokens (URLs): break them inside the card. --></f:comment>
                     <div class="card-body text-break">
                         <f:if condition="{artifact.errorMessage}">
-                            <f:comment><!-- Core error box: .text-danger on the card background is 4.49:1 in the dark scheme (below AA). --></f:comment>
+                            <f:comment><!-- Core error box: the danger text colour on the card background is 4.49:1 in the dark scheme (below AA). --></f:comment>
                             <f:be.infobox state="2"><span class="text-break">{artifact.errorMessage}</span></f:be.infobox>
                         </f:if>
 

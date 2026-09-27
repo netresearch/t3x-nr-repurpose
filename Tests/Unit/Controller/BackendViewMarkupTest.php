@@ -131,7 +131,13 @@ final class BackendViewMarkupTest extends TestCase
         $xpath = $this->xpath('Private/Templates/Job/List.html');
 
         self::assertSame(1, $xpath->query('//td[@class="col-progress"]/div[contains(@class, "progress")]')?->length, 'progress column');
-        self::assertSame(1, $xpath->query('//td[@class="col-nowrap"]/*[name()="f:render"][@partial="Job/ArtifactSummaries"]')?->length, 'artifact icons stay on one line');
+        // Matched on the source: how an HTML parser nests an unknown, self-closed <f:render/>
+        // differs between libxml builds (CI's differs from the runTests.sh image).
+        self::assertMatchesRegularExpression(
+            '#<td class="col-nowrap">\s*<f:render partial="Job/ArtifactSummaries" #',
+            (string) file_get_contents(self::RESOURCES . 'Private/Templates/Job/List.html'),
+            'artifact icons stay on one line',
+        );
         self::assertSame(1, $xpath->query('//th[@class="col-control"]')?->length, 'action column header');
         self::assertSame(1, $xpath->query('//td[@class="col-control"]')?->length, 'action column cell');
     }
@@ -174,20 +180,28 @@ final class BackendViewMarkupTest extends TestCase
     public static function componentBackgrounds(): array
     {
         return [
-            'artifact cards' => ['Private/Templates/Job/Show.html', '//div[contains(@class, "card")]//*[contains(@class, "text-danger")]'],
-            'review partial' => ['Private/Partials/Job/Review.html', '//*[contains(@class, "text-danger")]'],
-            'plan table'     => ['Private/Templates/Job/Plan.html', '//table//*[contains(@class, "text-danger")]'],
+            // Everything from the first card on is card content (the back link after it has no colour).
+            'artifact cards' => ['Private/Templates/Job/Show.html', '<div class="card'],
+            // The review partial is only rendered inside an artifact card.
+            'review partial' => ['Private/Partials/Job/Review.html', '<f:if'],
+            'plan table'     => ['Private/Templates/Job/Plan.html', '<table'],
         ];
     }
 
     /**
      * Core .text-danger measures 4.49:1 on a card and 4.18:1 on a striped table row in the
      * dark scheme (TYPO3 14.3.7, axe-core): error text there goes into the core error box.
+     * Checked on the source from the component on: the nesting an HTML parser builds for the
+     * Fluid tags differs between libxml builds.
      */
     #[DataProvider('componentBackgrounds')]
-    public function testNoDangerColouredTextOnCardsOrTables(string $template, string $query): void
+    public function testNoDangerColouredTextOnCardsOrTables(string $template, string $componentStart): void
     {
-        self::assertSame(0, $this->xpath($template)->query($query)?->length);
+        $source = (string) file_get_contents(self::RESOURCES . $template);
+        $offset = strpos($source, $componentStart);
+        self::assertIsInt($offset, $componentStart);
+
+        self::assertStringNotContainsString('text-danger', substr($source, $offset));
     }
 
     public function testEveryModuleClassIsDefinedInTheModuleStylesheet(): void
