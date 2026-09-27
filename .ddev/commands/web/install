@@ -1,0 +1,9 @@
+#!/bin/bash
+## Description: Alias of `ddev setup`: install TYPO3 v14.3 and activate nr_repurpose + nr_llm
+## Usage: install
+## Example: ddev install
+#
+# `setup` is the canonical one-shot entry point (Netresearch DDEV convention).
+# This name stays because the README and AGENTS.md tell people to run
+# `ddev install`.
+exec "$(dirname "$0")/setup" "$@"

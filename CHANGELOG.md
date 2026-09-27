@@ -11,6 +11,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`composer.json` requires `netresearch/nr-vault` at `^0.16`.** It allowed `^0.15 || ^0.16`, but every nr-llm version this extension accepts (0.35 to 0.38) requires `netresearch/nr-vault: ^0.16.0`, so the `^0.15` branch could never resolve.
 - **`composer.json` carries the extension version and `Package.providesPackages`** (TYPO3 deprecation #108345). `extra.typo3/cms.version` is `0.8.2`, and `providesPackages` names `smalot/pdfparser`, the one required package that is neither a TYPO3 extension nor shipped by the TYPO3 core. The entry has no vendor path, so in classic mode it only keeps TYPO3 from treating the package as a missing extension: the TER package does not contain smalot/pdfparser, and PDF ingestion in a classic installation fails with `Class "Smalot\PdfParser\Config" not found`, as it did before. With both fields present TYPO3 14 no longer evaluates `ext_emconf.php` and takes the extension's dependencies from `composer.json`'s `require`. The version has to be bumped in both files on every release; `Tests/Unit/VersionConsistencyTest.php` fails when they differ. In classic mode the Extension Manager no longer shows the `alpha` state from `ext_emconf.php`.
 - **`composer.json` names the issue tracker and the repository** in `support.issues` and `support.source`, so Packagist links to both.
+- **`ddev setup` installs the local development instance**, following the Netresearch DDEV convention. `ddev install` still works and runs the same command.
 
 ### Fixed
 
