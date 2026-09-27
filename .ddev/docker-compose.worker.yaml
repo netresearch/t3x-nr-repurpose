@@ -8,6 +8,14 @@ services:
     container_name: ddev-${DDEV_SITENAME}-worker
     image: ${DDEV_WEBIMAGE}
     restart: "unless-stopped"
+    # The web image's HEALTHCHECK (/healthcheck.sh) comes with it and checks
+    # php-fpm (phpstatus) and mailpit, neither of which this container runs, so
+    # it stays "starting" forever and `ddev start` waits for it until the
+    # container timeout. A check on the consumer process would not help either:
+    # before `ddev install` the consume command exits on every loop, so the
+    # worker would be unhealthy on exactly the first start.
+    healthcheck:
+      disable: true
     command:
       - bash
       - -c

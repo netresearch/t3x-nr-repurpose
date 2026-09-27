@@ -12,6 +12,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`composer.json` carries the extension version and `Package.providesPackages`** (TYPO3 deprecation #108345). `extra.typo3/cms.version` is `0.8.2`, and `providesPackages` names `smalot/pdfparser`, the one required package that is neither a TYPO3 extension nor shipped by the TYPO3 core. The entry has no vendor path, so in classic mode it only keeps TYPO3 from treating the package as a missing extension: the TER package does not contain smalot/pdfparser, and PDF ingestion in a classic installation fails with `Class "Smalot\PdfParser\Config" not found`, as it did before. With both fields present TYPO3 14 no longer evaluates `ext_emconf.php` and takes the extension's dependencies from `composer.json`'s `require`. The version has to be bumped in both files on every release; `Tests/Unit/VersionConsistencyTest.php` fails when they differ. In classic mode the Extension Manager no longer shows the `alpha` state from `ext_emconf.php`.
 - **`composer.json` names the issue tracker and the repository** in `support.issues` and `support.source`, so Packagist links to both.
 
+### Fixed
+
+- **`ddev start` no longer waits for the worker container until it times out.** The worker reuses the web image and with it the image's health check, which tests php-fpm and Mailpit — neither runs in the worker, so the container never became healthy and `ddev start` failed after its container timeout even though the worker was consuming. The worker's health check is disabled; `ddev start` now reports it ready in under a second.
+
 ## [0.8.2] - 2026-09-27
 
 ### Fixed
