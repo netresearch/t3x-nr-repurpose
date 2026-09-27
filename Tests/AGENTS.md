@@ -47,8 +47,9 @@ PHPUnit configs live in `Build/` (repo root), not under `Tests/`: `Build/phpunit
 | Single file | `./Build/Scripts/runTests.sh -s unit Tests/Unit/Path/To/Test.php` (extra args pass through to phpunit) |
 | Coverage | `./Build/Scripts/runTests.sh -s unitCoverage` |
 
-> No composer phpunit scripts exist — the runner is the only test entry point
-> (the `ci:*` composer scripts cover cgl/phpstan/rector, not phpunit).
+> `composer ci:test:php:unit` and `composer ci:test:php:functional` call
+> phpunit directly inside a container or CI and hand over to the runner
+> otherwise.
 > `-p <8.3|8.4|8.5>` selects the PHP version (default 8.5).
 <!-- AGENTS-GENERATED:END commands -->
 
