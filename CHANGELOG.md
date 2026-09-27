@@ -231,22 +231,79 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Documentation/guides.xml` declared `version="0.2"` alongside `release="0.3.0"`;
   both now track the released version.
 
-## [0.3.0] - 2026-07-23
+## [0.3.0] - 2026-07-24
 
-Released without a changelog entry; recorded here from the tag range for
-completeness.
+Released without a changelog entry; recorded here from the tag range
+`v0.2.3..v0.3.0`.
 
 ### Changed
 
-- **Migrated to nr-llm `^0.25`**, including `completeStructured()` for the
-  nr-llm 0.23 provider interface.
-- `symfony/process` and `symfony/messenger` updated to 8.x.
-- Backend icons redrawn in TYPO3 v14 style, artifact record icon added.
-- Templates use a themable border token instead of a hardcoded `#ccc`.
+- **Migrated to nr-llm `^0.25`** (was `^0.22.0 || ^0.23.0`); `ext_emconf.php`
+  declares `nr_llm 0.25.0-0.99.99` to match.
+
+## [0.2.3] - 2026-07-22
+
+Released without a changelog entry; recorded here from the tag range
+`v0.2.2..v0.2.3` and the GitHub release notes.
+
+### Changed
+
+- `symfony/process` and `symfony/messenger` accept 8.x: both are required at
+  `^7.0 || ^8.0`.
 
 ### Fixed
 
-- `guides.xml` repaired and documentation CI added.
+- **Composer resolves the latest tag again.** `composer.json` carried an
+  explicit `"version": "0.2.0"`, so Composer's VCS driver reported every git tag
+  as 0.2.0 and a consumer resolving the package from the repository got the
+  oldest tag, with the pre-0.23 nr-llm constraint. The field is removed; the git
+  tags drive the version.
+
+## [0.2.2] - 2026-07-22
+
+Released without a changelog entry; recorded here from the tag range
+`v0.2.1..v0.2.2` and the GitHub release notes.
+
+### Added
+
+- **nr-llm 0.23 support.** `ConfiguredCompletionService` implements the
+  `completeStructured()` and `completeStructuredForConfiguration()` methods
+  nr-llm 0.23 adds to `CompletionServiceInterface`: the plain form resolves the
+  `nr_repurpose_text` configuration, the configuration form passes through.
+- A documentation render job in CI, so `Documentation/guides.xml` is validated
+  on every change.
+
+### Changed
+
+- Requires `netresearch/nr-llm` `^0.22.0 || ^0.23.0`.
+
+### Fixed
+
+- **The documentation renders again.** The release script had corrupted the
+  XML declaration of `Documentation/guides.xml` (`<?xml version="0.2.1"?>`) and
+  left the project version stale; both are restored.
+
+## [0.2.1] - 2026-07-21
+
+Released without a changelog entry; recorded here from the tag range
+`v0.2.0..v0.2.1` and the GitHub release notes.
+
+### Changed
+
+- **Backend icons in the TYPO3 v14 style.** The module icon is redrawn with
+  filled paths, a `currentColor` glyph and one brand accent, so it follows the
+  backend light and dark scheme; the extension icon is a teal tile with the
+  repurpose arrows. The artifact table gets its own record icon
+  (`tx-nrrepurpose-artifact`); it had none (#44).
+- `netresearch/nr-vault` is accepted at `^0.10.0 || ^0.11.0`.
+
+### Fixed
+
+- **Borders in the job detail view follow the dark scheme.** The image
+  preview, the story slide images and the failed-slide placeholder used a
+  hardcoded `#ccc` border; they now use
+  `var(--typo3-component-border-color)` with `var(--bs-border-color)` as
+  fallback (#44).
 
 ## [0.2.0] - 2026-07-18
 
