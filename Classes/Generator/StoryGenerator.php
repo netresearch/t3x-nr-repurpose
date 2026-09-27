@@ -28,6 +28,7 @@ use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
 use Throwable;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
 /**
  * Produces a multi-slide 9:16 Instagram-story carousel (1080x1920 PNG per slide, spec §10).
@@ -49,6 +50,8 @@ use Throwable;
  */
 class StoryGenerator extends AbstractGenerator
 {
+    use RendersThemeTemplates;
+
     private const WIDTH = 1080;
 
     private const HEIGHT = 1920;
@@ -85,10 +88,16 @@ class StoryGenerator extends AbstractGenerator
         private readonly ImageCompositorInterface $compositor,
         private readonly ImageGeneratorInterface $imageGenerator,
         private readonly JobFileStorage $fileStorage,
+        private readonly ViewFactoryInterface $viewFactory,
         // Optional so a construction without it keeps working; the container injects it.
         private readonly ?SlideshowRendererInterface $slideshow = null,
     ) {
         parent::__construct($jobs, $budget, $logger);
+    }
+
+    protected function viewFactory(): ViewFactoryInterface
+    {
+        return $this->viewFactory;
     }
 
     public function supports(GenerationContext $ctx): bool

@@ -45,6 +45,8 @@ use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
+use TYPO3\CMS\Core\View\ViewInterface;
 
 final class StoryGeneratorTest extends TestCase
 {
@@ -79,7 +81,7 @@ final class StoryGeneratorTest extends TestCase
     ): StoryGenerator {
         $completion ??= $this->completion($completionResult);
 
-        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage ?? $this->storage(), $slideshow) extends StoryGenerator {
+        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage ?? $this->storage(), $this->createStub(ViewFactoryInterface::class), $slideshow) extends StoryGenerator {
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
@@ -88,6 +90,7 @@ final class StoryGeneratorTest extends TestCase
                 ImageCompositorInterface $compositor,
                 ImageGeneratorInterface $imageGenerator,
                 JobFileStorage $storage,
+                ViewFactoryInterface $viewFactory,
                 ?SlideshowRendererInterface $slideshow,
             ) {
                 parent::__construct(
@@ -99,6 +102,7 @@ final class StoryGeneratorTest extends TestCase
                     $compositor,
                     $imageGenerator,
                     $storage,
+                    $viewFactory,
                     $slideshow,
                 );
             }
@@ -318,6 +322,31 @@ final class StoryGeneratorTest extends TestCase
         self::assertSame(['KI-generiert', null], array_column($subject->renderedVariables, 'aiLabel'));
         // The template compares {role} with the string 'cover', so it must get the value, not the enum.
         self::assertSame(['cover', 'cover'], array_column($subject->renderedVariables, 'role'));
+    }
+
+    public function testSlidesAreRenderedThroughTheInjectedViewFactory(): void
+    {
+        $view = $this->createStub(ViewInterface::class);
+        $view->method('assignMultiple')->willReturnSelf();
+        $view->method('render')->willReturn('<html>rendered slide</html>');
+        $viewFactory = $this->createMock(ViewFactoryInterface::class);
+        $viewFactory->expects(self::exactly(3))->method('create')->willReturn($view);
+        $jobs = $this->jobs();
+
+        $generator = new StoryGenerator(
+            $jobs,
+            $this->allowingBudget(),
+            new NullLogger(),
+            $this->completion(self::THREE_SLIDES),
+            $this->renderer(),
+            $this->compositor(),
+            $this->imageGenerator(false),
+            $this->storage(),
+            $viewFactory,
+        );
+
+        self::assertTrue($generator->generate($this->context()));
+        self::assertSame('<html>rendered slide</html>', $jobs->updates[$jobs->uidForVariant('slide-1')]['source_html']);
     }
 
     public function testOverBudgetFallsBackToFlatSlides(): void
