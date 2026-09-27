@@ -62,18 +62,13 @@ final class BackendViewMarkupTest extends TestCase
      * source after Fluid's own comment removal has no `<style` element, no `style` attribute
      * (either quote) and no `style` key in an argument array such as `additionalAttributes`
      * (tag or inline syntax, quoted or bare key). The backend CSP allows inline styles, so each
-     * would override backend.css unseen. The one exception is the progress fill width, the
-     * job's value, matched as the exact element in the job list.
+     * would override backend.css unseen. There is no exception: the job progress is a native
+     * <progress>, which needs no inline width.
      */
     #[DataProvider('backendTemplates')]
     public function testNoInlineStyles(string $template): void
     {
         $code = $this->fluidCode($template);
-        if ($template === 'Private/Templates/Job/List.html') {
-            $fill = '<div class="nrrepurpose-progress-fill" style="width: {job.progress}%;"></div>';
-            self::assertSame(1, substr_count($code, $fill), 'the progress fill');
-            $code = str_replace($fill, '', $code);
-        }
 
         foreach ([
             'a <style> element'          => '/<style\b/i',
@@ -152,20 +147,19 @@ final class BackendViewMarkupTest extends TestCase
         $xpath = $this->xpath('Private/Templates/Job/List.html');
 
         // Core v14 has no .progress/.progress-bar CSS, and <typo3-backend-progress-bar> is @internal with an
-        // unnameable shadow-DOM progressbar: the module draws its own, named, with the value visible.
-        $bars = $xpath->query('//td[@class="col-progress"]/div[@class="nrrepurpose-progress"]');
+        // unnameable shadow-DOM progressbar: the module uses a native <progress>, which carries role, value,
+        // range and name itself, with the percentage beside it for sight only.
+        $bars = $xpath->query('//td[@class="col-progress"]/div[@class="nrrepurpose-progress"]/progress[@class="nrrepurpose-progress-track"]');
         self::assertSame(1, $bars?->length, 'progress column');
         $bar = $bars->item(0);
         assert($bar instanceof DOMElement);
-        self::assertSame(
-            ['progressbar', '{job.progress}', '0', '100'],
-            [$bar->getAttribute('role'), $bar->getAttribute('aria-valuenow'), $bar->getAttribute('aria-valuemin'), $bar->getAttribute('aria-valuemax')],
-        );
-        // One name per row, like the Details link: "Progress of job 4", not nine identical "Progress".
+        self::assertSame(['{job.progress}', '100'], [$bar->getAttribute('value'), $bar->getAttribute('max')]);
+        self::assertFalse($bar->hasAttribute('role'), 'the native element has its own role');
+        // One name per row, like the Details link: "Progress of job #4", not nine identical "Progress".
         self::assertStringContainsString('list.progress.label', $bar->getAttribute('aria-label'));
         self::assertStringContainsString('arguments: {0: job.uid}', $bar->getAttribute('aria-label'));
-        self::assertSame(1, $xpath->query('.//span[@class="nrrepurpose-progress-value"][normalize-space(.)="{job.progress}%"]', $bar)?->length);
-        self::assertSame(0, $xpath->query('//typo3-backend-progress-bar')?->length);
+        self::assertSame(1, $xpath->query('//td[@class="col-progress"]//span[@class="nrrepurpose-progress-value"][@aria-hidden="true"][normalize-space(.)="{job.progress}%"]')?->length);
+        self::assertSame(0, $xpath->query('//*[@role="progressbar"] | //typo3-backend-progress-bar')?->length);
         // Matched on the source: how an HTML parser nests an unknown, self-closed <f:render/>
         // differs between libxml builds (CI's differs from the runTests.sh image).
         self::assertMatchesRegularExpression(
@@ -324,8 +318,10 @@ final class BackendViewMarkupTest extends TestCase
             'audio player fits the card'          => ['.nrrepurpose-audio', ['width' => '100%', 'max-width' => '640px']],
             'story strip scrolls, not the page'   => ['.nrrepurpose-story-strip', ['display' => 'flex', 'overflow-x' => 'auto']],
             'slides keep their size in the strip' => ['.nrrepurpose-story-slide', ['flex' => '0 0 auto']],
-            'progress track is drawn'             => ['.nrrepurpose-progress-track', ['flex' => '1 1 auto', 'min-width' => '3rem', 'height' => '.5rem', 'background-color' => 'var(--typo3-surface-container-high)']],
-            'progress fill colour'                => ['.nrrepurpose-progress-fill', ['height' => '100%', 'background-color' => 'var(--typo3-component-primary-color)']],
+            'progress track is drawn'             => ['.nrrepurpose-progress-track', ['appearance' => 'none', 'flex' => '1 1 auto', 'min-width' => '3rem', 'width' => '3rem', 'height' => '.5rem', 'background-color' => 'var(--typo3-surface-container-high)']],
+            'progress track in WebKit/Blink'      => ['.nrrepurpose-progress-track::-webkit-progress-bar', ['background-color' => 'var(--typo3-surface-container-high)']],
+            'progress fill in WebKit/Blink'       => ['.nrrepurpose-progress-track::-webkit-progress-value', ['background-color' => 'var(--typo3-component-primary-color)']],
+            'progress fill in Gecko'              => ['.nrrepurpose-progress-track::-moz-progress-bar', ['background-color' => 'var(--typo3-component-primary-color)']],
         ];
     }
 
@@ -368,14 +364,21 @@ final class BackendViewMarkupTest extends TestCase
             ['.nrrepurpose-progress', 'display', 'flex'],
             ['.nrrepurpose-progress', 'align-items', 'center'],
             ['.nrrepurpose-progress', 'gap', 'calc(var(--typo3-spacing, 1rem) / 2)'],
+            ['.nrrepurpose-progress-track', '-webkit-appearance', 'none'],
+            ['.nrrepurpose-progress-track', 'appearance', 'none'],
+            ['.nrrepurpose-progress-track', 'display', 'block'],
             ['.nrrepurpose-progress-track', 'flex', '1 1 auto'],
             ['.nrrepurpose-progress-track', 'min-width', '3rem'],
             ['.nrrepurpose-progress-track', 'height', '.5rem'],
+            ['.nrrepurpose-progress-track', 'width', '3rem'],
             ['.nrrepurpose-progress-track', 'overflow', 'hidden'],
+            ['.nrrepurpose-progress-track', 'border', '0'],
             ['.nrrepurpose-progress-track', 'border-radius', '.25rem'],
             ['.nrrepurpose-progress-track', 'background-color', 'var(--typo3-surface-container-high)'],
-            ['.nrrepurpose-progress-fill', 'height', '100%'],
-            ['.nrrepurpose-progress-fill', 'background-color', 'var(--typo3-component-primary-color)'],
+            ['.nrrepurpose-progress-track', 'color', 'var(--typo3-component-primary-color)'],
+            ['.nrrepurpose-progress-track::-webkit-progress-bar', 'background-color', 'var(--typo3-surface-container-high)'],
+            ['.nrrepurpose-progress-track::-webkit-progress-value', 'background-color', 'var(--typo3-component-primary-color)'],
+            ['.nrrepurpose-progress-track::-moz-progress-bar', 'background-color', 'var(--typo3-component-primary-color)'],
             ['.nrrepurpose-progress-value', 'flex', '0 0 auto'],
             ['.nrrepurpose-progress-value', 'min-width', '3.5ch'],
             ['.nrrepurpose-progress-value', 'text-align', 'end'],
@@ -454,8 +457,8 @@ final class BackendViewMarkupTest extends TestCase
      * the lenient parser would flatten or skip (nested rules, an unclosed rule, a stray `}`), and
      * three assertions make source order equal the cascade among these rules for the same
      * property: only plain top-level rules, no !important, and every selector is one plain module
-     * class written as `.nrrepurpose-name`. Overrides by other properties are closed by the pinned
-     * declaration set, not here.
+     * class written as `.nrrepurpose-name`, or the progress track with one of its three per-engine
+     * pseudo-elements. Overrides by other properties are closed by the pinned declaration set, not here.
      *
      * @return list<array{0: list<string>, 1: string, 2: string}> selectors, property, value
      */
@@ -472,7 +475,9 @@ final class BackendViewMarkupTest extends TestCase
                 // module element with a different specificity or under a spelling this reader does
                 // not match: an attribute selector ([class~="nrrepurpose-pre"]), an escaped name
                 // (.nrrepurpose\-pre, .nrrepurpose\2d pre), a type prefix, a combinator.
-                self::assertMatchesRegularExpression('/^\.nrrepurpose-[a-z]+(?:-[a-z]+)*$/', $selector, 'backend.css: every selector is one plain module class');
+                // The one addition: the progress track's per-engine pseudo-elements, which style the parts
+                // of the native <progress> and cannot compete with a rule for the element itself.
+                self::assertMatchesRegularExpression('/^\.nrrepurpose-[a-z]+(?:-[a-z]+)*$|^\.nrrepurpose-progress-track::(?:-webkit-progress-bar|-webkit-progress-value|-moz-progress-bar)$/', $selector, 'backend.css: every selector is one plain module class');
             }
 
             foreach ($item->getDeclarations() as $declaration) {

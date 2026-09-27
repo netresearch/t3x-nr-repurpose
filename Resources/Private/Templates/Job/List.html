@@ -47,14 +47,15 @@
                                 </td>
                                 <td class="col-progress">
                                     <f:comment><!--
-                                        Own bar, not the core <typo3-backend-progress-bar>: that element is @internal, its
-                                        shadow-DOM progressbar cannot be named, and its dark-scheme fill is below 3:1.
-                                        Core v14 ships no .progress/.progress-bar CSS. The width is the job's value.
+                                        A native <progress>: it carries the progressbar role, value, range and name itself.
+                                        Not the core <typo3-backend-progress-bar>: that element is @internal, its shadow-DOM
+                                        progressbar cannot be named, and its dark-scheme fill is below 3:1. Core v14 ships
+                                        no .progress/.progress-bar CSS. The percentage beside it repeats the value for sight.
                                     --></f:comment>
-                                    <div class="nrrepurpose-progress" role="progressbar" aria-valuenow="{job.progress}" aria-valuemin="0" aria-valuemax="100"
-                                         aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.progress.label', arguments: {0: job.uid})}">
-                                        <div class="nrrepurpose-progress-track"><div class="nrrepurpose-progress-fill" style="width: {job.progress}%;"></div></div>
-                                        <span class="nrrepurpose-progress-value">{job.progress}%</span>
+                                    <div class="nrrepurpose-progress">
+                                        <progress class="nrrepurpose-progress-track" max="100" value="{job.progress}"
+                                                  aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.progress.label', arguments: {0: job.uid})}"></progress>
+                                        <span class="nrrepurpose-progress-value" aria-hidden="true">{job.progress}%</span>
                                     </div>
                                 </td>
                                 <td class="col-control">
