@@ -22,8 +22,12 @@ Requirements
    * - TYPO3
      - ``^14.3`` (v14.3 LTS only)
    * - :composer:`netresearch/nr-llm`
-     - ``^0.25`` — AI access (completion, TTS, image), budget enforcement and
-       one-click configuration presets.
+     - ``^0.35 || ^0.36 || ^0.37 || ^0.38`` — AI access (completion, TTS,
+       image), budget enforcement and one-click configuration presets.
+   * - :composer:`netresearch/nr-vault`
+     - ``^0.15 || ^0.16`` — holds the provider keys nr-llm reads; its
+       technical-actor API lets the worker read them (see
+       :ref:`configuration-extension-settings`).
    * - ``poppler-utils``
      - ``pdftoppm`` / ``pdftotext`` for PDF ingestion (Vision OCR and layout
        tiers).
@@ -35,6 +39,9 @@ Requirements
    * - Node.js
      - ``>=22.18.0 <25.0.0`` to run the bundled ``render.cjs`` (uses
        ``playwright-core``).
+
+The version ranges are the ones :path:`composer.json` requires; that file is
+authoritative.
 
 .. note::
 
@@ -75,6 +82,32 @@ The extension creates two tables:
    * - :sql:`tx_nrrepurpose_domain_model_artifact`
      - One row per produced artifact (type, variant, FAL file references,
        transcript, metadata, status).
+
+.. _installation-classic:
+
+Classic mode installation (TER)
+===============================
+
+The extension is published in the TYPO3 Extension Repository as
+`nr_repurpose <https://extensions.typo3.org/extension/nr_repurpose>`__. In a
+classic installation without Composer:
+
+#.  Install ``nr_llm`` and ``nr_vault`` from the TER, in the versions
+    ``nr_repurpose`` declares as dependencies (shown on its TER page).
+#.  Install ``nr_repurpose`` in :guilabel:`Admin Tools > Extensions`
+    (:guilabel:`Get Extensions`), or upload the ZIP file from the TER there.
+#.  Set up the database tables and flush the caches:
+
+    .. code-block:: bash
+       :caption: Set up the extension in classic mode
+
+       typo3/sysext/core/bin/typo3 extension:setup nr_repurpose
+       typo3/sysext/core/bin/typo3 cache:flush
+
+The remaining steps are the same as for a Composer installation: the system
+binaries, the Node renderer (under
+:path:`typo3conf/ext/nr_repurpose/Resources/Private/NodeRenderer/`), the
+provider key and the worker.
 
 .. _installation-node-renderer:
 
