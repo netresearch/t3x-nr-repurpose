@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-09-27 -->
 
 # AGENTS.md — Tests
 
@@ -81,8 +81,11 @@ PHPUnit configs live in `Build/` (repo root), not under `Tests/`: `Build/phpunit
 <!-- AGENTS-GENERATED:END checklist -->
 
 ## Setup
-Nothing beyond Docker — the runner provisions PHP images itself. First run of
-`./Build/Scripts/runTests.sh -s composerUpdate` installs `.Build/`.
+Docker, plus `composer` on the host for the very first run:
+`Build/Scripts/runTests.sh` is a stub that runs `composer install` to fetch the
+shared runner into `.Build/bin/`; after that the runner provisions PHP images
+itself. Switching PHP with `-p` needs `-p <version> -s composerUpdate` first —
+see root `AGENTS.md` Commands.
 
 ## Security
 - Never use real API keys or secrets in tests — mock nr-llm services

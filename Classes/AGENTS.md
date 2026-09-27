@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-09-27 -->
 
 # AGENTS.md — Classes
 
@@ -26,6 +26,26 @@ TYPO3 extension following TYPO3 CGL and PSR-12
 | nr-llm specialized adapter | `Classes/Generator/Image/DallEImageGenerator.php` |
 | Render primitive behind interface | `Classes/Rendering/GdImageCompositor.php` |
 <!-- AGENTS-GENERATED:END golden-samples -->
+
+## Utilities (check before creating new)
+Hand-maintained (outside the generated blocks). Reuse these before writing a helper; signatures are in the files.
+
+| Need | Use | Location |
+|------|-----|----------|
+| Budget + availability guard for a TTS/image call | `specializedAllowed()` | `Classes/Generator/AbstractGenerator.php` |
+| `prompts` block of artifact metadata | `promptsMetadata()` | `Classes/Generator/AbstractGenerator.php` |
+| AI-origin label (ADR-005) | `provenance()` → `AiProvenance` | `Classes/Generator/AbstractGenerator.php` |
+| Layout `imageSize` hint, validated | `resolveImageSize()` | `Classes/Generator/AbstractGenerator.php` |
+| Branded HTML template, temp dir, failed artifact | `renderTemplate()`, `makeTempDir()`, `failArtifact()` | `Classes/Generator/AbstractGenerator.php` |
+| New text format (one structured completion + parse) | extend `AbstractTextGenerator` | `Classes/Generator/AbstractTextGenerator.php` |
+| Cut text at a sentence boundary | `TextLimiter::cut()` / `truncate()` → `TextCut` | `Classes/Generator/Support/` |
+| "Q:"/"A:"/"Subject:" in the text's language | `TextLabels::get()` | `Classes/Generator/Support/TextLabels.php` |
+| WebVTT from segments + durations | `WebVttBuilder::build()` | `Classes/Generator/Support/WebVttBuilder.php` |
+| LLM answered in an unusable shape | `InvalidLlmOutputException` | `Classes/Generator/Support/` |
+| Run node/ffmpeg from a renderer | `ProcessRunnerInterface::run()` | `Classes/Rendering/Process/` |
+| Run pdftoppm/pdftotext | `PopplerRunnerInterface` | `Classes/Ingestion/Poppler/` |
+| Store bytes in FAL (+ AI marker) | `JobFileStorage::store()` | `Classes/Resource/JobFileStorage.php` |
+| Embed AI marker in PNG/MP3/VTT/PDF | `AiContentMarker::mark()` | `Classes/Provenance/AiContentMarker.php` |
 
 <!-- AGENTS-GENERATED:START setup -->
 ## Setup & environment
