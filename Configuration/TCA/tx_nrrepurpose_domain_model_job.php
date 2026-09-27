@@ -31,7 +31,7 @@ return [
         ],
         'source_value' => [
             'label'  => 'Source URL',
-            'config' => ['type' => 'input', 'size' => 60, 'eval' => 'trim'],
+            'config' => ['type' => 'link', 'allowedTypes' => ['url'], 'size' => 60],
         ],
         'theme' => [
             'label'  => 'Theme',
