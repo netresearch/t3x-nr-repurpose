@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **HTML renders no longer run scripts or reach the network.** The Schaubild body is LLM output derived from the fetched page or PDF and is inserted unescaped, so a prompt-injected `<script>` ran in the worker's Chromium, and any `<img>`, CSS background or navigation in it was fetched from the worker's network. `render.cjs` now creates its browser context with JavaScript disabled and service workers blocked, and aborts every request except the Google Fonts stylesheet and font files (`fonts.googleapis.com`, `fonts.gstatic.com`, HTTPS, GET) the templates `@import`. The Schaubild PNGs and the slide-deck and handout PDFs render as before (PNGs byte-identical, PDFs identical except for the creation date).
+
 ## [0.8.2] - 2026-09-27
 
 ### Fixed

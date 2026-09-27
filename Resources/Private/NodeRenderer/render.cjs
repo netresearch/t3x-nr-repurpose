@@ -3,6 +3,29 @@
 // argv: --width <int> --height <int|auto> --scale <float> --out <path> (--transparent|--opaque) [--pdf]
 const { chromium } = require('playwright-core');
 
+// The HTML carries LLM output derived from a fetched page or PDF, so it is treated as
+// hostile: page JavaScript is disabled, and the only requests allowed out are the
+// Google Fonts stylesheet and font files the Generated/* templates @import. Everything
+// else (images, CSS backgrounds, navigations, favicons) is aborted before it leaves.
+const ALLOWED_HOSTS = new Set(['fonts.googleapis.com', 'fonts.gstatic.com']);
+const ALLOWED_TYPES = new Set(['stylesheet', 'font']);
+
+function isAllowedRequest(request) {
+    let url;
+    try {
+        url = new URL(request.url());
+    } catch (e) {
+        return false;
+    }
+    if (url.protocol === 'data:' || url.protocol === 'blob:') {
+        return true;
+    }
+    return url.protocol === 'https:'
+        && ALLOWED_HOSTS.has(url.hostname)
+        && ALLOWED_TYPES.has(request.resourceType())
+        && request.method() === 'GET';
+}
+
 function arg(name, def) {
     const i = process.argv.indexOf('--' + name);
     return i > -1 ? process.argv[i + 1] : def;
@@ -37,7 +60,13 @@ function arg(name, def) {
         const context = await browser.newContext({
             viewport: { width, height: heightA === 'auto' ? 10 : parseInt(heightA, 10) },
             deviceScaleFactor: scale, // CONTEXT-level option
+            javaScriptEnabled: false, // injected <script>/on* handlers never run
+            serviceWorkers: 'block',
         });
+        // Registered on the context before the page exists, so no request can slip past it.
+        await context.route(() => true, (route) => (
+            isAllowedRequest(route.request()) ? route.continue() : route.abort('blockedbyclient')
+        ));
         const page = await context.newPage();
         await page.setContent(html, { waitUntil: 'networkidle' });
         await page.evaluate(() => document.fonts && document.fonts.ready); // wait for webfonts

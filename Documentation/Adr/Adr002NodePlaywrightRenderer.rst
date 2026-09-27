@@ -43,6 +43,13 @@ through Playwright, and composite separately with GD.
    never downloads its own. ``waitUntil: 'networkidle'`` and
    ``document.fonts.ready`` ensure web fonts are loaded before the screenshot.
 
+   *Hardening (2026-09).* The HTML contains LLM output derived from the fetched
+   source, so it is rendered as untrusted: the browser context has JavaScript
+   disabled and service workers blocked, and a context-level route aborts every
+   request except HTTPS ``GET`` requests for stylesheets and fonts from
+   ``fonts.googleapis.com`` and ``fonts.gstatic.com`` — the web fonts the
+   templates ``@import``. ``data:`` and ``blob:`` URLs stay available.
+
 2. **A PHP boundary that shells out safely.**
    :php:`PlaywrightHtmlToImageRenderer` builds the argv, passes HTML on stdin
    (avoiding argv length limits and shell quoting), and runs the process through
