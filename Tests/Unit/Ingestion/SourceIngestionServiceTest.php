@@ -27,7 +27,7 @@ final class SourceIngestionServiceTest extends TestCase
      *
      * @param list<array{page:int,text:string,isSparse:bool}> $textPages
      */
-    private function service(array $textPages): SourceIngestionService
+    private function service(array $textPages, string $resolvedPath = '/abs/doc.pdf'): SourceIngestionService
     {
         $text = new class ($textPages) extends PdfTextExtractor {
             /** @param list<array{page:int,text:string,isSparse:bool}> $pages */
@@ -65,12 +65,14 @@ final class SourceIngestionServiceTest extends TestCase
             public function __construct() {}
         };
 
-        $resolver = new class extends PdfFileResolver {
-            public function __construct() {}
+        // Only resolve() is replaced: release() is the real one, so the tests see
+        // which paths get deleted.
+        $resolver = new class ($resolvedPath) extends PdfFileResolver {
+            public function __construct(private readonly string $path) {}
 
             public function resolve(array $jobRow): string
             {
-                return '/abs/doc.pdf';
+                return $this->path;
             }
         };
 
@@ -151,5 +153,50 @@ final class SourceIngestionServiceTest extends TestCase
         $service->ingest([
             'uid' => 9, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0,
         ]);
+    }
+
+    public function testDeletesTheDownloadedPdfOnceItIsRead(): void
+    {
+        $download = sys_get_temp_dir() . '/nrrepurpose_dl_' . bin2hex(random_bytes(6)) . '.pdf';
+        file_put_contents($download, '%PDF');
+
+        $this->service([['page' => 1, 'text' => 'dense', 'isSparse' => false]], $download)
+            ->ingest(['uid' => 10, 'source_type' => 'pdf_url', 'source_value' => 'https://example.com/x.pdf', 'pdf_mode' => 'text', 'be_user' => 0]);
+
+        self::assertFileDoesNotExist($download);
+    }
+
+    public function testDeletesTheDownloadedPdfAlsoWhenNothingCouldBeRead(): void
+    {
+        $download = sys_get_temp_dir() . '/nrrepurpose_dl_' . bin2hex(random_bytes(6)) . '.pdf';
+        file_put_contents($download, '%PDF');
+
+        try {
+            $this->service([['page' => 1, 'text' => '', 'isSparse' => false]], $download)
+                ->ingest(['uid' => 11, 'source_type' => 'pdf_url', 'source_value' => 'https://example.com/x.pdf', 'pdf_mode' => 'text', 'be_user' => 0]);
+            self::fail('An empty PDF must fail the ingestion');
+        } catch (IngestionException) {
+        }
+
+        self::assertFileDoesNotExist($download);
+    }
+
+    public function testLeavesAnAttachedPdfInPlace(): void
+    {
+        // For the local FAL driver the resolved path is the editor's file itself.
+        $dir = sys_get_temp_dir() . '/fileadmin_' . bin2hex(random_bytes(6));
+        mkdir($dir);
+        $attached = $dir . '/nrrepurpose_dl_report.pdf';
+        file_put_contents($attached, '%PDF');
+
+        try {
+            $this->service([['page' => 1, 'text' => 'dense', 'isSparse' => false]], $attached)
+                ->ingest(['uid' => 12, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]);
+
+            self::assertFileExists($attached);
+        } finally {
+            unlink($attached);
+            rmdir($dir);
+        }
     }
 }

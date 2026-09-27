@@ -59,7 +59,16 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         $mode    = PdfMode::fromJobValue((string) ($jobRow['pdf_mode'] ?? 'auto'));
         $beUser  = (int) ($jobRow['be_user'] ?? 0);
         $absPath = $this->pdfFileResolver->resolve($jobRow);
+        try {
+            return $this->readPdf($absPath, $mode, $beUser);
+        } finally {
+            // A downloaded pdf_url copy goes once it is read, also when reading failed.
+            $this->pdfFileResolver->release($absPath);
+        }
+    }
 
+    private function readPdf(string $absPath, PdfMode $mode, int $beUser): SourceDocument
+    {
         $pages = $this->textExtractor->extract($absPath);
 
         $texts = [];

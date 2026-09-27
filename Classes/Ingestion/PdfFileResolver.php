@@ -18,10 +18,12 @@ use TYPO3\CMS\Core\Resource\ResourceFactory;
 /**
  * Resolves a job row to an absolute, locally readable PDF path:
  *  - pdf_fal: the attached sys_file is fetched for local processing (ResourceFactory).
- *  - pdf_url: the remote PDF is downloaded to a temp file (PSR-18).
+ *  - pdf_url: the remote PDF is downloaded to a temp file, which release() deletes.
  */
 class PdfFileResolver
 {
+    private const DOWNLOAD_PREFIX = 'nrrepurpose_dl_';
+
     /** Largest PDF downloaded: 50 MiB covers long illustrated reports. */
     public const MAX_BYTES = 50 * 1024 * 1024;
 
@@ -45,6 +47,23 @@ class PdfFileResolver
             'pdf_url' => $this->downloadUrl((string) ($jobRow['source_value'] ?? '')),
             default   => throw new IngestionException('PdfFileResolver does not handle source_type: ' . $type, 1749379440),
         };
+    }
+
+    /**
+     * Delete a PDF this resolver downloaded, once it has been read. A pdf_fal path is
+     * left alone: for the local driver it is the editor's file in the storage itself.
+     */
+    public function release(string $absPath): void
+    {
+        if (dirname($absPath) !== sys_get_temp_dir()
+            || !str_starts_with(basename($absPath), self::DOWNLOAD_PREFIX)
+            || !is_file($absPath)
+        ) {
+            return;
+        }
+
+        // $absPath is a download path downloadUrl() generated, never user input.
+        unlink($absPath); // nosemgrep: php.lang.security.unlink-use.unlink-use
     }
 
     /** @param array<string,mixed> $jobRow */
@@ -97,7 +116,7 @@ class PdfFileResolver
             throw new IngestionException('PDF URL returned an empty body: ' . $url, 1749379447);
         }
 
-        $tmp = sys_get_temp_dir() . '/nrrepurpose_dl_' . bin2hex(random_bytes(6)) . '.pdf';
+        $tmp = sys_get_temp_dir() . '/' . self::DOWNLOAD_PREFIX . bin2hex(random_bytes(6)) . '.pdf';
         if (file_put_contents($tmp, $bytes) === false) {
             throw new IngestionException('Could not write downloaded PDF to temp file', 1749379448);
         }

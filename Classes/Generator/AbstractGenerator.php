@@ -36,6 +36,11 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     /** Artifact error when the job owner's groups lack `nrrepurpose:generate_vision`. */
     protected const DENIED_VISION = 'Not permitted: the job owner\'s backend groups do not grant "Generate AI imagery" (nrrepurpose:generate_vision)';
 
+    private const TEMP_DIR_PREFIX = 'nrrepurpose_';
+
+    /** @var array<string, true> directories made by makeTempDir() and not removed yet */
+    private array $tempDirs = [];
+
     public function __construct(
         protected readonly JobProcessingRepository $jobs,
         protected readonly BudgetServiceInterface $budget,
@@ -74,13 +79,49 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         return $view->render();
     }
 
-    /** Absolute path to a fresh, writable per-run temp directory (auto-created). */
+    /**
+     * Absolute path to a fresh, writable per-run temp directory (auto-created). It is
+     * removed by removeTempDir(), or at the latest by removeTempDirs(), which the
+     * orchestrator calls after each generator; the worker runs long.
+     */
     protected function makeTempDir(): string
     {
-        $dir = sys_get_temp_dir() . '/nrrepurpose_' . bin2hex(random_bytes(8));
+        $dir = sys_get_temp_dir() . '/' . self::TEMP_DIR_PREFIX . bin2hex(random_bytes(8));
         GeneralUtility::mkdir_deep($dir);
+        $this->tempDirs[$dir] = true;
 
         return $dir;
+    }
+
+    /** Remove one directory made by makeTempDir(), with its content; anything else is left alone. */
+    protected function removeTempDir(?string $dir): void
+    {
+        if ($dir === null || !isset($this->tempDirs[$dir])) {
+            return;
+        }
+
+        unset($this->tempDirs[$dir]);
+        if (is_dir($dir)) {
+            // $dir is a path makeTempDir() generated, never user input.
+            GeneralUtility::rmdir($dir, true);
+        }
+    }
+
+    /** Remove every directory made by makeTempDir() that is still there. */
+    public function removeTempDirs(): void
+    {
+        foreach (array_keys($this->tempDirs) as $dir) {
+            $this->removeTempDir($dir);
+        }
+    }
+
+    /** Delete a file a renderer produced for this generator once it has been stored. */
+    protected function discardRenderedFile(?string $path): void
+    {
+        if ($path !== null && is_file($path)) {
+            // $path is a renderer's own output (random name in its output dir), never user input.
+            unlink($path); // nosemgrep: php.lang.security.unlink-use.unlink-use
+        }
     }
 
     /**

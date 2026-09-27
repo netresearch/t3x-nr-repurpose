@@ -67,6 +67,16 @@ final class AbstractGeneratorTest extends TestCase
             {
                 return $this->resolveImageSize($hint, $default);
             }
+
+            public function exposeMakeTempDir(): string
+            {
+                return $this->makeTempDir();
+            }
+
+            public function exposeRemoveTempDir(string $dir): void
+            {
+                $this->removeTempDir($dir);
+            }
         };
     }
 
@@ -111,6 +121,35 @@ final class AbstractGeneratorTest extends TestCase
             self::assertSame('1536x1024', $this->subject($logger)->expose($hint, '1536x1024'), 'hint: ' . $hint);
             self::assertCount(1, $logger->records, 'hint: ' . $hint);
             self::assertSame('warning', $logger->records[0]['level'], 'hint: ' . $hint);
+        }
+    }
+
+    public function testRemoveTempDirsDeletesEveryTempDirectoryWithItsContent(): void
+    {
+        $subject = $this->subject($this->logger());
+        $first   = $subject->exposeMakeTempDir();
+        $second  = $subject->exposeMakeTempDir();
+        file_put_contents($first . '/segment.mp3', 'MP3');
+        mkdir($second . '/nested');
+        file_put_contents($second . '/nested/slide.png', 'PNG');
+
+        $subject->removeTempDirs();
+
+        self::assertDirectoryDoesNotExist($first);
+        self::assertDirectoryDoesNotExist($second);
+    }
+
+    public function testRemoveTempDirLeavesADirectoryItDidNotMakeAlone(): void
+    {
+        $foreign = sys_get_temp_dir() . '/nrrepurpose_' . bin2hex(random_bytes(8));
+        mkdir($foreign);
+
+        try {
+            $this->subject($this->logger())->exposeRemoveTempDir($foreign);
+
+            self::assertDirectoryExists($foreign);
+        } finally {
+            rmdir($foreign);
         }
     }
 }
