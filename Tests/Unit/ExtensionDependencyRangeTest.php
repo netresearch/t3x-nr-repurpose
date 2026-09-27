@@ -127,14 +127,25 @@ final class ExtensionDependencyRangeTest extends TestCase
         return $composer;
     }
 
-    /** @return array{constraints?: array{depends?: array<string, string>}} */
+    /**
+     * constraints.depends of ext_emconf.php, read from the source rather than executed: the file
+     * writes into the global $EM_CONF, and re-including it per test would need require (not _once).
+     *
+     * @return array{constraints: array{depends: array<string, string>}}
+     */
     private function emconf(): array
     {
-        $_EXTKEY = 'nr_repurpose';
-        $EM_CONF = [];
-        require self::ROOT . 'ext_emconf.php';
-        self::assertIsArray($EM_CONF[$_EXTKEY] ?? null);
+        $source = (string) file_get_contents(self::ROOT . 'ext_emconf.php');
+        self::assertSame(1, preg_match("/'depends'\\s*=>\\s*\\[(.*?)\\]/s", $source, $block), 'no depends block in ext_emconf.php');
+        preg_match_all("/'([a-z0-9_]+)'\\s*=>\\s*'([^']*)'/", $block[1], $pairs, PREG_SET_ORDER);
 
-        return $EM_CONF[$_EXTKEY];
+        $depends = [];
+        foreach ($pairs as [, $key, $range]) {
+            $depends[$key] = $range;
+        }
+
+        self::assertNotSame([], $depends, 'empty depends block in ext_emconf.php');
+
+        return ['constraints' => ['depends' => $depends]];
     }
 }
