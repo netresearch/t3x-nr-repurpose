@@ -82,9 +82,11 @@ Version 0.6.0 (2026-09-25)
 Security
 --------
 
--   Source text can no longer pose as an instruction in any LLM call: the
-    source material reaches the model only as one block marked as untrusted
-    data (CWE-1427).
+-   Source text can no longer pose as an instruction in the text completions
+    (document analysis, podcast, Schaubild, story, text formats): the source
+    material reaches the model only as one block marked as untrusted data
+    (CWE-1427). Image-generation prompts and the PDF vision OCR are not
+    covered; see :ref:`adr-004`.
 
 Added
 -----
@@ -148,8 +150,9 @@ Fixed
 
 -   The ``nr_repurpose_text`` preset is declared once; the duplicate made
     nr-llm's Configurations module answer with an error.
--   The fallback to the instance-default configuration works again with
-    nr-llm 0.35's value-object parameter.
+-   Resolving the ``nr_repurpose_text`` configuration passes the value object
+    nr-llm 0.35 expects; a string raised a ``TypeError`` that would have
+    bypassed the fallback to the instance-default configuration.
 
 .. _version-0-4-9:
 
