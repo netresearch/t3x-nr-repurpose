@@ -11,6 +11,8 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Controller;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use DOMElement;
+use Masterminds\HTML5;
 use Netresearch\NrRepurpose\Controller\JobController;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Functional\Controller\Fixtures\QueryCountingMiddleware;
@@ -190,12 +192,12 @@ final class JobControllerTest extends AbstractFunctionalTestCase
 
         $body = $this->renderAction('list');
 
-        // Own progressbar (core v14 has no .progress CSS; the core element is @internal and unnamed):
-        // role, value range and name on one element, the fill width is the value, the percentage visible.
+        // A native <progress> (core v14 has no .progress CSS; the core element is @internal and unnamed):
+        // it carries role, value, range and a per-row name itself; the percentage beside it is for sight only.
         self::assertMatchesRegularExpression(
-            '~<div class="nrrepurpose-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"\s+aria-label="Progress of job #1">\s*'
-            . '<div class="nrrepurpose-progress-track"><div class="nrrepurpose-progress-fill" style="width: 0%;"></div></div>\s*'
-            . '<span class="nrrepurpose-progress-value">0%</span>~',
+            '~<div class="nrrepurpose-progress">\s*'
+            . '<progress class="nrrepurpose-progress-track" max="100" value="0"\s+aria-label="Progress of job #1"></progress>\s*'
+            . '<span class="nrrepurpose-progress-value" aria-hidden="true">0%</span>~',
             $body,
         );
         self::assertStringNotContainsString('typo3-backend-progress-bar', $body);
@@ -340,8 +342,8 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     /**
      * Every page the module renders, filled like the demo (a queued, non-terminal job with a failed artifact,
      * a scheduled post): each <script> carries a src or a nonce, since the backend CSP silently
-     * blocks any other; and the module body has no <style> element and no style attribute except
-     * the progress fill width. The backend CSP allows inline styles, so either would override
+     * blocks any other; and the module body has no <style> element and no style attribute at all.
+     * The backend CSP allows inline styles, so either would override
      * backend.css unseen by the stylesheet tests.
      */
     #[Test]
@@ -364,14 +366,27 @@ final class JobControllerTest extends AbstractFunctionalTestCase
             self::assertMatchesRegularExpression('/\s(?:src|nonce)=/i', $tag, $action . ': ' . $tag);
         }
 
-        $start = strpos($body, '<div class="module-body t3js-module-body">');
-        self::assertIsInt($start, $action . ': module body not found');
-        $moduleBody = substr($body, $start);
-        self::assertSame(0, preg_match('/<style\b/i', $moduleBody), $action . ': <style> element in the module body');
-        preg_match_all('/<[^>]*\sstyle\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)[^>]*>/i', $moduleBody, $styled);
-        foreach ($styled[0] as $tag) {
-            self::assertMatchesRegularExpression('/^<div class="nrrepurpose-progress-fill" style="width: \d+%;">$/', $tag, $action . ': inline style');
+        // The rendered page read with the HTML5 parser TYPO3 core installs, so attribute spelling
+        // (quotes, missing whitespace) cannot hide a style attribute from the check.
+        $document   = (new HTML5(['disable_html_ns' => true]))->loadHTML($body);
+        $moduleBody = null;
+        foreach ($document->getElementsByTagName('div') as $div) {
+            if (in_array('module-body', explode(' ', $div->getAttribute('class')), true)) {
+                $moduleBody = $div;
+                break;
+            }
         }
+
+        self::assertInstanceOf(DOMElement::class, $moduleBody, $action . ': module body not found');
+
+        $styled = [];
+        foreach ($moduleBody->getElementsByTagName('*') as $element) {
+            if ($element->tagName === 'style' || $element->hasAttribute('style')) {
+                $styled[] = '<' . $element->tagName . ' style="' . $element->getAttribute('style') . '">';
+            }
+        }
+
+        self::assertSame([], $styled, $action . ': inline style in the module body');
     }
 
     #[Test]
