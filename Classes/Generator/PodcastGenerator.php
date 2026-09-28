@@ -166,7 +166,7 @@ final class PodcastGenerator extends AbstractGenerator
 
             return true;
         } catch (Throwable $e) {
-            $this->failArtifact($artifactUid, $jobUid, 'Podcast generation error: ' . $e->getMessage());
+            $this->failArtifactFrom($artifactUid, $jobUid, 'Podcast generation', $e);
 
             return false;
         }

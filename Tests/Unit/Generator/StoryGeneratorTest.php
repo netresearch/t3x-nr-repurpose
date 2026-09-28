@@ -38,8 +38,10 @@ use Netresearch\NrRepurpose\Rendering\SlideshowRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RuntimeException;
 use Throwable;
@@ -78,10 +80,11 @@ final class StoryGeneratorTest extends TestCase
         ?CompletionServiceInterface $completion = null,
         ?SlideshowRendererInterface $slideshow = null,
         ?JobFileStorage $storage = null,
+        ?LoggerInterface $logger = null,
     ): StoryGenerator {
         $completion ??= $this->completion($completionResult);
 
-        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage ?? $this->storage(), $this->createStub(ViewFactoryInterface::class), $slideshow) extends StoryGenerator {
+        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage ?? $this->storage(), $this->createStub(ViewFactoryInterface::class), $slideshow, $logger ?? new NullLogger()) extends StoryGenerator {
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
@@ -92,11 +95,12 @@ final class StoryGeneratorTest extends TestCase
                 JobFileStorage $storage,
                 ViewFactoryInterface $viewFactory,
                 ?SlideshowRendererInterface $slideshow,
+                LoggerInterface $logger,
             ) {
                 parent::__construct(
                     $jobs,
                     $budget,
-                    new NullLogger(),
+                    $logger,
                     $completion,
                     $renderer,
                     $compositor,
@@ -467,17 +471,55 @@ final class StoryGeneratorTest extends TestCase
         self::assertStringContainsString('no usable slides', (string) $update['error_message']);
     }
 
+    /**
+     * The row's error_message is shown to every module user; the text model's own message
+     * (provider detail, request data) goes to the server log only.
+     */
     public function testCompletionFailureFailsSingleStoryArtifact(): void
     {
-        $jobs = $this->jobs();
+        $jobs   = $this->jobs();
+        $logger = new RecordingLogger();
+        $cause  = new RuntimeException('LLM down: https://api.example.test/v1 key sk-secret');
 
-        $generator = $this->generator(new RuntimeException('LLM down'), $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor());
+        $generator = $this->generator($cause, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), logger: $logger);
 
         self::assertFalse($generator->generate($this->context()));
         self::assertSame([['story', 'default']], $jobs->inserted);
         $update = $jobs->updates[$jobs->uidForVariant('default')];
         self::assertSame('failed', $update['status']);
-        self::assertStringContainsString('LLM down', (string) $update['error_message']);
+        self::assertSame('Story generation failed', $update['error_message']);
+        self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
+    }
+
+    /**
+     * A failed step whose exception is not this extension's own (a FAL or database error)
+     * gets a fixed text too; its message can carry paths and SQL.
+     */
+    public function testAForeignExceptionOnAFailedVideoStaysInTheLog(): void
+    {
+        $jobs    = $this->jobs();
+        $logger  = new RecordingLogger();
+        $storage = new class ($this->createStub(ResourceStorage::class)) extends JobFileStorage {
+            public function __construct(private readonly ResourceStorage $falStorage) {}
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            {
+                if ($fileName === 'story-video.mp4') {
+                    throw new RuntimeException('Could not write /var/www/html/fileadmin/_temp_/x.mp4');
+                }
+
+                return new File(['uid' => 1], $this->falStorage);
+            }
+        };
+
+        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), slideshow: $this->slideshow(), storage: $storage, logger: $logger);
+
+        self::assertTrue($generator->generate($this->context(wantVideo: true)));
+        self::assertSame('Story video failed', $jobs->updates[$jobs->uidForVariant('default')]['error_message']);
+        self::assertStringContainsString('/var/www/html', implode("\n", array_map(
+            static fn (array $record): string => ($record['context']['exception'] ?? null) instanceof Throwable ? $record['context']['exception']->getMessage() : '',
+            $logger->records,
+        )));
     }
 
     public function testFailedSlideRenderDoesNotAbortSiblingSlides(): void
