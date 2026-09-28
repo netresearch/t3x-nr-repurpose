@@ -134,8 +134,8 @@ The result view (``show``) renders the finished job: it plays the podcast MP3
 with its WebVTT subtitles and shows the speaker-tagged transcript, and it
 displays — and lets you download — every generated image (the three Schaubild
 variants and the story slides, shown as a horizontal, scrollable strip in
-slide order) and plays the story video. Each artifact carries its own status, so a partially successful
-run still shows whatever was produced.
+slide order) and plays the story video. Each artifact carries its own status,
+so a partially successful run still shows whatever was produced.
 
 For transparency, every artifact lists its complete creation parameters: the
 exact system, user and image prompts that produced it, the models, the image
@@ -213,8 +213,9 @@ The texts are written in the detected source language, like every other
 artifact. The labels inside the plain text (``Q:``/``A:`` for the FAQ,
 ``Subject:``/``Preheader:`` for the newsletter) follow that language too, not
 the editor's backend language; a language the extension has no translation for
-gets the English labels. When the answer is unusable — the provider fails, the answer does not
-match the JSON shape after nr-llm's one repair round, or a required part is
+gets the English labels. When the answer is unusable — the provider fails, the
+answer does not match the JSON shape after nr-llm's one repair round, or a
+required part is
 empty — the artifact is marked failed with the reason, and the other artifacts
 of the job are not affected. The text formats make no speech or image call, so
 they need neither the ``generate_audio`` nor the ``generate_vision``
