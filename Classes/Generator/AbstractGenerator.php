@@ -217,8 +217,10 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     /**
      * Record a failed step caused by $e. The row's error_message is shown to every module
      * user, so only this extension's own messages reach it — the LLM-output checks
-     * (InvalidLlmOutputException) and the rendering primitives (RenderingException), whose
-     * texts are written for that. Any other exception (the text model, FAL, the database)
+     * (InvalidLlmOutputException) and the rendering primitives (RenderingException). A
+     * RenderingException's message must therefore stay a fixed text: a primitive that wraps
+     * stderr, a path or a provider error logs that itself and throws without it (see
+     * GdImageCompositor). Any other exception (the text model, FAL, the database)
      * can carry provider detail, paths or SQL: the row gets "<step> failed" and the
      * exception goes to the server log.
      */
