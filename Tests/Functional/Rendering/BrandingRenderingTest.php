@@ -103,7 +103,7 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * Meta's Stories spec asks to keep 14% of a 9:16 story (269 of 1920 px) at the top free
+     * Meta's Stories ads guide asks to keep 14% of a 9:16 story (269 of 1920 px) at the top free
      * of text and logos, where the progress bar and the profile sit. The template takes the
      * same 14% at the bottom for the reply bar (Meta's 35% there is for an ad's
      * call-to-action).
