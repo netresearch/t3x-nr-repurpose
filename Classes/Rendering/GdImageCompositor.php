@@ -28,7 +28,7 @@ use Psr\Log\LoggerInterface;
  * A failure throws a fixed message: it reaches the artifact's error_message, which every
  * module user sees, while the worker's file paths go to the server log only.
  */
-final class GdImageCompositor implements ImageCompositorInterface
+final readonly class GdImageCompositor implements ImageCompositorInterface
 {
     /**
      * GD holds roughly this many bytes per pixel for a truecolor image (4 channel
@@ -36,7 +36,7 @@ final class GdImageCompositor implements ImageCompositorInterface
      */
     private const GD_BYTES_PER_PIXEL = 8;
 
-    public function __construct(private readonly LoggerInterface $logger) {}
+    public function __construct(private LoggerInterface $logger) {}
 
     public function overlay(string $backgroundPng, string $foregroundPng, string $outPath): string
     {
