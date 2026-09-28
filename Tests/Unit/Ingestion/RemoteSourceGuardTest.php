@@ -104,6 +104,50 @@ final class RemoteSourceGuardTest extends TestCase
         (new RemoteSourceGuard(new StaticHostResolver()))->assertAllowed(new Uri('https://' . $host . '/'));
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function numericIpv4Spellings(): iterable
+    {
+        yield 'one decimal number' => ['2130706433'];
+        yield 'zero' => ['0'];
+        yield 'octal parts' => ['0177.0.0.1'];
+        yield 'octal metadata' => ['0251.0376.0251.0376'];
+        yield 'hex part' => ['0x7f.0.0.1'];
+        yield 'one hex number' => ['0X7F000001'];
+        yield 'two parts' => ['127.1'];
+        yield 'one octal number' => ['017700000001'];
+    }
+
+    /**
+     * The HTTP client reads these spellings as an IPv4 address (Guzzle folds them to a
+     * dotted quad itself), while the platform resolver may read them differently or pass
+     * them to DNS. Even a public answer for the spelling must not let it through.
+     */
+    #[DataProvider('numericIpv4Spellings')]
+    public function testRefusesANumericIpv4SpellingWithoutResolvingIt(string $host): void
+    {
+        $resolver = new StaticHostResolver([strtolower($host) => ['93.184.215.14'], $host => ['93.184.215.14']]);
+
+        try {
+            (new RemoteSourceGuard($resolver))->assertAllowed(new Uri('https://' . $host . '/'));
+            self::fail('A numeric IPv4 spelling must be refused');
+        } catch (IngestionException $e) {
+            self::assertSame(1749379467, $e->getCode());
+        }
+
+        self::assertSame([], $resolver->asked);
+    }
+
+    public function testResolvesANameWithNumericLabels(): void
+    {
+        $resolver = new StaticHostResolver(['10.example' => ['93.184.215.14'], '1.2.3.4.5' => ['93.184.215.14']]);
+        $guard    = new RemoteSourceGuard($resolver);
+
+        $guard->assertAllowed(new Uri('https://10.example/'));
+        $guard->assertAllowed(new Uri('https://1.2.3.4.5/'));
+
+        self::assertSame(['10.example', '1.2.3.4.5'], $resolver->asked);
+    }
+
     public function testRefusesWhenAnyResolvedAddressIsBlocked(): void
     {
         $guard = new RemoteSourceGuard(new StaticHostResolver(['mixed.example' => ['93.184.215.14', '10.0.0.5']]));

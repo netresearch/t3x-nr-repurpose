@@ -19,8 +19,9 @@ use Psr\Log\NullLogger;
  * the host itself, the private network or a cloud metadata endpoint.
  *
  * Allowed: http and https to a host whose every resolved address is public.
- * Refused: any other scheme, a host that does not resolve, and a host or IP
- * literal with any address in loopback, RFC 1918, CGNAT, link-local (which
+ * Refused: any other scheme, a host that does not resolve, an IPv4 address
+ * written in a numeric spelling other than a.b.c.d ("2130706433", "0x7f.1"),
+ * and a host or IP literal with any address in loopback, RFC 1918, CGNAT, link-local (which
  * holds 169.254.169.254), unique-local IPv6, unspecified, multicast or the
  * reserved 240.0.0.0/4 block. IPv4-mapped IPv6 addresses are judged as IPv4.
  *
@@ -75,9 +76,19 @@ final readonly class RemoteSourceGuard
             throw new IngestionException('Source URL has no host: ' . $uri, 1749379461);
         }
 
-        $addresses = filter_var($host, FILTER_VALIDATE_IP) !== false
-            ? [$host]
-            : $this->resolver->resolve($host);
+        $isIpLiteral = filter_var($host, FILTER_VALIDATE_IP) !== false;
+        if (!$isIpLiteral && self::isNumericIpv4Spelling($host)) {
+            // "2130706433", "0x7f.1", "0177.0.0.1": the HTTP client reads these as an
+            // IPv4 address, the platform resolver may read them differently (macOS
+            // takes 0177 as decimal) or ask DNS, so judging its answer would judge
+            // another address than the one the request reaches.
+            throw new IngestionException(
+                sprintf('Source URL host %s is a numeric IPv4 spelling; write the address as four decimal numbers (a.b.c.d)', $host),
+                1749379467,
+            );
+        }
+
+        $addresses = $isIpLiteral ? [$host] : $this->resolver->resolve($host);
         if ($addresses === []) {
             throw new IngestionException('Source URL host does not resolve: ' . $host, 1749379462);
         }
@@ -97,6 +108,32 @@ final readonly class RemoteSourceGuard
                 );
             }
         }
+    }
+
+    /**
+     * One to four dot-separated parts, each decimal, 0x-prefixed hexadecimal or
+     * 0-prefixed octal: the inet_aton() shape that transports read as an address.
+     */
+    private static function isNumericIpv4Spelling(string $host): bool
+    {
+        $parts = explode('.', $host);
+        if (count($parts) > 4) {
+            return false;
+        }
+
+        foreach ($parts as $part) {
+            $isNumeric = match (true) {
+                $part === ''                                               => false,
+                str_starts_with($part, '0x'), str_starts_with($part, '0X') => strlen($part) > 2 && ctype_xdigit(substr($part, 2)),
+                str_starts_with($part, '0')                                => strspn($part, '01234567') === strlen($part),
+                default                                                    => ctype_digit($part),
+            };
+            if (!$isNumeric) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function isBlocked(string $address): bool
