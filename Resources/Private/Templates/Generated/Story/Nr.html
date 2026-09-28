@@ -58,6 +58,8 @@
             font-size: <f:if condition="{role} == 'cover'"><f:then>116px</f:then><f:else>88px</f:else></f:if>;
             line-height: 1.1;
             margin: 0 0 32px;
+            /* A long compound ("Mehrfamilienhaus:") is wider than the 888px line at 116px. */
+            overflow-wrap: break-word;
         }
         .story__subline { font-size: 40px; line-height: 1.4; font-weight: 400; margin: 0; }
         .story__source { font-size: 30px; line-height: 1.4; font-weight: 400; margin: 48px 0 0; opacity: 0.8; word-break: break-all; }

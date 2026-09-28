@@ -191,6 +191,18 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
         self::assertSame(0, preg_match($indicator, $opaque), 'no indicator plate in the opaque render');
     }
 
+    /**
+     * The cover headline is 116px on an 888px line: a long German compound ("Mehrfamilienhaus:")
+     * is wider than that and ran off the right edge. It breaks inside the word instead.
+     */
+    #[DataProvider('storyTemplates')]
+    public function testALongWordInTheHeadlineBreaksInsteadOfLeavingTheSlide(string $template): void
+    {
+        $html = $this->render($template, ['headline' => 'H', 'subline' => 'S', 'role' => 'cover', 'slideIndex' => 1, 'slideTotal' => 3, 'sourceLabel' => '', 'transparent' => false, 'aiLabel' => null]);
+
+        self::assertSame(1, preg_match('~\.story__headline\s*\{[^}]*\boverflow-wrap:\s*break-word;~', $html));
+    }
+
     /** @param array<string, mixed> $variables */
     private function render(string $template, array $variables): string
     {
