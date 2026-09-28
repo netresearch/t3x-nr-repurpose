@@ -277,8 +277,8 @@ review and schedule.
    :zoom: lightbox
    :class: with-border with-shadow
 
-   Social posts in the three states of the approval step: scheduled, published
-   and not yet reviewed.
+   Three social posts: approved and scheduled, approved and published, and not
+   yet reviewed.
 
 :guilabel:`Social planning` in the job list shows every scheduled, published
 and failed post across all jobs, oldest time first, with the channel's reason
