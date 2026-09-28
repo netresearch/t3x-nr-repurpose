@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Ingestion;
 
 use Psr\Http\Message\UriInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * SSRF guard for the editor-supplied source URL (url and pdf_url jobs). The
@@ -17,10 +19,12 @@ use Psr\Http\Message\UriInterface;
  * the host itself, the private network or a cloud metadata endpoint.
  *
  * Allowed: http and https to a host whose every resolved address is public.
- * Refused: any other scheme, a host that does not resolve, and a host or IP
- * literal with any address in loopback, RFC 1918, CGNAT, link-local (which
+ * Refused: any other scheme, a host that does not resolve, an IPv4 address
+ * written in a numeric spelling other than a.b.c.d ("2130706433", "0x7f.1"),
+ * and a host or IP literal with any address in loopback, RFC 1918, CGNAT, link-local (which
  * holds 169.254.169.254), unique-local IPv6, unspecified, multicast or the
- * reserved 240.0.0.0/4 block. IPv4-mapped IPv6 addresses are judged as IPv4.
+ * reserved 240.0.0.0/4 block. An IPv6 address that carries an IPv4 address
+ * (IPv4-mapped, IPv4-compatible, NAT64 64:ff9b::/96, 6to4) is judged as that IPv4 address.
  *
  * TYPO3 core offers no equivalent for the injected client: the container builds
  * it through GuzzleClientFactory::getClient() without a context, so the
@@ -43,8 +47,7 @@ final readonly class RemoteSourceGuard
         '192.168.0.0/16',  // RFC 1918
         '224.0.0.0/4',     // multicast
         '240.0.0.0/4',     // reserved, includes broadcast
-        '::/128',          // unspecified
-        '::1/128',         // loopback
+        // :: and ::1 are judged as IPv4-compatible 0.0.0.0 and 0.0.0.1 (see embeddedIpv4()).
         'fc00::/7',        // unique local
         'fe80::/10',       // link-local
         'ff00::/8',        // multicast
@@ -52,6 +55,7 @@ final readonly class RemoteSourceGuard
 
     public function __construct(
         private HostResolverInterface $resolver,
+        private LoggerInterface $logger = new NullLogger(),
     ) {}
 
     /**
@@ -72,21 +76,64 @@ final readonly class RemoteSourceGuard
             throw new IngestionException('Source URL has no host: ' . $uri, 1749379461);
         }
 
-        $addresses = filter_var($host, FILTER_VALIDATE_IP) !== false
-            ? [$host]
-            : $this->resolver->resolve($host);
+        $isIpLiteral = filter_var($host, FILTER_VALIDATE_IP) !== false;
+        if (!$isIpLiteral && $this->isNumericIpv4Spelling($host)) {
+            // "2130706433", "0x7f.1", "0177.0.0.1": the HTTP client reads these as an
+            // IPv4 address, the platform resolver may read them differently (macOS
+            // takes 0177 as decimal) or ask DNS, so judging its answer would judge
+            // another address than the one the request reaches.
+            throw new IngestionException(
+                sprintf('Source URL host %s is a numeric IPv4 spelling; write the address as four decimal numbers (a.b.c.d)', $host),
+                1749379467,
+            );
+        }
+
+        $addresses = $isIpLiteral ? [$host] : $this->resolver->resolve($host);
         if ($addresses === []) {
             throw new IngestionException('Source URL host does not resolve: ' . $host, 1749379462);
         }
 
         foreach ($addresses as $address) {
             if ($this->isBlocked($address)) {
+                // The address stays out of the message: it would tell every module user
+                // what an internal name resolves to. The host is the editor's own input.
+                $this->logger->warning('Source URL refused: host resolves to a blocked address', [
+                    'host'    => $host,
+                    'address' => $address,
+                ]);
+
                 throw new IngestionException(
-                    sprintf('Source URL host %s resolves to %s, a loopback, private, link-local or reserved address', $host, $address),
+                    sprintf('Source URL host %s resolves to a loopback, private, link-local or reserved address', $host),
                     1749379463,
                 );
             }
         }
+    }
+
+    /**
+     * One to four dot-separated parts, each decimal, 0x-prefixed hexadecimal or
+     * 0-prefixed octal: the inet_aton() shape that transports read as an address.
+     */
+    private function isNumericIpv4Spelling(string $host): bool
+    {
+        $parts = explode('.', $host);
+        if (count($parts) > 4) {
+            return false;
+        }
+
+        foreach ($parts as $part) {
+            $isNumeric = match (true) {
+                $part === ''                                               => false,
+                str_starts_with($part, '0x'), str_starts_with($part, '0X') => strlen($part) > 2 && ctype_xdigit(substr($part, 2)),
+                str_starts_with($part, '0')                                => strspn($part, '01234567') === strlen($part),
+                default                                                    => ctype_digit($part),
+            };
+            if (!$isNumeric) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function isBlocked(string $address): bool
@@ -96,12 +143,7 @@ final readonly class RemoteSourceGuard
             return true;
         }
 
-        $packed = (string) inet_pton($address);
-
-        // ::ffff:a.b.c.d reaches the IPv4 host a.b.c.d.
-        if (strlen($packed) === 16 && str_starts_with($packed, str_repeat("\0", 10) . "\xff\xff")) {
-            $packed = substr($packed, 12);
-        }
+        $packed = $this->embeddedIpv4((string) inet_pton($address));
 
         foreach (self::BLOCKED_RANGES as $range) {
             if ($this->inRange($packed, $range)) {
@@ -110,6 +152,29 @@ final readonly class RemoteSourceGuard
         }
 
         return false;
+    }
+
+    /**
+     * The IPv4 address an IPv6 address carries, packed, for the forms that reach
+     * an IPv4 host: IPv4-mapped (::ffff:a.b.c.d), IPv4-compatible (::a.b.c.d,
+     * which also holds :: and ::1), the NAT64 well-known prefix 64:ff9b::/96 and
+     * 6to4 2002::/16. Any other address comes back unchanged.
+     */
+    private function embeddedIpv4(string $packed): string
+    {
+        if (strlen($packed) !== 16) {
+            return $packed;
+        }
+
+        $zeros = str_repeat("\0", 10);
+
+        return match (true) {
+            str_starts_with($packed, $zeros . "\xff\xff"),
+            str_starts_with($packed, $zeros . "\0\0"),
+            str_starts_with($packed, "\x00\x64\xff\x9b" . str_repeat("\0", 8)) => substr($packed, 12),
+            str_starts_with($packed, "\x20\x02")                               => substr($packed, 2, 4),
+            default                                                            => $packed,
+        };
     }
 
     private function inRange(string $packed, string $cidr): bool

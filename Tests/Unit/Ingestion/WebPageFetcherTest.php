@@ -78,7 +78,7 @@ final class WebPageFetcherTest extends TestCase
         $fetcher->fetch('https://example.com/empty');
     }
 
-    public function testSendsATimeoutAndNeitherFollowsRedirectsNorBuffersTheBody(): void
+    public function testSendsTheTransferLimitsAndDoesNotFollowRedirects(): void
     {
         $http = QueuedHttpClient::answering(200, '<html><body><p>Text</p></body></html>');
 
@@ -87,8 +87,9 @@ final class WebPageFetcherTest extends TestCase
         $options = $http->handler->getLastOptions();
         self::assertSame(WebPageFetcher::TIMEOUT_SECONDS, $options[RequestOptions::TIMEOUT]);
         self::assertGreaterThan(0, $options[RequestOptions::CONNECT_TIMEOUT]);
-        self::assertTrue($options[RequestOptions::STREAM]);
         self::assertFalse($options[RequestOptions::ALLOW_REDIRECTS]);
+        self::assertFalse($options[RequestOptions::DECODE_CONTENT]);
+        self::assertIsCallable($options[RequestOptions::PROGRESS]);
     }
 
     public function testARedirectToTheMetadataEndpointIsNotFollowed(): void

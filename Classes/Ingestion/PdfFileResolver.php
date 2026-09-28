@@ -17,12 +17,16 @@ use TYPO3\CMS\Core\Resource\ResourceFactory;
 
 /**
  * Resolves a job row to an absolute, locally readable PDF path:
- *  - pdf_fal: the attached sys_file is fetched for local processing (ResourceFactory).
+ *  - pdf_fal: on the local driver, the stored file itself (never deleted); on any
+ *    other driver a temp copy of its contents, which release() deletes.
  *  - pdf_url: the remote PDF is downloaded to a temp file, which release() deletes.
  */
 class PdfFileResolver
 {
     private const DOWNLOAD_PREFIX = 'nrrepurpose_dl_';
+
+    /** Driver key of TYPO3's local file system driver (sys_file_storage.driver). */
+    private const LOCAL_DRIVER = 'Local';
 
     /** Largest PDF downloaded: 50 MiB covers long illustrated reports. */
     public const MAX_BYTES = 50 * 1024 * 1024;
@@ -50,8 +54,9 @@ class PdfFileResolver
     }
 
     /**
-     * Delete a PDF this resolver downloaded, once it has been read. A pdf_fal path is
-     * left alone: for the local driver it is the editor's file in the storage itself.
+     * Delete a temp copy this resolver wrote (a pdf_url download, or a pdf_fal file
+     * from a non-local driver), once it has been read. Any other path is left alone:
+     * for the local driver it is the editor's file in the storage itself.
      */
     public function release(string $absPath): void
     {
@@ -62,7 +67,7 @@ class PdfFileResolver
             return;
         }
 
-        // $absPath is a download path downloadUrl() generated, never user input.
+        // $absPath is a temp path writeDownload() generated, never user input.
         unlink($absPath); // nosemgrep: php.lang.security.unlink-use.unlink-use
     }
 
@@ -80,7 +85,14 @@ class PdfFileResolver
             throw new IngestionException('Attached PDF sys_file not found: ' . $fileUid, 1749379442, $e);
         }
 
-        // Local driver returns the real path; remote drivers copy to a temp file.
+        if ($file->getStorage()->getDriverType() !== self::LOCAL_DRIVER) {
+            // Any other driver would copy the file into var/transient for local
+            // processing, and nothing removes that copy. A copy of our own is
+            // removed by release() once it has been read.
+            return $this->writeDownload($file->getContents());
+        }
+
+        // The local driver returns the stored file itself; release() never touches it.
         $localPath = $file->getForLocalProcessing(false);
         if (!is_file($localPath)) {
             throw new IngestionException('Could not access attached PDF locally: ' . $fileUid, 1749379443);
@@ -101,7 +113,7 @@ class PdfFileResolver
         $this->guard->assertAllowed($request->getUri());
 
         try {
-            $response = $this->httpClient->send($request, BoundedResponseReader::requestOptions(self::TIMEOUT_SECONDS));
+            $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
         } catch (ClientExceptionInterface $e) {
             throw new IngestionException('PDF URL not reachable: ' . $url, 1749379445, $e);
         }
@@ -116,11 +128,28 @@ class PdfFileResolver
             throw new IngestionException('PDF URL returned an empty body: ' . $url, 1749379447);
         }
 
+        return $this->writeDownload($bytes);
+    }
+
+    /** Write the PDF to a temp file release() deletes; a partial file is removed at once. */
+    private function writeDownload(string $bytes): string
+    {
         $tmp = sys_get_temp_dir() . '/' . self::DOWNLOAD_PREFIX . bin2hex(random_bytes(6)) . '.pdf';
-        if (file_put_contents($tmp, $bytes) === false) {
-            throw new IngestionException('Could not write downloaded PDF to temp file', 1749379448);
+        if (!$this->writeFile($tmp, $bytes)) {
+            if (is_file($tmp)) {
+                // $tmp is the path generated one line above, never user input.
+                unlink($tmp); // nosemgrep: php.lang.security.unlink-use.unlink-use
+            }
+
+            throw new IngestionException('Could not write the PDF to a temp file', 1749379448);
         }
 
         return $tmp;
+    }
+
+    /** True when every byte was written; a full disk writes part of them. */
+    protected function writeFile(string $path, string $bytes): bool
+    {
+        return file_put_contents($path, $bytes) === strlen($bytes);
     }
 }

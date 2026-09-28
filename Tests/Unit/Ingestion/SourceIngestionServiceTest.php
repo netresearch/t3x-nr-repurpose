@@ -20,12 +20,17 @@ use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+use Stringable;
 
 final class SourceIngestionServiceTest extends TestCase
 {
     private PdfVisionExtractor $vision;
 
     private CapabilityGrantResolverInterface $grantResolver;
+
+    /** @var AbstractLogger&object{records: list<array{level: mixed, message: string, context: array<mixed>}>} */
+    private AbstractLogger $logger;
 
     /**
      * Builds a service whose PDF text tier returns fixed per-page descriptors, and whose
@@ -103,7 +108,17 @@ final class SourceIngestionServiceTest extends TestCase
         };
         $this->grantResolver = $grantResolver;
 
-        return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout, $grantResolver);
+        $this->logger = new class extends AbstractLogger {
+            /** @var list<array{level: mixed, message: string, context: array<mixed>}> */
+            public array $records = [];
+
+            public function log($level, Stringable|string $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
+            }
+        };
+
+        return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout, $grantResolver, $this->logger);
     }
 
     public function testAutoModeRoutesEachPageByDensityAndTabularity(): void
@@ -287,5 +302,89 @@ final class SourceIngestionServiceTest extends TestCase
 
             self::assertSame([], $this->grantResolver->askedFor, $mode);
         }
+    }
+
+    public function testAPdfWithoutTextFailsWithoutTheServerPathAndLogsIt(): void
+    {
+        $path    = '/var/www/html/fileadmin/user_upload/internal/board-minutes.pdf';
+        $service = $this->service([['page' => 1, 'text' => '', 'isSparse' => false]], $path);
+
+        try {
+            $service->ingest(['uid' => 17, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]);
+            self::fail('A PDF without text must fail');
+        } catch (IngestionException $e) {
+            self::assertSame(1749379452, $e->getCode());
+            self::assertStringNotContainsString('/var/www', $e->getMessage());
+            self::assertStringNotContainsString('board-minutes', $e->getMessage());
+            $thrown = $e;
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame($path, $this->logger->records[0]['context']['path']);
+        self::assertSame(17, $this->logger->records[0]['context']['job']);
+        self::assertSame($thrown, $this->logger->records[0]['context']['exception']);
+    }
+
+    public function testAFailureInsideAPdfTierIsLoggedWithThePathAndPassedOn(): void
+    {
+        $path    = '/var/www/html/fileadmin/report.pdf';
+        $failure = new IngestionException('PDF could not be parsed', 1749379421);
+        $text    = new class ($failure) extends PdfTextExtractor {
+            public function __construct(private readonly IngestionException $failure) {}
+
+            public function extract(string $absPath): array
+            {
+                throw $this->failure;
+            }
+        };
+        $resolver = new class ($path) extends PdfFileResolver {
+            public function __construct(private readonly string $path) {}
+
+            public function resolve(array $jobRow): string
+            {
+                return $this->path;
+            }
+        };
+        $logger = new class extends AbstractLogger {
+            /** @var list<array<mixed>> */
+            public array $contexts = [];
+
+            public function log($level, Stringable|string $message, array $context = []): void
+            {
+                $this->contexts[] = $context;
+            }
+        };
+        $service = new SourceIngestionService(
+            new class extends WebPageFetcher {
+                public function __construct() {}
+            },
+            $resolver,
+            $text,
+            new class extends PdfVisionExtractor {
+                public function __construct() {}
+            },
+            new PdfLayoutExtractor(new class implements PopplerRunnerInterface {
+                public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
+                {
+                    return '';
+                }
+
+                public function extractLayout(string $absPdfPath, int $page): string
+                {
+                    return '';
+                }
+            }),
+            $this->createStub(CapabilityGrantResolverInterface::class),
+            $logger,
+        );
+
+        try {
+            $service->ingest(['uid' => 18, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]);
+            self::fail('The parse failure must reach the caller');
+        } catch (IngestionException $e) {
+            self::assertSame($failure, $e);
+        }
+
+        self::assertSame([['job' => 18, 'path' => $path, 'exception' => $failure]], $logger->contexts);
     }
 }

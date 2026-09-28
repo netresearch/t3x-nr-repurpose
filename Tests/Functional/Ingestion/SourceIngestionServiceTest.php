@@ -24,6 +24,7 @@ use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
@@ -66,6 +67,7 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
             $vision,
             new PdfLayoutExtractor($runner),
             $this->get(CapabilityGrantResolverInterface::class),
+            new NullLogger(),
         );
     }
 

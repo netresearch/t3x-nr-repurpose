@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
 
+use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Psr7\HttpFactory;
 use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\RequestOptions;
@@ -18,7 +19,10 @@ use Netresearch\NrRepurpose\Ingestion\RemoteSourceGuard;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
+use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
 
 final class PdfFileResolverTest extends TestCase
 {
@@ -58,8 +62,9 @@ final class PdfFileResolverTest extends TestCase
         self::assertSame('%PDF-1.7 body', $body);
         $options = $http->handler->getLastOptions();
         self::assertSame(PdfFileResolver::TIMEOUT_SECONDS, $options[RequestOptions::TIMEOUT]);
-        self::assertTrue($options[RequestOptions::STREAM]);
         self::assertFalse($options[RequestOptions::ALLOW_REDIRECTS]);
+        self::assertFalse($options[RequestOptions::DECODE_CONTENT]);
+        self::assertIsCallable($options[RequestOptions::PROGRESS]);
     }
 
     public function testRefusesAPdfLargerThanTheLimit(): void
@@ -70,5 +75,119 @@ final class PdfFileResolverTest extends TestCase
         $this->expectExceptionCode(1749379464);
 
         $this->resolver($http)->resolve(['source_type' => 'pdf_url', 'source_value' => 'https://example.com/huge.pdf']);
+    }
+
+    public function testAFailedWriteLeavesNoPartialDownloadBehind(): void
+    {
+        // What a full disk looks like: part of the bytes land, then the write fails.
+        $resolver = new class (QueuedHttpClient::answering(200, '%PDF-1.7 body')->client) extends PdfFileResolver {
+            public ?string $writtenTo = null;
+
+            public function __construct(ClientInterface $client)
+            {
+                parent::__construct(
+                    (new ReflectionClass(ResourceFactory::class))->newInstanceWithoutConstructor(),
+                    $client,
+                    new HttpFactory(),
+                    StaticHostResolver::publicGuard(),
+                );
+            }
+
+            protected function writeFile(string $path, string $bytes): bool
+            {
+                $this->writtenTo = $path;
+                file_put_contents($path, substr($bytes, 0, 4));
+
+                return false;
+            }
+        };
+
+        try {
+            $resolver->resolve(['source_type' => 'pdf_url', 'source_value' => 'https://example.com/r.pdf']);
+            self::fail('A failed write must fail the download');
+        } catch (IngestionException $e) {
+            self::assertSame(1749379448, $e->getCode());
+        }
+
+        self::assertNotNull($resolver->writtenTo);
+        self::assertFileDoesNotExist($resolver->writtenTo);
+    }
+
+    public function testAnAttachedPdfOnTheLocalDriverIsReadInPlaceAndNeverReleased(): void
+    {
+        $dir = sys_get_temp_dir() . '/fileadmin_' . bin2hex(random_bytes(6));
+        mkdir($dir);
+        $original = $dir . '/report.pdf';
+        file_put_contents($original, '%PDF local');
+
+        try {
+            $resolver = $this->resolverForFile($this->falFile('Local', $original));
+
+            $path = $resolver->resolve(['source_type' => 'pdf_fal', 'source_pdf' => 5]);
+            $resolver->release($path);
+
+            self::assertSame($original, $path);
+            self::assertFileExists($original);
+        } finally {
+            unlink($original);
+            rmdir($dir);
+        }
+    }
+
+    public function testAnAttachedPdfOnAnotherDriverIsCopiedAndTheCopyReleased(): void
+    {
+        $transient = sys_get_temp_dir() . '/transient_' . bin2hex(random_bytes(6));
+        mkdir($transient);
+        $file = $this->falFile('FakeRemote', null, $transient);
+
+        try {
+            $resolver = $this->resolverForFile($file);
+
+            $path = $resolver->resolve(['source_type' => 'pdf_fal', 'source_pdf' => 5]);
+            self::assertSame('%PDF remote', (string) file_get_contents($path));
+            $resolver->release($path);
+
+            self::assertFileDoesNotExist($path);
+            // The driver's own processing copy (var/transient) was never made.
+            self::assertSame([], array_values(array_diff((array) scandir($transient), ['.', '..'])));
+        } finally {
+            array_map(unlink(...), (array) glob($transient . '/*'));
+            rmdir($transient);
+        }
+    }
+
+    private function resolverForFile(File $file): PdfFileResolver
+    {
+        $factory = $this->createStub(ResourceFactory::class);
+        $factory->method('getFileObject')->willReturn($file);
+
+        return new PdfFileResolver($factory, QueuedHttpClient::answering(200, '')->client, new HttpFactory(), StaticHostResolver::publicGuard());
+    }
+
+    /**
+     * A sys_file on a storage with the given driver. getForLocalProcessing() behaves like
+     * the drivers: the local one returns the stored file, any other copies it into a
+     * transient directory and returns the copy.
+     */
+    private function falFile(string $driverType, ?string $localPath, string $transient = ''): File
+    {
+        $storage = $this->createStub(ResourceStorage::class);
+        $storage->method('getDriverType')->willReturn($driverType);
+
+        $file = $this->createStub(File::class);
+        $file->method('getStorage')->willReturn($storage);
+        $file->method('getContents')->willReturn('%PDF remote');
+        $file->method('getForLocalProcessing')->willReturnCallback(static function () use ($localPath, $transient): string {
+            if ($localPath !== null) {
+                return $localPath;
+            }
+
+            $copy = $transient . '/fal-tempfile-' . bin2hex(random_bytes(4)) . '.pdf';
+            file_put_contents($copy, '%PDF remote');
+
+            return $copy;
+        });
+
+        return $file;
     }
 }

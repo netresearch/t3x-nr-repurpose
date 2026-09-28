@@ -30,6 +30,13 @@ final class PdfFileResolverTest extends AbstractFunctionalTestCase
 
         self::assertFileExists($path);
         self::assertSame($bytes, (string) file_get_contents($path));
+
+        // The local driver hands out the stored file itself, not a transient copy, and
+        // releasing it after the read must leave the editor's file in place.
+        self::assertStringNotContainsString('/transient/', $path);
+        $resolver->release($path);
+        self::assertFileExists($path);
+        self::assertSame($bytes, $file->getContents());
     }
 
     public function testThrowsForFalSourceWithoutFile(): void
