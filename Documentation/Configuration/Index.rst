@@ -64,8 +64,10 @@ Configuration > nr_repurpose`:
    With a uid above ``0``, the whole job runs inside nr-vault's
    :php:`TechnicalActorContextInterface::runAs()` for that user. nr-vault
    then checks the secrets against this user like against any backend user:
-   an administrator may read every secret, any other user needs access to the
-   provider key's secret through its owner or its groups. nr-vault refuses a
+   an administrator may read every secret (unless nr-vault runs the
+   ``hardened`` security profile with ``disableAdminOverride`` set), any other
+   user needs access to the provider key's secret through its owner or its
+   groups. nr-vault refuses a
    uid without a backend user record, a disabled user, a user outside its
    start and end time, and a user not stored at root level (``pid`` 0) before
    the job starts; the worker then marks the job failed with nr-vault's

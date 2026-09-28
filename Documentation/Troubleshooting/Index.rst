@@ -44,8 +44,9 @@ as an unauthenticated command-line user, and nr-vault refuses every secret
 read without an actor.
 
 Set :confval:`technicalBeUserUid <technicalbeuseruid>` to a backend user that
-may read the provider key's secret: an administrator, or a user with access to
-the secret through its owner or its groups.
+may read the provider key's secret: a user with access to the secret through
+its owner or its groups, or an administrator as long as nr-vault's
+administrator override is not disabled.
 
 .. _troubleshooting-renderer:
 
