@@ -66,7 +66,8 @@ jobs:
         # the renderer's own chromiumPath never reaches node: it is putenv()'d,
         # and Symfony Process only forwards getenv() keys that are also in
         # $_SERVER, so Playwright falls back to its bundled browser and fails.
-        # That defect is in Classes/ and is reported separately.
+        # PR #143 hands the variable to the process runner instead of
+        # putenv(); once that is merged this export is redundant and can go.
         export CHROMIUM_PATH=/usr/bin/chromium
         composer ci:test:php:functional -- --coverage-clover=coverage-functional.xml --fail-on-skipped
     secrets:
