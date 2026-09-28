@@ -22,10 +22,10 @@ use PHPUnit\Framework\TestCase;
  */
 final class ExtensionDependencyRangeTest extends TestCase
 {
-    private const ROOT = __DIR__ . '/../../';
+    private const string ROOT = __DIR__ . '/../../';
 
     /** Composer requirement => ext_emconf.php depends key, for PHP and every extension this one depends on. */
-    private const EXTENSIONS = [
+    private const array EXTENSIONS = [
         'php'                  => 'php',
         'typo3/cms-core'       => 'typo3',
         'netresearch/nr-llm'   => 'nr_llm',
