@@ -29,9 +29,11 @@ return [
                 'default' => 'url',
             ],
         ],
+        // No link attributes: the stored value is fetched as-is, and a target
+        // or title from the link browser would be appended to it.
         'source_value' => [
             'label'  => 'Source URL',
-            'config' => ['type' => 'link', 'allowedTypes' => ['url'], 'size' => 60],
+            'config' => ['type' => 'link', 'allowedTypes' => ['url'], 'appearance' => ['allowedOptions' => []], 'size' => 60],
         ],
         'theme' => [
             'label'  => 'Theme',
