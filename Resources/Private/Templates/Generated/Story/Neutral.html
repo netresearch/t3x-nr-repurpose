@@ -20,17 +20,26 @@
             box-sizing: border-box;
             width: 1080px;
             height: 1920px;
-            padding: 120px 96px;
+            /* The copy ends 330px above the bottom edge, and the label row starts 330px from
+               the top, out of the band the story UI covers — see Story/Nr.html for the 14% of
+               Meta's Stories ads guide and the 8% zoom of the story video behind 330px. */
+            padding: 120px 96px 330px;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
             color: #ffffff;
             font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
         }
-        .story__indicator {
+        /* AI label and slide indicator, top right. */
+        .story__meta {
             position: absolute;
-            top: 96px;
+            top: 330px;
             right: 96px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .story__indicator {
             font-weight: 600;
             font-size: 32px;
             letter-spacing: 1px;
@@ -47,9 +56,6 @@
         .story__source { font-size: 30px; line-height: 1.4; font-weight: 400; margin: 48px 0 0; opacity: 0.8; word-break: break-all; }
         /* Visible AI label (ADR-005): own dark plate, legible over any background. */
         .ai-label {
-            position: absolute;
-            top: 96px;
-            left: 96px;
             padding: 8px 20px;
             border-radius: 8px;
             background: rgba(0, 0, 0, 0.72);
@@ -63,12 +69,14 @@
 </head>
 <body>
     <div class="story">
-        <f:if condition="{aiLabel}">
-            <div class="ai-label">{aiLabel}</div>
-        </f:if>
-        <f:if condition="{role} != 'cover'">
-            <div class="story__indicator">{slideIndex}/{slideTotal}</div>
-        </f:if>
+        <div class="story__meta">
+            <f:if condition="{aiLabel}">
+                <div class="ai-label">{aiLabel}</div>
+            </f:if>
+            <f:if condition="{role} != 'cover'">
+                <div class="story__indicator">{slideIndex}/{slideTotal}</div>
+            </f:if>
+        </div>
         <div class="story__accent"></div>
         <h1 class="story__headline">{headline}</h1>
         <p class="story__subline">{subline}</p>

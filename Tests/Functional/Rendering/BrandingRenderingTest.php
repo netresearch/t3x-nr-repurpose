@@ -36,8 +36,16 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
 
     private const FOOTER_LINK = '~<footer\b[^>]*>(?:(?!</footer>).)*?<a href="https://www\.netresearch\.de/"[^>]*>Netresearch DTT GmbH</a>~s';
 
-    /** 14% of the 1920px story height, rounded up. */
-    private const STORY_UI_BAND = 269;
+    /**
+     * Meta's Stories ads guide asks to keep 14% of a 9:16 story (269 of 1920 px) at the top
+     * free of text and logos, where the progress bar and the profile sit; the templates take
+     * the same 14% at the bottom for the reply bar (Meta's 35% there is for an ad's
+     * call-to-action). The story video zooms every slide in by 8% around its centre
+     * (FfmpegSlideshowRenderer), which moves an element d px from an edge to
+     * 960 - (960 - d) * 1.08 px from it on the last frame. So the templates keep
+     * d >= (269 + 960 * 0.08) / 1.08, rounded up: 321 px.
+     */
+    private const STORY_SAFE_EDGE = 321;
 
     protected function setUp(): void
     {
@@ -102,24 +110,36 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
         self::assertSame($footers, preg_match_all(self::FOOTER_LINK, $this->render($template, $variables)));
     }
 
-    /**
-     * Meta's Stories ads guide asks to keep 14% of a 9:16 story (269 of 1920 px) at the top free
-     * of text and logos, where the progress bar and the profile sit. The template takes the
-     * same 14% at the bottom for the reply bar (Meta's 35% there is for an ad's
-     * call-to-action).
-     * The story stacks its copy from the bottom edge, so the bottom padding decides whether
-     * the company line lands under the reply bar.
-     */
-    public function testTheStoryKeepsLogoAndCompanyLineOutOfTheInstagramUiBands(): void
+    /** @return array<string, array{0: string}> */
+    public static function storyTemplates(): array
     {
-        $html = $this->render('Story/Nr', ['headline' => 'H', 'subline' => 'S', 'role' => 'outro', 'slideIndex' => 3, 'slideTotal' => 3, 'sourceLabel' => 'https://example.com/', 'transparent' => false, 'aiLabel' => null]);
+        return ['Netresearch theme' => ['Story/Nr'], 'Neutral theme' => ['Story/Neutral']];
+    }
+
+    /**
+     * The story stacks its copy from the bottom edge, so the bottom padding decides whether
+     * the last line lands under the reply bar; the logo, the AI label and the slide indicator
+     * are placed from the top.
+     */
+    #[DataProvider('storyTemplates')]
+    public function testTheStoryKeepsItsElementsOutOfTheStoryUiBandsAlsoInTheVideo(string $template): void
+    {
+        $html = $this->render($template, ['headline' => 'H', 'subline' => 'S', 'role' => 'point', 'slideIndex' => 2, 'slideTotal' => 3, 'sourceLabel' => 'https://example.com/', 'transparent' => false, 'aiLabel' => 'AI-generated']);
 
         // padding: top horizontal bottom
         self::assertSame(1, preg_match('~\.story\s*\{[^}]*\bpadding:\s*\d+px\s+\d+px\s+(\d+)px\s*;~', $html, $padding), 'three-value padding on .story');
-        self::assertSame(1, preg_match('~\.story__header\s*\{[^}]*\btop:\s*(\d+)px~', $html, $top), 'top on .story__header');
+        self::assertGreaterThanOrEqual(self::STORY_SAFE_EDGE, (int) $padding[1], 'bottom padding of .story');
 
-        self::assertGreaterThanOrEqual(self::STORY_UI_BAND, (int) $padding[1], 'bottom padding of .story');
-        self::assertGreaterThanOrEqual(self::STORY_UI_BAND, (int) $top[1], 'top of .story__header');
+        self::assertSame(1, preg_match('~\.story__meta\s*\{[^}]*\btop:\s*(\d+)px~', $html, $top), 'top on .story__meta');
+        self::assertGreaterThanOrEqual(self::STORY_SAFE_EDGE, (int) $top[1], 'top of .story__meta');
+        // Label and indicator sit in that row; neither is placed on its own.
+        self::assertSame(1, preg_match('~<div class="story__meta">\s*<div class="ai-label">AI-generated</div>\s*<div class="story__indicator">2/3</div>\s*</div>~', $html), $html);
+        self::assertSame(0, preg_match('~\.(?:ai-label|story__indicator)\s*\{[^}]*\b(?:top|position):~', $html), 'no own position for the label or the indicator');
+
+        if ($template === 'Story/Nr') {
+            self::assertSame(1, preg_match('~\.story__header\s*\{[^}]*\btop:\s*(\d+)px~', $html, $header), 'top on .story__header');
+            self::assertGreaterThanOrEqual(self::STORY_SAFE_EDGE, (int) $header[1], 'top of .story__header');
+        }
     }
 
     /** @param array<string, mixed> $variables */

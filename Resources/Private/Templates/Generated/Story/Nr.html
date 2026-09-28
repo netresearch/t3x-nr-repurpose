@@ -20,21 +20,31 @@
             box-sizing: border-box;
             width: 1080px;
             height: 1920px;
-            /* The copy stacks from the bottom edge. 270px keeps it, the company line included,
-               above the reply bar. Meta's Stories ads guide asks for 14% of the height (269px) at
-               the top; its 35% at the bottom makes room for an ad's call-to-action, which an
-               organic story does not have, so the bottom takes the top's 14%. */
-            padding: 120px 96px 270px;
+            /* The copy stacks from the bottom edge and ends 330px above it, the company line
+               included; the logo and the label row start 330px from the top. Meta's Stories
+               ads guide asks for 14% of the height (269px) at the top; its 35% at the bottom
+               makes room for an ad's call-to-action, which an organic story does not have, so
+               the bottom takes the top's 14%. The story video zooms each slide in by 8%
+               around its centre (FfmpegSlideshowRenderer), which moves an element d px from
+               an edge to 960 - (960 - d) * 1.08: d must be at least 321px to stay out of the
+               269px band on the last frame. */
+            padding: 120px 96px 330px;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
             color: #ffffff;
             font-family: 'Open Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
         }
-        .story__indicator {
+        /* AI label and slide indicator, top right, level with the logo. */
+        .story__meta {
             position: absolute;
-            top: 96px;
+            top: 330px;
             right: 96px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .story__indicator {
             font-family: 'Raleway', 'Helvetica Neue', Arial, sans-serif;
             font-weight: 600;
             font-size: 32px;
@@ -53,18 +63,15 @@
         .story__source { font-size: 30px; line-height: 1.4; font-weight: 400; margin: 48px 0 0; opacity: 0.8; word-break: break-all; }
         .story__brand { margin-top: 64px; font-family: 'Raleway', sans-serif; font-weight: 600; font-size: 28px; letter-spacing: 0.5px; }
         .story__brand a { color: inherit; text-decoration: none; }
-        /* Symbol-only [n] logo (netresearch-branding logo.md), 120px as the visual anchor.
-           Below the 14% (270px) band the Instagram story UI covers, clear of the AI label and
-           the slide indicator above it. The viewBox carries the clear space; the white plate
-           is the solid backing it needs on the teal gradient and over a KI background. */
-        .story__header { position: absolute; top: 270px; left: 96px; }
+        /* Symbol-only [n] logo (netresearch-branding logo.md), 120px as the visual anchor,
+           below the band the story UI covers (see .story). The viewBox carries the clear
+           space; the white plate is the solid backing it needs on the teal gradient and over
+           a KI background. */
+        .story__header { position: absolute; top: 330px; left: 96px; }
         .nr-logo { display: block; width: 120px; height: 120px; }
         .nr-logo svg { display: block; width: 100%; height: 100%; background: #ffffff; border-radius: 16px; }
         /* Visible AI label (ADR-005): own dark plate, legible over any background. */
         .ai-label {
-            position: absolute;
-            top: 96px;
-            left: 96px;
             padding: 8px 20px;
             border-radius: 8px;
             background: rgba(0, 0, 0, 0.72);
@@ -78,12 +85,14 @@
 </head>
 <body>
     <div class="story">
-        <f:if condition="{aiLabel}">
-            <div class="ai-label">{aiLabel}</div>
-        </f:if>
-        <f:if condition="{role} != 'cover'">
-            <div class="story__indicator">{slideIndex}/{slideTotal}</div>
-        </f:if>
+        <div class="story__meta">
+            <f:if condition="{aiLabel}">
+                <div class="ai-label">{aiLabel}</div>
+            </f:if>
+            <f:if condition="{role} != 'cover'">
+                <div class="story__indicator">{slideIndex}/{slideTotal}</div>
+            </f:if>
+        </div>
         <header class="story__header"><a class="nr-logo" href="https://www.netresearch.de/" aria-label="Netresearch DTT GmbH"><svg viewBox="-75 -75 440 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Netresearch symbol logo"><title>Netresearch DTT GmbH</title><path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242a26.38,26.38,0,0,1-26.44,26.44H209.6V300h47.93a42.77,42.77,0,0,0,42.86-42.86V42.89A42.76,42.76,0,0,0,257.53,0ZM43.25,0A42.76,42.76,0,0,0,.39,42.89V257.18A42.76,42.76,0,0,0,43.25,300H91.18V268.46H58.4A26.38,26.38,0,0,1,32,242v-184A26.37,26.37,0,0,1,58.4,31.62H91.18V0Z" transform="translate(-0.39 -0.04)"/><path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82-26.62,0-48.54,7.74-64.17,26.56l-.7-22.06-28.31.06V232.94h31.59V124.69c7.14-18.38,32.14-34.8,53-34.5,27.38.4,25.2,26.24,26,45.81v96.94h31.58" transform="translate(-0.39 -0.04)"/></svg></a></header>
         <div class="story__accent"></div>
         <h1 class="story__headline">{headline}</h1>
