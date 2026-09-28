@@ -81,6 +81,11 @@ final class RemoteSourceGuardTest extends TestCase
         yield 'IPv6 multicast' => ['ff02::1'];
         yield 'IPv4-mapped loopback' => ['::ffff:127.0.0.1'];
         yield 'IPv4-mapped metadata' => ['::ffff:169.254.169.254'];
+        yield 'IPv4-compatible loopback' => ['::127.0.0.1'];
+        yield 'NAT64 well-known prefix, loopback' => ['64:ff9b::7f00:1'];
+        yield 'NAT64 well-known prefix, metadata' => ['64:ff9b::a9fe:a9fe'];
+        yield '6to4 loopback' => ['2002:7f00:1::'];
+        yield '6to4 RFC 1918' => ['2002:a00:5::1'];
     }
 
     #[DataProvider('blockedAddresses')]
@@ -166,13 +171,16 @@ final class RemoteSourceGuardTest extends TestCase
             'c.example' => ['100.128.0.1'],
             'd.example' => ['169.255.0.1'],
             'e.example' => ['2001:db8::1'],
+            // Public IPv4 93.184.215.14 embedded in NAT64 (as DNS64 synthesizes it) and in 6to4.
+            'f.example' => ['64:ff9b::5db8:d70e'],
+            'g.example' => ['2002:5db8:d70e::1'],
         ]));
 
-        foreach (['a', 'b', 'c', 'd', 'e'] as $host) {
+        foreach (['a', 'b', 'c', 'd', 'e', 'f', 'g'] as $host) {
             $guard->assertAllowed(new Uri('https://' . $host . '.example/'));
         }
 
-        $this->addToAssertionCount(5);
+        $this->addToAssertionCount(7);
     }
 
     public function testRefusesAHostThatDoesNotResolve(): void
