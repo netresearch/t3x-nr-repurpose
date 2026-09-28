@@ -54,6 +54,14 @@
         }
         .story__subline { font-size: 40px; line-height: 1.4; font-weight: 400; margin: 0; }
         .story__source { font-size: 30px; line-height: 1.4; font-weight: 400; margin: 48px 0 0; opacity: 0.8; word-break: break-all; }
+        <f:if condition="{transparent}">
+            /* Over a KI background the white copy has no backing of its own, and a light image
+               leaves it white on white: headline, subline, source and slide indicator sit on the
+               dark end of the opaque gradient, line by line (#1f2933, 14.76:1 for white). */
+            .story__plate { background: #1f2933; padding: 4px 16px; border-radius: 8px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+            .story__source, .story__indicator { opacity: 1; }
+            .story__indicator { background: #1f2933; padding: 8px 20px; border-radius: 8px; }
+        </f:if>
         /* Visible AI label (ADR-005): own dark plate, legible over any background. */
         .ai-label {
             padding: 8px 20px;
@@ -78,10 +86,10 @@
             </f:if>
         </div>
         <div class="story__accent"></div>
-        <h1 class="story__headline">{headline}</h1>
-        <p class="story__subline">{subline}</p>
+        <h1 class="story__headline"><span class="story__plate">{headline}</span></h1>
+        <p class="story__subline"><span class="story__plate">{subline}</span></p>
         <f:if condition="{role} == 'outro'">
-            <p class="story__source">{sourceLabel}</p>
+            <p class="story__source"><span class="story__plate">{sourceLabel}</span></p>
         </f:if>
     </div>
 </body>

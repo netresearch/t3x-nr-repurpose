@@ -67,6 +67,12 @@
             /* Over a KI background the white line has no backing of its own: the logo's white
                plate with the darker teal, 8.11:1 (netresearch-branding colors.md). */
             .story__brand { align-self: flex-start; padding: 8px 20px; border-radius: 8px; background: #ffffff; color: #15585E; }
+            /* Over a KI background the white copy has no backing of its own, and a light image
+               leaves it white on white: headline, subline, source and slide indicator sit on the
+               dark end of the opaque gradient, line by line (#0f3f44, 11.57:1 for white). */
+            .story__plate { background: #0f3f44; padding: 4px 16px; border-radius: 8px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+            .story__source, .story__indicator { opacity: 1; }
+            .story__indicator { background: #0f3f44; padding: 8px 20px; border-radius: 8px; }
         </f:if>
         /* Symbol-only [n] logo (netresearch-branding logo.md), 120px as the visual anchor,
            below the band the story UI covers (see .story). The viewBox carries the clear
@@ -100,10 +106,10 @@
         </div>
         <header class="story__header"><a class="nr-logo" href="https://www.netresearch.de/" aria-label="Netresearch DTT GmbH"><svg viewBox="-75 -75 440 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Netresearch symbol logo"><title>Netresearch DTT GmbH</title><path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242a26.38,26.38,0,0,1-26.44,26.44H209.6V300h47.93a42.77,42.77,0,0,0,42.86-42.86V42.89A42.76,42.76,0,0,0,257.53,0ZM43.25,0A42.76,42.76,0,0,0,.39,42.89V257.18A42.76,42.76,0,0,0,43.25,300H91.18V268.46H58.4A26.38,26.38,0,0,1,32,242v-184A26.37,26.37,0,0,1,58.4,31.62H91.18V0Z" transform="translate(-0.39 -0.04)"/><path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82-26.62,0-48.54,7.74-64.17,26.56l-.7-22.06-28.31.06V232.94h31.59V124.69c7.14-18.38,32.14-34.8,53-34.5,27.38.4,25.2,26.24,26,45.81v96.94h31.58" transform="translate(-0.39 -0.04)"/></svg></a></header>
         <div class="story__accent"></div>
-        <h1 class="story__headline">{headline}</h1>
-        <p class="story__subline">{subline}</p>
+        <h1 class="story__headline"><span class="story__plate">{headline}</span></h1>
+        <p class="story__subline"><span class="story__plate">{subline}</span></p>
         <f:if condition="{role} == 'outro'">
-            <p class="story__source">{sourceLabel}</p>
+            <p class="story__source"><span class="story__plate">{sourceLabel}</span></p>
         </f:if>
         <footer class="story__brand"><a href="https://www.netresearch.de/">Netresearch DTT GmbH</a></footer>
     </div>

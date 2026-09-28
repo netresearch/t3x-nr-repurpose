@@ -166,6 +166,31 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
         self::assertSame(0, preg_match($plate, $this->render($template, $variables + ['transparent' => false])), 'no plate in the opaque render');
     }
 
+    /**
+     * The white story copy is composited over a KI background, and the Neutral theme asks the
+     * image model for a light one: without a backing of its own it is white on white. In the
+     * transparent render the headline, the subline, the source and the slide indicator sit on
+     * a dark plate, line by line; the opaque render keeps its gradient and needs none.
+     */
+    #[DataProvider('storyTemplates')]
+    public function testTheStoryCopyHasADarkPlateOnlyOverAKiBackground(string $template): void
+    {
+        $variables = ['headline' => 'H', 'subline' => 'S', 'role' => 'outro', 'slideIndex' => 3, 'slideTotal' => 3, 'sourceLabel' => 'https://example.com/', 'aiLabel' => null];
+        $plate     = '~\.story__plate\s*\{[^}]*\bbackground:\s*#[0-9a-f]{6};[^}]*\bbox-decoration-break:\s*clone;~';
+        $indicator = '~\.story__indicator\s*\{[^}]*\bbackground:\s*#[0-9a-f]{6};~';
+
+        $transparent = $this->render($template, $variables + ['transparent' => true]);
+        self::assertSame(1, preg_match($plate, $transparent), 'copy plate in the transparent render');
+        self::assertSame(1, preg_match($indicator, $transparent), 'indicator plate in the transparent render');
+        foreach (['<h1 class="story__headline"><span class="story__plate">H</span></h1>', '<p class="story__subline"><span class="story__plate">S</span></p>', '<p class="story__source"><span class="story__plate">https://example.com/</span></p>'] as $element) {
+            self::assertStringContainsString($element, $transparent);
+        }
+
+        $opaque = $this->render($template, $variables + ['transparent' => false]);
+        self::assertSame(0, preg_match($plate, $opaque), 'no copy plate in the opaque render');
+        self::assertSame(0, preg_match($indicator, $opaque), 'no indicator plate in the opaque render');
+    }
+
     /** @param array<string, mixed> $variables */
     private function render(string $template, array $variables): string
     {
