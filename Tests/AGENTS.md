@@ -85,8 +85,9 @@ PHPUnit configs live in `Build/` (repo root), not under `Tests/`: `Build/phpunit
 Docker, plus `composer` on the host for the very first run:
 `Build/Scripts/runTests.sh` is a stub that runs `composer install` to fetch the
 shared runner into `.Build/bin/`; after that the runner provisions PHP images
-itself. Switching PHP with `-p` needs `-p <version> -s composerUpdate` first —
-see root `AGENTS.md` Commands.
+itself. Dependencies installed on 8.5 do not load on 8.3: run
+`-p 8.3 -s composerUpdate` before `-p 8.3` suites (8.3-resolved ones run on
+8.5) — see root `AGENTS.md` Commands.
 
 ## Security
 - Never use real API keys or secrets in tests — mock nr-llm services
