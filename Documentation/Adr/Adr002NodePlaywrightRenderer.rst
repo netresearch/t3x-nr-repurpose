@@ -46,13 +46,21 @@ through Playwright, and composite separately with GD.
    *Hardening (2026-09).* The HTML contains LLM output derived from the fetched
    source, so it is rendered as untrusted: the browser context has JavaScript
    disabled and service workers blocked, and a context-level route aborts every
-   request except HTTPS ``GET`` requests for stylesheets and fonts from
-   ``fonts.googleapis.com`` and ``fonts.gstatic.com`` — the web fonts the
-   templates ``@import``. ``data:`` and ``blob:`` URLs stay available.
-   The route does not see a ``<link rel="prefetch">`` or the target of a
-   redirect, so Chromium is also launched with a proxy address nothing listens
-   on, bypassed only for the two font hosts: any request the route misses
-   fails at the network layer, loopback addresses included.
+   request except ``data:`` and ``blob:`` URLs. The route does not see a
+   ``<link rel="prefetch">`` or the target of a redirect, so Chromium is also
+   launched with a proxy address nothing listens on and no bypass list: any
+   request the route misses fails at the network layer, loopback addresses
+   included. The renderer has no network access at all.
+
+   The templates still ``@import`` their web fonts (Raleway, Open Sans, Inter)
+   from Google Fonts. ``render.cjs`` replaces each such rule, before the HTML
+   reaches the page, with ``@font-face`` rules over the unmodified upstream
+   variable fonts in :path:`Resources/Private/Fonts` (SIL Open Font License,
+   source commit and checksums in its ``fonts.json``), inlined as ``data:``
+   URLs; the stored ``source_html`` keeps the ``@import``. Inter is pinned to
+   ``opsz`` 14, the instance Google Fonts serves. The Schaubild and Story PNGs
+   render byte-identical to the Google-loaded renders, and the PDFs rasterise
+   identically.
 
 2. **A PHP boundary that shells out safely.**
    :php:`PlaywrightHtmlToImageRenderer` builds the argv, passes HTML on stdin

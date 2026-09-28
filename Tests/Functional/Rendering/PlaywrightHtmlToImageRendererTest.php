@@ -95,7 +95,48 @@ final class PlaywrightHtmlToImageRendererTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * No request may leave the renderer for anything but the template web fonts: an injected
+     * The templates @import their web fonts from Google Fonts, but the renderer has no
+     * network access: the @import must be served from the fonts bundled in
+     * Resources/Private/Fonts. The render with the @import has to match a render that
+     * embeds the bundled Raleway file itself, and differ from the fallback font.
+     */
+    public function testTemplateWebFontsComeFromTheBundledFiles(): void
+    {
+        $text = '<p style="margin:0;font:700 40px/1 Raleway,monospace">Raleway 48 Mio. Äöü</p>';
+        $page = static fn (string $style): string => '<!doctype html><html><head><style>' . $style
+            . 'html,body{margin:0;background:#fff}</style></head><body>' . $text . '</body></html>';
+        $bundle = dirname(__DIR__, 3) . '/Resources/Private/Fonts/Raleway/Raleway[wght].ttf';
+        self::assertFileExists($bundle);
+
+        $imported = $this->pixels($page("@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@600;700&family=Open+Sans:wght@400;600&display=swap');"));
+        $embedded = $this->pixels($page("@font-face{font-family:'Raleway';font-weight:100 900;src:url(data:font/ttf;base64,"
+            . base64_encode((string) file_get_contents($bundle)) . ") format('truetype')}"));
+        $fallback = $this->pixels($page(''));
+
+        self::assertNotSame($fallback, $embedded, 'the bundled font renders like the fallback, the comparison proves nothing');
+        self::assertSame($embedded, $imported, 'the @import did not render in the bundled Raleway');
+    }
+
+    /** Renders $html at 600x60 and returns a hash of its decoded pixels. */
+    private function pixels(string $html): string
+    {
+        $out   = $this->renderer()->render($html, 600, 60, 1.0, false);
+        $image = imagecreatefrompng($out);
+        @unlink($out);
+        self::assertNotFalse($image);
+
+        $pixels = '';
+        for ($y = 0; $y < imagesy($image); ++$y) {
+            for ($x = 0; $x < imagesx($image); ++$x) {
+                $pixels .= pack('N', imagecolorat($image, $x, $y));
+            }
+        }
+
+        return sha1($pixels);
+    }
+
+    /**
+     * No request may leave the renderer, not even for web fonts (they are bundled): an injected
      * <img>, CSS background, stylesheet or prefetch hint to a local address must not reach it.
      */
     public function testInjectedResourceRequestsDoNotLeaveTheRenderer(): void

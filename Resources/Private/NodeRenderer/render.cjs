@@ -1,29 +1,52 @@
 // CommonJS so it runs without ESM config. Reads HTML from stdin, writes a PNG,
 // or with --pdf a PDF whose page size and breaks come from the HTML's CSS (@page).
 // argv: --width <int> --height <int|auto> --scale <float> --out <path> (--transparent|--opaque) [--pdf]
+const fs = require('fs');
+const path = require('path');
 const { chromium } = require('playwright-core');
 
 // The HTML carries LLM output derived from a fetched page or PDF, so it is treated as
-// hostile: page JavaScript is disabled, and the only requests allowed out are the
-// Google Fonts stylesheet and font files the Generated/* templates @import. Everything
-// else (images, CSS backgrounds, navigations, favicons) is aborted before it leaves.
-const ALLOWED_HOSTS = new Set(['fonts.googleapis.com', 'fonts.gstatic.com']);
-const ALLOWED_TYPES = new Set(['stylesheet', 'font']);
-
+// hostile: page JavaScript is disabled, and no request leaves the renderer. Only data:
+// and blob: URLs load; everything else (images, CSS backgrounds, navigations, favicons,
+// stylesheets) is aborted, and what the route does not see fails at a dead proxy.
 function isAllowedRequest(request) {
-    let url;
-    try {
-        url = new URL(request.url());
-    } catch (e) {
-        return false;
-    }
-    if (url.protocol === 'data:' || url.protocol === 'blob:') {
-        return true;
-    }
-    return url.protocol === 'https:'
-        && ALLOWED_HOSTS.has(url.hostname)
-        && ALLOWED_TYPES.has(request.resourceType())
-        && request.method() === 'GET';
+    return /^(data|blob):/i.test(request.url());
+}
+
+// The Generated/* templates @import their web fonts from Google Fonts. Those rules are
+// replaced by @font-face rules over the unmodified font files bundled in
+// Resources/Private/Fonts (listed in its fonts.json), inlined as data: URLs, so the
+// brand fonts render without network access. A family that is not bundled is dropped
+// and falls back like any other unavailable font.
+const FONT_DIR = path.join(__dirname, '..', 'Fonts');
+const GOOGLE_FONTS_IMPORT = /@import\s+(?:url\(\s*)?(['"]?)(https?:\/\/fonts\.googleapis\.com\/css2?\?[^'")\s]*)\1\s*\)?\s*;?/gi;
+
+function bundledFontFaces(html) {
+    let families = null;
+    const encoded = new Map();
+
+    return html.replace(GOOGLE_FONTS_IMPORT, (match, quote, href) => {
+        families ??= JSON.parse(fs.readFileSync(path.join(FONT_DIR, 'fonts.json'), 'utf8')).families;
+        const url = new URL(href.replace(/&amp;/g, '&'));
+        const names = url.searchParams.getAll('family')
+            .flatMap((value) => value.split('|'))
+            .map((value) => value.split(':')[0].trim());
+
+        return names.map((name) => {
+            const font = Object.prototype.hasOwnProperty.call(families, name) ? families[name] : null;
+            if (font === null) {
+                console.error(`render.cjs: web font "${name}" is not bundled, using the fallback font`);
+                return '';
+            }
+            if (!encoded.has(name)) {
+                encoded.set(name, fs.readFileSync(path.join(FONT_DIR, font.file)).toString('base64'));
+            }
+            return `@font-face{font-family:${JSON.stringify(name)};font-style:normal;`
+                + `font-weight:${font.weight};font-stretch:${font.stretch};font-display:block;`
+                + (font.variationSettings ? `font-variation-settings:${font.variationSettings};` : '')
+                + `src:url(data:font/ttf;base64,${encoded.get(name)}) format('truetype')}`;
+        }).join('\n');
+    });
 }
 
 function arg(name, def) {
@@ -55,11 +78,10 @@ function arg(name, def) {
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--force-color-profile=srgb'],
         executablePath: process.env.CHROMIUM_PATH || undefined, // apt chromium
         // The route below does not see every request: Chromium sends <link rel=prefetch>
-        // itself, and follows a redirect from an allowed host without asking the route
-        // again. So the network layer only reaches the font hosts directly; everything else
-        // goes to a proxy address nothing listens on and fails. Playwright adds <-loopback>,
-        // so 127.0.0.1 and localhost take the dead proxy too.
-        proxy: { server: 'http://127.0.0.1:9', bypass: [...ALLOWED_HOSTS].join(',') },
+        // itself, and follows a redirect without asking the route again. So every request
+        // goes to a proxy address nothing listens on and fails. With no bypass list,
+        // Playwright adds <-loopback>, so 127.0.0.1 and localhost take the dead proxy too.
+        proxy: { server: 'http://127.0.0.1:9' },
     });
 
     try {
@@ -74,8 +96,8 @@ function arg(name, def) {
             isAllowedRequest(route.request()) ? route.continue() : route.abort('blockedbyclient')
         ));
         const page = await context.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle' });
-        await page.evaluate(() => document.fonts && document.fonts.ready); // wait for webfonts
+        await page.setContent(bundledFontFaces(html), { waitUntil: 'networkidle' });
+        await page.evaluate(() => document.fonts && document.fonts.ready); // wait for the bundled fonts
 
         if (pdf) {
             // Page size and margins from the template's @page rule; backgrounds printed.
