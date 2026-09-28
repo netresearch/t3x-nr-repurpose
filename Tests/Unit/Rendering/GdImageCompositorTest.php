@@ -142,6 +142,7 @@ final class GdImageCompositorTest extends TestCase
     public static function failingPaths(): iterable
     {
         yield 'missing input' => ['Compositor input PNG not found', 'missing'];
+        yield 'unreadable input' => ['Compositor input PNG unreadable', 'unreadable'];
         yield 'not an image' => ['Compositor input is not a valid image', 'garbage'];
         yield 'output dir blocked' => ['Compositor output dir not writable', 'dir'];
         yield 'output is a dir' => ['GD could not write PNG', 'target'];
@@ -160,17 +161,23 @@ final class GdImageCompositorTest extends TestCase
         $out    = $tmpDir . '/out.png';
         // The path the failure is about, which only the log may name.
         $path = match ($case) {
-            'missing' => $bg = $tmpDir . '/does-not-exist.png',
-            'garbage' => $bg = $tmpDir . '/garbage.png',
-            'dir'     => dirname($out = $tmpDir . '/blocker/sub/out.png'),
-            'target'  => $out = $tmpDir . '/out-dir',
+            'missing'    => $bg = $tmpDir . '/does-not-exist.png',
+            'unreadable' => $bg = $tmpDir . '/unreadable.png',
+            'garbage'    => $bg = $tmpDir . '/garbage.png',
+            'dir'        => dirname($out = $tmpDir . '/blocker/sub/out.png'),
+            'target'     => $out = $tmpDir . '/out-dir',
         };
         match ($case) {
-            'garbage' => file_put_contents($bg, 'not a png'),
-            'dir'     => file_put_contents($tmpDir . '/blocker', 'a file where a directory is needed'),
-            'target'  => mkdir($out),
-            default   => null,
+            'unreadable' => file_put_contents($bg, 'x') !== false && chmod($bg, 0o000),
+            'garbage'    => file_put_contents($bg, 'not a png'),
+            'dir'        => file_put_contents($tmpDir . '/blocker', 'a file where a directory is needed'),
+            'target'     => mkdir($out),
+            default      => null,
         };
+        if ($case === 'unreadable' && is_readable($bg)) {
+            self::markTestSkipped('The file stays readable for this user (root).');
+        }
+
         $logger = new RecordingLogger();
 
         try {
