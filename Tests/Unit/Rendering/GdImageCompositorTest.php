@@ -13,7 +13,11 @@ use function extension_loaded;
 
 use Netresearch\NrRepurpose\Rendering\GdImageCompositor;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
+use Psr\Log\NullLogger;
 
 final class GdImageCompositorTest extends TestCase
 {
@@ -79,7 +83,7 @@ final class GdImageCompositorTest extends TestCase
         $fg  = $this->makeMostlyTransparentPng(20, 30);
         $out = $this->tmpDir . '/out.png';
 
-        $returned = (new GdImageCompositor())->overlay($bg, $fg, $out);
+        $returned = (new GdImageCompositor(new NullLogger()))->overlay($bg, $fg, $out);
 
         self::assertSame($out, $returned);
         self::assertFileExists($out);
@@ -107,7 +111,7 @@ final class GdImageCompositorTest extends TestCase
         $fg  = $this->makeMostlyTransparentPng(20, 40);
         $out = $this->tmpDir . '/out-cover.png';
 
-        (new GdImageCompositor())->overlay($bg, $fg, $out);
+        (new GdImageCompositor(new NullLogger()))->overlay($bg, $fg, $out);
 
         $size = getimagesize($out);
         self::assertNotFalse($size);
@@ -129,7 +133,61 @@ final class GdImageCompositorTest extends TestCase
         $fg = $this->makeMostlyTransparentPng(4, 4);
 
         $this->expectException(RenderingException::class);
-        (new GdImageCompositor())->overlay($this->tmpDir . '/does-not-exist.png', $fg, $this->tmpDir . '/o.png');
+        (new GdImageCompositor(new NullLogger()))->overlay($this->tmpDir . '/does-not-exist.png', $fg, $this->tmpDir . '/o.png');
+    }
+
+    /**
+     * @return iterable<string, array{0: string, 1: string}> case => [fixed message, which path the case breaks]
+     */
+    public static function failingPaths(): iterable
+    {
+        yield 'missing input' => ['Compositor input PNG not found', 'missing'];
+        yield 'not an image' => ['Compositor input is not a valid image', 'garbage'];
+        yield 'output dir blocked' => ['Compositor output dir not writable', 'dir'];
+        yield 'output is a dir' => ['GD could not write PNG', 'target'];
+    }
+
+    /**
+     * The message reaches the artifact's error_message, which every module user sees; the
+     * worker's file paths go to the server log only.
+     */
+    #[DataProvider('failingPaths')]
+    public function testAFailureThrowsAFixedMessageAndLogsThePath(string $message, string $case): void
+    {
+        $tmpDir = (string) $this->tmpDir;
+        $bg     = $this->makeOpaquePng(4, 4, 0, 0, 255);
+        $fg     = $this->makeMostlyTransparentPng(4, 4);
+        $out    = $tmpDir . '/out.png';
+        // The path the failure is about, which only the log may name.
+        $path = match ($case) {
+            'missing' => $bg = $tmpDir . '/does-not-exist.png',
+            'garbage' => $bg = $tmpDir . '/garbage.png',
+            'dir'     => dirname($out = $tmpDir . '/blocker/sub/out.png'),
+            'target'  => $out = $tmpDir . '/out-dir',
+        };
+        match ($case) {
+            'garbage' => file_put_contents($bg, 'not a png'),
+            'dir'     => file_put_contents($tmpDir . '/blocker', 'a file where a directory is needed'),
+            'target'  => mkdir($out),
+            default   => null,
+        };
+        $logger = new RecordingLogger();
+
+        try {
+            // @ because GD warns before it returns false on the unwritable target; the
+            // warning is not what this test is about.
+            @(new GdImageCompositor($logger))->overlay($bg, $fg, $out);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame($message, $e->getMessage());
+            self::assertStringNotContainsString($tmpDir, $e->getMessage());
+        } finally {
+            @rmdir($tmpDir . '/out-dir');
+        }
+
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
+        self::assertSame($path, $logger->records[0]['context']['path'] ?? null);
     }
 
     public function testRequiredBytesBudgetsBackgroundPlusTwoForegroundSizedImages(): void

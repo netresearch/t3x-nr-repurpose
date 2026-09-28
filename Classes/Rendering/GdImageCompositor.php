@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Rendering;
 use function dirname;
 
 use GdImage;
+use Psr\Log\LoggerInterface;
 
 /**
  * Overlays a transparent foreground PNG (the exact HTML-rendered text/label layer) onto a
@@ -23,6 +24,9 @@ use GdImage;
  * limits and fallbacks stay generic) — is scaled to COVER that canvas
  * (centre-cropped, no distortion), then the foreground is alpha-composited on top so transparent
  * areas reveal the background. The result is written as a PNG at the foreground's dimensions.
+ *
+ * A failure throws a fixed message: it reaches the artifact's error_message, which every
+ * module user sees, while the worker's file paths go to the server log only.
  */
 final class GdImageCompositor implements ImageCompositorInterface
 {
@@ -31,6 +35,8 @@ final class GdImageCompositor implements ImageCompositorInterface
      * bytes plus internal row/struct overhead; empirically 5–8 — we budget high).
      */
     private const GD_BYTES_PER_PIXEL = 8;
+
+    public function __construct(private readonly LoggerInterface $logger) {}
 
     public function overlay(string $backgroundPng, string $foregroundPng, string $outPath): string
     {
@@ -76,11 +82,15 @@ final class GdImageCompositor implements ImageCompositorInterface
 
         $dir = dirname($outPath);
         if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) {
-            throw RenderingException::because('Compositor output dir not writable: ' . $dir, 1749400202);
+            $this->logger->error('Compositor output dir not writable', ['path' => $dir]);
+
+            throw RenderingException::because('Compositor output dir not writable', 1749400202);
         }
 
         if (imagepng($canvas, $outPath) === false) {
-            throw RenderingException::because('GD could not write PNG to ' . $outPath, 1749400203);
+            $this->logger->error('GD could not write PNG', ['path' => $outPath]);
+
+            throw RenderingException::because('GD could not write PNG', 1749400203);
         }
 
         return $outPath;
@@ -195,17 +205,23 @@ final class GdImageCompositor implements ImageCompositorInterface
     private function load(string $path): GdImage
     {
         if (!is_file($path)) {
-            throw RenderingException::because('Compositor input PNG not found: ' . $path, 1749400204);
+            $this->logger->error('Compositor input PNG not found', ['path' => $path]);
+
+            throw RenderingException::because('Compositor input PNG not found', 1749400204);
         }
 
         $bytes = file_get_contents($path);
         if ($bytes === false) {
-            throw RenderingException::because('Compositor input PNG unreadable: ' . $path, 1749400205);
+            $this->logger->error('Compositor input PNG unreadable', ['path' => $path]);
+
+            throw RenderingException::because('Compositor input PNG unreadable', 1749400205);
         }
 
         $image = @imagecreatefromstring($bytes);
         if ($image === false) {
-            throw RenderingException::because('Compositor input is not a valid image: ' . $path, 1749400206);
+            $this->logger->error('Compositor input is not a valid image', ['path' => $path]);
+
+            throw RenderingException::because('Compositor input is not a valid image', 1749400206);
         }
 
         return $image;
