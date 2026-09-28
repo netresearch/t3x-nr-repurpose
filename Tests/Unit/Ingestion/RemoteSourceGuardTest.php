@@ -101,7 +101,7 @@ final class RemoteSourceGuardTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379463);
 
-        (new RemoteSourceGuard(new StaticHostResolver()))->assertAllowed(new Uri('http://' . $host . '/'));
+        (new RemoteSourceGuard(new StaticHostResolver()))->assertAllowed(new Uri('https://' . $host . '/'));
     }
 
     public function testRefusesWhenAnyResolvedAddressIsBlocked(): void
