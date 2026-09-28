@@ -35,7 +35,7 @@ ddev start && ddev install      # TYPO3 v14.3 into .Build/Web, key stored in nr-
 | Reinstall deps | `./Build/Scripts/runTests.sh -s composerUpdate` | ~1min |
 <!-- AGENTS-GENERATED:END commands -->
 
-- Dependencies are resolved for one PHP version: after `-s composerUpdate` on 8.5, every `-p 8.3` suite dies in Composer's platform check (`requires a PHP version ">= 8.4.1"`). Re-run `composerUpdate` with the same `-p` first.
+- Dependencies are resolved for one PHP version: after `-s composerUpdate` on 8.5, every `-p 8.3` suite except `lint` dies in Composer's platform check (`requires a PHP version ">= 8.4.1"`). Re-run `composerUpdate` with the same `-p` first.
 - The tools (`phpstan`, `php-cs-fixer`, `rector`) come from `netresearch/typo3-ci-workflows` (require-dev) into `.Build/bin/`; configs: `phpstan.neon` (level 8, `Classes` only — level 10 plus `Tests` costs ~280 findings), `.php-cs-fixer.dist.php`, `Build/rector.php`.
 - **Run cgl on PHP 8.3** — CI's cgl job takes the first `php-versions` entry, and formatting on a newer runtime can produce output that job then rejects.
 - "config file does not exist" means a missing config, not a missing tool.

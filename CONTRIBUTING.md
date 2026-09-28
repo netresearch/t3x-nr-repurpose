@@ -41,8 +41,9 @@ directly:
 
 `-p 8.3|8.4|8.5` selects the PHP version (default 8.5). Dependencies are
 resolved for one PHP version, so before switching run
-`./Build/Scripts/runTests.sh -p <version> -s composerUpdate`; otherwise the
-suite stops in Composer's platform check. Run the code-style check on PHP 8.3.
+`./Build/Scripts/runTests.sh -p <version> -s composerUpdate`; otherwise every
+suite except `lint` stops in Composer's platform check. Run the code-style
+check on PHP 8.3.
 
 CI (`.github/workflows/ci.yml`) runs lint, PHPStan, unit and functional tests
 for PHP 8.3, 8.4 and 8.5 against TYPO3 ^14.3, code style and Rector once on
