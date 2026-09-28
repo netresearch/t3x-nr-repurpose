@@ -12,9 +12,10 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Configuration;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The extension icon is the Netresearch [n] symbol, the backend module keeps its own feature
- * glyph (netresearch-branding, references/typo3-extension-branding.md "Extension Icon" and
- * "Module Icon").
+ * The extension icon is the Netresearch [n] symbol (netresearch-branding,
+ * references/typo3-extension-branding.md "Extension Icon"). That the backend module keeps
+ * its own glyph is checked against the registries in
+ * Tests/Functional/Configuration/IconRegistrationTest.
  */
 final class IconsTest extends TestCase
 {
@@ -36,18 +37,5 @@ final class IconsTest extends TestCase
         self::assertStringNotContainsString('#FF4D00', $svg);
         self::assertStringNotContainsString('#FFFFFF', $svg);
         self::assertStringNotContainsString('style', $svg);
-    }
-
-    public function testTheModuleKeepsItsFeatureIcon(): void
-    {
-        /** @var array<string, array{source: string}> $icons */
-        $icons = require self::ROOT . '/Configuration/Icons.php';
-        /** @var array<string, array{iconIdentifier?: string}> $modules */
-        $modules = require self::ROOT . '/Configuration/Backend/Modules.php';
-
-        $identifiers = array_filter(array_column($modules, 'iconIdentifier'));
-        self::assertSame(['tx-nrrepurpose-module'], array_values($identifiers));
-        self::assertSame('EXT:nr_repurpose/Resources/Public/Icons/module.svg', $icons['tx-nrrepurpose-module']['source']);
-        self::assertSame('EXT:nr_repurpose/Resources/Public/Icons/Extension.svg', $icons['nr_repurpose']['source']);
     }
 }
