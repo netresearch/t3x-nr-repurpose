@@ -24,7 +24,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * exiftool and ffprobe read.
  *
  * A failed run throws a fixed message: it reaches the story artifact's error_message, which
- * every module user sees, while ffmpeg's stderr (input paths) goes to the server log only.
+ * every module user sees, while ffmpeg's stderr (input paths) and the output path go to the
+ * server log only.
  */
 final readonly class FfmpegSlideshowRenderer implements SlideshowRendererInterface
 {
@@ -94,7 +95,9 @@ final readonly class FfmpegSlideshowRenderer implements SlideshowRendererInterfa
         }
 
         if (!is_file($out)) {
-            throw RenderingException::because('ffmpeg produced no video at ' . $out, 1749400403);
+            $this->logger->error('ffmpeg produced no video', ['path' => $out]);
+
+            throw RenderingException::because('ffmpeg produced no video', 1749400403);
         }
 
         return $out;

@@ -123,11 +123,19 @@ final class FfmpegSlideshowRendererTest extends TestCase
         self::assertFileDoesNotExist($out);
     }
 
-    public function testARunWithoutOutputIsARenderingError(): void
+    public function testARunWithoutOutputIsARenderingErrorWithAFixedMessageAndLoggedPath(): void
     {
-        $this->expectException(RenderingException::class);
-        $this->expectExceptionCode(1749400403);
+        $logger = new RecordingLogger();
 
-        (new FfmpegSlideshowRenderer($this->runner(0, false), new NullLogger()))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+        try {
+            (new FfmpegSlideshowRenderer($this->runner(0, false), $logger, 'ffmpeg', sys_get_temp_dir()))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffmpeg produced no video', $e->getMessage());
+            self::assertSame(1749400403, $e->getCode());
+        }
+
+        self::assertCount(1, $logger->records);
+        self::assertSame($this->commands[0][count($this->commands[0]) - 1], $logger->records[0]['context']['path'] ?? null);
     }
 }

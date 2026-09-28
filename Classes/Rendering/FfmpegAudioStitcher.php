@@ -20,7 +20,7 @@ use Psr\Log\LoggerInterface;
  * (ffmpeg/ffprobe) are baked into the DDEV web-build image (Plan 1 Task 2).
  *
  * A failed run throws a fixed message: it reaches the podcast's error_message, which every
- * module user sees, while ffmpeg's stderr (input paths) goes to the server log only.
+ * module user sees, while ffmpeg's stderr (input paths) and the paths go to the server log only.
  */
 final readonly class FfmpegAudioStitcher implements AudioStitcherInterface
 {
@@ -45,7 +45,9 @@ final readonly class FfmpegAudioStitcher implements AudioStitcherInterface
         }
 
         if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) {
-            throw RenderingException::because('Audio work dir not writable: ' . $dir, 1749400302);
+            $this->logger->error('Audio work dir not writable', ['path' => $dir]);
+
+            throw RenderingException::because('Audio work dir not writable', 1749400302);
         }
 
         $listPath = $dir . '/concat-' . bin2hex(random_bytes(8)) . '.txt';
@@ -85,7 +87,9 @@ final readonly class FfmpegAudioStitcher implements AudioStitcherInterface
         }
 
         if (!is_file($outPath)) {
-            throw RenderingException::because('ffmpeg produced no output at ' . $outPath, 1749400305);
+            $this->logger->error('ffmpeg produced no output', ['path' => $outPath]);
+
+            throw RenderingException::because('ffmpeg produced no output', 1749400305);
         }
 
         return $outPath;

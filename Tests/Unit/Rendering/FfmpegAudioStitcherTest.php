@@ -107,6 +107,40 @@ final class FfmpegAudioStitcherTest extends TestCase
         self::assertSame($stderr, $this->logger->records[0]['context']['stderr'] ?? null);
     }
 
+    public function testASuccessfulConcatWithoutOutputRaisesAFixedMessageAndLogsThePath(): void
+    {
+        $out = $this->tmpDir . '/never-written.mp3';
+
+        try {
+            $this->stitcher(new RecordingProcessRunner())->concat([$this->tmpDir . '/a.mp3'], $out);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffmpeg produced no output', $e->getMessage());
+            self::assertSame(1749400305, $e->getCode());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame($out, $this->logger->records[0]['context']['path'] ?? null);
+    }
+
+    public function testAnUncreatableWorkDirRaisesAFixedMessageAndLogsThePath(): void
+    {
+        $dir          = '/proc/nrrepurpose-not-creatable';
+        $this->logger = new RecordingLogger();
+        $stitcher     = new FfmpegAudioStitcher(new RecordingProcessRunner(), $this->logger, self::FFMPEG, self::FFPROBE, $dir);
+
+        try {
+            $stitcher->concat([$this->tmpDir . '/a.mp3'], $this->tmpDir . '/o.mp3');
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('Audio work dir not writable', $e->getMessage());
+            self::assertSame(1749400302, $e->getCode());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame($dir, $this->logger->records[0]['context']['path'] ?? null);
+    }
+
     public function testProbeDurationBuildsFfprobeArgvAndParsesSeconds(): void
     {
         $runner = new RecordingProcessRunner(new ProcessResult(0, "5.250000\n", ''));
