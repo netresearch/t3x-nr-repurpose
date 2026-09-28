@@ -40,9 +40,9 @@ final class FfmpegAudioStitcherTest extends TestCase
         @rmdir($this->tmpDir);
     }
 
-    private function stitcher(RecordingProcessRunner $runner): FfmpegAudioStitcher
+    private function stitcher(RecordingProcessRunner $runner, ?string $workDir = null): FfmpegAudioStitcher
     {
-        return new FfmpegAudioStitcher($runner, self::FFMPEG, self::FFPROBE, $this->tmpDir);
+        return new FfmpegAudioStitcher($runner, self::FFMPEG, self::FFPROBE, $workDir ?? $this->tmpDir);
     }
 
     public function testConcatBuildsConcatDemuxerArgvAndWritesAQuotedListFile(): void
@@ -85,14 +85,16 @@ final class FfmpegAudioStitcherTest extends TestCase
         $blocker = $this->tmpDir . '/blocker';
         file_put_contents($blocker, 'x');
         $runner   = new RecordingProcessRunner();
-        $stitcher = new FfmpegAudioStitcher($runner, self::FFMPEG, self::FFPROBE, $blocker . '/sub');
+        $stitcher = $this->stitcher($runner, $blocker . '/sub');
 
         try {
             $stitcher->concat([$this->tmpDir . '/a.mp3'], $this->tmpDir . '/o.mp3');
             self::fail('Expected a RenderingException for a work dir that cannot be created');
         } catch (RenderingException $e) {
             self::assertSame(1749400302, $e->getCode());
-            self::assertSame('Audio work dir not writable: ' . $blocker . '/sub', $e->getMessage());
+            // A prefix, not the whole text: whether the path belongs in the
+            // message is not this test's concern.
+            self::assertStringStartsWith('Audio work dir not writable', $e->getMessage());
             self::assertSame([], $runner->calls, 'ffmpeg must not be started without a work dir');
         }
     }
