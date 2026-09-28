@@ -132,7 +132,7 @@ final class PlaywrightHtmlToImageRendererTest extends AbstractFunctionalTestCase
             }
         }
 
-        return sha1($pixels);
+        return hash('sha256', $pixels);
     }
 
     /**
