@@ -20,7 +20,8 @@ use PHPUnit\Framework\TestCase;
  * and Package.providesPackages are present, classic mode reads composer.json
  * and no longer evaluates ext_emconf.php — so a release bump that forgets one
  * of the two ships metadata that disagrees with itself. The release workflow
- * derives the published version from the git tag and checks neither file.
+ * compares the git tag with ext_emconf.php only (publish-to-ter's "Resolve
+ * version" step); nothing there reads composer.json or guides.xml.
  */
 #[CoversNothing]
 final class VersionConsistencyTest extends TestCase
