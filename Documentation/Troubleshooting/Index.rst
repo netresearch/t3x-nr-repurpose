@@ -56,8 +56,11 @@ The artifact error contains ``HTML render failed (exit …)`` followed by the
 renderer's error output. The images are rendered by ``node`` running the
 bundled ``render.cjs``, which starts Chromium.
 
--   ``node`` must be on the worker's ``PATH`` and Chromium installed at
-    ``/usr/bin/chromium`` (see :ref:`configuration-rendering`).
+-   ``node`` must be on the worker's ``PATH``, and the worker's environment
+    must export ``CHROMIUM_PATH`` with the path of the Chromium binary. The
+    error output ``Executable doesn't exist at …`` with a path in Playwright's
+    own browser directory means ``CHROMIUM_PATH`` did not reach the renderer
+    (see :ref:`configuration-rendering`).
 -   The renderer's own dependency must be installed (see
     :ref:`installation-node-renderer`).
 

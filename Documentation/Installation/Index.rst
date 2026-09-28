@@ -125,8 +125,10 @@ Playwright download its own browser:
    cd Resources/Private/NodeRenderer
    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci
 
-The renderer locates Chromium via the ``CHROMIUM_PATH`` environment variable
-(default ``/usr/bin/chromium``). See :ref:`configuration-rendering`.
+The renderer locates Chromium via the ``CHROMIUM_PATH`` environment variable.
+Export it (for example ``CHROMIUM_PATH=/usr/bin/chromium``) in the environment
+the worker starts with; see :ref:`configuration-rendering` for why the value
+must come from there.
 
 .. _installation-openai-key:
 
