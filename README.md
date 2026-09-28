@@ -161,14 +161,18 @@ the three `nr_repurpose_*` configuration presets, and run a Messenger worker —
 the [Installation](Documentation/Installation/Index.rst) and
 [Configuration](Documentation/Configuration/Index.rst) chapters.
 
-### TER / classic mode
+### Composer only — no classic mode
 
-The extension is published in the TYPO3 Extension Repository as
-[`nr_repurpose`](https://extensions.typo3.org/extension/nr_repurpose). In a classic
-(non-Composer) installation, install `nr_llm` and `nr_vault` from the TER first, in
-the versions `nr_repurpose` declares as dependencies, then `nr_repurpose` via
-**Admin Tools › Extensions**. The system binaries, the Node renderer and the worker
-are needed in the same way as for a Composer installation.
+> [!WARNING]
+> nr_repurpose requires a Composer-based TYPO3 installation. Installing it through
+> the Extension Manager (classic mode) is not supported.
+
+PDF ingestion needs the PHP library `smalot/pdfparser`, and the TER package contains
+no `vendor/` directory. The Node renderer needs `playwright-core`, installed from
+`Resources/Private/NodeRenderer/package.json` and `package-lock.json`, and the TER
+package ships only `render.cjs`. The
+[TER entry](https://extensions.typo3.org/extension/nr_repurpose) exists so the
+extension can be found there; install it with Composer.
 
 ### Verifying a release
 

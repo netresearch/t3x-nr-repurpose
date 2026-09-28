@@ -85,29 +85,29 @@ The extension creates two tables:
 
 .. _installation-classic:
 
-Classic mode installation (TER)
-===============================
+Classic mode (TER) is not supported
+===================================
 
-The extension is published in the TYPO3 Extension Repository as
-`nr_repurpose <https://extensions.typo3.org/extension/nr_repurpose>`__. In a
-classic installation without Composer:
+.. warning::
 
-#.  Install ``nr_llm`` and ``nr_vault`` from the TER, in the versions
-    ``nr_repurpose`` declares as dependencies (shown on its TER page).
-#.  Install ``nr_repurpose`` in :guilabel:`Admin Tools > Extensions`
-    (:guilabel:`Get Extensions`), or upload the ZIP file from the TER there.
-#.  Set up the database tables and flush the caches:
+   nr_repurpose requires a Composer-based TYPO3 installation. Installing it
+   through the Extension Manager (classic mode) is not supported.
 
-    .. code-block:: bash
-       :caption: Set up the extension in classic mode
+The extension needs code that only a Composer installation provides:
 
-       typo3/sysext/core/bin/typo3 extension:setup nr_repurpose
-       typo3/sysext/core/bin/typo3 cache:flush
+-   **A PHP library.** PDF ingestion uses :composer:`smalot/pdfparser`, which
+    :path:`composer.json` requires. The TER package contains no
+    :path:`vendor/` directory, so the library is missing in classic mode.
+-   **The Node renderer's dependencies.** The TER package ships only
+    :path:`Resources/Private/NodeRenderer/render.cjs`, without the
+    :path:`package.json` and :path:`package-lock.json` that
+    :ref:`installation-node-renderer` installs ``playwright-core`` from. Without
+    them the Schaubild, story, slide deck and handout cannot be rendered.
 
-The remaining steps are the same as for a Composer installation: the system
-binaries, the Node renderer (under
-:path:`typo3conf/ext/nr_repurpose/Resources/Private/NodeRenderer/`), the
-provider key and the worker.
+The extension is listed in the TYPO3 Extension Repository as
+`nr_repurpose <https://extensions.typo3.org/extension/nr_repurpose>`__ so it
+can be found there. Install it with Composer as described in
+:ref:`installation-composer`.
 
 .. _installation-node-renderer:
 

@@ -15,13 +15,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **README**: badges (CI, codecov, documentation, OpenSSF Scorecard, PHPStan, PHP, TYPO3, licence, latest release, TER), an installation section for Composer and for TER / classic mode, the story video and the two PDF documents in the feature list, and a licence and credits section naming Netresearch DTT GmbH.
+- **README**: badges (CI, codecov, documentation, OpenSSF Scorecard, PHPStan, PHP, TYPO3, licence, latest release, TER), an installation section for Composer that states classic mode (TER) is not supported, the story video and the two PDF documents in the feature list, and a licence and credits section naming Netresearch DTT GmbH.
 - The configuration and architecture chapters are split into subpages (nr-llm wiring, worker environment, AI labelling and publishing; generators). Every link target keeps its name.
 
 ### Fixed
 
 - **The configuration chapter documents `technicalBeUserUid`.** It said the extension has no configuration of its own, while `ext_conf_template.txt` declares five settings; the setting a worker needs to read provider keys from nr-vault was documented nowhere. The chapter now lists the five settings and describes `technicalBeUserUid`.
-- **The installation chapter states the nr-llm range `composer.json` requires** (`^0.35 || ^0.36 || ^0.37 || ^0.38`, it said `^0.25`), adds nr-vault to the requirements, and describes a classic-mode installation from the TER.
+- **The installation chapter states the nr-llm range `composer.json` requires** (`^0.35 || ^0.36 || ^0.37 || ^0.38`, it said `^0.25`), adds nr-vault to the requirements, and states that the extension needs a Composer installation: the TER package carries neither `smalot/pdfparser` nor the Node renderer's `package.json`, so classic mode is not supported.
 - **The changelog page of the rendered documentation covers every release up to 0.8.2.** It stopped at 0.1.0.
 - **The documentation says where `CHROMIUM_PATH` has to be set.** The configuration, installation and architecture chapters said the PHP renderer exports the variable for `render.cjs`. It calls `putenv()`, but Symfony Process passes a child only the variables that were in the environment when PHP started, so the path reaches the renderer only where the worker's environment exports `CHROMIUM_PATH`. The chapters and the troubleshooting page now say so.
 
