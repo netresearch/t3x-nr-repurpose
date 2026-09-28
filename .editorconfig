@@ -20,3 +20,7 @@ indent_size = 2
 # XLIFF: 2-space indentation, the TYPO3 v14 convention
 [*.xlf]
 indent_size = 2
+
+# DDEV custom commands (install) are 2-space shell scripts, like DDEV's own
+[.ddev/commands/**]
+indent_size = 2
