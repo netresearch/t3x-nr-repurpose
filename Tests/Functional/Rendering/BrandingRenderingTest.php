@@ -36,6 +36,9 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
 
     private const FOOTER_LINK = '~<footer\b[^>]*>(?:(?!</footer>).)*?<a href="https://www\.netresearch\.de/"[^>]*>Netresearch DTT GmbH</a>~s';
 
+    /** 14% of the 1920px story height, rounded up. */
+    private const STORY_UI_BAND = 269;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -97,6 +100,26 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
     public function testTheFooterLinksTheCompanyName(string $template, array $variables, int $logos, int $footers): void
     {
         self::assertSame($footers, preg_match_all(self::FOOTER_LINK, $this->render($template, $variables)));
+    }
+
+    /**
+     * Meta's Stories spec asks to keep 14% of a 9:16 story (269 of 1920 px) at the top free
+     * of text and logos, where the progress bar and the profile sit. The template takes the
+     * same 14% at the bottom for the reply bar (Meta's 35% there is for an ad's
+     * call-to-action).
+     * The story stacks its copy from the bottom edge, so the bottom padding decides whether
+     * the company line lands under the reply bar.
+     */
+    public function testTheStoryKeepsLogoAndCompanyLineOutOfTheInstagramUiBands(): void
+    {
+        $html = $this->render('Story/Nr', ['headline' => 'H', 'subline' => 'S', 'role' => 'outro', 'slideIndex' => 3, 'slideTotal' => 3, 'sourceLabel' => 'https://example.com/', 'transparent' => false, 'aiLabel' => null]);
+
+        // padding: top horizontal bottom
+        self::assertSame(1, preg_match('~\.story\s*\{[^}]*\bpadding:\s*\d+px\s+\d+px\s+(\d+)px\s*;~', $html, $padding), 'three-value padding on .story');
+        self::assertSame(1, preg_match('~\.story__header\s*\{[^}]*\btop:\s*(\d+)px~', $html, $top), 'top on .story__header');
+
+        self::assertGreaterThanOrEqual(self::STORY_UI_BAND, (int) $padding[1], 'bottom padding of .story');
+        self::assertGreaterThanOrEqual(self::STORY_UI_BAND, (int) $top[1], 'top of .story__header');
     }
 
     /** @param array<string, mixed> $variables */

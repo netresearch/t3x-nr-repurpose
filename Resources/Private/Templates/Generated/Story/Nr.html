@@ -20,7 +20,11 @@
             box-sizing: border-box;
             width: 1080px;
             height: 1920px;
-            padding: 120px 96px;
+            /* The copy stacks from the bottom edge. 270px keeps it, the company line included,
+               above the reply bar. Meta's Stories spec asks for 14% of the height (269px) at
+               the top; its 35% at the bottom makes room for an ad's call-to-action, which an
+               organic story does not have, so the bottom takes the top's 14%. */
+            padding: 120px 96px 270px;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
@@ -50,10 +54,10 @@
         .story__brand { margin-top: 64px; font-family: 'Raleway', sans-serif; font-weight: 600; font-size: 28px; letter-spacing: 0.5px; }
         .story__brand a { color: inherit; text-decoration: none; }
         /* Symbol-only [n] logo (netresearch-branding logo.md), 120px as the visual anchor.
-           Below the 250px band the Instagram story UI covers, clear of the AI label and the
-           slide indicator above it. The viewBox carries the clear space; the white plate is
-           the solid backing it needs on the teal gradient and over a KI background. */
-        .story__header { position: absolute; top: 264px; left: 96px; }
+           Below the 14% (270px) band the Instagram story UI covers, clear of the AI label and
+           the slide indicator above it. The viewBox carries the clear space; the white plate
+           is the solid backing it needs on the teal gradient and over a KI background. */
+        .story__header { position: absolute; top: 270px; left: 96px; }
         .nr-logo { display: block; width: 120px; height: 120px; }
         .nr-logo svg { display: block; width: 100%; height: 100%; background: #ffffff; border-radius: 16px; }
         /* Visible AI label (ADR-005): own dark plate, legible over any background. */
