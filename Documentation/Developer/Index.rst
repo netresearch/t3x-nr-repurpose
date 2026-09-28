@@ -44,8 +44,8 @@ repository is a small bootstrap: on a fresh clone it runs
 ``-n`` makes ``cgl`` and ``rector`` report only; without it they rewrite the
 files. The default PHP version is 8.5; ``-p`` selects another one. Run the
 code-style check on PHP 8.3, because the CI code-style job uses the first PHP
-version of its matrix. PHPStan runs at level 8 over :path:`Classes/`, as configured in
-:path:`phpstan.neon`.
+version of its matrix. PHPStan runs at level 8 over :path:`Classes/`, as
+configured in :path:`phpstan.neon`.
 
 .. _developer-generator:
 

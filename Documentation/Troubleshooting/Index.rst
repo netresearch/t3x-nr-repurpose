@@ -75,7 +75,8 @@ The podcast or the story video fails with an ffmpeg error
 
 The artifact error contains ``ffmpeg concat failed (exit …)`` or
 ``ffprobe failed (exit …)`` for the podcast, or
-``ffmpeg slideshow failed (exit …)`` for the story video. ``ffmpeg`` and ``ffprobe`` must be on the worker's ``PATH``.
+``ffmpeg slideshow failed (exit …)`` for the story video. ``ffmpeg`` and
+``ffprobe`` must be on the worker's ``PATH``.
 
 .. _troubleshooting-poppler:
 
