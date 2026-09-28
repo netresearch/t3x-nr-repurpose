@@ -2,7 +2,7 @@
 
 $EM_CONF[$_EXTKEY] = [
     'title' => 'Content Repurpose',
-    'description' => 'Turn a webpage or PDF into a podcast, a diagram, an Instagram story and ready-to-use texts (built on nr_llm) - by Netresearch.',
+    'description' => 'Turn a webpage or PDF into a podcast, a diagram, an Instagram story, documents and ready-to-use texts - by Netresearch',
     'category' => 'module',
     'author' => 'Netresearch DTT GmbH',
     'author_email' => 'typo3@netresearch.de',
