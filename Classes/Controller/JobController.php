@@ -70,8 +70,11 @@ class JobController extends ActionController
     public function listAction(int $currentPage = 1): ResponseInterface
     {
         $this->moduleTemplate->setTitle($this->moduleTitle());
-        $paginator = new QueryResultPaginator($this->jobRepository->findAll(), max(1, $currentPage), self::JOBS_PER_PAGE);
-        $jobs      = [];
+        // The upper bound keeps the paginator's offset (page size × page) an integer; it clamps to
+        // the last page itself.
+        $currentPage = min(max(1, $currentPage), intdiv(PHP_INT_MAX, self::JOBS_PER_PAGE));
+        $paginator   = new QueryResultPaginator($this->jobRepository->findAll(), $currentPage, self::JOBS_PER_PAGE);
+        $jobs        = [];
         foreach ($paginator->getPaginatedItems() as $job) {
             $jobs[] = $job;
         }

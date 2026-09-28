@@ -249,6 +249,36 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertSame(1, substr_count($this->renderAction('list', ['currentPage' => 0]), '<td class="col-control">'));
     }
 
+    /**
+     * A page number from the URL beyond the last page shows the last page. Extbase maps a numeric
+     * string above PHP_INT_MAX to PHP_INT_MAX, and the core paginator multiplies the page number by
+     * the page size before it clamps; on PHP 8.5 that float-to-int cast raises a warning, which the
+     * debug preset (exceptionalErrors includes E_WARNING) turns into an exception.
+     */
+    #[Test]
+    public function listActionShowsTheLastPageForAPageNumberTooLargeForAnInteger(): void
+    {
+        for ($i = 0; $i < self::JOBS_PER_PAGE + 5; ++$i) {
+            $this->insertJob('https://example.com/report-' . $i, 'done');
+        }
+
+        $warnings = [];
+        set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+
+            return true;
+        }, E_WARNING);
+        try {
+            $body = $this->renderAction('list', ['currentPage' => '99999999999999999999']);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame([], $warnings);
+        self::assertSame(5, substr_count($body, '<td class="col-control">'));
+        self::assertMatchesRegularExpression('#<span id="nrrepurpose-pagination" class="page-link">\s*Records 26 - 30\s*<span class="visually-hidden">, Page 2 of 2</span>#', $body);
+    }
+
     #[Test]
     public function listActionRunsTheSameNumberOfQueriesForOneJobAsForMoreThanAPage(): void
     {
