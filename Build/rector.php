@@ -54,13 +54,14 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         // except in files that open pull requests are changing at the time
         // this set was raised, to keep those branches free of conflicts.
         // Remove this entry once they are merged and apply the rule there.
+        // Classes/Ingestion is skipped as a directory because a pull request
+        // adds new files with constants there.
         AddTypeToConstRector::class => [
             __DIR__ . '/../Classes/Generator/Image/DallEImageGenerator.php',
             __DIR__ . '/../Classes/Generator/SchaubildGenerator.php',
             __DIR__ . '/../Classes/Generator/Speech/OpenAiSpeechSynthesizer.php',
             __DIR__ . '/../Classes/Ingestion',
-            __DIR__ . '/../Classes/Review',
-            __DIR__ . '/../Classes/Social',
+            __DIR__ . '/../Classes/Social/WebhookSocialPublisher.php',
         ],
     ]);
 };

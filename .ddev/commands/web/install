@@ -10,7 +10,8 @@ cd /var/www/html
 # anything else. In a git worktree .git is a file pointing at a directory
 # outside the project, which is not mounted into this container, so the
 # plugin aborts the install with "invalid .git path". Git hooks belong to the
-# host checkout; a host-side `composer install` installs them.
+# host checkout: a host-side `composer install` installs them in a plain
+# clone, and skips them in a worktree ("We ARRR in a worktree").
 CAPTAINHOOK_DISABLE=true composer install --no-interaction --no-progress
 
 .Build/bin/typo3 setup -n \
