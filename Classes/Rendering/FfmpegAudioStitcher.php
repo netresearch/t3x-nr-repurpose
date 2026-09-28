@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Rendering;
 
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Concatenates ordered mp3 segments into one mp3 using the ffmpeg concat DEMUXER (stream copy,
@@ -17,11 +18,15 @@ use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
  * `ffmpeg -f concat -safe 0 -i <list> -c copy -y <out>`. probeDurationSeconds() reads a file's
  * duration via `ffprobe -show_entries format=duration` for WebVTT cue timing. All binaries
  * (ffmpeg/ffprobe) are baked into the DDEV web-build image (Plan 1 Task 2).
+ *
+ * A failed run throws a fixed message: it reaches the podcast's error_message, which every
+ * module user sees, while ffmpeg's stderr (input paths) goes to the server log only.
  */
 final readonly class FfmpegAudioStitcher implements AudioStitcherInterface
 {
     public function __construct(
         private ProcessRunnerInterface $processRunner,
+        private LoggerInterface $logger,
         private string $ffmpegBinary = 'ffmpeg',
         private string $ffprobeBinary = 'ffprobe',
         private string $workDir = '',
@@ -74,10 +79,9 @@ final readonly class FfmpegAudioStitcher implements AudioStitcherInterface
         }
 
         if (!$result->successful()) {
-            throw RenderingException::because(
-                sprintf('ffmpeg concat failed (exit %d): %s', $result->exitCode, trim($result->stderr)),
-                1749400304,
-            );
+            $this->logger->error('ffmpeg concat failed', ['exitCode' => $result->exitCode, 'stderr' => trim($result->stderr)]);
+
+            throw RenderingException::because(sprintf('ffmpeg concat failed (exit %d)', $result->exitCode), 1749400304);
         }
 
         if (!is_file($outPath)) {
@@ -102,10 +106,9 @@ final readonly class FfmpegAudioStitcher implements AudioStitcherInterface
         );
 
         if (!$result->successful()) {
-            throw RenderingException::because(
-                sprintf('ffprobe failed (exit %d): %s', $result->exitCode, trim($result->stderr)),
-                1749400306,
-            );
+            $this->logger->error('ffprobe failed', ['exitCode' => $result->exitCode, 'stderr' => trim($result->stderr)]);
+
+            throw RenderingException::because(sprintf('ffprobe failed (exit %d)', $result->exitCode), 1749400306);
         }
 
         $value = trim($result->stdout);

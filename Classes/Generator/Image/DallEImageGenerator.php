@@ -82,7 +82,9 @@ final class DallEImageGenerator implements ImageGeneratorInterface
         try {
             $result = $this->dalle->generate($prompt, $this->buildOptions($size));
             if (!$result->saveToFile($outputPath)) {
-                throw RenderingException::because('DALL-E could not save generated image to ' . $outputPath, 1749411000);
+                $this->logger->error('DALL-E could not save generated image', ['path' => $outputPath]);
+
+                throw RenderingException::because('DALL-E could not save generated image', 1749411000);
             }
         } catch (RenderingException $e) {
             throw $e;

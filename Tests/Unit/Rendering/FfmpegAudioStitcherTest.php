@@ -12,8 +12,10 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
 use Netresearch\NrRepurpose\Rendering\FfmpegAudioStitcher;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessResult;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Rendering\Fixture\RecordingProcessRunner;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
 
 final class FfmpegAudioStitcherTest extends TestCase
 {
@@ -22,6 +24,8 @@ final class FfmpegAudioStitcherTest extends TestCase
     private const FFPROBE = '/usr/bin/ffprobe';
 
     private string $tmpDir;
+
+    private RecordingLogger $logger;
 
     protected function setUp(): void
     {
@@ -42,7 +46,9 @@ final class FfmpegAudioStitcherTest extends TestCase
 
     private function stitcher(RecordingProcessRunner $runner): FfmpegAudioStitcher
     {
-        return new FfmpegAudioStitcher($runner, self::FFMPEG, self::FFPROBE, $this->tmpDir);
+        $this->logger = new RecordingLogger();
+
+        return new FfmpegAudioStitcher($runner, $this->logger, self::FFMPEG, self::FFPROBE, $this->tmpDir);
     }
 
     public function testConcatBuildsConcatDemuxerArgvAndWritesAQuotedListFile(): void
@@ -78,12 +84,27 @@ final class FfmpegAudioStitcherTest extends TestCase
         $this->stitcher(new RecordingProcessRunner())->concat([], $this->tmpDir . '/o.mp3');
     }
 
-    public function testConcatFailureExitRaisesRenderingException(): void
+    /**
+     * ffmpeg's stderr names the input files (absolute temp paths). The exception message
+     * reaches the podcast's error_message, shown to every module user, so stderr goes to
+     * the server log only.
+     */
+    public function testConcatFailureExitRaisesAFixedMessageAndLogsStderr(): void
     {
-        $runner = new RecordingProcessRunner(new ProcessResult(1, '', 'Invalid data found'));
-        $this->expectException(RenderingException::class);
-        $this->expectExceptionMessageMatches('/Invalid data found/');
-        $this->stitcher($runner)->concat([$this->tmpDir . '/a.mp3'], $this->tmpDir . '/o.mp3');
+        $stderr = $this->tmpDir . '/a.mp3: Invalid data found when processing input';
+        $runner = new RecordingProcessRunner(new ProcessResult(1, '', $stderr));
+
+        try {
+            $this->stitcher($runner)->concat([$this->tmpDir . '/a.mp3'], $this->tmpDir . '/o.mp3');
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffmpeg concat failed (exit 1)', $e->getMessage());
+            self::assertSame(1749400304, $e->getCode());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame(LogLevel::ERROR, $this->logger->records[0]['level']);
+        self::assertSame($stderr, $this->logger->records[0]['context']['stderr'] ?? null);
     }
 
     public function testProbeDurationBuildsFfprobeArgvAndParsesSeconds(): void
@@ -105,10 +126,21 @@ final class FfmpegAudioStitcherTest extends TestCase
         );
     }
 
-    public function testProbeFailureExitRaisesRenderingException(): void
+    public function testProbeFailureExitRaisesAFixedMessageAndLogsStderr(): void
     {
-        $runner = new RecordingProcessRunner(new ProcessResult(1, '', 'No such file'));
-        $this->expectException(RenderingException::class);
-        $this->stitcher($runner)->probeDurationSeconds($this->tmpDir . '/missing.mp3');
+        $stderr = $this->tmpDir . '/missing.mp3: No such file or directory';
+        $runner = new RecordingProcessRunner(new ProcessResult(1, '', $stderr));
+
+        try {
+            $this->stitcher($runner)->probeDurationSeconds($this->tmpDir . '/missing.mp3');
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffprobe failed (exit 1)', $e->getMessage());
+            self::assertSame(1749400306, $e->getCode());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame(LogLevel::ERROR, $this->logger->records[0]['level']);
+        self::assertSame($stderr, $this->logger->records[0]['context']['stderr'] ?? null);
     }
 }

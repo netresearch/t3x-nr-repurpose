@@ -13,7 +13,10 @@ use Netresearch\NrRepurpose\Rendering\FfmpegSlideshowRenderer;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessResult;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
+use Psr\Log\NullLogger;
 
 /**
  * The ffmpeg command the renderer builds. The filter graph is the one that was run
@@ -22,6 +25,9 @@ use PHPUnit\Framework\TestCase;
  */
 final class FfmpegSlideshowRendererTest extends TestCase
 {
+    /** What the fake ffmpeg prints on a failed run: an input path, as the real one does. */
+    public const STDERR = '/var/www/html/var/transient/slide-1.png: No such file or directory';
+
     /** @var list<list<string>> */
     private array $commands = [];
 
@@ -38,14 +44,14 @@ final class FfmpegSlideshowRendererTest extends TestCase
                     file_put_contents($command[count($command) - 1], 'mp4');
                 }
 
-                return new ProcessResult($this->exitCode, '', $this->exitCode === 0 ? '' : 'Invalid filter');
+                return new ProcessResult($this->exitCode, '', $this->exitCode === 0 ? '' : FfmpegSlideshowRendererTest::STDERR);
             }
         };
     }
 
     public function testTheCommandZoomsEveryImageCrossFadesAndTagsTheFile(): void
     {
-        $renderer = new FfmpegSlideshowRenderer($this->runner(), '/usr/bin/ffmpeg', sys_get_temp_dir());
+        $renderer = new FfmpegSlideshowRenderer($this->runner(), new NullLogger(), '/usr/bin/ffmpeg', sys_get_temp_dir());
 
         $out = $renderer->render(['/tmp/a.png', '/tmp/b.png', '/tmp/c.png'], 1080, 1920, 4.0, [
             'comment'        => 'AI-generated with nr_repurpose — test',
@@ -76,24 +82,38 @@ final class FfmpegSlideshowRendererTest extends TestCase
 
     public function testASingleImageNeedsNoFade(): void
     {
-        $filter = (new FfmpegSlideshowRenderer($this->runner()))->filter(1, 1080, 1920, 4.0);
+        $filter = (new FfmpegSlideshowRenderer($this->runner(), new NullLogger()))->filter(1, 1080, 1920, 4.0);
 
         self::assertStringEndsWith(';[v0]null[vout]', $filter);
         self::assertStringNotContainsString('xfade', $filter);
     }
 
-    public function testAFailedRunIsARenderingError(): void
+    /**
+     * ffmpeg's stderr names the input images (absolute temp paths). The exception message
+     * reaches the story artifact's error_message, shown to every module user, so stderr
+     * goes to the server log only.
+     */
+    public function testAFailedRunIsARenderingErrorWithAFixedMessageAndLoggedStderr(): void
     {
-        $this->expectException(RenderingException::class);
-        $this->expectExceptionMessage('ffmpeg slideshow failed (exit 1): Invalid filter');
+        $logger = new RecordingLogger();
 
-        (new FfmpegSlideshowRenderer($this->runner(1, false)))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+        try {
+            (new FfmpegSlideshowRenderer($this->runner(1, false), $logger))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffmpeg slideshow failed (exit 1)', $e->getMessage());
+            self::assertSame(1749400402, $e->getCode());
+        }
+
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
+        self::assertSame(self::STDERR, $logger->records[0]['context']['stderr'] ?? null);
     }
 
     public function testAFailedRunLeavesNoPartialVideo(): void
     {
         try {
-            (new FfmpegSlideshowRenderer($this->runner(1, true), 'ffmpeg', sys_get_temp_dir()))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+            (new FfmpegSlideshowRenderer($this->runner(1, true), new NullLogger(), 'ffmpeg', sys_get_temp_dir()))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
             self::fail('Expected a rendering error');
         } catch (RenderingException) {
         }
@@ -108,6 +128,6 @@ final class FfmpegSlideshowRendererTest extends TestCase
         $this->expectException(RenderingException::class);
         $this->expectExceptionCode(1749400403);
 
-        (new FfmpegSlideshowRenderer($this->runner(0, false)))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+        (new FfmpegSlideshowRenderer($this->runner(0, false), new NullLogger()))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
     }
 }

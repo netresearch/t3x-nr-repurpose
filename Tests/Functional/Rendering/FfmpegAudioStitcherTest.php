@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Rendering;
 use Netresearch\NrRepurpose\Rendering\FfmpegAudioStitcher;
 use Netresearch\NrRepurpose\Rendering\Process\SymfonyProcessRunner;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Psr\Log\NullLogger;
 use Symfony\Component\Process\Process;
 
 final class FfmpegAudioStitcherTest extends AbstractFunctionalTestCase
@@ -66,7 +67,7 @@ final class FfmpegAudioStitcherTest extends AbstractFunctionalTestCase
         $this->makeTone($a, 1.0);
         $this->makeTone($b, 2.0);
 
-        $stitcher = new FfmpegAudioStitcher(new SymfonyProcessRunner(), 'ffmpeg', 'ffprobe', $this->tmpDir);
+        $stitcher = new FfmpegAudioStitcher(new SymfonyProcessRunner(), new NullLogger(), 'ffmpeg', 'ffprobe', $this->tmpDir);
 
         $result = $stitcher->concat([$a, $b], $out);
         self::assertSame($out, $result);
