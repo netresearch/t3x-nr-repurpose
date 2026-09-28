@@ -3,14 +3,17 @@
 [![CI](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/netresearch/t3x-nr-repurpose/graph/badge.svg)](https://codecov.io/gh/netresearch/t3x-nr-repurpose)
 [![Documentation](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/docs.yml/badge.svg)](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/docs.yml)
+
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/netresearch/t3x-nr-repurpose/badge)](https://securityscorecards.dev/viewer/?uri=github.com/netresearch/t3x-nr-repurpose)
+
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg)](https://phpstan.org/)
 [![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-blue.svg)](https://www.php.net/)
 [![TYPO3 v14.3](https://img.shields.io/badge/TYPO3-v14.3-orange.svg)](https://typo3.org/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/netresearch/t3x-nr-repurpose)](https://github.com/netresearch/t3x-nr-repurpose/releases)
-[![TER version](https://typo3-badges.dev/badge/nr_repurpose/version/shields.svg)](https://extensions.typo3.org/extension/nr_repurpose)
+
 [![TER TYPO3](https://typo3-badges.dev/badge/nr_repurpose/typo3/shields.svg)](https://extensions.typo3.org/extension/nr_repurpose)
+[![TER version](https://typo3-badges.dev/badge/nr_repurpose/version/shields.svg)](https://extensions.typo3.org/extension/nr_repurpose)
 
 A TYPO3 extension by [Netresearch DTT GmbH](https://www.netresearch.de/).
 
