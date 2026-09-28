@@ -9,7 +9,12 @@
     does not normalise the Build/../.Build/ paths a baseline under Build/ would
     record, so such a baseline never matches. Delete the entries once nr-vault
     and nr-llm release their fixes. A new deprecation, or a changed message
-    from either dependency, fails the suite.
+    from either dependency, fails the suite. So does a TYPO3 14.3.x release
+    that moves either trigger line: PHPUnit 11.5 matches a baseline entry on
+    file, line and message together. To regenerate, run
+    ./Build/Scripts/runTests.sh -s functional with PHPUnit's generate-baseline
+    option set to phpunit-baseline.xml (a double dash cannot appear in an XML
+    comment); it writes the file in the repository root.
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.5/phpunit.xsd"
