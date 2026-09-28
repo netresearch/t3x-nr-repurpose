@@ -96,7 +96,7 @@ final class PlaywrightHtmlToImageRendererTest extends AbstractFunctionalTestCase
 
     /**
      * No request may leave the renderer for anything but the template web fonts: an injected
-     * <img> or CSS background to a local address must not reach it.
+     * <img>, CSS background, stylesheet or prefetch hint to a local address must not reach it.
      */
     public function testInjectedResourceRequestsDoNotLeaveTheRenderer(): void
     {
@@ -108,6 +108,8 @@ final class PlaywrightHtmlToImageRendererTest extends AbstractFunctionalTestCase
             . '<img src="http://' . $address . '/img">'
             . '<div style="width:10px;height:10px;background:url(http://' . $address . '/bg)"></div>'
             . '<link rel="stylesheet" href="http://' . $address . '/css">'
+            // Chromium sends prefetches without passing them through Playwright's request routing.
+            . '<link rel="prefetch" href="http://' . $address . '/prefetch">'
             . '</body></html>';
 
         $renderer = $this->renderer();

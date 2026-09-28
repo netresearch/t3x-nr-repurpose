@@ -54,6 +54,12 @@ function arg(name, def) {
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--force-color-profile=srgb'],
         executablePath: process.env.CHROMIUM_PATH || undefined, // apt chromium
+        // The route below does not see every request: Chromium sends <link rel=prefetch>
+        // itself, and follows a redirect from an allowed host without asking the route
+        // again. So the network layer only reaches the font hosts directly; everything else
+        // goes to a proxy address nothing listens on and fails. Playwright adds <-loopback>,
+        // so 127.0.0.1 and localhost take the dead proxy too.
+        proxy: { server: 'http://127.0.0.1:9', bypass: [...ALLOWED_HOSTS].join(',') },
     });
 
     try {

@@ -49,6 +49,10 @@ through Playwright, and composite separately with GD.
    request except HTTPS ``GET`` requests for stylesheets and fonts from
    ``fonts.googleapis.com`` and ``fonts.gstatic.com`` — the web fonts the
    templates ``@import``. ``data:`` and ``blob:`` URLs stay available.
+   The route does not see a ``<link rel="prefetch">`` or the target of a
+   redirect, so Chromium is also launched with a proxy address nothing listens
+   on, bypassed only for the two font hosts: any request the route misses
+   fails at the network layer, loopback addresses included.
 
 2. **A PHP boundary that shells out safely.**
    :php:`PlaywrightHtmlToImageRenderer` builds the argv, passes HTML on stdin
