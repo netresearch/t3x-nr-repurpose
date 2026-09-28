@@ -83,10 +83,11 @@ without the fix.
    links.
    `composer.json` carries no version.
 2. Push a signed annotated tag `vX.Y.Z` on the merge commit. The tag push
-   starts `.github/workflows/release.yml`: it builds and signs the archives,
-   publishes to TER, waits until Packagist lists the version, checks that
-   docs.typo3.org rendered it (not a gate), and — only after TER and Packagist
-   succeeded — creates the GitHub release.
+   starts `.github/workflows/release.yml`: it builds the archives and signs
+   them with Cosign, publishes to TER, waits until Packagist lists the
+   version, checks that Intercept accepted the docs.typo3.org render (a render
+   run exists; it does not wait for the result and never gates), and — only
+   after TER and Packagist succeeded — creates the GitHub release.
 
 If a release ran only partly, `.github/workflows/republish.yml` (manual
 `workflow_dispatch`, inputs `tag` and `target`: `all`, `ter`, `packagist` or
@@ -94,10 +95,10 @@ If a release ran only partly, `.github/workflows/republish.yml` (manual
 
 - `ter` uploads the version to TER unless TER already has it, and syncs the
   TER listing metadata.
-- `packagist` and `docs` only check that Packagist and docs.typo3.org serve
-  the version. They cannot trigger either: Packagist updates through its
-  GitHub hook, docs.typo3.org renders through the repository webhook on the
-  tag push.
+- `packagist` only checks that Packagist lists the version, and `docs` only
+  checks that Intercept has a render run for it. They cannot trigger either:
+  Packagist updates through its GitHub hook, docs.typo3.org renders through
+  the Intercept webhook on the tag push.
 - It never creates or edits the GitHub release. If the release is missing
   because the release run stopped before creating it, re-run the failed
   `release.yml` run for that tag instead.
