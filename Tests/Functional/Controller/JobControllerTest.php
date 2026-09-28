@@ -294,9 +294,10 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertSame($rows, substr_count($body, '<span class="text-danger" role="img" title="Schaubild: Failed"'));
 
         // The backend session write-back varies between requests and has nothing to do with the list.
+        // The identifier is quoted per platform: "be_sessions" on SQLite, `be_sessions` on MariaDB.
         QueryCountingMiddleware::$queries = array_values(array_filter(
             QueryCountingMiddleware::$queries,
-            static fn (string $sql): bool => !str_contains($sql, '"be_sessions"'),
+            static fn (string $sql): bool => preg_match('/^UPDATE [`"]?be_sessions[`"]? /', $sql) !== 1,
         ));
 
         return count(QueryCountingMiddleware::$queries);
