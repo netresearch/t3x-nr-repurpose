@@ -58,8 +58,9 @@ final class PdfFileResolverTest extends TestCase
         self::assertSame('%PDF-1.7 body', $body);
         $options = $http->handler->getLastOptions();
         self::assertSame(PdfFileResolver::TIMEOUT_SECONDS, $options[RequestOptions::TIMEOUT]);
-        self::assertTrue($options[RequestOptions::STREAM]);
         self::assertFalse($options[RequestOptions::ALLOW_REDIRECTS]);
+        self::assertFalse($options[RequestOptions::DECODE_CONTENT]);
+        self::assertIsCallable($options[RequestOptions::PROGRESS]);
     }
 
     public function testRefusesAPdfLargerThanTheLimit(): void

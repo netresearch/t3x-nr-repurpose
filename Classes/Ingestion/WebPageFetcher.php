@@ -47,7 +47,7 @@ class WebPageFetcher
         $this->guard->assertAllowed($request->getUri());
 
         try {
-            $response = $this->httpClient->send($request, BoundedResponseReader::requestOptions(self::TIMEOUT_SECONDS));
+            $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
         } catch (ClientExceptionInterface $e) {
             throw new IngestionException('URL not reachable: ' . $url, 1749379410, $e);
         }
