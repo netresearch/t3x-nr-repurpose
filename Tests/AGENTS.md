@@ -11,7 +11,7 @@ TYPO3 extension test suite. **Use the `typo3-testing` skill** for comprehensive 
 ## Key Files
 | File | Purpose |
 |------|---------|
-| `Build/phpunit.xml` | Unit (+ fuzzy/integration testsuite) config |
+| `Build/phpunit.xml` | Unit config (one `unit` testsuite) |
 | `Build/FunctionalTests.xml` | Functional config (sqlite default) |
 | `Tests/Functional/Persistence/JobProcessingRepositoryTest.php` | Repository/DB reference test |
 | `Tests/Functional/Rendering/FfmpegAudioStitcherTest.php` | Real-binary smoke test (ffmpeg) |
@@ -22,7 +22,8 @@ TYPO3 extension test suite. **Use the `typo3-testing` skill** for comprehensive 
 ## Golden Samples (follow these patterns)
 | Pattern | Reference |
 |---------|-----------|
-| Functional (DB, CSV fixtures) | `Tests/Functional/Persistence/JobProcessingRepositoryTest.php` |
+| Functional (DB rows via DBAL) | `Tests/Functional/Persistence/JobProcessingRepositoryTest.php` |
+| Functional (CSV fixtures) | `Tests/Functional/Service/CapabilityGrantResolverTest.php` |
 | Functional (real binaries) | `Tests/Functional/Rendering/PlaywrightHtmlToImageRendererTest.php` |
 | Unit | `Tests/Unit/Rendering/GdImageCompositorTest.php` |
 <!-- AGENTS-GENERATED:END golden-samples -->
@@ -31,9 +32,9 @@ TYPO3 extension test suite. **Use the `typo3-testing` skill** for comprehensive 
 ## Test Structure
 ```
 Tests/
-├── Unit/          # Domain, Fixture, Generator, Ingestion, Pipeline, Rendering, Service, Understanding
-├── Functional/    # Domain, Generator, Ingestion, Persistence, Queue, Rendering, Resource, Service
-└── Fixtures/      # Pdf/ and Web/ sample inputs shared by both suites
+├── Unit/          # Controller, Domain, Fixture, Generator, Ingestion, Pipeline, Provenance, Rendering, Service, Social, Understanding
+├── Functional/    # Controller, Domain, Fixtures, Generator, Ingestion, Persistence, Queue, Rendering, Resource, Review, Service
+└── Fixtures/      # Audio/, Document/, Image/, Pdf/, Video/, Web/ sample files shared by both suites
 ```
 PHPUnit configs live in `Build/` (repo root), not under `Tests/`: `Build/phpunit.xml` and `Build/FunctionalTests.xml` — the locations the shared runner finds without a conf.
 <!-- AGENTS-GENERATED:END structure -->
@@ -55,10 +56,10 @@ PHPUnit configs live in `Build/` (repo root), not under `Tests/`: `Build/phpunit
 
 <!-- AGENTS-GENERATED:START patterns -->
 ## Key Patterns (TYPO3-specific)
-- Unit tests extend `\TYPO3\TestingFramework\Core\Unit\UnitTestCase`
-- Functional tests extend `\TYPO3\TestingFramework\Core\Functional\FunctionalTestCase`
+- Unit tests extend `\PHPUnit\Framework\TestCase` (none use the testing framework's `UnitTestCase`)
+- Functional tests extend `Tests/Functional/AbstractFunctionalTestCase.php` (a `FunctionalTestCase`)
 - Use `$this->importCSVDataSet()` for functional test fixtures
-- Define `$testExtensionsToLoad` for extension dependencies
+- `$testExtensionsToLoad` is set in `AbstractFunctionalTestCase` (nr-vault, nr-llm, nr-repurpose); a test needing a fixture extension overrides the full list (see `Tests/Functional/Resource/JobFileStorageIndexingTest.php`)
 - Use `GeneralUtility::makeInstance()` for DI-aware instantiation in functional tests
 <!-- AGENTS-GENERATED:END patterns -->
 
@@ -92,7 +93,7 @@ Nothing beyond Docker — the runner provisions PHP images itself. First run of
 See Golden Samples above — real tests beat generic snippets.
 
 ## When stuck
-- Verbose run: `./Build/Scripts/runTests.sh -s unit -v`
+- Verbose run: `./Build/Scripts/runTests.sh -s unit --debug` (a `--long` option and everything after it goes to phpunit; the runner itself has no `-v`)
 - Root `AGENTS.md` for tool provisioning (cgl/phpstan/rector ship via `netresearch/typo3-ci-workflows`)
 
 <!-- AGENTS-GENERATED:START skill-reference -->
