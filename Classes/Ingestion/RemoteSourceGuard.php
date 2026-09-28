@@ -77,7 +77,7 @@ final readonly class RemoteSourceGuard
         }
 
         $isIpLiteral = filter_var($host, FILTER_VALIDATE_IP) !== false;
-        if (!$isIpLiteral && self::isNumericIpv4Spelling($host)) {
+        if (!$isIpLiteral && $this->isNumericIpv4Spelling($host)) {
             // "2130706433", "0x7f.1", "0177.0.0.1": the HTTP client reads these as an
             // IPv4 address, the platform resolver may read them differently (macOS
             // takes 0177 as decimal) or ask DNS, so judging its answer would judge
@@ -114,7 +114,7 @@ final readonly class RemoteSourceGuard
      * One to four dot-separated parts, each decimal, 0x-prefixed hexadecimal or
      * 0-prefixed octal: the inet_aton() shape that transports read as an address.
      */
-    private static function isNumericIpv4Spelling(string $host): bool
+    private function isNumericIpv4Spelling(string $host): bool
     {
         $parts = explode('.', $host);
         if (count($parts) > 4) {
@@ -143,7 +143,7 @@ final readonly class RemoteSourceGuard
             return true;
         }
 
-        $packed = self::embeddedIpv4((string) inet_pton($address));
+        $packed = $this->embeddedIpv4((string) inet_pton($address));
 
         foreach (self::BLOCKED_RANGES as $range) {
             if ($this->inRange($packed, $range)) {
@@ -160,7 +160,7 @@ final readonly class RemoteSourceGuard
      * which also holds :: and ::1), the NAT64 well-known prefix 64:ff9b::/96 and
      * 6to4 2002::/16. Any other address comes back unchanged.
      */
-    private static function embeddedIpv4(string $packed): string
+    private function embeddedIpv4(string $packed): string
     {
         if (strlen($packed) !== 16) {
             return $packed;
