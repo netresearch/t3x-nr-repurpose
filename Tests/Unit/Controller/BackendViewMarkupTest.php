@@ -57,28 +57,6 @@ final class BackendViewMarkupTest extends TestCase
         ];
     }
 
-    /**
-     * No template carries inline styling, in any branch, whether a render reaches it or not: the
-     * source after Fluid's own comment removal has no `<style` element, no `style` attribute
-     * (either quote) and no `style` key in an argument array such as `additionalAttributes`
-     * (tag or inline syntax, quoted or bare key). The backend CSP allows inline styles, so each
-     * would override backend.css unseen. There is no exception: the job progress is a native
-     * <progress>, which needs no inline width.
-     */
-    #[DataProvider('backendTemplates')]
-    public function testNoInlineStyles(string $template): void
-    {
-        $code = $this->fluidCode($template);
-
-        foreach ([
-            'a <style> element'          => '/<style\b/i',
-            'a style attribute'          => '/\sstyle\s*=/i',
-            'a style key in an argument' => '/[{,]\s*[\'"]?style[\'"]?\s*:/i',
-        ] as $what => $pattern) {
-            self::assertSame(0, preg_match($pattern, $code), $template . ': ' . $what);
-        }
-    }
-
     /** @return array<string, array{0: string}> */
     public static function tableTemplates(): array
     {

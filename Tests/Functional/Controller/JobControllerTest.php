@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Controller;
 
+use DOMElement;
+use Masterminds\HTML5;
 use Netresearch\NrRepurpose\Controller\JobController;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -210,12 +212,27 @@ final class JobControllerTest extends AbstractFunctionalTestCase
             self::assertMatchesRegularExpression('/\s(?:src|nonce)=/i', $tag, $action . ': ' . $tag);
         }
 
-        $start = strpos($body, '<div class="module-body t3js-module-body">');
-        self::assertIsInt($start, $action . ': module body not found');
-        $moduleBody = substr($body, $start);
-        self::assertSame(0, preg_match('/<style\b/i', $moduleBody), $action . ': <style> element in the module body');
-        preg_match_all('/<[^>]*\sstyle\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)[^>]*>/i', $moduleBody, $styled);
-        self::assertSame([], $styled[0], $action . ': inline style in the module body');
+        // The rendered page read with the HTML5 parser TYPO3 core installs, so attribute spelling
+        // (quotes, missing whitespace) cannot hide a style attribute from the check.
+        $document   = (new HTML5(['disable_html_ns' => true]))->loadHTML($body);
+        $moduleBody = null;
+        foreach ($document->getElementsByTagName('div') as $div) {
+            if (in_array('module-body', explode(' ', $div->getAttribute('class')), true)) {
+                $moduleBody = $div;
+                break;
+            }
+        }
+
+        self::assertInstanceOf(DOMElement::class, $moduleBody, $action . ': module body not found');
+
+        $styled = [];
+        foreach ($moduleBody->getElementsByTagName('*') as $element) {
+            if ($element->tagName === 'style' || $element->hasAttribute('style')) {
+                $styled[] = '<' . $element->tagName . ' style="' . $element->getAttribute('style') . '">';
+            }
+        }
+
+        self::assertSame([], $styled, $action . ': inline style in the module body');
     }
 
     #[Test]
