@@ -15,7 +15,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **README**: a badge row (CI, codecov, documentation, OpenSSF Scorecard, PHPStan, PHP, TYPO3, licence, latest release, TER), an installation section for Composer and for TER / classic mode, the story video and the two PDF documents in the feature list, and a licence and credits section naming Netresearch DTT GmbH.
+- **README**: badges (CI, codecov, documentation, OpenSSF Scorecard, PHPStan, PHP, TYPO3, licence, latest release, TER), an installation section for Composer and for TER / classic mode, the story video and the two PDF documents in the feature list, and a licence and credits section naming Netresearch DTT GmbH.
 - The configuration and architecture chapters are split into subpages (nr-llm wiring, worker environment, AI labelling and publishing; generators). Every link target keeps its name.
 
 ### Fixed
