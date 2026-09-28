@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-09-27 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-09-28 -->
 
 # AGENTS.md — Tests
 
@@ -60,13 +60,13 @@ PHPUnit configs live in `Build/` (repo root), not under `Tests/`: `Build/phpunit
 - Functional tests extend `Tests/Functional/AbstractFunctionalTestCase.php` (a `FunctionalTestCase`)
 - Use `$this->importCSVDataSet()` for functional test fixtures
 - `$testExtensionsToLoad` is set in `AbstractFunctionalTestCase` (nr-vault, nr-llm, nr-repurpose); a test needing a fixture extension overrides the full list (see `Tests/Functional/Resource/JobFileStorageIndexingTest.php`)
-- Use `GeneralUtility::makeInstance()` for DI-aware instantiation in functional tests
+- Functional tests take services from the container with `$this->get(Foo::class)`; `GeneralUtility::makeInstance()` only for `ConnectionPool`
 <!-- AGENTS-GENERATED:END patterns -->
 
 <!-- AGENTS-GENERATED:START code-style -->
 ## Code Style
 - Test class name matches source: `MyClass` → `MyClassTest`
-- Test methods: `test` prefix or `@test` annotation
+- Test methods: `test` prefix or the `#[Test]` attribute — never `@test` (PHPUnit 11 deprecates doc-comment metadata, 12 drops it)
 - One assertion concept per test
 - Use data providers for multiple similar cases
 - Mock external services, never real HTTP calls
