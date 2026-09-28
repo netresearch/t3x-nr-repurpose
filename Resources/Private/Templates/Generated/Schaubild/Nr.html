@@ -57,6 +57,11 @@
         .schaubild__footer { margin-top: 40px; font-size: 14px; color: var(--nr-text); }
         /* #15585E, not the brand #2F99A4: a 14px link needs 4.5:1, #2F99A4 has 3.38:1 on white. */
         .schaubild__footer a { color: #15585E; text-decoration: none; }
+        <f:if condition="{transparent}">
+            /* Over a KI background the footer gets the logo's white plate, so the link keeps
+               its 8.11:1 whatever lies behind it. */
+            .schaubild__footer { display: table; padding: 4px 10px; border-radius: 4px; background: #ffffff; }
+        </f:if>
         /* Visible AI label (ADR-005): own dark plate, legible over any background. */
         .ai-label {
             position: absolute;

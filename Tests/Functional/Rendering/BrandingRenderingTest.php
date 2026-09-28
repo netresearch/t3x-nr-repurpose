@@ -142,6 +142,30 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
         }
     }
 
+    /** @return array<string, array{0: string, 1: array<string, mixed>, 2: string}> template, variables, footer selector */
+    public static function transparentFooters(): array
+    {
+        return [
+            'Schaubild' => ['Schaubild/Nr', ['title' => 'T', 'bodyHtml' => '<p>B</p>', 'language' => 'de', 'aiLabel' => null], 'schaubild__footer'],
+            'Story'     => ['Story/Nr', ['headline' => 'H', 'subline' => 'S', 'role' => 'outro', 'slideIndex' => 3, 'slideTotal' => 3, 'sourceLabel' => 'https://example.com/', 'aiLabel' => null], 'story__brand'],
+        ];
+    }
+
+    /**
+     * The transparent render is composited over a KI background, where the footer text alone
+     * is illegible over light parts; it gets a white plate there, the opaque render does not.
+     *
+     * @param array<string, mixed> $variables
+     */
+    #[DataProvider('transparentFooters')]
+    public function testTheFooterHasAWhitePlateOnlyOverAKiBackground(string $template, array $variables, string $footer): void
+    {
+        $plate = '~\.' . $footer . '\s*\{[^}]*\bbackground:\s*#ffffff;~';
+
+        self::assertSame(1, preg_match($plate, $this->render($template, $variables + ['transparent' => true])), 'plate in the transparent render');
+        self::assertSame(0, preg_match($plate, $this->render($template, $variables + ['transparent' => false])), 'no plate in the opaque render');
+    }
+
     /** @param array<string, mixed> $variables */
     private function render(string $template, array $variables): string
     {
