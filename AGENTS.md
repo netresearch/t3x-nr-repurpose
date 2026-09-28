@@ -1,13 +1,13 @@
 <!-- FOR AI AGENTS - Human readability is a side effect, not a goal -->
 <!-- Managed by agent: keep sections and order; edit content, not structure -->
-<!-- Last updated: 2026-09-27 | Last verified: 2026-09-27 -->
+<!-- Last updated: 2026-09-28 | Last verified: 2026-09-28 -->
 
 # AGENTS.md
 
 **Precedence:** the **closest `AGENTS.md`** to the files you're changing wins. Root holds global defaults only.
 
 ## Overview
-TYPO3 v14 extension `nr_repurpose` (`netresearch/nr-repurpose`): turns a URL or PDF into a podcast, a diagram (Schaubild), a story carousel and four text formats from the TYPO3 backend. Every AI call goes through nr-llm. Pipeline: see `## Architecture` below; component map in `docs/ARCHITECTURE.md`; user docs in `Documentation/`; human contributor flow in `CONTRIBUTING.md`.
+TYPO3 v14 extension `nr_repurpose` (`netresearch/nr-repurpose`): turns a URL or PDF into a podcast, a diagram (Schaubild), a story carousel (optionally as MP4 video), four text formats, and a slide deck and a handout (PDF) from the TYPO3 backend. Every AI call goes through nr-llm. Pipeline: see `## Architecture` below; component map in `docs/ARCHITECTURE.md`; user docs in `Documentation/`; human contributor flow in `CONTRIBUTING.md`.
 
 ## Setup / Environment
 ```bash
@@ -16,9 +16,9 @@ ddev start && ddev install      # TYPO3 v14.3 into .Build/Web, key stored in nr-
 ```
 - Tests need only Docker plus, on the very first run, `composer` on the host: `Build/Scripts/runTests.sh` is a stub that runs `composer install` to fetch the shared runner into `.Build/bin/`.
 - `OPENAI_API_KEY` is dev-only; `.ddev/commands/web/install` reads it. The extension never reads a key — production keys live in nr-llm/nr-vault.
-- `CHROMIUM_PATH` is set by `Classes/Rendering/PlaywrightHtmlToImageRenderer.php` from its `chromiumPath` argument (default `/usr/bin/chromium`) for `render.cjs`; exporting it in your shell changes nothing. Worker binaries (node, chromium, ffmpeg, poppler): see `Documentation/Installation/Index.rst`.
+- `CHROMIUM_PATH`: `render.cjs` reads it. `Classes/Rendering/PlaywrightHtmlToImageRenderer.php` `putenv()`s its `chromiumPath` argument (default `/usr/bin/chromium`), but Symfony Process passes on only `getenv()` keys that are also in `$_SERVER`: the value reaches node only if `CHROMIUM_PATH` was already exported when PHP started (the DDEV web image does), otherwise Playwright looks for its own browser. Worker binaries (node, chromium, ffmpeg, poppler): see `Documentation/Installation/Index.rst`.
 
-## Commands (verified 2026-09-27)
+## Commands (verified 2026-09-28)
 > ALWAYS via the Docker test runner — NEVER `phpunit`/`php-cs-fixer` directly.
 
 <!-- AGENTS-GENERATED:START commands -->
@@ -80,7 +80,7 @@ Shared helpers — generator base methods, `Classes/Generator/Support/*` (text l
 | Changing models/prompts | Edit nr-llm Configuration records (`nr_repurpose_image`, `nr_repurpose_tts`, instance default for text) — never hardcode model ids beyond documented fallbacks |
 | Steering generation | nr-llm prompt snippets, tags `audience` / `tone_of_voice` / `persona` / `layout` / `style`; layout metadata `{"imageSize":"WxH"}` drives AI-image dimensions |
 | Committing | Conventional Commits + `git commit -S -s` (DCO + SSH signing enforced) |
-| Merging a PR | `--merge`, directly — this repo has NO merge queue; gate: threads resolved + checks green + no in-flight review |
+| Merging a PR | `--merge`, directly — this repo has NO merge queue; gate: 1 approving review + threads resolved + checks green + no in-flight review |
 | Running locally | See `## Setup / Environment` above |
 | Adding dependency | Ask first — we minimize deps |
 <!-- AGENTS-GENERATED:END heuristics -->
@@ -95,10 +95,10 @@ Shared helpers — generator base methods, `Classes/Generator/Support/*` (text l
 <!-- AGENTS-GENERATED:START ci-rules -->
 ## CI (reusable netresearch/typo3-ci-workflows)
 - `ci.yml` sets `run-cgl`, `run-phpstan`, `run-rector`, `run-unit-tests`, `run-functional-tests: true`; matrix PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3
-- Per PHP version: lint, PHPStan, unit, functional (SQLite, the reusable default); once on PHP 8.3 (first matrix entry): cgl, rector; plus a docs render of `Documentation/guides.xml` — all behind the `All CI checks` gate
+- Per PHP version: lint, PHPStan, unit, functional (SQLite, the reusable default); once on PHP 8.3 (first matrix entry): cgl, rector; one advisory PHPStan pass against the unpinned PHPUnit (warns, does not fail); plus a docs render of `Documentation/guides.xml` — all behind the `All CI checks` gate
 - `checks.yml` (drift-enforced): security (Opengrep SAST, composer audit), betterleaks, zizmor, fuzz, license-check, CodeQL, Scorecard, dependency-review, pr-quality — all behind one required `All security checks` gate; SonarCloud + DCO run as apps
 - Release: signed annotated tag `vX.Y.Z` triggers `release.yml`, which publishes to TER, verifies Packagist, then creates the GitHub release with Cosign-signed artifacts; the tag push itself triggers the docs.typo3.org render through the Intercept webhook, and the release only checks that Intercept accepted the render (a render run exists), without waiting for its result or gating on it
-- `republish.yml` (manual, `tag` + `target`): re-uploads to TER only if the version is missing there, only checks Packagist and docs.typo3.org, never touches the GitHub release — details in `CONTRIBUTING.md` § Releasing
+- `republish.yml` (manual, `tag` + `target`): re-uploads to TER only if the version is missing there (the TER metadata sync runs either way), only checks that Packagist lists the version and that Intercept has a render run for it, never touches the GitHub release — details in `CONTRIBUTING.md` § Releasing
 <!-- AGENTS-GENERATED:END ci-rules -->
 
 ## Boundaries
@@ -135,7 +135,7 @@ Shared helpers — generator base methods, `Classes/Generator/Support/*` (text l
 
 ## Architecture (pipeline — component map: `docs/ARCHITECTURE.md`)
 <!-- AGENTS-GENERATED:START codebase-state -->
-ingest (`Classes/Ingestion/`: URL fetch or tiered PDF reader) → analyze (`Classes/Understanding/DocumentAnalyzer` → one `ContentBrief` via nr-llm completion, map-reduce above 24k chars) → generate (`Classes/Generator/`: podcast with 1–3 persona speakers, Schaubild ×3 variants, story ×N slides, four text formats; async via Symfony Messenger doctrine transport, worker needs ffmpeg, chromium, poppler) → store in FAL (`repurpose/` folder).
+ingest (`Classes/Ingestion/`: URL fetch or tiered PDF reader) → analyze (`Classes/Understanding/DocumentAnalyzer` → one `ContentBrief` via nr-llm completion, map-reduce above 24k chars) → generate (`Classes/Generator/`: podcast with 1–3 persona speakers, Schaubild ×3 variants, story ×N slides (+ optional MP4), four text formats, slide deck + handout PDFs; async via Symfony Messenger doctrine transport, worker needs ffmpeg, chromium, poppler) → store in FAL (`repurpose/` folder).
 ALL AI calls go through nr-llm — this extension contains zero provider code; the keys belong to nr-llm (identifier `nr_repurpose_openai` on the live instance).
 <!-- AGENTS-GENERATED:END codebase-state -->
 
