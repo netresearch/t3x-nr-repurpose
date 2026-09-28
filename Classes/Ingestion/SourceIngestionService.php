@@ -86,7 +86,8 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
 
             throw $e;
         } finally {
-            // A downloaded pdf_url copy goes once it is read, also when reading failed.
+            // A temp copy (a pdf_url download, a pdf_fal file from a non-local driver)
+            // goes once it is read, also when reading failed.
             $this->pdfFileResolver->release($absPath);
         }
     }
