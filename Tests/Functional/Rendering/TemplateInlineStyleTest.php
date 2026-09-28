@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Rendering;
 
-use DOMElement;
 use Masterminds\HTML5;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Controller\BackendViewMarkupTest;
@@ -24,20 +23,28 @@ use TYPO3Fluid\Fluid\Core\Parser\SyntaxTree\TextNode;
 use TYPO3Fluid\Fluid\Core\Parser\SyntaxTree\ViewHelperNode;
 
 /**
- * No backend template carries inline styling, in any branch, whether a render reaches it or not.
- * The backend CSP allows inline styles, so any of them would override backend.css unseen.
+ * No backend template writes inline styling into its own source. The backend CSP allows inline
+ * styles, so any of them would override backend.css unseen.
  *
- * Read with parsers, not patterns:
+ * Read with parsers, not patterns, over every listed template and every branch in it, whether a
+ * render reaches that branch or not:
  * - each template is parsed by Fluid's TemplateParser from the RenderingContext TYPO3 configures,
  *   which removes comments and normalises tag and inline ViewHelper syntax into one node tree; no
  *   ViewHelper may receive a `style` argument, and no array argument (such as
  *   `additionalAttributes`) may have a `style` key, at any nesting depth;
- * - the literal HTML of the template (its text nodes, with every Fluid node in between replaced by
- *   a placeholder) is tokenised by masterminds/html5, the HTML5 parser TYPO3 core installs; no
- *   element may have a `style` attribute, and there may be no `<style>` element.
+ * - the literal HTML is tokenised by masterminds/html5, the HTML5 parser TYPO3 core installs: the
+ *   template's text nodes, and separately every string a ViewHelper argument or array entry holds
+ *   (`{f:format.raw(value: '<span style=...>')}`). A Fluid node between two text nodes is replaced
+ *   once by `x` and once by nothing, so an attribute split by a node (`class="a"{...}style=`,
+ *   `sty{...}le=`) is seen in one of the two readings. No element may have a `style` attribute,
+ *   and there may be no `<style>` element.
  *
- * Limit: ArrayNode has no public accessor for its entries in Fluid 5.3, so they are read through
- * reflection; a Fluid major that renames the property fails this test instead of passing it.
+ * Not covered: markup produced at runtime rather than written in a template, such as a style built
+ * from a variable (`{job.someHtml -> f:format.raw()}`) or a ViewHelper that emits one itself; a
+ * partial rendered by a name held in a variable, beyond the templates listed and globbed in
+ * BackendViewMarkupTest. The functional page renders in JobControllerTest cover what the fixtures
+ * reach. And ArrayNode has no public accessor for its entries in Fluid 5.3, so they are read
+ * through reflection; a Fluid major that renames the property fails this test instead of passing it.
  */
 final class TemplateInlineStyleTest extends AbstractFunctionalTestCase
 {
@@ -75,40 +82,28 @@ final class TemplateInlineStyleTest extends AbstractFunctionalTestCase
     #[DataProvider('backendTemplates')]
     public function testTheTemplateHtmlHasNoStyle(string $template): void
     {
-        $html = '';
-        $this->collectHtml($this->parse($template), $html);
-        self::assertNotSame('', trim($html), $template);
+        $fragments = $this->htmlFragments($this->parse($template));
+        self::assertNotSame('', trim(implode('', $fragments)), $template);
 
-        $html5    = new HTML5(['disable_html_ns' => true]);
-        $document = $html5->loadHTML('<!DOCTYPE html><html><body>' . $html . '</body></html>');
-
-        $styled = [];
-        foreach ($document->getElementsByTagName('*') as $element) {
-            if ($element->tagName === 'style') {
-                $styled[] = '<style> element';
-            }
-
-            if ($element->hasAttribute('style')) {
-                $styled[] = '<' . $element->tagName . ' style="' . $element->getAttribute('style') . '">';
-            }
-        }
-
-        self::assertSame([], $styled, $template);
+        self::assertSame([], $this->styledIn($fragments), $template);
     }
 
-    /** The parser sees the template: a control that a style in its HTML and in a ViewHelper argument is found. */
+    /** A control: a style in each form the two parts are meant to see is found. */
     public function testThePartsAreSeenWhereTheyStand(): void
     {
         $source = '<html data-namespace-typo3-fluid="true" xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">'
             . '<h1 class="x"style=\'color: red\'>T</h1>{f:link.action(style: \'a\', action: \'list\')}'
+            . '<p class="a"{f:if(condition: 0, then: \'x\')}style=\'color: blue\'>P</p>'
+            . "<b sty{f:if(condition: 0, then: 'x')}le='color: green'>B</b>"
+            . '{f:format.raw(value: \'<span style="color: gray">S</span>\')}'
             . '<f:link.action action="list" additionalAttributes="{style: \'b\'}">x</f:link.action></html>';
         $root = GeneralUtility::makeInstance(RenderingContextFactory::class)->create()->getTemplateParser()->parse($source)->getRootNode();
 
-        $html = '';
-        $this->collectHtml($root, $html);
-        $h1 = (new HTML5(['disable_html_ns' => true]))->loadHTML('<!DOCTYPE html><html><body>' . $html . '</body></html>')->getElementsByTagName('h1')->item(0);
-        self::assertInstanceOf(DOMElement::class, $h1);
-        self::assertSame('color: red', $h1->getAttribute('style'));
+        $styled = $this->styledIn($this->htmlFragments($root));
+        sort($styled);
+        // A style written plainly, split from its tag by a Fluid node, split inside its name, and
+        // inside a ViewHelper argument: each one is found.
+        self::assertSame(['<b style="color: green">', '<h1 style="color: red">', '<p style="color: blue">', '<span style="color: gray">'], $styled);
 
         $styles = 0;
         $this->walk($root, static function (NodeInterface $node) use (&$styles): void {
@@ -158,8 +153,76 @@ final class TemplateInlineStyleTest extends AbstractFunctionalTestCase
         }
     }
 
-    /** The literal HTML of the template: text nodes as they stand, any Fluid node as a placeholder, ViewHelper bodies included. */
-    private function collectHtml(NodeInterface $node, string &$html): void
+    /**
+     * The HTML to tokenise: the template's text in two readings (each Fluid node replaced by `x`,
+     * then by nothing), plus every string held in a ViewHelper argument or array entry.
+     *
+     * @return list<string>
+     */
+    private function htmlFragments(NodeInterface $root): array
+    {
+        $fragments = [];
+        foreach (['x', ''] as $placeholder) {
+            $html = '';
+            $this->collectHtml($root, $html, $placeholder);
+            $fragments[] = $html;
+        }
+
+        $this->walk($root, function (NodeInterface $node) use (&$fragments): void {
+            $values = [];
+            if ($node instanceof ViewHelperNode) {
+                $values = array_values($node->getArguments());
+            }
+
+            if ($node instanceof ArrayNode) {
+                $entries = self::entries($node);
+                array_walk_recursive($entries, static function (mixed $value) use (&$values): void {
+                    $values[] = $value;
+                });
+            }
+
+            foreach ($values as $value) {
+                if (is_string($value)) {
+                    $fragments[] = $value;
+                } elseif ($value instanceof NodeInterface && !$value instanceof ArrayNode) {
+                    foreach (['x', ''] as $placeholder) {
+                        $html = '';
+                        $this->collectHtml($value, $html, $placeholder);
+                        $fragments[] = $html;
+                    }
+                }
+            }
+        });
+
+        return $fragments;
+    }
+
+    /**
+     * @param list<string> $fragments
+     *
+     * @return list<string> every `<style>` element and `style` attribute the HTML5 parser finds
+     */
+    private function styledIn(array $fragments): array
+    {
+        $styled = [];
+        foreach (array_unique($fragments) as $fragment) {
+            $document = (new HTML5(['disable_html_ns' => true]))->loadHTML('<!DOCTYPE html><html><body>' . $fragment . '</body></html>');
+            foreach ($document->getElementsByTagName('*') as $element) {
+                if ($element->tagName === 'style') {
+                    $styled[] = '<style> element';
+                }
+
+                if ($element->hasAttribute('style')) {
+                    $styled[] = '<' . $element->tagName . ' style="' . $element->getAttribute('style') . '">';
+                }
+            }
+        }
+
+        return array_values(array_unique($styled));
+    }
+
+    /** Text nodes as they stand, any other Fluid node as the placeholder, ViewHelper bodies included. */
+    private function collectHtml(NodeInterface $node, string &$html, string $placeholder): void
     {
         if ($node instanceof TextNode) {
             $html .= $node->getText();
@@ -168,11 +231,11 @@ final class TemplateInlineStyleTest extends AbstractFunctionalTestCase
         }
 
         if ($node instanceof ViewHelperNode || $node instanceof EscapingNode) {
-            $html .= 'x';
+            $html .= $placeholder;
         }
 
         foreach ($node->getChildNodes() as $child) {
-            $this->collectHtml($child, $html);
+            $this->collectHtml($child, $html, $placeholder);
         }
     }
 
