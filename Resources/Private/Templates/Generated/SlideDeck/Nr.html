@@ -46,19 +46,29 @@
             justify-content: space-between;
             font-size: 24px;
         }
+        .footer a { color: inherit; text-decoration: none; }
         .source { word-break: break-all; }
+        /* Symbol-only [n] logo (netresearch-branding logo.md) on every slide, since each slide
+           is a PDF page. It sits in the 120px top padding, so no heading can run into it. The
+           viewBox carries the clear space; the white plate is the solid backing it needs on the
+           dark title and closing slides. */
+        .slide__header { position: absolute; top: 24px; right: 160px; }
+        .nr-logo { display: block; width: 88px; height: 88px; }
+        .nr-logo svg { display: block; width: 100%; height: 100%; background: #ffffff; border-radius: 12px; }
         .closing-line { font-size: 28px; margin-top: 56px; }
     </style>
 </head>
 <body>
     <section class="slide slide--title">
+        <header class="slide__header"><a class="nr-logo" href="https://www.netresearch.de/" aria-label="Netresearch DTT GmbH"><svg viewBox="-75 -75 440 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Netresearch symbol logo"><title>Netresearch DTT GmbH</title><path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242a26.38,26.38,0,0,1-26.44,26.44H209.6V300h47.93a42.77,42.77,0,0,0,42.86-42.86V42.89A42.76,42.76,0,0,0,257.53,0ZM43.25,0A42.76,42.76,0,0,0,.39,42.89V257.18A42.76,42.76,0,0,0,43.25,300H91.18V268.46H58.4A26.38,26.38,0,0,1,32,242v-184A26.37,26.37,0,0,1,58.4,31.62H91.18V0Z" transform="translate(-0.39 -0.04)"/><path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82-26.62,0-48.54,7.74-64.17,26.56l-.7-22.06-28.31.06V232.94h31.59V124.69c7.14-18.38,32.14-34.8,53-34.5,27.38.4,25.2,26.24,26,45.81v96.94h31.58" transform="translate(-0.39 -0.04)"/></svg></a></header>
         <div class="accent"></div>
         <h1>{content.title}</h1>
         <f:if condition="{content.subtitle}"><p class="subtitle">{content.subtitle}</p></f:if>
-        <div class="footer"><span>Netresearch DTT GmbH</span><span class="source">{sourceLabel}</span></div>
+        <footer class="footer"><a href="https://www.netresearch.de/">Netresearch DTT GmbH</a><span class="source">{sourceLabel}</span></footer>
     </section>
     <f:for each="{content.slides}" as="slide" iteration="i">
         <section class="slide">
+            <header class="slide__header"><a class="nr-logo" href="https://www.netresearch.de/" aria-label="Netresearch DTT GmbH"><svg viewBox="-75 -75 440 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Netresearch symbol logo"><title>Netresearch DTT GmbH</title><path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242a26.38,26.38,0,0,1-26.44,26.44H209.6V300h47.93a42.77,42.77,0,0,0,42.86-42.86V42.89A42.76,42.76,0,0,0,257.53,0ZM43.25,0A42.76,42.76,0,0,0,.39,42.89V257.18A42.76,42.76,0,0,0,43.25,300H91.18V268.46H58.4A26.38,26.38,0,0,1,32,242v-184A26.37,26.37,0,0,1,58.4,31.62H91.18V0Z" transform="translate(-0.39 -0.04)"/><path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82-26.62,0-48.54,7.74-64.17,26.56l-.7-22.06-28.31.06V232.94h31.59V124.69c7.14-18.38,32.14-34.8,53-34.5,27.38.4,25.2,26.24,26,45.81v96.94h31.58" transform="translate(-0.39 -0.04)"/></svg></a></header>
             <h2>{slide.heading}</h2>
             <ul>
                 <f:for each="{slide.bullets}" as="bullet"><li>{bullet}</li></f:for>
@@ -67,10 +77,11 @@
         </section>
     </f:for>
     <section class="slide slide--closing">
+        <header class="slide__header"><a class="nr-logo" href="https://www.netresearch.de/" aria-label="Netresearch DTT GmbH"><svg viewBox="-75 -75 440 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Netresearch symbol logo"><title>Netresearch DTT GmbH</title><path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242a26.38,26.38,0,0,1-26.44,26.44H209.6V300h47.93a42.77,42.77,0,0,0,42.86-42.86V42.89A42.76,42.76,0,0,0,257.53,0ZM43.25,0A42.76,42.76,0,0,0,.39,42.89V257.18A42.76,42.76,0,0,0,43.25,300H91.18V268.46H58.4A26.38,26.38,0,0,1,32,242v-184A26.37,26.37,0,0,1,58.4,31.62H91.18V0Z" transform="translate(-0.39 -0.04)"/><path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82-26.62,0-48.54,7.74-64.17,26.56l-.7-22.06-28.31.06V232.94h31.59V124.69c7.14-18.38,32.14-34.8,53-34.5,27.38.4,25.2,26.24,26,45.81v96.94h31.58" transform="translate(-0.39 -0.04)"/></svg></a></header>
         <div class="accent"></div>
         <f:if condition="{content.takeaway}"><p class="takeaway">{content.takeaway}</p></f:if>
         <f:if condition="{content.closingLine}"><p class="closing-line">{content.closingLine}</p></f:if>
-        <div class="footer"><span>Netresearch DTT GmbH</span><span class="source">{sourceLabel}</span></div>
+        <footer class="footer"><a href="https://www.netresearch.de/">Netresearch DTT GmbH</a><span class="source">{sourceLabel}</span></footer>
     </section>
 </body>
 </html>
