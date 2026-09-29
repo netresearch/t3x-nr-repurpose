@@ -45,6 +45,7 @@ Hand-maintained (outside the generated blocks). Reuse these before writing a hel
 | Run node/ffmpeg from a renderer | `ProcessRunnerInterface::run()` | `Classes/Rendering/Process/` |
 | Run pdftoppm/pdftotext | `PopplerRunnerInterface` | `Classes/Ingestion/Poppler/` |
 | Source URL in a message or log line (no user info, query, fragment) | `SourceUrlRedactor::redact()` | `Classes/Ingestion/SourceUrlRedactor.php` |
+| Source URL that is published (no user info; query and fragment kept) | `SourceUrlRedactor::withoutCredentials()` | `Classes/Ingestion/SourceUrlRedactor.php` |
 | Store bytes in FAL (+ AI marker) | `JobFileStorage::store()` | `Classes/Resource/JobFileStorage.php` |
 | Embed AI marker in PNG/MP3/VTT/PDF | `AiContentMarker::mark()` | `Classes/Provenance/AiContentMarker.php` |
 

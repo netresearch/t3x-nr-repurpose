@@ -103,8 +103,9 @@ user name and password, the query and the fragment are left out, because every
 user of the module sees the error. A value that is not a URL with a scheme and
 a host shows as ``(URL not shown)``. The job list, the result view, the social
 planning, the prompts sent to the text model and the story, slide deck and
-handout show the URL the same way. The job keeps the URL as entered, and the
-job record in the List module shows it whole.
+handout show the URL the same way. The social webhook receives it without user
+name and password but with its query and fragment. The job keeps the URL as
+entered, and the job record in the List module shows it whole.
 
 No setting allows an internal host. For a PDF that only an internal server
 provides, attach the file to the job as a *PDF file (FAL)* source.

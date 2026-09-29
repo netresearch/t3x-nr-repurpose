@@ -43,4 +43,32 @@ final class SourceUrlRedactorTest extends TestCase
     {
         self::assertSame($expected, SourceUrlRedactor::redact($url));
     }
+
+    /** @return array<string, array{string, string}> input, without credentials */
+    public static function publishedUrls(): array
+    {
+        return [
+            'plain URL unchanged'                => ['https://example.com/reports/q1.pdf', 'https://example.com/reports/q1.pdf'],
+            'user name and password removed'     => ['https://user:secret@example.com/a?id=5', 'https://example.com/a?id=5'],
+            'user name removed'                  => ['https://user@example.com/a', 'https://example.com/a'],
+            'query kept'                         => ['https://example.com/index.php?id=5&L=1', 'https://example.com/index.php?id=5&L=1'],
+            'fragment kept'                      => ['https://user:secret@example.com/a#top', 'https://example.com/a#top'],
+            'port kept'                          => ['http://user:secret@example.com:8080/a', 'http://example.com:8080/a'],
+            'IPv6 host kept'                     => ['https://user:secret@[2001:db8::1]:8443/p?q=1', 'https://[2001:db8::1]:8443/p?q=1'],
+            'at sign in the query kept'          => ['https://example.com/a?mail=a@example.org', 'https://example.com/a?mail=a@example.org'],
+            'empty'                              => ['', ''],
+            'no URL, no at sign: unchanged'      => ['example.org/a.pdf', 'example.org/a.pdf'],
+            'unparseable, no at sign: unchanged' => ['https:///doc?token=abc', 'https:///doc?token=abc'],
+            'no scheme, password'                => ['user:secret@example.com/doc', SourceUrlRedactor::PLACEHOLDER],
+            'scheme-relative with password'      => ['//user:secret@example.com/doc', SourceUrlRedactor::PLACEHOLDER],
+            'unparseable, password'              => ['https://user:secret@:80/?token=abc', SourceUrlRedactor::PLACEHOLDER],
+            'no host, at sign'                   => ['mailto:user@example.com', SourceUrlRedactor::PLACEHOLDER],
+        ];
+    }
+
+    #[DataProvider('publishedUrls')]
+    public function testRemovesOnlyTheCredentials(string $url, string $expected): void
+    {
+        self::assertSame($expected, SourceUrlRedactor::withoutCredentials($url));
+    }
 }

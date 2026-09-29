@@ -46,8 +46,8 @@ schedules it again.
 
 **The channel is a webhook.** :php:`SocialPublisherInterface` has one
 implementation, :php:`WebhookSocialPublisher`: an HTTP POST of the post as JSON
-(platform, text, publishing time, source URL, ``aiGenerated`` and the
-artifact's ``aiLabel``) to the URL in ``socialWebhookUrl``, optionally signed
+(platform, text, publishing time, source URL without user name and password,
+``aiGenerated`` and the artifact's ``aiLabel``) to the URL in ``socialWebhookUrl``, optionally signed
 with HMAC-SHA256 in ``X-Nr-Repurpose-Signature``. A scheduling tool, an
 automation service or an own endpoint takes it from there. Without a URL the
 command sends nothing and says how many posts are due.
