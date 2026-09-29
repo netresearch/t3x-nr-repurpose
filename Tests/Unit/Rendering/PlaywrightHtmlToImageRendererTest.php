@@ -17,13 +17,13 @@ use PHPUnit\Framework\TestCase;
 
 final class PlaywrightHtmlToImageRendererTest extends TestCase
 {
-    private const NODE = '/usr/bin/node';
+    private const string NODE = '/usr/bin/node';
 
-    private const SCRIPT = '/app/Resources/Private/NodeRenderer/render.cjs';
+    private const string SCRIPT = '/app/Resources/Private/NodeRenderer/render.cjs';
 
-    private const OUT_DIR = '/tmp/nrrepurpose-render';
+    private const string OUT_DIR = '/tmp/nrrepurpose-render';
 
-    private const CHROMIUM = '/usr/bin/chromium';
+    private const string CHROMIUM = '/usr/bin/chromium';
 
     private function renderer(RecordingProcessRunner $runner): PlaywrightHtmlToImageRenderer
     {

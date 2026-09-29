@@ -38,8 +38,8 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
     {
         $html = (string) file_get_contents(dirname(__DIR__, 2) . '/Fixtures/Web/article.html');
 
-        return new class ($html) implements ClientInterface {
-            public function __construct(private readonly string $html) {}
+        return new readonly class ($html) implements ClientInterface {
+            public function __construct(private string $html) {}
 
             public function sendRequest(RequestInterface $request): ResponseInterface
             {

@@ -25,8 +25,8 @@ final class WebPageFetcherTest extends TestCase
         $response = $factory->createResponse($status)
             ->withBody($factory->createStream($body));
 
-        return new class ($response) implements ClientInterface {
-            public function __construct(private readonly ResponseInterface $response) {}
+        return new readonly class ($response) implements ClientInterface {
+            public function __construct(private ResponseInterface $response) {}
 
             public function sendRequest(RequestInterface $request): ResponseInterface
             {

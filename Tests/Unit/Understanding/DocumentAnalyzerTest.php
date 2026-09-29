@@ -30,7 +30,7 @@ use Psr\Log\NullLogger;
  */
 final class FakeCompletionService implements CompletionServiceInterface
 {
-    private const NOT_USED = 'not used in this test';
+    private const string NOT_USED = 'not used in this test';
 
     /** @var list<array{prompt:string, options:?ChatOptions}> */
     public array $jsonCalls = [];

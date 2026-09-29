@@ -32,9 +32,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 #[CoversClass(PublishDueCommand::class)]
 final class ReviewAndPublishingTest extends AbstractFunctionalTestCase
 {
-    private const NOW = 1_790_000_000;
+    private const int NOW = 1_790_000_000;
 
-    private const TABLE = 'tx_nrrepurpose_domain_model_artifact';
+    private const string TABLE = 'tx_nrrepurpose_domain_model_artifact';
 
     private int $job = 0;
 

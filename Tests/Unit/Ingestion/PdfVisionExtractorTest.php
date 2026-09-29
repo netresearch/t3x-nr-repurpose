@@ -113,8 +113,8 @@ final class PdfVisionExtractorTest extends TestCase
 
     private function runner(string $png = 'PNG'): PopplerRunnerInterface
     {
-        return new class ($png) implements PopplerRunnerInterface {
-            public function __construct(private readonly string $png) {}
+        return new readonly class ($png) implements PopplerRunnerInterface {
+            public function __construct(private string $png) {}
 
             public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
             {
