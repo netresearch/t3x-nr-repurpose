@@ -21,13 +21,13 @@
     <f:if condition="{content.jsonLd}">
         <details>
             <summary><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.faq.jsonLd" /></summary>
-            <pre style="white-space: pre-wrap;">{content.jsonLd}</pre>
+            <pre class="nrrepurpose-pre">{content.jsonLd}</pre>
         </details>
     </f:if>
     <f:render section="ClosingLine" arguments="{line: content.closingLine}" />
 </f:if>
 <f:if condition="{artifact.type} == 'social_post'">
-    <pre style="white-space: pre-wrap; font-family: inherit;">{artifact.scriptText}</pre>
+    <pre class="nrrepurpose-pre nrrepurpose-pre-text">{artifact.scriptText}</pre>
     <p class="text-muted small">
         <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.social.length" arguments="{0: content.length, 1: content.maxChars}" />
         <f:comment><!-- cutMode is absent on rows stored before it existed: those say "sentence", as they did then --></f:comment>

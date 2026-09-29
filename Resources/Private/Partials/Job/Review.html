@@ -48,9 +48,8 @@
                         </p>
                     </f:if>
                     <f:if condition="{artifact.publishStatus} == 'failed'">
-                        <p class="text-danger mb-1">
-                            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.failedWith" arguments="{0: artifact.publishError}" />
-                        </p>
+                        <f:comment><!-- Core error box: the danger text colour on the card background is 4.49:1 in the dark scheme (below AA). --></f:comment>
+                        <f:be.infobox state="2"><span class="text-break"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.failedWith" arguments="{0: artifact.publishError}" /></span></f:be.infobox>
                     </f:if>
                     <f:if condition="{canReview}">
                         <f:form action="schedule" arguments="{artifact: artifact.uid, job: job.uid}" method="post" class="d-flex flex-wrap align-items-end gap-2">
