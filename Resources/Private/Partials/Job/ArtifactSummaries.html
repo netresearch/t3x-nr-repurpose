@@ -1,0 +1,26 @@
+<html data-namespace-typo3-fluid="true"
+      xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers">
+<f:comment><!--
+    The artifact column of the job list: one icon per requested artifact type. The status
+    is in the accessible name, in the text colour and, for everything but "done", in a
+    core icon overlay, so it does not depend on telling colours apart.
+    Argument: summaries (Job::getArtifactTypeSummaries(), evaluated once per row).
+    ArtifactSummariesRenderingTest renders this partial.
+--></f:comment>
+<f:if condition="{summaries}">
+    <f:then>
+        <f:for each="{summaries}" as="summary">
+            <f:variable name="summaryLabel"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{summary.type.labelKey}" />: <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{summary.status.labelKey}" /></f:variable>
+            <span class="text-{summary.severity}" role="img" title="{summaryLabel}" aria-label="{summaryLabel}">
+                <f:comment><!-- The overlay carries the status for readers who cannot tell the colours apart. --></f:comment>
+                <f:if condition="{summary.overlayIdentifier}">
+                    <f:then><core:icon identifier="{summary.type.iconIdentifier}" size="small" overlay="{summary.overlayIdentifier}" /></f:then>
+                    <f:else><core:icon identifier="{summary.type.iconIdentifier}" size="small" /></f:else>
+                </f:if>
+            </span>
+        </f:for>
+    </f:then>
+    <f:else>—</f:else>
+</f:if>
+</html>

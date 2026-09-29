@@ -1,0 +1,132 @@
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+/*
+ * Backend module "Repurpose": only what the core backend CSS has no class for.
+ * Tables, buttons, badges and typography use the core classes unchanged. Every
+ * colour and spacing value is a core custom property, so the light and dark
+ * scheme both apply; the fallbacks cover a property missing in an older core.
+ */
+
+/*
+ * Job progress in the list: a native <progress>, which carries the progressbar role, its value,
+ * range and accessible name itself. Core v14 has no .progress/.progress-bar rules, and the core
+ * <typo3-backend-progress-bar> is @internal and cannot be named. Each engine draws the bar
+ * through its own pseudo-elements, so every one needs a rule of its own: a selector list with an
+ * unknown pseudo-element would drop the whole rule. Colours are core tokens: fill
+ * --typo3-component-primary-color on a --typo3-surface-container-high track.
+ */
+.nrrepurpose-progress {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--typo3-spacing, 1rem) / 2);
+}
+
+.nrrepurpose-progress-track {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    flex: 1 1 auto;
+    min-width: 3rem;
+    height: .5rem;
+    /* A <progress> is about 10em wide by default, and that width would become its flex basis
+       and widen the job list beyond 1280 px; start small and grow into the cell instead. */
+    width: 3rem;
+    overflow: hidden;
+    border: 0;
+    border-radius: .25rem;
+    background-color: var(--typo3-surface-container-high);
+    color: var(--typo3-component-primary-color);
+}
+
+.nrrepurpose-progress-track::-webkit-progress-bar {
+    background-color: var(--typo3-surface-container-high);
+}
+
+.nrrepurpose-progress-track::-webkit-progress-value {
+    background-color: var(--typo3-component-primary-color);
+}
+
+.nrrepurpose-progress-track::-moz-progress-bar {
+    background-color: var(--typo3-component-primary-color);
+}
+
+.nrrepurpose-progress-value {
+    flex: 0 0 auto;
+    min-width: 3.5ch;
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Audio player of a podcast artifact: full width up to a readable line. */
+.nrrepurpose-audio {
+    display: block;
+    width: 100%;
+    max-width: 640px;
+}
+
+/* Image and video previews: never wider than the card, never taller than 480px. */
+.nrrepurpose-preview {
+    display: block;
+    max-width: 100%;
+    max-height: 480px;
+    height: auto;
+}
+
+.nrrepurpose-preview-framed {
+    border: var(--typo3-component-border-width, 1px) solid var(--typo3-component-border-color, var(--bs-border-color));
+}
+
+/* Story: the slides as one horizontal, scrollable strip. */
+.nrrepurpose-story-strip {
+    display: flex;
+    flex-direction: row;
+    gap: var(--typo3-spacing, 1rem);
+    overflow-x: auto;
+    padding-bottom: calc(var(--typo3-spacing, 1rem) / 2);
+}
+
+.nrrepurpose-story-slide {
+    flex: 0 0 auto;
+    text-align: center;
+}
+
+.nrrepurpose-story-slide-image {
+    display: block;
+    height: 320px;
+    width: auto;
+    border: var(--typo3-component-border-width, 1px) solid var(--typo3-component-border-color, var(--bs-border-color));
+}
+
+.nrrepurpose-story-slide-placeholder {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 320px;
+    width: 180px;
+    padding: calc(var(--typo3-spacing, 1rem) / 2);
+    border: var(--typo3-component-border-width, 1px) dashed var(--typo3-component-border-color, var(--bs-border-color));
+}
+
+.nrrepurpose-story-slide-meta {
+    max-width: 200px;
+    text-align: start;
+}
+
+/*
+ * Generated text and prompts: keep the line breaks of the source, wrap long
+ * lines and unbroken tokens (URLs) inside the card instead of scrolling.
+ */
+.nrrepurpose-pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* Copy-ready text (social post): the body font, not the monospace of <pre>. */
+.nrrepurpose-pre-text {
+    font-family: inherit;
+    font-size: inherit;
+}

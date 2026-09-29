@@ -3,7 +3,7 @@
       xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers">
 <f:layout name="Module" />
 <f:section name="Content">
-    <h1><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:module.title" /></h1>
+    <h1 id="nrrepurpose-list-title"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:module.title" /></h1>
 
     <p>
         <f:link.action action="new" class="btn btn-primary">
@@ -19,7 +19,7 @@
     <f:if condition="{jobs}">
         <f:then>
             <div class="table-fit">
-                <table class="table table-striped table-hover">
+                <table class="table table-striped table-hover" aria-labelledby="nrrepurpose-list-title">
                     <thead>
                         <tr>
                             <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.id" /></th>
@@ -27,42 +27,41 @@
                             <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.status" /></th>
                             <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.artifacts" /></th>
                             <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.progress" /></th>
-                            <th scope="col"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.actions" /></span></th>
+                            <th scope="col" class="col-control"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.column.actions" /></span></th>
                         </tr>
                     </thead>
                     <tbody>
                         <f:for each="{jobs}" as="job">
                             <tr>
                                 <td>{job.uid}</td>
-                                <td>{job.sourceValue}</td>
+                                <f:comment><!-- One line with an ellipsis (core .col-responsive): a 400-character tracking URL must not
+                                     widen the table. The full value stays in the DOM (copy, screen readers) and in the title (hover). --></f:comment>
+                                <td class="col-responsive" title="{job.sourceValue}">{job.sourceValue}</td>
                                 <td>
                                     <span class="badge badge-{job.statusEnum.severity}">
                                         <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{job.statusEnum.labelKey}" />
                                     </span>
                                 </td>
-                                <td>
-                                    <f:comment><!-- Evaluate the summaries once per row (the getter folds the artifact relation) --></f:comment>
-                                    <f:variable name="summaries" value="{job.artifactTypeSummaries}" />
-                                    <f:if condition="{summaries}">
-                                        <f:then>
-                                            <f:for each="{summaries}" as="summary">
-                                                <f:variable name="summaryLabel"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{summary.type.labelKey}" />: <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{summary.status.labelKey}" /></f:variable>
-                                                <span class="text-{summary.severity}" role="img" title="{summaryLabel}" aria-label="{summaryLabel}">
-                                                    <core:icon identifier="{summary.type.iconIdentifier}" size="small" />
-                                                </span>
-                                            </f:for>
-                                        </f:then>
-                                        <f:else>—</f:else>
-                                    </f:if>
+                                <td class="col-nowrap">
+                                    <f:render partial="Job/ArtifactSummaries" arguments="{summaries: job.artifactTypeSummaries}" />
                                 </td>
-                                <td>
-                                    <div class="progress" role="progressbar" aria-valuenow="{job.progress}" aria-valuemin="0" aria-valuemax="100" aria-label="{job.progress}%">
-                                        <div class="progress-bar" style="width: {job.progress}%;">{job.progress}%</div>
+                                <td class="col-progress">
+                                    <f:comment><!--
+                                        A native <progress>: it carries the progressbar role, value, range and name itself.
+                                        Not the core <typo3-backend-progress-bar>: that element is @internal, its shadow-DOM
+                                        progressbar cannot be named, and its dark-scheme fill is below 3:1. Core v14 ships
+                                        no .progress/.progress-bar CSS. The percentage beside it repeats the value for sight.
+                                    --></f:comment>
+                                    <div class="nrrepurpose-progress">
+                                        <progress class="nrrepurpose-progress-track" max="100" value="{job.progress}"
+                                                  aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.progress.label', arguments: {0: job.uid})}"></progress>
+                                        <span class="nrrepurpose-progress-value" aria-hidden="true">{job.progress}%</span>
                                     </div>
                                 </td>
-                                <td class="text-end">
+                                <td class="col-control">
                                     <f:link.action action="show" arguments="{job: job}" class="btn btn-sm btn-default">
                                         <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.action.details" />
+                                        <span class="visually-hidden">(<f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.title" arguments="{0: job.uid}" />)</span>
                                     </f:link.action>
                                 </td>
                             </tr>
