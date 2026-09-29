@@ -25,6 +25,7 @@ use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
 use Throwable;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
 /**
  * Produces a branded diagram in three artifact rows for empirical comparison (spec §8):
@@ -39,6 +40,8 @@ use Throwable;
  */
 class SchaubildGenerator extends AbstractGenerator
 {
+    use RendersThemeTemplates;
+
     private const WIDTH = 1200;
 
     // Default gpt-image landscape size; a layout snippet may override it via its
@@ -59,8 +62,14 @@ class SchaubildGenerator extends AbstractGenerator
         private readonly ImageCompositorInterface $compositor,
         private readonly ImageGeneratorInterface $imageGenerator,
         private readonly JobFileStorage $fileStorage,
+        private readonly ViewFactoryInterface $viewFactory,
     ) {
         parent::__construct($jobs, $budget, $logger);
+    }
+
+    protected function viewFactory(): ViewFactoryInterface
+    {
+        return $this->viewFactory;
     }
 
     public function supports(GenerationContext $ctx): bool

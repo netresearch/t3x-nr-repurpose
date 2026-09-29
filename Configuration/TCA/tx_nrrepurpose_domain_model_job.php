@@ -9,22 +9,22 @@ declare(strict_types=1);
 
 return [
     'ctrl' => [
-        'title'          => 'Repurpose Job',
-        'label'          => 'source_value',
-        'tstamp'         => 'tstamp',
-        'crdate'         => 'crdate',
-        'default_sortby' => 'crdate DESC',
-        'iconfile'       => 'EXT:nr_repurpose/Resources/Public/Icons/module.svg',
+        'title'            => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job',
+        'label'            => 'source_value',
+        'tstamp'           => 'tstamp',
+        'crdate'           => 'crdate',
+        'default_sortby'   => 'crdate DESC',
+        'typeicon_classes' => ['default' => 'tx-nrrepurpose-module'],
     ],
     'columns' => [
         'source_type' => [
-            'label'  => 'Source type',
+            'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type',
             'config' => [
                 'type'  => 'select', 'renderType' => 'selectSingle',
                 'items' => [
-                    ['label' => 'Webpage URL', 'value' => 'url'],
-                    ['label' => 'PDF URL', 'value' => 'pdf_url'],
-                    ['label' => 'PDF file (FAL)', 'value' => 'pdf_fal'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.url', 'value' => 'url'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.pdf_url', 'value' => 'pdf_url'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.pdf_fal', 'value' => 'pdf_fal'],
                 ],
                 'default' => 'url',
             ],
@@ -32,37 +32,37 @@ return [
         // No link attributes: the stored value is fetched as-is, and a target
         // or title from the link browser would be appended to it.
         'source_value' => [
-            'label'  => 'Source URL',
+            'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_value',
             'config' => ['type' => 'link', 'allowedTypes' => ['url'], 'appearance' => ['allowedOptions' => []], 'size' => 60],
         ],
         'theme' => [
-            'label'  => 'Theme',
+            'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.theme',
             'config' => [
                 'type'  => 'select', 'renderType' => 'selectSingle',
                 'items' => [
-                    ['label' => 'Netresearch CI', 'value' => 'nr'],
-                    ['label' => 'Neutral', 'value' => 'neutral'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.theme.nr', 'value' => 'nr'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.theme.neutral', 'value' => 'neutral'],
                 ],
                 'default' => 'nr',
             ],
         ],
         'pdf_mode' => [
-            'label'       => 'PDF extraction mode',
+            'label'       => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.pdf_mode',
             'displayCond' => 'FIELD:source_type:IN:pdf_url,pdf_fal',
             'config'      => [
                 'type'       => 'select',
                 'renderType' => 'selectSingle',
                 'items'      => [
-                    ['label' => 'Auto (staggered)', 'value' => 'auto'],
-                    ['label' => 'Embedded text only', 'value' => 'text'],
-                    ['label' => 'Vision OCR', 'value' => 'vision'],
-                    ['label' => 'Layout / tables', 'value' => 'tables'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.pdf_mode.auto', 'value' => 'auto'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.pdf_mode.text', 'value' => 'text'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.pdf_mode.vision', 'value' => 'vision'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.pdf_mode.tables', 'value' => 'tables'],
                 ],
                 'default' => 'auto',
             ],
         ],
         'source_pdf' => [
-            'label'       => 'Source PDF (FAL)',
+            'label'       => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_pdf',
             'displayCond' => 'FIELD:source_type:=:pdf_fal',
             'config'      => [
                 'type'       => 'file',
@@ -73,27 +73,27 @@ return [
                 ],
             ],
         ],
-        'want_podcast'      => ['label' => 'Podcast', 'config' => ['type' => 'check', 'default' => 1]],
-        'want_schaubild'    => ['label' => 'Schaubild', 'config' => ['type' => 'check', 'default' => 1]],
-        'want_story'        => ['label' => 'Story', 'config' => ['type' => 'check', 'default' => 1]],
-        'want_exec_summary' => ['label' => 'Executive summary', 'config' => ['type' => 'check', 'default' => 0]],
-        'want_faq'          => ['label' => 'FAQ', 'config' => ['type' => 'check', 'default' => 0]],
-        'want_social_post'  => ['label' => 'Social posts', 'config' => ['type' => 'check', 'default' => 0]],
-        'want_newsletter'   => ['label' => 'Newsletter', 'config' => ['type' => 'check', 'default' => 0]],
-        'want_slide_deck'   => ['label' => 'Slide deck', 'config' => ['type' => 'check', 'default' => 0]],
-        'want_handout'      => ['label' => 'Handout', 'config' => ['type' => 'check', 'default' => 0]],
-        'want_video'        => ['label' => 'Story as video', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_podcast'      => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.want_podcast', 'config' => ['type' => 'check', 'default' => 1]],
+        'want_schaubild'    => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.want_schaubild', 'config' => ['type' => 'check', 'default' => 1]],
+        'want_story'        => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.want_story', 'config' => ['type' => 'check', 'default' => 1]],
+        'want_exec_summary' => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.want_exec_summary', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_faq'          => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.want_faq', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_social_post'  => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.want_social_post', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_newsletter'   => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.want_newsletter', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_slide_deck'   => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.want_slide_deck', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_handout'      => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.want_handout', 'config' => ['type' => 'check', 'default' => 0]],
+        'want_video'        => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.want_video', 'config' => ['type' => 'check', 'default' => 0]],
         // JSON snapshot of the New-form prompt-snippet selection (PromptSnippetSelection);
         // written by the module form only, hence passthrough (not editable in the record view).
         'prompt_snippets'   => ['config' => ['type' => 'passthrough']],
-        'status'            => ['label' => 'Status', 'config' => ['type' => 'input', 'readOnly' => true]],
-        'progress'          => ['label' => 'Progress', 'config' => ['type' => 'number', 'readOnly' => true]],
-        'current_step'      => ['label' => 'Step', 'config' => ['type' => 'input', 'readOnly' => true]],
-        'error_message'     => ['label' => 'Error', 'config' => ['type' => 'text', 'readOnly' => true]],
-        'language_detected' => ['label' => 'Language', 'config' => ['type' => 'input', 'readOnly' => true]],
+        'status'            => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.status', 'config' => ['type' => 'input', 'readOnly' => true]],
+        'progress'          => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.progress', 'config' => ['type' => 'number', 'readOnly' => true]],
+        'current_step'      => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.current_step', 'config' => ['type' => 'input', 'readOnly' => true]],
+        'error_message'     => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.error_message', 'config' => ['type' => 'text', 'readOnly' => true]],
+        'language_detected' => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.language_detected', 'config' => ['type' => 'input', 'readOnly' => true]],
         'be_user'           => ['config' => ['type' => 'passthrough']],
         'artifacts'         => [
-            'label'  => 'Artifacts',
+            'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.artifacts',
             'config' => [
                 'type'          => 'inline',
                 'foreign_table' => 'tx_nrrepurpose_domain_model_artifact',

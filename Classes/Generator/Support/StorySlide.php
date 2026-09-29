@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator\Support;
 
+use Netresearch\NrRepurpose\Domain\Enum\StorySlideRole;
+
 /**
  * One slide of the Instagram-story carousel: a cover (hook/title), a key-point slide,
  * or the outro (takeaway + source attribution). Parsed from the single LLM carousel
@@ -16,14 +18,8 @@ namespace Netresearch\NrRepurpose\Generator\Support;
  */
 final readonly class StorySlide
 {
-    public const string ROLE_COVER = 'cover';
-
-    public const string ROLE_POINT = 'point';
-
-    public const string ROLE_OUTRO = 'outro';
-
     public function __construct(
-        public string $role,
+        public StorySlideRole $role,
         public string $headline,
         public string $subline,
     ) {}

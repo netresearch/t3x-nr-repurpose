@@ -379,6 +379,65 @@ final class PodcastGeneratorTest extends TestCase
     }
 
     /**
+     * PHP stores a numeric persona name ("123") as an int array key; the fallback for an
+     * unknown speaker must still hand DialogueTurn a string, not fail the podcast.
+     */
+    public function testUnknownSpeakerFallsBackToANumericPersonaName(): void
+    {
+        $completion = $this->completion([
+            ['speaker' => 'Dave', 'text' => 'Not on the guest list.'],
+        ]);
+        $jobs      = $this->jobs();
+        $generator = new PodcastGenerator(
+            $jobs,
+            $this->allowingBudget(),
+            new NullLogger(),
+            $completion,
+            $this->speech(),
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
+        );
+
+        self::assertTrue($generator->generate($this->context(1, [new Persona('123', 'Numbers person.')])));
+        self::assertStringContainsString('123: Not on the guest list.', $jobs->updates[100]['script_text']);
+    }
+
+    /**
+     * The decoded LLM JSON is untrusted in shape: a turn whose text is a nested array must
+     * be dropped, not voiced as "Array", and a non-scalar speaker falls back to the default.
+     *
+     * @param list<Persona> $personas
+     */
+    #[DataProvider('dialogueShapes')]
+    public function testTurnsWithNonScalarFieldsAreSkippedOrFallBack(array $personas): void
+    {
+        $completion             = new FakeCompletionService();
+        $completion->jsonResult = ['turns' => [
+            ['speaker' => 'Host B', 'text' => ['nested' => 'Should never be spoken.']],
+            ['speaker' => ['Host B'], 'text' => 'Spoken by the default speaker.'],
+            'a bare string instead of a turn object',
+            ['speaker' => 'Host B', 'text' => 'A regular turn.'],
+        ]];
+        $speech = $this->speech();
+        $jobs   = $this->jobs();
+
+        $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new NullLogger(), $completion, $speech, $this->stitcher(), $this->storage(), new WebVttBuilder());
+
+        self::assertTrue($generator->generate($this->context(1, $personas)));
+        self::assertCount(2, $speech->calls);
+
+        $script        = (string) $jobs->updates[100]['script_text'];
+        $firstSpeaker  = $personas === [] ? 'Host A' : $personas[0]->name;
+        $secondSpeaker = $personas === [] ? 'Host B' : $personas[0]->name;
+        self::assertSame(
+            $firstSpeaker . ": Spoken by the default speaker.\n" . $secondSpeaker . ': A regular turn.',
+            $script,
+        );
+        self::assertStringNotContainsString('Array', $script);
+    }
+
+    /**
      * Both dialogue shapes name this extension and the podcast step, so nr-llm
      * Analytics can attribute the cost instead of listing it as "Unattributed".
      *

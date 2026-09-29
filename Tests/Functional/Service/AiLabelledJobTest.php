@@ -48,6 +48,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
 /**
  * A whole job, real orchestrator, real generators, real Fluid templates, real FAL and
@@ -98,7 +99,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
             $this->get(AiLabelSettingsFactory::class),
             [
                 new PodcastGenerator($jobs, $budget, $logger, $completion, $this->speech(), $this->stitcher(), $storage, new WebVttBuilder()),
-                new SchaubildGenerator($jobs, $budget, $logger, $completion, $renderer, new GdImageCompositor(), $this->unavailableImages(), $storage),
+                new SchaubildGenerator($jobs, $budget, $logger, $completion, $renderer, new GdImageCompositor(), $this->unavailableImages(), $storage, $this->get(ViewFactoryInterface::class)),
                 new FaqGenerator($jobs, $budget, $logger, $completion, $labels),
             ],
         ))->process($jobUid);
@@ -167,7 +168,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
             $this->get(ExtensionConfiguration::class),
             $this->grants(),
             $this->get(AiLabelSettingsFactory::class),
-            [new SchaubildGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(40), new GdImageCompositor(), $this->unavailableImages(), $this->get(JobFileStorage::class))],
+            [new SchaubildGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(40), new GdImageCompositor(), $this->unavailableImages(), $this->get(JobFileStorage::class), $this->get(ViewFactoryInterface::class))],
         ))->process($jobUid);
 
         $row = GeneralUtility::makeInstance(ConnectionPool::class)
@@ -222,8 +223,8 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         $labels  = new TextLabels($this->get(LanguageServiceFactory::class));
 
         $generator = $type === 'slide_deck'
-            ? new SlideDeckGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $printer, $storage)
-            : new HandoutGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $printer, $storage, $labels);
+            ? new SlideDeckGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $printer, $storage, $this->get(ViewFactoryInterface::class))
+            : new HandoutGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $printer, $storage, $this->get(ViewFactoryInterface::class), $labels);
 
         (new GenerationOrchestrator(
             $jobs,
@@ -304,7 +305,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
             $this->get(ExtensionConfiguration::class),
             $this->grants(),
             $this->get(AiLabelSettingsFactory::class),
-            [new StoryGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(), new GdImageCompositor(), $this->unavailableImages(), $this->get(JobFileStorage::class), $slideshow)],
+            [new StoryGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(), new GdImageCompositor(), $this->unavailableImages(), $this->get(JobFileStorage::class), $this->get(ViewFactoryInterface::class), $slideshow)],
         ))->process($jobUid);
 
         $row = GeneralUtility::makeInstance(ConnectionPool::class)

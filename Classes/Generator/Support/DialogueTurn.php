@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Generator\Support;
 
 /**
- * One spoken turn of the two-host podcast dialogue. The voice is resolved by the
- * generator from the speaker label (Host A => nova, Host B => onyx by default).
+ * One spoken turn of the podcast dialogue. The voice is resolved by PodcastGenerator from
+ * the speaker: Host A => nova, Host B => onyx by default, or the persona's voice.
  */
 final readonly class DialogueTurn
 {
