@@ -32,8 +32,9 @@ nr_repurpose
 
 Turn a webpage (URL) or PDF into AI-generated media artifacts — a
 persona-driven **podcast**, a **diagram** (Schaubild) in three variants, a 9:16
-**Instagram-story carousel** — and four ready-to-use texts (executive summary,
-FAQ, social posts, newsletter) and PDF documents (slide deck, handout), straight from the TYPO3 backend. Built on
+**Instagram-story carousel** (optionally also as a video) — plus four
+ready-to-use texts (executive summary, FAQ, social posts, newsletter) and two
+PDF documents (slide deck, handout), straight from the TYPO3 backend. Built on
 :composer:`netresearch/nr-llm` for AI access and provider credentials.
 
 ----
@@ -97,6 +98,22 @@ Getting started
       .. card-footer:: :ref:`Read more <adr>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: 🧑‍💻 Developer
+
+      Run the test suites, add a generator, or put another
+      image or speech backend behind the adapters.
+
+      .. card-footer:: :ref:`Read more <developer>`
+         :button-style: btn btn-secondary stretched-link
+
+   .. card:: 🩺 Troubleshooting
+
+      Jobs that stay queued, denied secrets, missing
+      binaries, and what each error message means.
+
+      .. card-footer:: :ref:`Read more <troubleshooting>`
+         :button-style: btn btn-secondary stretched-link
+
 ----
 
 .. card-grid::
@@ -126,6 +143,8 @@ Getting started
    Usage/Index
    Architecture/Index
    Adr/Index
+   Developer/Index
+   Troubleshooting/Index
    Changelog
 
 .. Meta Menu
