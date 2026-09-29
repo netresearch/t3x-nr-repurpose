@@ -23,6 +23,7 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\ArtifactRecordingJobRepository;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\DocumentGeneratorDoubles;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Resource\File;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
 final class SlideDeckGeneratorTest extends TextGeneratorTestCase
 {
@@ -48,11 +49,11 @@ final class SlideDeckGeneratorTest extends TextGeneratorTestCase
     {
         $calls = &$this->templateCalls;
 
-        return new class ($this->jobs, $this->budget(), $this->logger(), $this->completion, $this->printer, $this->storage, $calls) extends SlideDeckGenerator {
+        return new class ($this->jobs, $this->budget(), $this->logger(), $this->completion, $this->printer, $this->storage, $this->createStub(ViewFactoryInterface::class), $calls) extends SlideDeckGenerator {
             /** @param list<array<string, mixed>> $calls */
-            public function __construct(JobProcessingRepository $jobs, BudgetServiceInterface $budget, LoggerInterface $logger, CompletionServiceInterface $completion, HtmlToPdfRendererInterface $printer, JobFileStorage $storage, private array &$calls)
+            public function __construct(JobProcessingRepository $jobs, BudgetServiceInterface $budget, LoggerInterface $logger, CompletionServiceInterface $completion, HtmlToPdfRendererInterface $printer, JobFileStorage $storage, ViewFactoryInterface $viewFactory, private array &$calls)
             {
-                parent::__construct($jobs, $budget, $logger, $completion, $printer, $storage);
+                parent::__construct($jobs, $budget, $logger, $completion, $printer, $storage, $viewFactory);
             }
 
             protected function renderDocumentHtml(string $theme, array $variables): string

@@ -18,6 +18,7 @@ use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Rendering\HtmlToPdfRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
 /**
  * A text format that is also delivered as a PDF (slide deck, handout): the structured
@@ -30,6 +31,8 @@ use Psr\Log\LoggerInterface;
  */
 abstract class AbstractDocumentGenerator extends AbstractTextGenerator
 {
+    use RendersThemeTemplates;
+
     public function __construct(
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
@@ -37,8 +40,14 @@ abstract class AbstractDocumentGenerator extends AbstractTextGenerator
         CompletionServiceInterface $completion,
         private readonly HtmlToPdfRendererInterface $pdfRenderer,
         private readonly JobFileStorage $fileStorage,
+        private readonly ViewFactoryInterface $viewFactory,
     ) {
         parent::__construct($jobs, $budget, $logger, $completion);
+    }
+
+    protected function viewFactory(): ViewFactoryInterface
+    {
+        return $this->viewFactory;
     }
 
     /** Template folder below Resources/Private/Templates/Generated/. */

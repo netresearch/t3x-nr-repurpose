@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator\Support;
 
+use Netresearch\NrRepurpose\Domain\Enum\CutMode;
+
 /**
  * A TextLimiter result: the text and how it was cut. The mode is stored in the artifact
  * metadata so the result view can say whether a post lost whole sentences or was cut
@@ -16,22 +18,13 @@ namespace Netresearch\NrRepurpose\Generator\Support;
  */
 final readonly class TextCut
 {
-    /** The text fitted; nothing was cut. */
-    public const string NONE = '';
-
-    /** Cut after the last whole sentence that fits. */
-    public const string SENTENCE = 'sentence';
-
-    /** Cut at a word boundary, "…" appended. */
-    public const string WORD = 'word';
-
     public function __construct(
         public string $text,
-        public string $mode,
+        public CutMode $mode,
     ) {}
 
     public function wasCut(): bool
     {
-        return $this->mode !== self::NONE;
+        return $this->mode !== CutMode::None;
     }
 }

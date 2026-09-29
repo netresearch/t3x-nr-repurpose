@@ -1,14 +1,14 @@
-# cat=basic; type=int+; label=Technical backend user for vault access: UID of a backend user the asynchronous job runs as. Jobs execute in a Symfony Messenger consumer or on the CLI, where TYPO3 boots an unauthenticated command-line user - nr_vault then has no actor to authorise and denies every secret read, so the provider connection fails before any artifact is generated. Leave at 0 to keep the previous behaviour.
+# cat=basic; type=int+; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:technicalBeUserUid
 technicalBeUserUid = 0
 
-# cat=basic; type=boolean; label=Visible AI label on images: Renders a small "AI-generated" label (in the artifact's language) into the corner of every Schaubild HTML render and story slide. The full AI image (Schaubild ki_image) never passes the HTML renderer and carries the machine-readable marker only. The machine-readable markers in every file and in the artifact metadata are always written, whatever this setting says.
+# cat=basic; type=boolean; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:aiLabelImages
 aiLabelImages = 1
 
-# cat=basic; type=boolean; label=AI closing line on texts: Appends "This text was created with AI." (in the text's language) to the copy-ready text of the executive summary, FAQ, social posts and newsletter. Off by default: editors often paste these texts into places that carry their own AI disclosure, where a second one is noise. The social posts reserve the line's length inside their platform limit.
+# cat=basic; type=boolean; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:aiLabelTexts
 aiLabelTexts = 0
 
-# cat=social; type=string; label=Webhook for social posts: Approved social posts are sent here by HTTP POST as JSON (platform, text, publishAt, sourceUrl, aiGenerated, aiLabel) when their time has come - run the command nr_repurpose:publish-due from the scheduler or cron. A scheduling tool, an automation service or an own endpoint puts them on the network. Empty: nothing is sent, and the command reports the posts that are due.
+# cat=social; type=string; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:socialWebhookUrl
 socialWebhookUrl =
 
-# cat=social; type=string; label=Webhook signing secret: With a secret, every request carries the header X-Nr-Repurpose-Signature: sha256=<hex HMAC-SHA256 of the body with this secret>, so the receiver can check that the post comes from this installation.
+# cat=social; type=string; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:socialWebhookSecret
 socialWebhookSecret =

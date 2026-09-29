@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\StorySlideRole;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\Support\StorySlide;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -27,6 +28,7 @@ use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
 use Throwable;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
 /**
  * Produces a multi-slide 9:16 Instagram-story carousel (1080x1920 PNG per slide, spec §10).
@@ -48,6 +50,8 @@ use Throwable;
  */
 class StoryGenerator extends AbstractGenerator
 {
+    use RendersThemeTemplates;
+
     private const int WIDTH = 1080;
 
     private const int HEIGHT = 1920;
@@ -84,10 +88,16 @@ class StoryGenerator extends AbstractGenerator
         private readonly ImageCompositorInterface $compositor,
         private readonly ImageGeneratorInterface $imageGenerator,
         private readonly JobFileStorage $fileStorage,
+        private readonly ViewFactoryInterface $viewFactory,
         // Optional so a construction without it keeps working; the container injects it.
         private readonly ?SlideshowRendererInterface $slideshow = null,
     ) {
         parent::__construct($jobs, $budget, $logger);
+    }
+
+    protected function viewFactory(): ViewFactoryInterface
+    {
+        return $this->viewFactory;
     }
 
     public function supports(GenerationContext $ctx): bool
@@ -122,21 +132,29 @@ class StoryGenerator extends AbstractGenerator
 
         $total  = count($slides);
         $images = [];
-        foreach ($slides as $i => $slide) {
-            $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
-            $image = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
-            if ($image !== null) {
-                $images[] = $image;
+        try {
+            foreach ($slides as $i => $slide) {
+                $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
+                $image = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
+                if ($image !== null) {
+                    $images[] = $image;
+                }
+            }
+
+            $ok = $images !== [];
+            if ($ok && $this->slideshow instanceof SlideshowRendererInterface && (bool) ($ctx->jobRow['want_video'] ?? false)) {
+                $ctx->progress?->step('Story: video', 0.95);
+                $this->generateVideoArtifact($ctx, $jobUid, $this->slideshow, $images);
+            }
+
+            return $ok;
+        } finally {
+            // The slide images are kept until the video is made from them. A flat slide is
+            // the renderer's own output file; the worker runs long, so remove them here.
+            foreach ($images as $image) {
+                $this->discardRenderedFile($image);
             }
         }
-
-        $ok = $images !== [];
-        if ($ok && $this->slideshow instanceof SlideshowRendererInterface && (bool) ($ctx->jobRow['want_video'] ?? false)) {
-            $ctx->progress?->step('Story: video', 0.95);
-            $this->generateVideoArtifact($ctx, $jobUid, $this->slideshow, $images);
-        }
-
-        return $ok;
     }
 
     /**
@@ -270,10 +288,8 @@ class StoryGenerator extends AbstractGenerator
             }
 
             $subline = is_scalar($raw['subline'] ?? null) ? trim((string) $raw['subline']) : '';
-            $role    = is_scalar($raw['role'] ?? null) ? (string) $raw['role'] : '';
-            if (!in_array($role, [StorySlide::ROLE_COVER, StorySlide::ROLE_POINT, StorySlide::ROLE_OUTRO], true)) {
-                $role = StorySlide::ROLE_POINT;
-            }
+            $role    = (is_scalar($raw['role'] ?? null) ? StorySlideRole::tryFrom((string) $raw['role']) : null)
+                ?? StorySlideRole::Point;
 
             $slides[] = new StorySlide(
                 $role,
@@ -320,7 +336,8 @@ class StoryGenerator extends AbstractGenerator
 
     /**
      * Render one slide into its own artifact row; a failure fails only this slide.
-     * Returns the rendered PNG for the video, or null when the slide failed.
+     * Returns the rendered PNG for the video, or null when the slide failed. The caller
+     * removes the returned PNG; every other render is removed here.
      */
     private function generateSlideArtifact(
         GenerationContext $ctx,
@@ -343,7 +360,7 @@ class StoryGenerator extends AbstractGenerator
             'width'      => self::WIDTH,
             'height'     => self::HEIGHT,
             'background' => $hasBackground ? 'ki' : 'flat',
-            'role'       => $slide->role,
+            'role'       => $slide->role->value,
             'slideIndex' => $index,
             'slideTotal' => $total,
             // Every slide carries the full copy prompts; the shared background image
@@ -358,6 +375,8 @@ class StoryGenerator extends AbstractGenerator
             'aiLabel' => $provenance->toArray(),
         ];
 
+        $fgPath  = null;
+        $pngPath = null;
         try {
             $html = $this->renderSlideHtml($ctx, $slide, $index, $total, $backgroundPath !== null);
 
@@ -384,8 +403,13 @@ class StoryGenerator extends AbstractGenerator
             // local scalars, so encoding cannot actually fail here.
             $this->jobs->updateArtifact($artifactUid, ['metadata' => json_encode($metadata, JSON_THROW_ON_ERROR)]);
             $this->failArtifact($artifactUid, $jobUid, sprintf('Story slide %d/%d error: %s', $index, $total, $e->getMessage()));
+            // Not handed to the caller, so nobody else removes it.
+            $this->discardRenderedFile($pngPath);
 
             return null;
+        } finally {
+            // The transparent foreground is composited into $pngPath and not needed after.
+            $this->discardRenderedFile($fgPath);
         }
     }
 
@@ -405,7 +429,7 @@ class StoryGenerator extends AbstractGenerator
         return $this->renderTemplate('Story', $ctx->theme, [
             'headline'    => $slide->headline,
             'subline'     => $slide->subline,
-            'role'        => $slide->role,
+            'role'        => $slide->role->value,
             'slideIndex'  => $index,
             'slideTotal'  => $total,
             'sourceLabel' => $ctx->document->sourceLabel,

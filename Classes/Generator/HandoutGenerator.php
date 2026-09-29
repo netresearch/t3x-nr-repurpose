@@ -21,6 +21,7 @@ use Netresearch\NrRepurpose\Rendering\HtmlToPdfRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
 /**
  * A printable handout of the source, one to two A4 pages: title, lead, sections with a
@@ -42,9 +43,10 @@ class HandoutGenerator extends AbstractDocumentGenerator
         CompletionServiceInterface $completion,
         HtmlToPdfRendererInterface $pdfRenderer,
         JobFileStorage $fileStorage,
+        ViewFactoryInterface $viewFactory,
         private readonly TextLabels $labels,
     ) {
-        parent::__construct($jobs, $budget, $logger, $completion, $pdfRenderer, $fileStorage);
+        parent::__construct($jobs, $budget, $logger, $completion, $pdfRenderer, $fileStorage, $viewFactory);
     }
 
     protected function artifactType(): ArtifactType

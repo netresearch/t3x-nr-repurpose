@@ -17,6 +17,8 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
 use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
+use Netresearch\NrRepurpose\Generator\Support\DialogueScript;
+use Netresearch\NrRepurpose\Generator\Support\DialogueTurn;
 use Netresearch\NrRepurpose\Generator\Support\WebVttBuilder;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
@@ -102,7 +104,7 @@ final class PodcastGenerator extends AbstractGenerator
             $ctx->progress?->step('Podcast: writing script', 0.05);
             $personaVoices = $this->personaVoices($ctx->snippets->personas);
             $dialogue      = $this->buildDialogue($ctx, $personaVoices);
-            $turns         = $dialogue['turns'];
+            $turns         = $dialogue->turns;
             if ($turns === []) {
                 $this->failArtifact($artifactUid, $jobUid, 'LLM produced no dialogue turns');
 
@@ -121,17 +123,17 @@ final class PodcastGenerator extends AbstractGenerator
                     0.1 + 0.8 * $i / $totalTurns,
                 );
                 $segmentPath = sprintf('%s/turn-%d.mp3', $tmpDir, $i);
-                if (!$this->synthesizeWithRetry($turn['text'], $turn['voice'], $segmentPath, $jobUid, $i)) {
+                if (!$this->synthesizeWithRetry($turn->text, $turn->voice, $segmentPath, $jobUid, $i)) {
                     continue;
                 }
 
                 $segmentPaths[] = $segmentPath;
                 $vttSegments[]  = [
-                    'speaker'         => $turn['speaker'],
-                    'text'            => $turn['text'],
+                    'speaker'         => $turn->speaker,
+                    'text'            => $turn->text,
                     'durationSeconds' => $this->stitcher->probeDurationSeconds($segmentPath),
                 ];
-                $transcriptLines[] = $turn['speaker'] . ': ' . $turn['text'];
+                $transcriptLines[] = $turn->speaker . ': ' . $turn->text;
             }
 
             if ($segmentPaths === []) {
@@ -151,7 +153,7 @@ final class PodcastGenerator extends AbstractGenerator
             $provenance          = $this->provenance($ctx, DigitalSourceType::TrainedAlgorithmicMedia, ['tts' => $this->speech->getModel()]);
             $mp3File             = $this->fileStorage->store((string) file_get_contents($mp3Path), 'podcast.mp3', $provenance);
             $vttFile             = $this->fileStorage->store($vtt, 'podcast.vtt', $provenance);
-            $metadata            = $this->buildMetadata($personaVoices, count($turns), $dialogue['system'], $dialogue['user']);
+            $metadata            = $this->buildMetadata($personaVoices, count($turns), $dialogue->systemPrompt, $dialogue->userPrompt);
             $metadata['aiLabel'] = $provenance->toArray();
 
             $this->jobs->updateArtifact($artifactUid, [
@@ -199,10 +201,8 @@ final class PodcastGenerator extends AbstractGenerator
      * can record them verbatim (transparency: prompts.system / prompts.user).
      *
      * @param array<string, string> $personaVoices persona name => TTS voice (empty: two-host mode)
-     *
-     * @return array{turns: list<array{speaker: string, text: string, voice: string}>, system: string, user: string}
      */
-    private function buildDialogue(GenerationContext $ctx, array $personaVoices): array
+    private function buildDialogue(GenerationContext $ctx, array $personaVoices): DialogueScript
     {
         return $personaVoices === []
             ? $this->buildTwoHostDialogue($ctx)
@@ -211,10 +211,8 @@ final class PodcastGenerator extends AbstractGenerator
 
     /**
      * The pre-snippet default: Host A / Host B with the configured voices (unchanged).
-     *
-     * @return array{turns: list<array{speaker: string, text: string, voice: string}>, system: string, user: string}
      */
-    private function buildTwoHostDialogue(GenerationContext $ctx): array
+    private function buildTwoHostDialogue(GenerationContext $ctx): DialogueScript
     {
         $prompt       = $this->sourcePrompt($ctx);
         $systemPrompt = sprintf(
@@ -241,20 +239,20 @@ final class PodcastGenerator extends AbstractGenerator
 
         $turns = [];
         foreach ($rawTurns as $raw) {
-            $speaker = (string) ($raw['speaker'] ?? 'Host A');
-            $text    = trim((string) ($raw['text'] ?? ''));
+            $speaker = $this->scalarField($raw, 'speaker') ?? 'Host A';
+            $text    = trim($this->scalarField($raw, 'text') ?? '');
             if ($text === '') {
                 continue;
             }
 
-            $turns[] = [
-                'speaker' => $speaker,
-                'text'    => mb_substr($text, 0, 4096),
-                'voice'   => $speaker === 'Host B' ? self::VOICE_HOST_B : self::VOICE_HOST_A,
-            ];
+            $turns[] = new DialogueTurn(
+                $speaker,
+                mb_substr($text, 0, 4096),
+                $speaker === 'Host B' ? self::VOICE_HOST_B : self::VOICE_HOST_A,
+            );
         }
 
-        return ['turns' => $turns, 'system' => $systemPrompt, 'user' => $prompt];
+        return new DialogueScript($turns, $systemPrompt, $prompt);
     }
 
     /**
@@ -263,10 +261,8 @@ final class PodcastGenerator extends AbstractGenerator
      * persona so a slightly non-compliant LLM answer still synthesizes.
      *
      * @param array<string, string> $personaVoices persona name => TTS voice
-     *
-     * @return array{turns: list<array{speaker: string, text: string, voice: string}>, system: string, user: string}
      */
-    private function buildPersonaDialogue(GenerationContext $ctx, array $personaVoices): array
+    private function buildPersonaDialogue(GenerationContext $ctx, array $personaVoices): DialogueScript
     {
         $personaLines = array_map(
             static fn (Persona $persona): string => sprintf('- %s: %s', $persona->name, $persona->description),
@@ -314,24 +310,34 @@ final class PodcastGenerator extends AbstractGenerator
 
         $turns = [];
         foreach ($rawTurns as $raw) {
-            $speaker = (string) ($raw['speaker'] ?? '');
+            $speaker = $this->scalarField($raw, 'speaker') ?? '';
             if (!isset($personaVoices[$speaker])) {
-                $speaker = $names[0];
+                // (string): a numeric persona name is an int array key.
+                $speaker = (string) $names[0];
             }
 
-            $text = trim((string) ($raw['text'] ?? ''));
+            $text = trim($this->scalarField($raw, 'text') ?? '');
             if ($text === '') {
                 continue;
             }
 
-            $turns[] = [
-                'speaker' => $speaker,
-                'text'    => mb_substr($text, 0, 4096),
-                'voice'   => $personaVoices[$speaker],
-            ];
+            $turns[] = new DialogueTurn($speaker, mb_substr($text, 0, 4096), $personaVoices[$speaker]);
         }
 
-        return ['turns' => $turns, 'system' => $systemPrompt, 'user' => $prompt];
+        return new DialogueScript($turns, $systemPrompt, $prompt);
+    }
+
+    /**
+     * One field of a decoded LLM turn as a string, or null when the turn is not an object
+     * or the field is missing or not scalar (a nested array must not be voiced as "Array").
+     */
+    private function scalarField(mixed $turn, string $key): ?string
+    {
+        if (!is_array($turn) || !is_scalar($turn[$key] ?? null)) {
+            return null;
+        }
+
+        return (string) $turn[$key];
     }
 
     /**

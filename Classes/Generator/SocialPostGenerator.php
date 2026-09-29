@@ -160,7 +160,7 @@ final class SocialPostGenerator extends AbstractTextGenerator
             'length'    => mb_strlen($post),
             'maxChars'  => $limit,
             'truncated' => $cut->wasCut(),
-            'cutMode'   => $cut->mode,
+            'cutMode'   => $cut->mode->value,
         ]);
     }
 
@@ -194,7 +194,7 @@ final class SocialPostGenerator extends AbstractTextGenerator
             'length'          => mb_strlen($post),
             'maxChars'        => self::LIMIT_INSTAGRAM,
             'truncated'       => $cut->wasCut(),
-            'cutMode'         => $cut->mode,
+            'cutMode'         => $cut->mode->value,
         ]);
     }
 
