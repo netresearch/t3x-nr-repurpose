@@ -8,9 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **`composer.json` requires `netresearch/nr-vault` at `^0.16`.** It allowed `^0.15 || ^0.16`, but every nr-llm version this extension accepts (0.35 to 0.38) requires `netresearch/nr-vault: ^0.16.0`, so the `^0.15` branch could never resolve.
 - **`composer.json` carries the extension version and `Package.providesPackages`** (TYPO3 deprecation #108345). `extra.typo3/cms.version` is `0.8.2`, and `providesPackages` names `smalot/pdfparser`, the one required package that is neither a TYPO3 extension nor shipped by the TYPO3 core. The entry has no vendor path, so in classic mode it only keeps TYPO3 from treating the package as a missing extension: the TER package does not contain smalot/pdfparser, and PDF ingestion in a classic installation fails with `Class "Smalot\PdfParser\Config" not found`, as it did before. With both fields present TYPO3 14 no longer evaluates `ext_emconf.php` and takes the extension's dependencies from `composer.json`'s `require`. The version has to be bumped in both files on every release; `Tests/Unit/VersionConsistencyTest.php` fails when they differ. In classic mode the Extension Manager no longer shows the `alpha` state from `ext_emconf.php`.
 - **`typo3/cms-install` moves from `require` to `require-dev`.** No class, configuration or upgrade wizard of this extension uses EXT:install. Once `composer.json` carries the #108345 metadata, TYPO3 turns every `require` entry into a hard package dependency, so every classic-mode installation and every functional test instance would have had to load EXT:install. It stays in `require-dev` for `typo3 setup` in `ddev install`.
+
+### Fixed
+
+- **An Extension Manager or TER install accepts nr_vault 0.16.** `ext_emconf.php` declared `nr_vault 0.15.0-0.15.99` and so refused 0.16, although every nr-llm version this extension accepts (0.35 to 0.38) requires nr-vault `^0.16.0` in its `composer.json`. `ext_emconf.php` now declares `0.16.0-0.16.99` and `composer.json` `^0.16` (its `^0.15` branch could never resolve), `ext_emconf.php` also states the PHP range `8.3.0-8.99.99` and the repository description, and `ExtensionDependencyRangeTest` compares every dependency range, PHP included, between the two files.
 
 ## [0.8.2] - 2026-09-27
 
