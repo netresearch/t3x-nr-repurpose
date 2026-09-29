@@ -81,8 +81,9 @@ jobs:
   #
   # The QA tools stay at their newest version: typo3-ci-workflows and phpunit
   # are left out of the lowest update. At their floors the tool set does not
-  # load: typo3-ci-workflows 1.5.0 configures ergebnis/phpstan-rules options
-  # that its own lowest allowed ergebnis (2.6.0) does not know.
+  # load: typo3-ci-workflows 1.12.0 configures ergebnis/phpstan-rules options
+  # (allRules, noReturnByReference) that its own lowest allowed ergebnis (2.6.0)
+  # does not know.
   #
   # Locally: ./Build/Scripts/runTests.sh -p 8.3 -s composer ... with the same
   # install and update calls as the step below, then -s unit and
