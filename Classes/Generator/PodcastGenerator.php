@@ -46,13 +46,13 @@ use Throwable;
  */
 final class PodcastGenerator extends AbstractGenerator
 {
-    private const VOICE_HOST_A = 'nova';
+    private const string VOICE_HOST_A = 'nova';
 
-    private const VOICE_HOST_B = 'onyx';
+    private const string VOICE_HOST_B = 'onyx';
 
-    private const TTS_COST_PER_TURN = 0.015;
+    private const float TTS_COST_PER_TURN = 0.015;
 
-    private const SCRIPT_COST = 0.02;
+    private const float SCRIPT_COST = 0.02;
 
     /**
      * Each turn is one Specialized TTS HTTP call. OpenAI occasionally stalls a request (a slow
@@ -60,7 +60,7 @@ final class PodcastGenerator extends AbstractGenerator
      * on a new connection — and almost always recovers. A turn that still fails is skipped rather
      * than failing the whole podcast, so one flaky call can't lose a 15-turn episode.
      */
-    private const TTS_MAX_ATTEMPTS = 2;
+    private const int TTS_MAX_ATTEMPTS = 2;
 
     public function __construct(
         JobProcessingRepository $jobs,
@@ -312,7 +312,8 @@ final class PodcastGenerator extends AbstractGenerator
         foreach ($rawTurns as $raw) {
             $speaker = $this->scalarField($raw, 'speaker') ?? '';
             if (!isset($personaVoices[$speaker])) {
-                $speaker = $names[0];
+                // (string): a numeric persona name is an int array key.
+                $speaker = (string) $names[0];
             }
 
             $text = trim($this->scalarField($raw, 'text') ?? '');

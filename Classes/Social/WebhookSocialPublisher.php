@@ -13,6 +13,7 @@ use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -31,6 +32,7 @@ final readonly class WebhookSocialPublisher implements SocialPublisherInterface
         private RequestFactoryInterface $requestFactory,
         private StreamFactoryInterface $streamFactory,
         private ExtensionConfiguration $extensionConfiguration,
+        private LoggerInterface $logger,
     ) {}
 
     public function isConfigured(): bool
@@ -58,7 +60,11 @@ final readonly class WebhookSocialPublisher implements SocialPublisherInterface
         try {
             $response = $this->httpClient->sendRequest($request);
         } catch (ClientExceptionInterface $e) {
-            throw new SocialPublishException('Webhook not reachable: ' . $e->getMessage(), 1790410002, $e);
+            // The client's message names the request URI, and a webhook URL can carry a
+            // token; the refusal reason is stored and shown in the module, so it stays fixed.
+            $this->logger->error('Social webhook not reachable', ['exception' => $e]);
+
+            throw new SocialPublishException('Webhook not reachable', 1790410002, $e);
         }
 
         $status = $response->getStatusCode();

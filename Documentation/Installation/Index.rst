@@ -22,8 +22,12 @@ Requirements
    * - TYPO3
      - ``^14.3`` (v14.3 LTS only)
    * - :composer:`netresearch/nr-llm`
-     - ``^0.25`` — AI access (completion, TTS, image), budget enforcement and
-       one-click configuration presets.
+     - ``^0.35 || ^0.36 || ^0.37 || ^0.38`` — AI access (completion, TTS,
+       image), budget enforcement and one-click configuration presets.
+   * - :composer:`netresearch/nr-vault`
+     - ``^0.15 || ^0.16`` — holds the provider keys nr-llm reads; its
+       technical-actor API lets the worker read them (see
+       :ref:`configuration-extension-settings`).
    * - PHP extension ``curl`` (recommended)
      - Fetching ``url`` and ``pdf_url`` sources. With it the time limit covers
        the whole transfer including the response headers; without it a server
@@ -39,6 +43,9 @@ Requirements
    * - Node.js
      - ``>=22.18.0 <25.0.0`` to run the bundled ``render.cjs`` (uses
        ``playwright-core``).
+
+The version ranges are the ones :path:`composer.json` requires; that file is
+authoritative.
 
 .. note::
 
@@ -80,6 +87,32 @@ The extension creates two tables:
      - One row per produced artifact (type, variant, FAL file references,
        transcript, metadata, status).
 
+.. _installation-classic:
+
+Classic mode (TER) is not supported
+===================================
+
+.. warning::
+
+   nr_repurpose requires a Composer-based TYPO3 installation. Installing it
+   through the Extension Manager (classic mode) is not supported.
+
+The extension needs code that only a Composer installation provides:
+
+-   **A PHP library.** PDF ingestion uses :composer:`smalot/pdfparser`, which
+    :path:`composer.json` requires. The TER package contains no
+    :path:`vendor/` directory, so the library is missing in classic mode.
+-   **The Node renderer's dependencies.** The TER package ships only
+    :path:`Resources/Private/NodeRenderer/render.cjs`, without the
+    :path:`package.json` and :path:`package-lock.json` that
+    :ref:`installation-node-renderer` installs ``playwright-core`` from. Without
+    them the Schaubild, story, slide deck and handout cannot be rendered.
+
+The extension is listed in the TYPO3 Extension Repository as
+`nr_repurpose <https://extensions.typo3.org/extension/nr_repurpose>`__ so it
+can be found there. Install it with Composer as described in
+:ref:`installation-composer`.
+
 .. _installation-node-renderer:
 
 Install the Node renderer
@@ -96,8 +129,10 @@ Playwright download its own browser:
    cd Resources/Private/NodeRenderer
    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci
 
-The renderer locates Chromium via the ``CHROMIUM_PATH`` environment variable
-(default ``/usr/bin/chromium``). See :ref:`configuration-rendering`.
+The renderer locates Chromium via the ``CHROMIUM_PATH`` environment variable.
+Export it (for example ``CHROMIUM_PATH=/usr/bin/chromium``) in the environment
+the worker starts with; see :ref:`configuration-rendering` for why the value
+must come from there.
 
 .. _installation-openai-key:
 

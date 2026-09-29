@@ -19,7 +19,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class JobFileStorageTest extends AbstractFunctionalTestCase
 {
-    private const GENERATOR = 'nr_repurpose 9.9.9';
+    private const string GENERATOR = 'nr_repurpose 9.9.9';
 
     public function testStoreWritesContentAndReturnsResolvableFile(): void
     {

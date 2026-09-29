@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Generator\Image;
 use Netresearch\NrLlm\Specialized\Image\DallEImageService;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -40,7 +41,10 @@ final class DallEImageGenerator implements ImageGeneratorInterface
     /** Configuration system prompt (image style preamble), resolved lazily with getPromptPreamble(). */
     private ?string $promptPreamble = null;
 
-    public function __construct(private readonly DallEImageService $dalle) {}
+    public function __construct(
+        private readonly DallEImageService $dalle,
+        private readonly LoggerInterface $logger,
+    ) {}
 
     public function isAvailable(): bool
     {
@@ -78,12 +82,18 @@ final class DallEImageGenerator implements ImageGeneratorInterface
         try {
             $result = $this->dalle->generate($prompt, $this->buildOptions($size));
             if (!$result->saveToFile($outputPath)) {
-                throw RenderingException::because('DALL-E could not save generated image to ' . $outputPath, 1749411000);
+                $this->logger->error('DALL-E could not save generated image', ['path' => $outputPath]);
+
+                throw RenderingException::because('DALL-E could not save generated image', 1749411000);
             }
         } catch (RenderingException $e) {
             throw $e;
         } catch (Throwable $e) {
-            throw RenderingException::because('DALL-E image generation failed: ' . $e->getMessage(), 1749411001, $e);
+            // The message reaches the artifact's error_message, shown to every module user;
+            // the provider's detail goes to the server log only.
+            $this->logger->error('DALL-E image generation failed', ['exception' => $e]);
+
+            throw RenderingException::because('DALL-E image generation failed', 1749411001, $e);
         }
     }
 

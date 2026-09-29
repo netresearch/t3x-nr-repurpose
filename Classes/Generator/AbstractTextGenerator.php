@@ -42,7 +42,7 @@ use Throwable;
  */
 abstract class AbstractTextGenerator extends AbstractGenerator
 {
-    private const PLANNED_COST = 0.01;
+    private const float PLANNED_COST = 0.01;
 
     public function __construct(
         JobProcessingRepository $jobs,

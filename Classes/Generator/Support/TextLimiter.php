@@ -22,11 +22,11 @@ use Netresearch\NrRepurpose\Domain\Enum\CutMode;
  */
 final class TextLimiter
 {
-    private const ELLIPSIS = '…';
+    private const string ELLIPSIS = '…';
 
     // Any Unicode whitespace: PHP compiles /u patterns with Unicode properties (UCP), so
     // \s also matches newline, no-break space (U+00A0) and the other separators.
-    private const WHITESPACE = '\s';
+    private const string WHITESPACE = '\s';
 
     /** The cut text only; see cut() for the rules. */
     public function truncate(string $text, int $maxChars): string

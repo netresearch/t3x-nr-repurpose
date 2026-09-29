@@ -26,15 +26,15 @@ use TYPO3\CMS\Core\View\ViewFactoryInterface;
  */
 final class BrandingRenderingTest extends AbstractFunctionalTestCase
 {
-    private const LOGO_TITLE = '<title>Netresearch DTT GmbH</title>';
+    private const string LOGO_TITLE = '<title>Netresearch DTT GmbH</title>';
 
-    private const FRAME = '<path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242';
+    private const string FRAME = '<path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242';
 
-    private const LETTER = '<path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82';
+    private const string LETTER = '<path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82';
 
-    private const LOGO_IN_HEADER = '~<header\b[^>]*>(?:(?!</header>).)*?' . self::LOGO_TITLE . '~s';
+    private const string LOGO_IN_HEADER = '~<header\b[^>]*>(?:(?!</header>).)*?' . self::LOGO_TITLE . '~s';
 
-    private const FOOTER_LINK = '~<footer\b[^>]*>(?:(?!</footer>).)*?<a href="https://www\.netresearch\.de/"[^>]*>Netresearch DTT GmbH</a>~s';
+    private const string FOOTER_LINK = '~<footer\b[^>]*>(?:(?!</footer>).)*?<a href="https://www\.netresearch\.de/"[^>]*>Netresearch DTT GmbH</a>~s';
 
     /**
      * Meta's Stories ads guide asks to keep 14% of a 9:16 story (269 of 1920 px) at the top
@@ -45,7 +45,7 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
      * 960 - (960 - d) * 1.08 px from it on the last frame. So the templates keep
      * d >= (269 + 960 * 0.08) / 1.08, rounded up: 321 px.
      */
-    private const STORY_SAFE_EDGE = 321;
+    private const int STORY_SAFE_EDGE = 321;
 
     protected function setUp(): void
     {

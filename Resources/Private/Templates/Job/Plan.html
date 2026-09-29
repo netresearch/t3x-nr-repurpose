@@ -3,7 +3,7 @@
       xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers">
 <f:layout name="Module" />
 <f:section name="Content">
-    <h1><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.title" /></h1>
+    <h1 id="nrrepurpose-plan-title"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.title" /></h1>
 
     <p>
         <f:link.action action="list" class="btn btn-default">
@@ -21,7 +21,7 @@
     <f:if condition="{posts}">
         <f:then>
             <div class="table-fit">
-                <table class="table table-striped" data-role="plan">
+                <table class="table table-striped table-hover" data-role="plan" aria-labelledby="nrrepurpose-plan-title">
                     <thead>
                         <tr>
                             <th scope="col"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.column.time" /></th>
@@ -34,17 +34,18 @@
                     <tbody>
                         <f:for each="{posts}" as="post">
                             <tr>
-                                <td class="text-nowrap"><f:format.date format="Y-m-d H:i">{post.publish_at}</f:format.date></td>
+                                <td class="col-nowrap"><f:format.date format="Y-m-d H:i">{post.publish_at}</f:format.date></td>
                                 <td>{post.variant}</td>
-                                <td><f:format.crop maxCharacters="140" respectWordBoundaries="true">{post.script_text}</f:format.crop></td>
+                                <td class="text-break"><f:format.crop maxCharacters="140" respectWordBoundaries="true">{post.script_text}</f:format.crop></td>
                                 <td>
                                     <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:publish.{post.publish_status}" />
                                     <f:if condition="{post.publish_status} == 'scheduled' && {post.publish_at} <= {now}">
                                         <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:plan.due" /></span>
                                     </f:if>
-                                    <f:if condition="{post.publish_error}"><br /><span class="text-danger small">{post.publish_error}</span></f:if>
+                                    <f:if condition="{post.publish_error}"><br /><span class="small text-break">{post.publish_error}</span></f:if>
                                 </td>
-                                <td>
+                                <f:comment><!-- The source URL on one line with an ellipsis, like the job list (core .col-responsive). --></f:comment>
+                                <td class="col-responsive" title="{post.source_value}">
                                     <f:link.action action="show" arguments="{job: post.job}">#{post.job}</f:link.action>
                                     <br /><span class="text-muted small">{post.source_value}</span>
                                 </td>

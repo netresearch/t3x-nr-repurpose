@@ -197,6 +197,39 @@ final class GdImageCompositorTest extends TestCase
         self::assertSame($path, $logger->records[0]['context']['path'] ?? null);
     }
 
+    public function testNonImageBytesRaiseRenderingExceptionWithoutAWarning(): void
+    {
+        // A file that exists and is readable but is not an image: getimagesize()
+        // and imagecreatefromstring() both fail on it. Their warnings are
+        // suppressed, so the caller sees the RenderingException, and failOnWarning
+        // in Build/phpunit.xml fails the run should the suppression go away.
+        $notAnImage = $this->tmpDir . '/not-an-image.png';
+        file_put_contents($notAnImage, 'plain text, not a PNG');
+        $fg = $this->makeMostlyTransparentPng(4, 4);
+
+        $this->expectException(RenderingException::class);
+        $this->expectExceptionCode(1749400206);
+        $this->expectExceptionMessage('Compositor input is not a valid image: ' . $notAnImage);
+
+        (new GdImageCompositor())->overlay($notAnImage, $fg, $this->tmpDir . '/o.png');
+    }
+
+    public function testUncreatableOutputDirRaisesRenderingException(): void
+    {
+        // A regular file as the parent makes mkdir() fail for every user, root
+        // included, which chmod-based setups do not.
+        $bg      = $this->makeOpaquePng(4, 4, 0, 0, 255);
+        $fg      = $this->makeMostlyTransparentPng(4, 4);
+        $blocker = $this->tmpDir . '/blocker';
+        file_put_contents($blocker, 'x');
+
+        $this->expectException(RenderingException::class);
+        $this->expectExceptionCode(1749400202);
+        $this->expectExceptionMessage('Compositor output dir not writable: ' . $blocker . '/sub');
+
+        (new GdImageCompositor())->overlay($bg, $fg, $blocker . '/sub/out.png');
+    }
+
     public function testRequiredBytesBudgetsBackgroundPlusTwoForegroundSizedImages(): void
     {
         // background + (foreground + canvas at foreground size), 8 bytes/pixel.

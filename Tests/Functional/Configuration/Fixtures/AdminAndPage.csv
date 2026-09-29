@@ -1,0 +1,6 @@
+"be_users"
+,"uid","pid","username","password","admin","deleted","disable"
+,1,0,"admin","",1,0,0
+"pages"
+,"uid","pid","title","doktype","deleted","hidden"
+,1,0,"Jobs",254,0,0

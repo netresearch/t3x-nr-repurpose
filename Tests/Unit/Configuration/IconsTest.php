@@ -19,12 +19,12 @@ use PHPUnit\Framework\TestCase;
  */
 final class IconsTest extends TestCase
 {
-    private const ROOT = __DIR__ . '/../../..';
+    private const string ROOT = __DIR__ . '/../../..';
 
     /** The frame and the letter of the [n] mark, from the brand reference's SVG source. */
-    private const FRAME_PATH = 'M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242';
+    private const string FRAME_PATH = 'M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242';
 
-    private const LETTER_PATH = 'M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82';
+    private const string LETTER_PATH = 'M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82';
 
     public function testTheExtensionIconIsTheNetresearchSymbolInTheBrandColours(): void
     {
