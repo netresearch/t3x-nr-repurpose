@@ -24,9 +24,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final readonly class CapabilityGrantResolver implements CapabilityGrantResolverInterface
 {
-    public const PERMISSION_AUDIO = 'nrrepurpose:generate_audio';
+    public const string PERMISSION_AUDIO = 'nrrepurpose:generate_audio';
 
-    public const PERMISSION_VISION = 'nrrepurpose:generate_vision';
+    public const string PERMISSION_VISION = 'nrrepurpose:generate_vision';
 
     public function resolve(int $beUserUid): CapabilityGrants
     {

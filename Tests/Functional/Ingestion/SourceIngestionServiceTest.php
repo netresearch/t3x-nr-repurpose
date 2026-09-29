@@ -58,7 +58,7 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
     private function service(ClientInterface $client, PdfVisionExtractor $vision): SourceIngestionService
     {
         $factory = new HttpFactory();
-        $runner  = new SymfonyProcessPopplerRunner();
+        $runner  = new SymfonyProcessPopplerRunner(new NullLogger());
 
         return new SourceIngestionService(
             new WebPageFetcher($client, $factory, StaticHostResolver::publicGuard()),

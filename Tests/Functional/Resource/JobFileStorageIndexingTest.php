@@ -28,7 +28,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class JobFileStorageIndexingTest extends AbstractFunctionalTestCase
 {
-    private const EMPTY_IMAGE_URL = 'data:image/jpeg;base64,';
+    private const string EMPTY_IMAGE_URL = 'data:image/jpeg;base64,';
 
     protected array $testExtensionsToLoad = [
         'netresearch/nr-vault',

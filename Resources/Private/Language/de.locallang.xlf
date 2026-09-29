@@ -18,6 +18,7 @@
       <trans-unit id="list.column.source"><source>Source</source><target>Quelle</target></trans-unit>
       <trans-unit id="list.column.status"><source>Status</source><target>Status</target></trans-unit>
       <trans-unit id="list.column.progress"><source>Progress</source><target>Fortschritt</target></trans-unit>
+      <trans-unit id="list.progress.label"><source>Progress of job #%d</source><target>Fortschritt von Auftrag #%d</target></trans-unit>
       <trans-unit id="list.column.actions"><source>Actions</source><target>Aktionen</target></trans-unit>
       <trans-unit id="list.action.details"><source>Details</source><target>Details</target></trans-unit>
       <trans-unit id="list.empty"><source>No jobs yet. Create your first job to turn a URL or PDF into a podcast, a diagram, an Instagram story and ready-to-use texts.</source><target>Noch keine Aufträge vorhanden. Legen Sie Ihren ersten Auftrag an, um eine URL oder PDF in einen Podcast, ein Schaubild, eine Instagram-Story und fertige Texte umzuwandeln.</target></trans-unit>

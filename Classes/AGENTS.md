@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-09-28 -->
 
 # AGENTS.md — Classes
 
@@ -27,10 +27,30 @@ TYPO3 extension following TYPO3 CGL and PSR-12
 | Render primitive behind interface | `Classes/Rendering/GdImageCompositor.php` |
 <!-- AGENTS-GENERATED:END golden-samples -->
 
+## Utilities (check before creating new)
+Hand-maintained (outside the generated blocks). Reuse these before writing a helper; signatures are in the files.
+
+| Need | Use | Location |
+|------|-----|----------|
+| Budget + availability guard for a TTS/image call | `specializedAllowed()` | `Classes/Generator/AbstractGenerator.php` |
+| `prompts` block of artifact metadata | `promptsMetadata()` | `Classes/Generator/AbstractGenerator.php` |
+| AI-origin label (ADR-005) | `provenance()` → `AiProvenance` | `Classes/Generator/AbstractGenerator.php` |
+| Layout `imageSize` hint, validated | `resolveImageSize()` | `Classes/Generator/AbstractGenerator.php` |
+| Branded HTML template, temp dir, failed artifact | `renderTemplate()`, `makeTempDir()`, `failArtifact()` | `Classes/Generator/AbstractGenerator.php` |
+| New text format (one structured completion + parse) | extend `AbstractTextGenerator` | `Classes/Generator/AbstractTextGenerator.php` |
+| Cut text at a sentence boundary | `TextLimiter::cut()` → `TextCut`, `truncate()` → string | `Classes/Generator/Support/` |
+| "Q:"/"A:"/"Subject:" in the text's language | `TextLabels::get()` | `Classes/Generator/Support/TextLabels.php` |
+| WebVTT from segments + durations | `WebVttBuilder::build()` | `Classes/Generator/Support/WebVttBuilder.php` |
+| LLM answered in an unusable shape | `InvalidLlmOutputException` | `Classes/Generator/Support/` |
+| Run node/ffmpeg from a renderer | `ProcessRunnerInterface::run()` | `Classes/Rendering/Process/` |
+| Run pdftoppm/pdftotext | `PopplerRunnerInterface` | `Classes/Ingestion/Poppler/` |
+| Store bytes in FAL (+ AI marker) | `JobFileStorage::store()` | `Classes/Resource/JobFileStorage.php` |
+| Embed AI marker in PNG/MP3/VTT/PDF | `AiContentMarker::mark()` | `Classes/Provenance/AiContentMarker.php` |
+
 <!-- AGENTS-GENERATED:START setup -->
 ## Setup & environment
 - PHP ^8.3, TYPO3 ^14.3; nr-llm/nr-vault floors: see `composer.json` (do not pin versions here)
-- Local dev: `ddev start && ddev install` (seeds the provider key + nr-llm wiring)
+- Local dev: `ddev start && ddev setup` (seeds the provider key + nr-llm wiring)
 - Tests/static analysis: see root `AGENTS.md` Commands — Docker runner only
 <!-- AGENTS-GENERATED:END setup -->
 
@@ -38,17 +58,21 @@ TYPO3 extension following TYPO3 CGL and PSR-12
 ## Directory structure
 ```
 Classes/
-  Command/         → nr_repurpose:generate CLI
+  Command/         → nr_repurpose:generate and nr_repurpose:publish-due CLI
   Controller/      → Backend module (JobController)
-  Domain/          → Job/Artifact models, value objects (Persona, PromptSnippetSelection)
-  Generator/       → Podcast/Schaubild/Story, text formats (AbstractTextGenerator) + Image/ and Speech/ adapter seams
+  Domain/          → Job/Artifact models, repositories, enums, value objects (Persona, PromptSnippetSelection)
+  Exception/       → empty-artifact, FAL storage and Poppler failure exceptions
+  Generator/       → Podcast/Schaubild/Story, text formats (AbstractTextGenerator), slide deck + handout (AbstractDocumentGenerator), Support/ helpers + Image/ and Speech/ adapter seams
   Ingestion/       → URL fetch, tiered PDF reader (Poppler runner)
   Persistence/     → JobProcessingRepository (direct DBAL writes from the worker)
   Pipeline/        → GenerationContext, JobProgress, PromptSnippetResolver
-  Provenance/      → AI label: AiProvenance, AiContentMarker (PNG/MP3 markers), AiLabelSettingsFactory (ADR-005)
+  Provenance/      → AI label: AiProvenance, AiContentMarker (PNG/MP3/VTT/PDF markers), AiLabelSettingsFactory (ADR-005)
   Queue/           → GenerateArtifactsMessage + handler (Symfony Messenger)
-  Rendering/       → Playwright HTML→PNG, GD compositor, ffmpeg stitcher
+  Rendering/       → Playwright HTML→PNG/PDF, GD compositor, ffmpeg stitcher and slideshow, process runner
   Resource/        → FAL storage (JobFileStorage)
+  Review/          → artifact review/approval (ArtifactReviewService, ReviewPermission)
+  Service/         → GenerationOrchestrator, JobSubmissionService, capability grants, nr-llm presets/use cases
+  Social/          → scheduled social-post publishing (DuePostPublisher, WebhookSocialPublisher)
   Understanding/   → DocumentAnalyzer → ContentBrief
   ViewHelpers/     → PublicUrlViewHelper
 ```
@@ -60,7 +84,7 @@ See the root `AGENTS.md` Commands table — tests run through
 `./Build/Scripts/runTests.sh` (unit, functional, lint, cgl, phpstan). The CI
 tools ship via `netresearch/typo3-ci-workflows` (require-dev) into
 `.Build/bin/`; composer scripts: `ci:cgl`, `ci:rector`,
-`ci:test:php:{cgl,phpstan,rector}`.
+`ci:test:php:{cgl,phpstan,rector,unit,functional}`.
 <!-- AGENTS-GENERATED:END commands -->
 
 <!-- AGENTS-GENERATED:START code-style -->

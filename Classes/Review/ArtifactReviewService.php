@@ -24,7 +24,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  */
 final readonly class ArtifactReviewService
 {
-    public const TABLE = 'tx_nrrepurpose_domain_model_artifact';
+    public const string TABLE = 'tx_nrrepurpose_domain_model_artifact';
 
     public function __construct(
         private ConnectionPool $connectionPool,

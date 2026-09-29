@@ -9,12 +9,16 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Controller;
 
+use DOMElement;
+use Masterminds\HTML5;
 use Netresearch\NrRepurpose\Controller\JobController;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\Router;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -25,16 +29,17 @@ use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 
 /**
- * Renders the new-job form through the real module stack and checks that its
+ * Renders the module actions through the real module stack: the new-job form's
  * script reaches the browser in a form the backend Content Security Policy
- * lets run: as an ES module from the import map, not as an inline <script>
- * without a nonce (which the browser refuses, leaving the double-submit guard
- * dead).
+ * lets run (an ES module from the import map, not an inline <script> without
+ * a nonce, which the browser refuses, leaving the double-submit guard dead),
+ * the module stylesheet is linked, and the job list keeps a long source URL
+ * on one line.
  */
 #[CoversClass(JobController::class)]
 final class JobControllerTest extends AbstractFunctionalTestCase
 {
-    private const MODULE_SPECIFIER = '@netresearch/nr-repurpose/job-new.js';
+    private const string MODULE_SPECIFIER = '@netresearch/nr-repurpose/job-new.js';
 
     protected function tearDown(): void
     {
@@ -92,13 +97,184 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         );
     }
 
+    /** @return array<string, array{0: string}> */
+    public static function renderedActions(): array
+    {
+        return ['list' => ['list'], 'new' => ['new'], 'plan' => ['plan']];
+    }
+
+    #[Test]
+    #[DataProvider('renderedActions')]
+    public function everyActionLoadsTheModuleStylesheet(string $action): void
+    {
+        self::assertMatchesRegularExpression(
+            '#<link rel="stylesheet" href="[^"]*nr_repurpose/Resources/Public/Css/backend\.css(?:\?[^"]*)?"#',
+            $this->renderAction($action),
+        );
+        self::assertFileExists(GeneralUtility::getFileAbsFileName('EXT:nr_repurpose/Resources/Public/Css/backend.css'));
+    }
+
+    #[Test]
+    public function listActionCutsALongSourceToOneLineAndKeepsTheFullValue(): void
+    {
+        // The demo's job 2: a tracking URL of about 400 characters without a break opportunity.
+        $url = 'https://www.example.com/de-de/explorer/paris/?utm_source=google&utm_medium=cpc&gclid=' . str_repeat('Cj0KCQjw', 45);
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->insert('tx_nrrepurpose_domain_model_job', ['pid' => 0, 'source_type' => 'url', 'source_value' => $url, 'status' => 'failed']);
+
+        $body    = $this->renderAction('list');
+        $escaped = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5);
+
+        self::assertStringContainsString('<table class="table table-striped table-hover" aria-labelledby="nrrepurpose-list-title">', $body);
+        self::assertStringContainsString('<td class="col-responsive" title="' . $escaped . '">' . $escaped . '</td>', $body);
+        self::assertMatchesRegularExpression('#<td class="col-control">\s*<a [^>]*class="btn btn-sm btn-default"#', $body);
+    }
+
+    #[Test]
+    public function listActionDrawsANamedProgressBar(): void
+    {
+        $job = $this->insertJob('https://example.com/report', 'queued');
+
+        $body = $this->renderAction('list');
+
+        // A native <progress> (core v14 has no .progress CSS; the core element is @internal and unnamed):
+        // it carries role, value, range and a per-row name itself; the percentage beside it is for sight only.
+        self::assertMatchesRegularExpression(
+            '~<div class="nrrepurpose-progress">\s*'
+            . '<progress class="nrrepurpose-progress-track" max="100" value="0"\s+aria-label="Progress of job #' . $job . '"></progress>\s*'
+            . '<span class="nrrepurpose-progress-value" aria-hidden="true">0%</span>~',
+            $body,
+        );
+        self::assertStringNotContainsString('typo3-backend-progress-bar', $body);
+    }
+
+    #[Test]
+    public function showActionPutsAFailedArtifactIntoTheCoreErrorBoxAndBreaksLongValues(): void
+    {
+        $url = 'https://www.example.com/?gclid=' . str_repeat('Cj0KCQjw', 45);
+        $job = $this->insertJob($url, 'partially_done');
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->insert('tx_nrrepurpose_domain_model_artifact', ['pid' => 0, 'job' => $job, 'type' => 'podcast', 'status' => 'failed', 'error_message' => 'TTS refused ' . $url]);
+
+        $body    = $this->renderAction('show', ['job' => $job]);
+        $escaped = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5);
+
+        self::assertStringContainsString('<dd class="col-sm-10 text-break">' . $escaped . '</dd>', $body);
+        self::assertStringContainsString('<div class="card-body text-break">', $body);
+        self::assertMatchesRegularExpression('#class="[^"]*\bcallout-danger\b.*?<span class="text-break">TTS refused ' . preg_quote($escaped, '#') . '</span>#s', $body);
+    }
+
+    #[Test]
+    public function showActionReloadsARunningJobWithANonceScript(): void
+    {
+        $job = $this->insertJob('https://example.com/report', 'queued');
+
+        // The inline reload needs the nonce, or the backend CSP blocks it. Whether the template asks
+        // for it with csp="true" rather than the deprecated useNonce is checked on the template
+        // source (BackendViewMarkupTest): Fluid compiles a template once per process, so a
+        // deprecation raised while parsing may never reach this test.
+        self::assertMatchesRegularExpression(
+            '#<script nonce="[^"]+">setTimeout\(\(\) => window\.location\.reload\(\), 5000\);</script>#',
+            $this->renderAction('show', ['job' => $job]),
+        );
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function modulePages(): array
+    {
+        return ['list' => ['list'], 'new' => ['new'], 'show' => ['show'], 'plan' => ['plan']];
+    }
+
+    /**
+     * Every page the module renders, filled like the demo (a queued, non-terminal job with a failed artifact,
+     * a scheduled post): each <script> carries a src or a nonce, since the backend CSP silently
+     * blocks any other; and the module body has no <style> element and no style attribute at all.
+     * The backend CSP allows inline styles, so either would override
+     * backend.css unseen by the stylesheet tests.
+     */
+    #[Test]
+    #[DataProvider('modulePages')]
+    public function modulePagesRenderNoRawScriptAndNoInlineStyle(string $action): void
+    {
+        $job = $this->insertJob('https://example.com/report', 'queued');
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->insert('tx_nrrepurpose_domain_model_artifact', ['pid' => 0, 'job' => $job, 'type' => 'podcast', 'status' => 'failed', 'error_message' => 'TTS refused']);
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->insert('tx_nrrepurpose_domain_model_artifact', [
+                'pid'           => 0, 'job' => $job, 'type' => 'social_post', 'variant' => 'linkedin', 'status' => 'done', 'script_text' => 'Post',
+                'review_status' => 'approved', 'publish_status' => 'scheduled', 'publish_at' => 1790000000,
+            ]);
+
+        $body = $this->renderAction($action, $action === 'show' ? ['job' => $job] : []);
+
+        self::assertGreaterThan(0, preg_match_all('/<script\b[^>]*>/i', $body, $scripts));
+        foreach ($scripts[0] as $tag) {
+            self::assertMatchesRegularExpression('/\s(?:src|nonce)=/i', $tag, $action . ': ' . $tag);
+        }
+
+        // The rendered page read with the HTML5 parser TYPO3 core installs, so attribute spelling
+        // (quotes, missing whitespace) cannot hide a style attribute from the check.
+        $document   = (new HTML5(['disable_html_ns' => true]))->loadHTML($body);
+        $moduleBody = null;
+        foreach ($document->getElementsByTagName('div') as $div) {
+            if (in_array('module-body', explode(' ', $div->getAttribute('class')), true)) {
+                $moduleBody = $div;
+                break;
+            }
+        }
+
+        self::assertInstanceOf(DOMElement::class, $moduleBody, $action . ': module body not found');
+
+        $styled = [];
+        foreach ($moduleBody->getElementsByTagName('*') as $element) {
+            if ($element->tagName === 'style' || $element->hasAttribute('style')) {
+                $styled[] = '<' . $element->tagName . ' style="' . $element->getAttribute('style') . '">';
+            }
+        }
+
+        self::assertSame([], $styled, $action . ': inline style in the module body');
+    }
+
+    #[Test]
+    public function planActionCutsTheSourceOfAPostToOneLine(): void
+    {
+        $url = 'https://www.example.com/?gclid=' . str_repeat('Cj0KCQjw', 45);
+        $job = $this->insertJob($url, 'done');
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->insert('tx_nrrepurpose_domain_model_artifact', [
+                'pid'           => 0, 'job' => $job, 'type' => 'social_post', 'variant' => 'linkedin', 'status' => 'done', 'script_text' => 'Post',
+                'review_status' => 'approved', 'publish_status' => 'failed', 'publish_at' => 1790000000, 'publish_error' => 'HTTP 500',
+            ]);
+
+        $body    = $this->renderAction('plan');
+        $escaped = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5);
+
+        self::assertStringContainsString('<table class="table table-striped table-hover" data-role="plan" aria-labelledby="nrrepurpose-plan-title">', $body);
+        self::assertStringContainsString('<td class="col-responsive" title="' . $escaped . '">', $body);
+        self::assertStringContainsString('<span class="small text-break">HTTP 500</span>', $body);
+    }
+
+    private function insertJob(string $url, string $status): int
+    {
+        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job');
+        $connection->insert('tx_nrrepurpose_domain_model_job', ['pid' => 0, 'source_type' => 'url', 'source_value' => $url, 'status' => $status]);
+
+        return (int) $connection->lastInsertId();
+    }
+
     private function renderNewAction(): string
+    {
+        return $this->renderAction('new');
+    }
+
+    /** @param array<string, int|string> $arguments */
+    private function renderAction(string $action, array $arguments = []): string
     {
         $this->importCSVDataSet(__DIR__ . '/Fixtures/BeUsers.csv');
         $backendUser     = $this->setUpBackendUser(1);
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
-        $request = $this->createBackendRequest();
+        $request = $this->createBackendRequest($action, $arguments);
         // Extbase reads its configuration while the controller is built, so the
         // ConfigurationManager needs the request before the container hands it out.
         $this->get(ConfigurationManagerInterface::class)->setRequest($request);
@@ -112,14 +288,18 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         return (string) $response->getBody();
     }
 
-    private function createBackendRequest(): ExtbaseRequest
+    /** @param array<string, int|string> $arguments */
+    private function createBackendRequest(string $action, array $arguments = []): ExtbaseRequest
     {
         $extbaseParameters = new ExtbaseRequestParameters(JobController::class);
         $extbaseParameters->setPluginName('web_nrrepurpose');
         $extbaseParameters->setControllerExtensionName('NrRepurpose');
         $extbaseParameters->setControllerName('Job');
-        $extbaseParameters->setControllerActionName('new');
+        $extbaseParameters->setControllerActionName($action);
         $extbaseParameters->setFormat('html');
+        foreach ($arguments as $name => $value) {
+            $extbaseParameters->setArgument($name, $value);
+        }
 
         $route = $this->get(Router::class)->getRoute('web_nrrepurpose');
 

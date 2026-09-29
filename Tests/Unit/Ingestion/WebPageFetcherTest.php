@@ -70,6 +70,22 @@ final class WebPageFetcherTest extends TestCase
         self::assertSame(1, $http->unconsumed());
     }
 
+    /** guzzlehttp/psr7 2.9.0 cannot parse this literal; a newer release parses it and the address check refuses it. */
+    public function testRefusesAnIpv4MappedLiteralBeforeSendingAnyRequest(): void
+    {
+        $http    = QueuedHttpClient::answering(200, '<html><body>secret</body></html>');
+        $fetcher = new WebPageFetcher($http->client, new HttpFactory(), new RemoteSourceGuard(new StaticHostResolver()));
+
+        try {
+            $fetcher->fetch('https://[::ffff:169.254.169.254]/latest/meta-data/');
+            self::fail('An IPv4-mapped metadata literal must be refused');
+        } catch (IngestionException $e) {
+            self::assertContains($e->getCode(), [1749379463, 1749379468]);
+        }
+
+        self::assertSame(1, $http->unconsumed());
+    }
+
     public function testThrowsIngestionExceptionOnEmptyBody(): void
     {
         $fetcher = new WebPageFetcher($this->client(200, '   '), new HttpFactory(), StaticHostResolver::publicGuard());

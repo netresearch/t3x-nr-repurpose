@@ -51,6 +51,22 @@ final class PdfFileResolverTest extends TestCase
         self::assertSame(1, $http->unconsumed());
     }
 
+    /** guzzlehttp/psr7 2.9.0 cannot parse this literal; a newer release parses it and the address check refuses it. */
+    public function testRefusesAnIpv4MappedLiteralBeforeSendingAnyRequest(): void
+    {
+        $http     = QueuedHttpClient::answering(200, '%PDF-1.7');
+        $resolver = $this->resolver($http, new RemoteSourceGuard(new StaticHostResolver()));
+
+        try {
+            $resolver->resolve(['source_type' => 'pdf_url', 'source_value' => 'https://[::ffff:127.0.0.1]/report.pdf']);
+            self::fail('An IPv4-mapped loopback literal must be refused');
+        } catch (IngestionException $e) {
+            self::assertContains($e->getCode(), [1749379463, 1749379468]);
+        }
+
+        self::assertSame(1, $http->unconsumed());
+    }
+
     public function testDownloadsWithATimeoutAndWithoutFollowingRedirects(): void
     {
         $http = QueuedHttpClient::answering(200, '%PDF-1.7 body');

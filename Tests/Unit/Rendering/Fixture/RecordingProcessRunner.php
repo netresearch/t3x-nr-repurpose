@@ -18,7 +18,7 @@ use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
  */
 final class RecordingProcessRunner implements ProcessRunnerInterface
 {
-    /** @var list<array{command: list<string>, stdin: ?string, timeout: float}> */
+    /** @var list<array{command: list<string>, stdin: ?string, timeout: float, env: array<string, string>}> */
     public array $calls = [];
 
     /** @var array<string, string> contents of argv paths that existed at call time (inputs survive caller cleanup) */
@@ -32,9 +32,9 @@ final class RecordingProcessRunner implements ProcessRunnerInterface
         $this->results = $results === [] ? [new ProcessResult(0, '', '')] : array_values($results);
     }
 
-    public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0): ProcessResult
+    public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0, array $env = []): ProcessResult
     {
-        $this->calls[] = ['command' => $command, 'stdin' => $stdin, 'timeout' => $timeoutSeconds];
+        $this->calls[] = ['command' => $command, 'stdin' => $stdin, 'timeout' => $timeoutSeconds, 'env' => $env];
 
         // Snapshot existing input files now, before the caller cleans them up in a finally block.
         foreach ($command as $arg) {

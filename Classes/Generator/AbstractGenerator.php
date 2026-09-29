@@ -34,7 +34,7 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     /** Artifact error when the job owner's groups lack `nrrepurpose:generate_vision`. */
     protected const DENIED_VISION = 'Not permitted: the job owner\'s backend groups do not grant "Generate AI imagery" (nrrepurpose:generate_vision)';
 
-    private const TEMP_DIR_PREFIX = 'nrrepurpose_';
+    private const string TEMP_DIR_PREFIX = 'nrrepurpose_';
 
     /** @var array<string, true> directories made by makeTempDir() and not removed yet */
     private array $tempDirs = [];
@@ -79,11 +79,15 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
             return;
         }
 
-        unset($this->tempDirs[$dir]);
-        if (is_dir($dir)) {
-            // $dir is a path makeTempDir() generated, never user input.
-            GeneralUtility::rmdir($dir, true);
+        // $dir is a path makeTempDir() generated, never user input.
+        if (is_dir($dir) && !GeneralUtility::rmdir($dir, true)) {
+            // Stays tracked, so removeTempDirs() tries again.
+            $this->logger->warning('Temporary directory could not be removed', ['dir' => $dir]);
+
+            return;
         }
+
+        unset($this->tempDirs[$dir]);
     }
 
     /** Remove every directory made by makeTempDir() that is still there. */

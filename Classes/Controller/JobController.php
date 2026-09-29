@@ -52,6 +52,9 @@ class JobController extends ActionController
         // Build the ModuleTemplate here, not in __construct (controller is reused across actions).
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
+        // Layout rules the core backend CSS has no utility for (media sizes, the story strip,
+        // wrapped prompt text). Colours come from the core custom properties, so both schemes work.
+        $this->pageRenderer->addCssFile('EXT:nr_repurpose/Resources/Public/Css/backend.css');
     }
 
     public function listAction(): ResponseInterface

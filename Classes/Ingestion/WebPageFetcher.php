@@ -41,10 +41,9 @@ class WebPageFetcher
 
     public function fetch(string $url): SourceDocument
     {
-        $request = $this->requestFactory->createRequest('GET', $url)
+        $request = $this->guard->createRequest($this->requestFactory, 'GET', $url)
             ->withHeader('User-Agent', 'nr_repurpose/0.1 (+https://www.netresearch.de)')
             ->withHeader('Accept', 'text/html,application/xhtml+xml');
-        $this->guard->assertAllowed($request->getUri());
 
         try {
             $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
