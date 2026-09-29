@@ -120,7 +120,7 @@ This extension follows the organisation-wide Netresearch policies:
   by when, and how exceptions are recorded.
 - [Secret management](https://github.com/netresearch/.github/blob/main/SECURITY.md#secret-management):
   where project, CI and release credentials are stored, who may use them,
-  and how they are rotated or revoked.
+  and when they are rotated.
 - [Access roster](https://github.com/netresearch/.github/blob/main/docs/access-roster.md):
   the people and teams with administrative or write access to this
   repository.
