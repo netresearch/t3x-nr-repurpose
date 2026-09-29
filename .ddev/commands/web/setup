@@ -1,0 +1,73 @@
+#!/bin/bash
+## Description: Install TYPO3 v14.3 into .Build/Web and activate nr_repurpose + nr_llm (one-shot setup)
+## Usage: setup
+## Example: ddev setup
+set -eu
+
+cd /var/www/html
+
+# CAPTAINHOOK_DISABLE: captainhook/hook-installer resolves .git before it does
+# anything else. In a git worktree .git is a file pointing at a directory
+# outside the project, which is not mounted into this container, so the
+# plugin aborts the install with "invalid .git path". Git hooks belong to the
+# host checkout: a host-side `composer install` installs them in a plain
+# clone, and skips them in a worktree ("We ARRR in a worktree").
+CAPTAINHOOK_DISABLE=true composer install --no-interaction --no-progress
+
+# `typo3 setup` refuses a database that already has tables, so a second run
+# would stop here. An instance counts as installed when its settings file and
+# its be_users table both exist; then only the steps below run again (they are
+# safe to repeat), and the database, the admin account and the site stay.
+if [ -f config/system/settings.php ] \
+  && [ -n "$(mysql -h db -u db -pdb db -N -e "SHOW TABLES LIKE 'be_users'")" ]; then
+  echo "TYPO3 is already installed; skipping typo3 setup."
+else
+  .Build/bin/typo3 setup -n \
+    --driver=mysqli --host=db --port=3306 --dbname=db --username=db --password=db \
+    --admin-username=admin --admin-user-password='Demo1234!' --admin-email=admin@example.com \
+    --project-name='nr_repurpose Dev' \
+    --create-site=https://nr-repurpose.ddev.site/ --server-type=apache --force
+fi
+
+# Route the generation message to the async doctrine transport (dev settings).
+mkdir -p config/system
+cat > config/system/additional.php <<'PHP'
+<?php
+// Dev-only: trust the DDEV host (avoids #1396795884 trusted-hosts exception).
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
+// Bound outbound HTTP — TYPO3's shared Guzzle client defaults to timeout=0 (no read
+// timeout), so a stalled OpenAI response would hang the generation worker indefinitely.
+$GLOBALS['TYPO3_CONF_VARS']['HTTP']['timeout'] = 180;
+$GLOBALS['TYPO3_CONF_VARS']['HTTP']['connect_timeout'] = 15;
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'][\Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage::class] = 'doctrine';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing']['*'] = 'default';
+// nr-llm reads the OpenAI key from nr-vault by identifier (seeded below). Since nr-llm
+// v0.10.0 both the chat/vision providers AND the Specialized TTS/DALL-E services use the
+// identifier — the plaintext providers.openai.apiKey path was removed (nr-llm ADR-030).
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['apiKeyIdentifier'] = 'nr_repurpose_openai';
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['defaultProvider'] = 'openai';
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['providers']['openai']['defaultModel'] = 'gpt-4o';
+PHP
+
+.Build/bin/typo3 extension:setup
+
+# Seed the OpenAI key into nr-vault under the identifier the provider config points at.
+# vault:store uses the TYPO3 encryption key as master key (nr-vault masterKeyProvider=typo3),
+# so no extra vault setup is needed. Idempotent: rotate if it already exists.
+if [ -n "${OPENAI_API_KEY:-}" ]; then
+  if .Build/bin/typo3 vault:list 2>/dev/null | grep -q nr_repurpose_openai; then
+    printf '%s' "$OPENAI_API_KEY" | .Build/bin/typo3 vault:rotate nr_repurpose_openai --stdin || true
+  else
+    printf '%s' "$OPENAI_API_KEY" | .Build/bin/typo3 vault:store nr_repurpose_openai --stdin
+  fi
+fi
+
+# Render-infra (Plan 4): install the Node renderer's playwright-core into the web container.
+# Chromium itself is the apt binary baked by the web-build Dockerfile (CHROMIUM_PATH=/usr/bin/chromium),
+# and PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 keeps playwright-core from fetching its own browser.
+if [ -f Resources/Private/NodeRenderer/package.json ]; then
+  ( cd Resources/Private/NodeRenderer && npm ci --no-audit --no-fund 2>/dev/null || npm install --no-audit --no-fund )
+fi
+
+.Build/bin/typo3 cache:flush
+echo "Done. Backend: https://nr-repurpose.ddev.site/typo3/ (admin / Demo1234!)"

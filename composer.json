@@ -12,6 +12,10 @@
             "role": "Developer"
         }
     ],
+    "support": {
+        "issues": "https://github.com/netresearch/t3x-nr-repurpose/issues",
+        "source": "https://github.com/netresearch/t3x-nr-repurpose"
+    },
     "require": {
         "php": "^8.3",
         "ext-json": "*",
@@ -28,7 +32,7 @@
         "smalot/pdfparser": "^2.12"
     },
     "require-dev": {
-        "netresearch/typo3-ci-workflows": "^1.5",
+        "netresearch/typo3-ci-workflows": "^1.12",
         "phpunit/phpunit": "^11.5",
         "typo3/cms-belog": "^14.3",
         "typo3/cms-beuser": "^14.3",
