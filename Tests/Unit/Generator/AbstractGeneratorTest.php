@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
+use function function_exists;
+
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -137,6 +139,34 @@ final class AbstractGeneratorTest extends TestCase
 
         self::assertDirectoryDoesNotExist($first);
         self::assertDirectoryDoesNotExist($second);
+    }
+
+    public function testAFailedRemovalIsLoggedAndRetriedLater(): void
+    {
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            self::markTestSkipped('root ignores the permission that makes the removal fail');
+        }
+
+        $logger  = $this->logger();
+        $subject = $this->subject($logger);
+        $dir     = $subject->exposeMakeTempDir();
+        mkdir($dir . '/locked');
+        file_put_contents($dir . '/locked/segment.mp3', 'MP3');
+        chmod($dir . '/locked', 0o555);
+
+        try {
+            $subject->exposeRemoveTempDir($dir);
+
+            self::assertDirectoryExists($dir);
+            self::assertCount(1, $logger->records);
+            self::assertSame('warning', $logger->records[0]['level']);
+        } finally {
+            chmod($dir . '/locked', 0o755);
+        }
+
+        $subject->removeTempDirs();
+
+        self::assertDirectoryDoesNotExist($dir);
     }
 
     public function testRemoveTempDirLeavesADirectoryItDidNotMakeAlone(): void

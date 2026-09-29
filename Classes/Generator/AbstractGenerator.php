@@ -100,11 +100,15 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
             return;
         }
 
-        unset($this->tempDirs[$dir]);
-        if (is_dir($dir)) {
-            // $dir is a path makeTempDir() generated, never user input.
-            GeneralUtility::rmdir($dir, true);
+        // $dir is a path makeTempDir() generated, never user input.
+        if (is_dir($dir) && !GeneralUtility::rmdir($dir, true)) {
+            // Stays tracked, so removeTempDirs() tries again.
+            $this->logger->warning('Temporary directory could not be removed', ['dir' => $dir]);
+
+            return;
         }
+
+        unset($this->tempDirs[$dir]);
     }
 
     /** Remove every directory made by makeTempDir() that is still there. */
