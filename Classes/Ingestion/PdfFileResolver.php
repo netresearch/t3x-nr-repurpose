@@ -107,10 +107,9 @@ class PdfFileResolver
             throw new IngestionException('pdf_url job has an empty source_value', 1749379444);
         }
 
-        $request = $this->requestFactory->createRequest('GET', $url)
+        $request = $this->guard->createRequest($this->requestFactory, 'GET', $url)
             ->withHeader('User-Agent', 'nr_repurpose/0.1 (+https://www.netresearch.de)')
             ->withHeader('Accept', 'application/pdf');
-        $this->guard->assertAllowed($request->getUri());
 
         try {
             $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
