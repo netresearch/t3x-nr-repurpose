@@ -81,3 +81,20 @@ Consequences
   credential store, and in which versions, is nr-llm's contract to state and to
   widen. Adopting a different account or provider is a configuration change in
   nr-llm, not a code change here.
+
+.. _adr-003-note-2026-09-29:
+
+Note (2026-09-29)
+=================
+
+Point 3 of the decision and the last consequence no longer describe the
+extension. Since 2026-08-11 nr_repurpose requires
+:composer:`netresearch/nr-vault` directly (``^0.16`` in ``composer.json``,
+``0.16.0-0.16.99`` in ``ext_emconf.php``):
+:php:`GenerationOrchestrator` imports nr-vault's
+:php:`TechnicalActorContextInterface` and, with
+:confval:`technicalBeUserUid <technicalbeuseruid>` set, runs a job inside its
+``runAs()`` scope, so that nr-vault checks the secret's access grants against
+that backend user instead of denying the worker, which runs without one. The extension still holds no key and has no provider code; the
+credential stays in nr-llm's store. nr-llm is required as
+``^0.35 || ^0.36 || ^0.37 || ^0.38``, not ``^0.25``.
