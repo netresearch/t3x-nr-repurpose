@@ -26,18 +26,18 @@ use TYPO3\CMS\Core\View\ViewFactoryInterface;
  */
 final class BrandingRenderingTest extends AbstractFunctionalTestCase
 {
-    private const LOGO_TITLE = '<title>Netresearch DTT GmbH</title>';
+    private const string LOGO_TITLE = '<title>Netresearch DTT GmbH</title>';
 
-    private const FRAME = '<path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242';
+    private const string FRAME = '<path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242';
 
-    private const LETTER = '<path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82';
+    private const string LETTER = '<path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82';
 
-    private const LOGO_IN_HEADER = '~<header\b[^>]*>(?:(?!</header>).)*?' . self::LOGO_TITLE . '~s';
+    private const string LOGO_IN_HEADER = '~<header\b[^>]*>(?:(?!</header>).)*?' . self::LOGO_TITLE . '~s';
 
-    private const FOOTER_LINK = '~<footer\b[^>]*>(?:(?!</footer>).)*?<a href="https://www\.netresearch\.de/"[^>]*>Netresearch DTT GmbH</a>~s';
+    private const string FOOTER_LINK = '~<footer\b[^>]*>(?:(?!</footer>).)*?<a href="https://www\.netresearch\.de/"[^>]*>Netresearch DTT GmbH</a>~s';
 
     /** 14% of the 1920px story height, rounded up. */
-    private const STORY_UI_BAND = 269;
+    private const int STORY_UI_BAND = 269;
 
     protected function setUp(): void
     {
