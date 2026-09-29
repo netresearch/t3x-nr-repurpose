@@ -32,12 +32,12 @@ use SplFileInfo;
  */
 final class LabelReferencesTest extends TestCase
 {
-    private const ROOT = __DIR__ . '/../../..';
+    private const string ROOT = __DIR__ . '/../../..';
 
-    private const LANGUAGE_DIR = self::ROOT . '/Resources/Private/Language/';
+    private const string LANGUAGE_DIR = self::ROOT . '/Resources/Private/Language/';
 
     /** A literal reference; a key with a Fluid variable in it (`{...}`) does not match. */
-    private const LLL = '~LLL:EXT:nr_repurpose/Resources/Private/Language/([a-z_]+\.xlf):([A-Za-z0-9_.-]+)(?![A-Za-z0-9_.{-])~';
+    private const string LLL = '~LLL:EXT:nr_repurpose/Resources/Private/Language/([a-z_]+\.xlf):([A-Za-z0-9_.-]+)(?![A-Za-z0-9_.{-])~';
 
     /** @var array<string, SimpleXMLElement> */
     private array $loaded = [];
