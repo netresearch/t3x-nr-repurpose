@@ -4,6 +4,13 @@ docroot: .Build/Web
 php_version: "8.5"
 composer_version: "2"
 webserver_type: apache-fpm
+xdebug_enabled: false
+# Unset, DDEV takes the host's timezone, so the publish times of the social
+# planning would mean something different on every machine.
+timezone: Europe/Berlin
+# Resources/Private/NodeRenderer (Playwright) declares node >=22.18.0 <25.0.0;
+# pinned so a change of DDEV's default cannot move it out of that range.
+nodejs_version: "24"
 database:
   type: mariadb
   version: "11.4"

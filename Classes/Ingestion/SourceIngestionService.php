@@ -12,6 +12,10 @@ namespace Netresearch\NrRepurpose\Ingestion;
 use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
+use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
+use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Single ingestion entry point. URL sources go through WebPageFetcher; PDF sources are
@@ -20,15 +24,25 @@ use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
  *   - text:   tier 1 for every page
  *   - vision: tier 2 for every page
  *   - tables: tier 3 for every page.
+ *
+ * Tier 2 is an nr-llm Vision call and needs the job owner's `nrrepurpose:generate_vision`
+ * grant, like the AI imagery of the generators. Without it a page that would go to tier 2
+ * keeps its embedded text (tier 1): a denied capability fails only the part that needs
+ * it. When no page has text left, the ingestion fails naming the missing option.
  */
 final readonly class SourceIngestionService implements SourceIngestionServiceInterface
 {
+    /** Internal tier label: tier 2 was wanted but not granted, the page kept its text. */
+    private const TIER_VISION_DENIED = 'vision-denied';
+
     public function __construct(
         private WebPageFetcher $webPageFetcher,
         private PdfFileResolver $pdfFileResolver,
         private PdfTextExtractor $textExtractor,
         private PdfVisionExtractor $visionExtractor,
         private PdfLayoutExtractor $layoutExtractor,
+        private CapabilityGrantResolverInterface $grantResolver,
+        private LoggerInterface $logger,
     ) {}
 
     public function ingest(array $jobRow): SourceDocument
@@ -59,13 +73,44 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         $mode    = PdfMode::fromJobValue((string) ($jobRow['pdf_mode'] ?? 'auto'));
         $beUser  = (int) ($jobRow['be_user'] ?? 0);
         $absPath = $this->pdfFileResolver->resolve($jobRow);
+        try {
+            return $this->readPdf($absPath, $mode, $beUser);
+        } catch (Throwable $e) {
+            // The exception message becomes the job's error, which every module user
+            // sees, so it never carries the server path; the path goes to the log.
+            $this->logger->error('PDF ingestion failed', [
+                'job'       => (int) ($jobRow['uid'] ?? 0),
+                'path'      => $absPath,
+                'exception' => $e,
+            ]);
 
+            throw $e;
+        } finally {
+            // A temp copy (a pdf_url download, a pdf_fal file from a non-local driver)
+            // goes once it is read, also when reading failed.
+            $this->pdfFileResolver->release($absPath);
+        }
+    }
+
+    private function readPdf(string $absPath, PdfMode $mode, int $beUser): SourceDocument
+    {
         $pages = $this->textExtractor->extract($absPath);
 
-        $texts = [];
-        $tiers = [];
+        // Only the modes that can reach tier 2 look the grant up. Resolved from the
+        // job owner like the orchestrator does for the generators (0 grants nothing).
+        $visionGranted = ($mode === PdfMode::Vision || $mode === PdfMode::Auto)
+            && $this->grantResolver->resolve($beUser)->vision;
+
+        $texts        = [];
+        $tiers        = [];
+        $visionDenied = false;
         foreach ($pages as $page) {
-            [$text, $tier] = $this->extractPage($absPath, $page, $mode, $beUser);
+            [$text, $tier] = $this->extractPage($absPath, $page, $mode, $beUser, $visionGranted);
+            if ($tier === self::TIER_VISION_DENIED) {
+                $visionDenied = true;
+                $tier         = 'text';
+            }
+
             if (trim($text) !== '') {
                 $texts[]      = $text;
                 $tiers[$tier] = true;
@@ -73,8 +118,23 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         }
 
         $body = trim(implode("\n\n", $texts));
+        if ($body === '' && $visionDenied) {
+            throw new IngestionException(
+                sprintf(
+                    'The PDF has no embedded text, and reading it with Vision OCR is not permitted: the job owner\'s backend groups do not grant "Generate AI imagery" (%s)',
+                    CapabilityGrantResolver::PERMISSION_VISION,
+                ),
+                1749379453,
+            );
+        }
+
         if ($body === '') {
-            throw new IngestionException('No text could be extracted from the PDF: ' . $absPath, 1749379452);
+            throw new IngestionException('No text could be extracted from the PDF', 1749379452);
+        }
+
+        $meta = ['tiersUsed' => $this->orderTiers($tiers)];
+        if ($visionDenied) {
+            $meta['visionDenied'] = true;
         }
 
         return new SourceDocument(
@@ -83,7 +143,7 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
             sourceLabel: basename($absPath),
             pageCount: count($pages),
             languageHint: '',
-            meta: ['tiersUsed' => $this->orderTiers($tiers)],
+            meta: $meta,
         );
     }
 
@@ -92,13 +152,13 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
      *
      * @return array{0:string,1:string} [pageText, tierLabel]
      */
-    private function extractPage(string $absPath, array $page, PdfMode $mode, int $beUser): array
+    private function extractPage(string $absPath, array $page, PdfMode $mode, int $beUser, bool $visionGranted): array
     {
         return match ($mode) {
             PdfMode::Text   => [$page['text'], 'text'],
-            PdfMode::Vision => [$this->visionExtractor->ocrPage($absPath, $page['page'], $beUser), 'vision'],
+            PdfMode::Vision => $this->visionPage($absPath, $page, $beUser, $visionGranted),
             PdfMode::Tables => [$this->layoutExtractor->extractPage($absPath, $page['page']), 'tables'],
-            PdfMode::Auto   => $this->autoPage($absPath, $page, $beUser),
+            PdfMode::Auto   => $this->autoPage($absPath, $page, $beUser, $visionGranted),
         };
     }
 
@@ -107,10 +167,24 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
      *
      * @return array{0:string,1:string}
      */
-    private function autoPage(string $absPath, array $page, int $beUser): array
+    private function visionPage(string $absPath, array $page, int $beUser, bool $visionGranted): array
+    {
+        if (!$visionGranted) {
+            return [$page['text'], self::TIER_VISION_DENIED];
+        }
+
+        return [$this->visionExtractor->ocrPage($absPath, $page['page'], $beUser), 'vision'];
+    }
+
+    /**
+     * @param array{page:int,text:string,isSparse:bool} $page
+     *
+     * @return array{0:string,1:string}
+     */
+    private function autoPage(string $absPath, array $page, int $beUser, bool $visionGranted): array
     {
         if ($page['isSparse']) {
-            return [$this->visionExtractor->ocrPage($absPath, $page['page'], $beUser), 'vision'];
+            return $this->visionPage($absPath, $page, $beUser, $visionGranted);
         }
 
         if ($this->looksTabular($page['text'])) {

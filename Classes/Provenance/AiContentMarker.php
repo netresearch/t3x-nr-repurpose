@@ -42,14 +42,14 @@ use Netresearch\NrRepurpose\Rendering\RenderingException;
  */
 final class AiContentMarker
 {
-    public const PNG_SIGNATURE = "\x89PNG\r\n\x1a\n";
+    public const string PNG_SIGNATURE = "\x89PNG\r\n\x1a\n";
 
-    public const XMP_KEYWORD = 'XML:com.adobe.xmp';
+    public const string XMP_KEYWORD = 'XML:com.adobe.xmp';
 
     /** TXXX description of the flag frame; value "true". */
-    public const ID3_AI_FLAG = 'AI-generated';
+    public const string ID3_AI_FLAG = 'AI-generated';
 
-    public const ID3_SOURCE_TYPE = 'DigitalSourceType';
+    public const string ID3_SOURCE_TYPE = 'DigitalSourceType';
 
     public function mark(string $bytes, string $fileName, AiProvenance $provenance): string
     {

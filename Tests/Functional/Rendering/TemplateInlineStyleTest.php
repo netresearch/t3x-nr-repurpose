@@ -19,6 +19,7 @@ use TYPO3\CMS\Fluid\Core\Rendering\RenderingContextFactory;
 use TYPO3Fluid\Fluid\Core\Parser\SyntaxTree\ArrayNode;
 use TYPO3Fluid\Fluid\Core\Parser\SyntaxTree\EscapingNode;
 use TYPO3Fluid\Fluid\Core\Parser\SyntaxTree\NodeInterface;
+use TYPO3Fluid\Fluid\Core\Parser\SyntaxTree\RootNode;
 use TYPO3Fluid\Fluid\Core\Parser\SyntaxTree\TextNode;
 use TYPO3Fluid\Fluid\Core\Parser\SyntaxTree\ViewHelperNode;
 
@@ -34,17 +35,21 @@ use TYPO3Fluid\Fluid\Core\Parser\SyntaxTree\ViewHelperNode;
  *   `additionalAttributes`) may have a `style` key, at any nesting depth;
  * - the literal HTML is tokenised by masterminds/html5, the HTML5 parser TYPO3 core installs: the
  *   template's text nodes, and separately every string a ViewHelper argument or array entry holds
- *   (`{f:format.raw(value: '<span style=...>')}`). A Fluid node between two text nodes is replaced
- *   once by `x` and once by nothing, so an attribute split by a node (`class="a"{...}style=`,
- *   `sty{...}le=`) is seen in one of the two readings. No element may have a `style` attribute,
- *   and there may be no `<style>` element.
+ *   (`{f:format.raw(value: '<span style=...>')}`). Every Fluid node that renders output (a
+ *   ViewHelper, a variable such as `{job.uid}`, a literal, an expression) is replaced once by `x`
+ *   and once by nothing, so an attribute split by a node (`class="a"{...}style=`, `sty{...}le=`)
+ *   or an unquoted value made of one (`class={job.uid} style=`) is seen in one of the two readings.
+ *   No element may have a `style` attribute, and there may be no `<style>` element.
  *
  * Not covered: markup produced at runtime rather than written in a template, such as a style built
  * from a variable (`{job.someHtml -> f:format.raw()}`) or a ViewHelper that emits one itself; a
  * partial rendered by a name held in a variable, beyond the templates listed and globbed in
  * BackendViewMarkupTest. The functional page renders in JobControllerTest cover what the fixtures
- * reach. And ArrayNode has no public accessor for its entries in Fluid 5.3, so they are read
- * through reflection; a Fluid major that renames the property fails this test instead of passing it.
+ * reach. The empty reading can report a style that never renders: a node that outputs an attribute
+ * name right before `style` (`<b {f:if(..., then: 'data-a')}style=...>` renders `data-astyle`) is
+ * read as `<b style=...>`. And ArrayNode has no public accessor for its entries in Fluid 5.3, so they
+ * are read through reflection; a Fluid major that renames the property fails this test instead of
+ * passing it.
  */
 final class TemplateInlineStyleTest extends AbstractFunctionalTestCase
 {
@@ -96,14 +101,15 @@ final class TemplateInlineStyleTest extends AbstractFunctionalTestCase
             . '<p class="a"{f:if(condition: 0, then: \'x\')}style=\'color: blue\'>P</p>'
             . "<b sty{f:if(condition: 0, then: 'x')}le='color: green'>B</b>"
             . '{f:format.raw(value: \'<span style="color: gray">S</span>\')}'
+            . '{f:format.raw(value: \'<i class={v} style="color: teal">I</i>\')}'
             . '<f:link.action action="list" additionalAttributes="{style: \'b\'}">x</f:link.action></html>';
         $root = GeneralUtility::makeInstance(RenderingContextFactory::class)->create()->getTemplateParser()->parse($source)->getRootNode();
 
         $styled = $this->styledIn($this->htmlFragments($root));
         sort($styled);
-        // A style written plainly, split from its tag by a Fluid node, split inside its name, and
-        // inside a ViewHelper argument: each one is found.
-        self::assertSame(['<b style="color: green">', '<h1 style="color: red">', '<p style="color: blue">', '<span style="color: gray">'], $styled);
+        // A style written plainly, split from its tag by a Fluid node, split inside its name, inside a
+        // ViewHelper argument, and after an unquoted value made of a variable: each one is found.
+        self::assertSame(['<b style="color: green">', '<h1 style="color: red">', '<i style="color: teal">', '<p style="color: blue">', '<span style="color: gray">'], $styled);
 
         $styles = 0;
         $this->walk($root, static function (NodeInterface $node) use (&$styles): void {
@@ -221,7 +227,14 @@ final class TemplateInlineStyleTest extends AbstractFunctionalTestCase
         return array_values(array_unique($styled));
     }
 
-    /** Text nodes as they stand, any other Fluid node as the placeholder, ViewHelper bodies included. */
+    /**
+     * Text nodes as they stand; every other node that renders output stands as one placeholder,
+     * ViewHelper bodies included. The rule is by exclusion rather than a list: of the node types
+     * Fluid 5.3 produces, only TextNode (literal text) and RootNode (a container) render nothing of
+     * their own, and EscapingNode only wraps the node it escapes. Everything else renders a value:
+     * ViewHelperNode, ObjectAccessorNode (`{job.uid}`, unescaped inside f:format.raw or an argument
+     * string), NumericNode, BooleanNode, ArrayNode and the expression nodes (ternary, math, casting).
+     */
     private function collectHtml(NodeInterface $node, string &$html, string $placeholder): void
     {
         if ($node instanceof TextNode) {
@@ -230,7 +243,13 @@ final class TemplateInlineStyleTest extends AbstractFunctionalTestCase
             return;
         }
 
-        if ($node instanceof ViewHelperNode || $node instanceof EscapingNode) {
+        if ($node instanceof EscapingNode) {
+            $this->collectHtml($node->getNode(), $html, $placeholder);
+
+            return;
+        }
+
+        if (!$node instanceof RootNode) {
             $html .= $placeholder;
         }
 

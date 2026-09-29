@@ -14,6 +14,7 @@ use GuzzleHttp\Psr7\Response;
 use Netresearch\NrRepurpose\Social\SocialPost;
 use Netresearch\NrRepurpose\Social\SocialPublishException;
 use Netresearch\NrRepurpose\Social\WebhookSocialPublisher;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -21,6 +22,7 @@ use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LogLevel;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -29,6 +31,8 @@ final class WebhookSocialPublisherTest extends TestCase
 {
     /** @var list<RequestInterface> */
     private array $requests = [];
+
+    private RecordingLogger $logger;
 
     private function publisher(array $settings, ResponseInterface|ClientExceptionInterface $answer = new Response(204)): WebhookSocialPublisher
     {
@@ -47,7 +51,9 @@ final class WebhookSocialPublisherTest extends TestCase
 
         $factory = new HttpFactory();
 
-        return new WebhookSocialPublisher($client, $factory, $factory, $configuration);
+        $this->logger = new RecordingLogger();
+
+        return new WebhookSocialPublisher($client, $factory, $factory, $configuration, $this->logger);
     }
 
     private function post(): SocialPost
@@ -109,14 +115,28 @@ final class WebhookSocialPublisherTest extends TestCase
         $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/x'], new Response(500))->publish($this->post());
     }
 
-    public function testAnUnreachableWebhookIsARefusal(): void
+    /**
+     * The refusal reason is stored as publish_error and shown to every module user, while
+     * the client's message carries the request URI — including a token in the webhook URL.
+     */
+    public function testAnUnreachableWebhookIsARefusalWithoutTheClientMessage(): void
     {
-        $unreachable = new class ('connection refused') extends RuntimeException implements ClientExceptionInterface {};
+        // Guzzle's ConnectException message, verbatim shape.
+        $unreachable = new class ('cURL error 7: Failed to connect to hooks.example.com port 443 (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://hooks.example.com/x?token=s3cr3t-t0ken') extends RuntimeException implements ClientExceptionInterface {};
 
-        $this->expectException(SocialPublishException::class);
-        $this->expectExceptionMessage('Webhook not reachable: connection refused');
+        try {
+            $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/x?token=s3cr3t-t0ken'], $unreachable)->publish($this->post());
+            self::fail('Expected a refusal');
+        } catch (SocialPublishException $e) {
+            self::assertSame('Webhook not reachable', $e->getMessage());
+            self::assertStringNotContainsString('s3cr3t-t0ken', $e->getMessage());
+            self::assertStringNotContainsString('cURL error', $e->getMessage());
+            self::assertSame($unreachable, $e->getPrevious());
+        }
 
-        $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/x'], $unreachable)->publish($this->post());
+        self::assertCount(1, $this->logger->records);
+        self::assertSame(LogLevel::ERROR, $this->logger->records[0]['level']);
+        self::assertSame($unreachable, $this->logger->records[0]['context']['exception'] ?? null);
     }
 
     public function testWithoutAUrlNothingIsSent(): void

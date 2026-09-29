@@ -27,7 +27,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  */
 final readonly class DuePostPublisher
 {
-    private const TABLE = 'tx_nrrepurpose_domain_model_artifact';
+    private const string TABLE = 'tx_nrrepurpose_domain_model_artifact';
 
     public function __construct(
         private ConnectionPool $connectionPool,

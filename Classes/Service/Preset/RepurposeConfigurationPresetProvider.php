@@ -41,7 +41,7 @@ final class RepurposeConfigurationPresetProvider implements ConfigurationPresetP
      * records this is not referenced by name in code — the text pipeline uses the
      * instance-default configuration — so this preset is imported and marked default.
      */
-    public const TEXT_CONFIGURATION = 'nr_repurpose_text';
+    public const string TEXT_CONFIGURATION = 'nr_repurpose_text';
 
     /**
      * The completion (text) preset, as one object.

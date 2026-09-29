@@ -39,7 +39,7 @@ use TYPO3Fluid\Fluid\Core\Parser\TemplateProcessor\RemoveCommentsTemplateProcess
  */
 final class BackendViewMarkupTest extends TestCase
 {
-    private const RESOURCES = __DIR__ . '/../../../Resources/';
+    private const string RESOURCES = __DIR__ . '/../../../Resources/';
 
     /** @return array<string, array{0: string}> */
     public static function backendTemplates(): array

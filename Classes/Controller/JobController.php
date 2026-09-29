@@ -39,7 +39,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 class JobController extends ActionController
 {
     /** Rows per page of the job list. */
-    private const JOBS_PER_PAGE = 25;
+    private const int JOBS_PER_PAGE = 25;
 
     protected ModuleTemplate $moduleTemplate;
 

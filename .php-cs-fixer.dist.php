@@ -21,6 +21,11 @@ declare(strict_types=1);
  * `.php-cs-fixer.dist.php` here by itself, so runTests.sh and the composer
  * script both work without a --config flag, and there is only one path that
  * can go stale.
+ *
+ * The shared set enables PER-CS 3.0 without its risky half. nr-llm, the
+ * extension this one builds on, enforces `@PER-CS:risky` as well; the pinned
+ * `@PER-CS3x0:risky` matches the shared set's own pinning to 3.0, so a
+ * php-cs-fixer update cannot change the rules underneath the gate.
  */
 
 $createConfig = require __DIR__ . '/.Build/vendor/netresearch/typo3-ci-workflows/config/php-cs-fixer/config.php';
@@ -28,4 +33,6 @@ $createConfig = require __DIR__ . '/.Build/vendor/netresearch/typo3-ci-workflows
 return $createConfig(<<<'EOF'
     Copyright (c) 2025-2026 Netresearch DTT GmbH
     SPDX-License-Identifier: GPL-2.0-or-later
-    EOF, __DIR__);
+    EOF, __DIR__, [
+    '@PER-CS3x0:risky' => true,
+]);
