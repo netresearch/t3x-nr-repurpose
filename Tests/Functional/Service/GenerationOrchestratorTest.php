@@ -57,7 +57,7 @@ use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
-use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\FileRepository;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
@@ -448,7 +448,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $factory   = new HttpFactory();
         $ingestion = new SourceIngestionService(
             new WebPageFetcher($client, $factory, StaticHostResolver::publicGuard()),
-            new PdfFileResolver($this->get(ResourceFactory::class), $client, $factory, StaticHostResolver::publicGuard()),
+            new PdfFileResolver($this->get(FileRepository::class), $client, $factory, StaticHostResolver::publicGuard()),
             new PdfTextExtractor(),
             $this->createStub(PdfVisionExtractor::class),
             new PdfLayoutExtractor(new SymfonyProcessPopplerRunner(new NullLogger())),

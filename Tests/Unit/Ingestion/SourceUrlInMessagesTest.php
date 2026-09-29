@@ -32,7 +32,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use TYPO3\CMS\Core\Http\Uri;
-use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\FileRepository;
 
 /**
  * Every ingestion message that names the source URL, driven with a URL that carries a
@@ -52,7 +52,7 @@ final class SourceUrlInMessagesTest extends TestCase
 
     private function pdfResolver(ClientInterface $client): PdfFileResolver
     {
-        return new PdfFileResolver($this->createStub(ResourceFactory::class), $client, new HttpFactory(), StaticHostResolver::publicGuard());
+        return new PdfFileResolver($this->createStub(FileRepository::class), $client, new HttpFactory(), StaticHostResolver::publicGuard());
     }
 
     private static function answering(int $status, string $body): ClientInterface
