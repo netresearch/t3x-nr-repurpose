@@ -522,6 +522,32 @@ final class StoryGeneratorTest extends TestCase
         )));
     }
 
+    /** The same for one slide: a FAL error with its path fails the slide with a fixed text. */
+    public function testAForeignExceptionOnAFailedSlideStaysInTheLog(): void
+    {
+        $jobs    = $this->jobs();
+        $logger  = new RecordingLogger();
+        $cause   = new RuntimeException('Could not write /var/www/html/fileadmin/_temp_/story-slide-2.png');
+        $storage = new class ($this->createStub(ResourceStorage::class), $cause) extends JobFileStorage {
+            public function __construct(private readonly ResourceStorage $falStorage, private readonly RuntimeException $cause) {}
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            {
+                if ($fileName === 'story-slide-2.png') {
+                    throw $this->cause;
+                }
+
+                return new File(['uid' => 1], $this->falStorage);
+            }
+        };
+
+        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), storage: $storage, logger: $logger);
+
+        self::assertTrue($generator->generate($this->context()));
+        self::assertSame('Story slide 2/3 failed', $jobs->updates[$jobs->uidForVariant('slide-2')]['error_message']);
+        self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
+    }
+
     public function testFailedSlideRenderDoesNotAbortSiblingSlides(): void
     {
         $jobs     = $this->jobs();
