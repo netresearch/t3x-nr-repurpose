@@ -17,6 +17,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **`ddev start` no longer waits for the worker container until it times out.** The worker reuses the web image and with it the image's health check, which tests php-fpm and Mailpit — neither runs in the worker, so the container never became healthy and `ddev start` failed after its container timeout even though the worker was consuming. The worker's health check is disabled; `ddev start` now reports it ready in under a second.
+- **`ddev setup` no longer fails at `cache:flush` with "Permission denied".** The worker ran as root and wrote the TYPO3 caches under `var/` as root, which the web container's user could not replace. The worker now runs as the host user, like the web container.
 
 ## [0.8.2] - 2026-09-27
 
