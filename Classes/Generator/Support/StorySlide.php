@@ -16,11 +16,11 @@ namespace Netresearch\NrRepurpose\Generator\Support;
  */
 final readonly class StorySlide
 {
-    public const ROLE_COVER = 'cover';
+    public const string ROLE_COVER = 'cover';
 
-    public const ROLE_POINT = 'point';
+    public const string ROLE_POINT = 'point';
 
-    public const ROLE_OUTRO = 'outro';
+    public const string ROLE_OUTRO = 'outro';
 
     public function __construct(
         public string $role,

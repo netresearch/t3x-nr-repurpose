@@ -24,11 +24,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final readonly class FfmpegSlideshowRenderer implements SlideshowRendererInterface
 {
-    public const FPS = 25;
+    public const int FPS = 25;
 
-    public const FADE_SECONDS = 0.5;
+    public const float FADE_SECONDS = 0.5;
 
-    private const ZOOM = 0.08;
+    private const float ZOOM = 0.08;
 
     public function __construct(
         private ProcessRunnerInterface $processRunner,

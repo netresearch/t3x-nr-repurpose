@@ -1,15 +1,31 @@
 <?xml version="1.0"?>
+<!--
+    failOnDeprecation is not set yet (Build/phpunit.xml has it): TYPO3 core
+    raises three deprecations while it boots the test instance, all from
+    manifests and TCA rather than from a call in Classes/, and two of them
+    come from dependencies. displayDetailsOnTestsThatTriggerDeprecations names
+    them in every run: #108345 for nr_repurpose and nr_vault (composer.json
+    without extra.typo3/cms.version and Package.providesPackages) and the
+    ctrl.searchFields TCA migration for the tx_nrllm_* tables of nr_llm.
+-->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.5/phpunit.xsd"
          bootstrap="../.Build/vendor/typo3/testing-framework/Resources/Core/Build/FunctionalTestsBootstrap.php"
          cacheDirectory="../.Build/.phpunit.cache"
          colors="true"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         failOnRisky="true"
          failOnWarning="true">
     <testsuites>
         <testsuite name="functional">
             <directory>../Tests/Functional/</directory>
         </testsuite>
     </testsuites>
+    <source>
+        <include>
+            <directory>../Classes</directory>
+        </include>
+    </source>
     <php>
         <ini name="display_errors" value="1"/>
         <env name="TYPO3_CONTEXT" value="Testing"/>

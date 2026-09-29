@@ -42,7 +42,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 class JobFileStorage
 {
-    private const SUBFOLDER = 'repurpose';
+    private const string SUBFOLDER = 'repurpose';
 
     public function __construct(
         private readonly StorageRepository $storageRepository,

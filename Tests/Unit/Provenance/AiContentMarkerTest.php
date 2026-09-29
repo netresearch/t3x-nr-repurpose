@@ -40,7 +40,7 @@ use Smalot\PdfParser\Parser;
  */
 final class AiContentMarkerTest extends TestCase
 {
-    private const FIXTURES = __DIR__ . '/../../Fixtures/';
+    private const string FIXTURES = __DIR__ . '/../../Fixtures/';
 
     private function provenance(DigitalSourceType $type = DigitalSourceType::CompositeWithTrainedAlgorithmicMedia): AiProvenance
     {
@@ -243,7 +243,7 @@ final class AiContentMarkerTest extends TestCase
     }
 
     /** 250 characters: a frame size that reads differently as syncsafe and as a plain integer. */
-    private const LONG_ENCODER = 'synthetic-encoder-'
+    private const string LONG_ENCODER = 'synthetic-encoder-'
         . 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
     /**

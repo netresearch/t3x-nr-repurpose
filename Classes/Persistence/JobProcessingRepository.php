@@ -22,9 +22,9 @@ use TYPO3\CMS\Core\Resource\ResourceFactory;
  */
 class JobProcessingRepository
 {
-    private const JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
+    private const string JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
 
-    private const ARTIFACT_TABLE = 'tx_nrrepurpose_domain_model_artifact';
+    private const string ARTIFACT_TABLE = 'tx_nrrepurpose_domain_model_artifact';
 
     public function __construct(
         private readonly ConnectionPool $connectionPool,

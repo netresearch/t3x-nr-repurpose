@@ -18,7 +18,7 @@ use Netresearch\NrRepurpose\Generator\Support\TextLabels;
  */
 final class MapTextLabels extends TextLabels
 {
-    private const LABELS = [
+    private const array LABELS = [
         'en' => [
             'text.faq.question'         => 'Q',
             'text.faq.answer'           => 'A',
