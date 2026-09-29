@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 CREATE TABLE tx_nrrepurpose_domain_model_job (
     uid int unsigned NOT NULL auto_increment,
     pid int unsigned DEFAULT 0 NOT NULL,

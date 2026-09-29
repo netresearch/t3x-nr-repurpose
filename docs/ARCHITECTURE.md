@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Architecture
 
 Agent-facing component map. For conventions and commands see the root `AGENTS.md`; for directory-level rules see `Classes/AGENTS.md` and `Tests/AGENTS.md`.

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 # Entry point for `composer ci:test:php:phpstan` and `runTests.sh -s phpstan`
 # / `-s architecture` (the runner finds Build/phpstan.neon before phpstan.neon).
 #

@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 $EM_CONF[$_EXTKEY] = [
     'title' => 'Content Repurpose',
     'description' => 'Turn a webpage or PDF into a podcast, a diagram, an Instagram story, documents and ready-to-use texts - by Netresearch',

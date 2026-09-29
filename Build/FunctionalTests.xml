@@ -1,4 +1,6 @@
 <?xml version="1.0"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 <!--
     failOnDeprecation is on. TYPO3 core raises two deprecations while it boots
     the test instance, both caused by dependencies, not by a call in Classes/:
