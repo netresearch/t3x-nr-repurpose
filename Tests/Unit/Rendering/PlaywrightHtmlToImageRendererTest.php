@@ -25,9 +25,9 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
 
     private const string CHROMIUM = '/usr/bin/chromium';
 
-    private function renderer(RecordingProcessRunner $runner): PlaywrightHtmlToImageRenderer
+    private function renderer(RecordingProcessRunner $runner, string $outputDir = self::OUT_DIR): PlaywrightHtmlToImageRenderer
     {
-        return new PlaywrightHtmlToImageRenderer($runner, self::NODE, self::SCRIPT, self::OUT_DIR, self::CHROMIUM);
+        return new PlaywrightHtmlToImageRenderer($runner, self::NODE, self::SCRIPT, $outputDir, self::CHROMIUM);
     }
 
     public function testDiagramRenderBuildsAutoHeightTransparentArgvAndFeedsHtmlOnStdin(): void
@@ -90,5 +90,28 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
         $this->expectExceptionMessageMatches('/chromium crashed/');
 
         $this->renderer($runner)->render('<html></html>', 1080, 1920, 1.0, false);
+    }
+
+    public function testUncreatableOutputDirRaisesRenderingExceptionBeforeStartingNode(): void
+    {
+        // A regular file as the parent makes mkdir() fail for every user, root
+        // included; the suppressed warning must not reach the caller.
+        $blocker = tempnam(sys_get_temp_dir(), 'nrrepurpose-blocker-');
+        self::assertIsString($blocker);
+        $runner   = new RecordingProcessRunner();
+        $renderer = $this->renderer($runner, $blocker . '/sub');
+
+        try {
+            $renderer->render('<html></html>', 800, 600, 1.0, false);
+            self::fail('Expected a RenderingException for an output dir that cannot be created');
+        } catch (RenderingException $e) {
+            self::assertSame(1749400100, $e->getCode());
+            // A prefix, not the whole text: whether the path belongs in the
+            // message is not this test's concern.
+            self::assertStringStartsWith('Render output dir not writable', $e->getMessage());
+            self::assertSame([], $runner->calls, 'node must not be started without an output dir');
+        } finally {
+            @unlink($blocker);
+        }
     }
 }

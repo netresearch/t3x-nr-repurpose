@@ -26,5 +26,127 @@ jobs:
       run-fractor: true
       run-unit-tests: true
       run-functional-tests: true
+      # Unit coverage comes from the built-in ci:test:php:unit call; the
+      # functional command below writes coverage-functional.xml itself, as
+      # the reusable workflow requires of a custom command.
+      upload-coverage: true
+      # The reusable workflow has no input for system packages, so the
+      # functional command installs what the real-binary tests need before
+      # it runs them: ffmpeg (with libmp3lame) for FfmpegAudioStitcherTest,
+      # poppler-utils for SymfonyProcessPopplerRunnerTest, and the
+      # NodeRenderer's node_modules for PlaywrightHtmlToImageRendererTest,
+      # which also needs a Chromium at /usr/bin/chromium. apt's `chromium` on
+      # Ubuntu is a snap stub, so an existing Chromium or Chrome of the
+      # runner image is linked there instead.
+      #
+      # --fail-on-skipped: each of those tests skips itself when its binary is
+      # missing, and five of them were skipped in every CI run until now
+      # without anything turning red.
+      functional-test-command: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq --no-install-recommends ffmpeg poppler-utils
+        if [ ! -x /usr/bin/chromium ]; then
+          for candidate in chromium-browser google-chrome google-chrome-stable; do
+            path=$(command -v "$candidate" || true)
+            if [ -n "$path" ]; then
+              sudo ln -sf "$(readlink -f "$path")" /usr/bin/chromium
+              break
+            fi
+          done
+        fi
+        /usr/bin/chromium --version
+        # A here-string, not a pipe: under pipefail `grep -q` closing the pipe
+        # early would fail the step through ffmpeg's SIGPIPE.
+        grep -q libmp3lame <<<"$(ffmpeg -hide_banner -encoders)"
+        pdftoppm -v
+        pdftotext -v
+        node --version
+        npm ci --prefix Resources/Private/NodeRenderer --ignore-scripts --no-audit --no-fund
+        # Set as the worker image does (.ddev/web-build/Dockerfile). Without it
+        # the renderer's own chromiumPath never reaches node: it is putenv()'d,
+        # and Symfony Process only forwards getenv() keys that are also in
+        # $_SERVER, so Playwright falls back to its bundled browser and fails.
+        # PR #143 hands the variable to the process runner instead of
+        # putenv(); once that is merged this export is redundant and can go.
+        export CHROMIUM_PATH=/usr/bin/chromium
+        composer ci:test:php:functional -- --coverage-clover=coverage-functional.xml --fail-on-skipped
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # The matrix above installs the newest version each constraint allows. This
+  # leg installs the lowest of every package the extension declares (nr-llm
+  # 0.35, nr-vault 0.16, TYPO3 14.3.0, symfony, smalot/pdfparser) and runs the
+  # unit tests and PHPStan against them. The reusable workflow has no input
+  # for it.
+  #
+  # The QA tools stay at their newest version: typo3-ci-workflows and phpunit
+  # are left out of the lowest update. At their floors the tool set does not
+  # load: typo3-ci-workflows 1.5.0 configures ergebnis/phpstan-rules options
+  # that its own lowest allowed ergebnis (2.6.0) does not know.
+  #
+  # Locally: ./Build/Scripts/runTests.sh -p 8.3 -s composer ... with the same
+  # install and update calls as the step below, then -s unit and
+  # -s composer ci:test:php:phpstan.
+  lowest-dependencies:
+    name: Lowest dependencies (PHP 8.3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.3'
+          extensions: intl, mbstring, xml
+          tools: composer:v2
+          ini-values: zend.assertions=1
+          coverage: none
+
+      - name: Install the lowest declared versions
+        run: |
+          # Same reason as the reusable workflow: the floors of a range may
+          # carry advisories, and the solver would otherwise skip them.
+          composer config --no-plugins audit.block-insecure false
+          # No lock file exists (AGENTS.md: none is committed), so install
+          # resolves the newest versions, as in the reusable workflow.
+          composer install --no-interaction --no-progress --prefer-dist
+          mapfile -t packages < <(jq -r '(.require + ."require-dev") | keys[]
+            | select(contains("/"))
+            | select(. != "netresearch/typo3-ci-workflows" and (startswith("phpunit/") | not))' composer.json)
+          # Resolving without a lock file is the purpose of this job, so there is
+          # no lock-enforcing alternative to Sonar's githubactions:S8546 here; the
+          # finding is resolved as won't-fix in SonarCloud (NOSONAR is not
+          # honoured inside a run block).
+          composer update --prefer-lowest --prefer-stable --with-all-dependencies --no-interaction --no-progress --prefer-dist "${packages[@]}"
+          composer show --direct
+
+      - name: Unit tests
+        run: composer ci:test:php:unit
+
+      - name: PHPStan
+        run: composer ci:test:php:phpstan -- --error-format=github --no-progress
+
+  # Mutation testing (Infection, infection.json.dist) through the shared fuzz
+  # workflow, as in nr-llm. The fuzz job of that workflow skips itself: this
+  # extension has no fuzz testsuite. Runs on pull requests and on the weekly
+  # schedule; the reusable step is continue-on-error, so a score below the
+  # thresholds reports and does not block. The thresholds are the measured
+  # Covered Code MSI (65.8 %, 3000 mutants), not a target.
+  mutation:
+    uses: netresearch/typo3-ci-workflows/.github/workflows/fuzz.yml@main
+    permissions:
+      contents: read
+    with:
+      run-mutation-tests: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+      mutation-min-msi: 65
+      mutation-min-covered-msi: 65
