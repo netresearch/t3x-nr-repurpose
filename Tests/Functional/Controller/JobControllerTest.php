@@ -34,7 +34,7 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 #[CoversClass(JobController::class)]
 final class JobControllerTest extends AbstractFunctionalTestCase
 {
-    private const MODULE_SPECIFIER = '@netresearch/nr-repurpose/job-new.js';
+    private const string MODULE_SPECIFIER = '@netresearch/nr-repurpose/job-new.js';
 
     protected function tearDown(): void
     {

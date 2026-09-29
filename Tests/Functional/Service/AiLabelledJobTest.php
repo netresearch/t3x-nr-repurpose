@@ -60,9 +60,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class AiLabelledJobTest extends AbstractFunctionalTestCase
 {
-    private const FIXTURES = __DIR__ . '/../../Fixtures/';
+    private const string FIXTURES = __DIR__ . '/../../Fixtures/';
 
-    public const TITLE = 'Quarterly report';
+    public const string TITLE = 'Quarterly report';
 
     protected array $configurationToUseInTestInstance = [
         'EXTENSIONS' => [
@@ -451,8 +451,8 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
     /** Joins nothing: hands back the MP3 ffmpeg's concat wrote for two real segments. */
     private function stitcher(): AudioStitcherInterface
     {
-        return new class (self::FIXTURES . 'Audio/stitched-podcast.mp3') implements AudioStitcherInterface {
-            public function __construct(private readonly string $fixture) {}
+        return new readonly class (self::FIXTURES . 'Audio/stitched-podcast.mp3') implements AudioStitcherInterface {
+            public function __construct(private string $fixture) {}
 
             public function concat(array $mp3Paths, string $outPath): string
             {

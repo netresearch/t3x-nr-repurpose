@@ -25,13 +25,13 @@ use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
  */
 final readonly class PromptSnippetResolver
 {
-    private const LABEL_AUDIENCE = 'TARGET AUDIENCE';
+    private const string LABEL_AUDIENCE = 'TARGET AUDIENCE';
 
-    private const LABEL_TONE = 'TONE OF VOICE';
+    private const string LABEL_TONE = 'TONE OF VOICE';
 
-    private const LABEL_LAYOUT = 'LAYOUT';
+    private const string LABEL_LAYOUT = 'LAYOUT';
 
-    private const LABEL_STYLE = 'STYLE';
+    private const string LABEL_STYLE = 'STYLE';
 
     public function __construct(
         private PromptSnippetRepository $snippets,
