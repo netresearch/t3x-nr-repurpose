@@ -12,14 +12,19 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
 use Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessResult;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
+use Netresearch\NrRepurpose\Rendering\Process\SymfonyProcessRunner;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\ProcessTimeoutAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\SlowExecutable;
 use Netresearch\NrRepurpose\Tests\Unit\Rendering\Fixture\RecordingProcessRunner;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
 
 final class PlaywrightHtmlToImageRendererTest extends TestCase
 {
+    use ProcessTimeoutAssertions;
+
     private const string NODE = '/usr/bin/node';
 
     private const string SCRIPT = '/app/Resources/Private/NodeRenderer/render.cjs';
@@ -164,5 +169,25 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
 
         self::assertCount(1, $this->logger->records);
         self::assertStringStartsWith(self::OUT_DIR . '/', (string) ($this->logger->records[0]['context']['path'] ?? ''));
+    }
+
+    /** A render that runs into the timeout, through the real process runner. */
+    public function testATimeoutRaisesAFixedMessageAndLogsTheCause(): void
+    {
+        $slow     = new SlowExecutable();
+        $logger   = new RecordingLogger();
+        $renderer = new PlaywrightHtmlToImageRenderer(new SymfonyProcessRunner($logger), $logger, $slow->path, self::SCRIPT, sys_get_temp_dir(), self::CHROMIUM, 0.1);
+
+        try {
+            self::assertTimeoutIsFixedAndLogged(
+                static fn (): string => $renderer->render('<html></html>', 1080, 1920, 1.0, false),
+                $logger,
+                RenderingException::class,
+                'External process timed out',
+                1749400501,
+            );
+        } finally {
+            $slow->remove();
+        }
     }
 }

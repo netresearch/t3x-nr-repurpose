@@ -67,7 +67,7 @@ final class FfmpegAudioStitcherTest extends AbstractFunctionalTestCase
         $this->makeTone($a, 1.0);
         $this->makeTone($b, 2.0);
 
-        $stitcher = new FfmpegAudioStitcher(new SymfonyProcessRunner(), new NullLogger(), 'ffmpeg', 'ffprobe', $this->tmpDir);
+        $stitcher = new FfmpegAudioStitcher(new SymfonyProcessRunner(new NullLogger()), new NullLogger(), 'ffmpeg', 'ffprobe', $this->tmpDir);
 
         $result = $stitcher->concat([$a, $b], $out);
         self::assertSame($out, $result);

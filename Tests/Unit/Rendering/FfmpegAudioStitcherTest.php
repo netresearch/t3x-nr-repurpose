@@ -11,14 +11,19 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
 
 use Netresearch\NrRepurpose\Rendering\FfmpegAudioStitcher;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessResult;
+use Netresearch\NrRepurpose\Rendering\Process\SymfonyProcessRunner;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\ProcessTimeoutAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\SlowExecutable;
 use Netresearch\NrRepurpose\Tests\Unit\Rendering\Fixture\RecordingProcessRunner;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
 
 final class FfmpegAudioStitcherTest extends TestCase
 {
+    use ProcessTimeoutAssertions;
+
     private const string FFMPEG = '/usr/bin/ffmpeg';
 
     private const string FFPROBE = '/usr/bin/ffprobe';
@@ -200,5 +205,45 @@ final class FfmpegAudioStitcherTest extends TestCase
         self::assertCount(1, $this->logger->records);
         self::assertSame(LogLevel::ERROR, $this->logger->records[0]['level']);
         self::assertSame($stderr, $this->logger->records[0]['context']['stderr'] ?? null);
+    }
+
+    /** A concat that runs into the timeout, through the real process runner. */
+    public function testAConcatTimeoutRaisesAFixedMessageAndLogsTheCause(): void
+    {
+        $slow     = new SlowExecutable();
+        $logger   = new RecordingLogger();
+        $stitcher = new FfmpegAudioStitcher(new SymfonyProcessRunner($logger), $logger, $slow->path, self::FFPROBE, $this->tmpDir, 0.1);
+
+        try {
+            self::assertTimeoutIsFixedAndLogged(
+                fn (): string => $stitcher->concat([$this->tmpDir . '/a.mp3', $this->tmpDir . '/b.mp3'], $this->tmpDir . '/out.mp3'),
+                $logger,
+                RenderingException::class,
+                'External process timed out',
+                1749400501,
+            );
+        } finally {
+            $slow->remove();
+        }
+    }
+
+    /** A probe that runs into the timeout, through the real process runner. */
+    public function testAProbeTimeoutRaisesAFixedMessageAndLogsTheCause(): void
+    {
+        $slow     = new SlowExecutable();
+        $logger   = new RecordingLogger();
+        $stitcher = new FfmpegAudioStitcher(new SymfonyProcessRunner($logger), $logger, self::FFMPEG, $slow->path, $this->tmpDir, 0.1);
+
+        try {
+            self::assertTimeoutIsFixedAndLogged(
+                fn (): float => $stitcher->probeDurationSeconds($this->tmpDir . '/a.mp3'),
+                $logger,
+                RenderingException::class,
+                'External process timed out',
+                1749400501,
+            );
+        } finally {
+            $slow->remove();
+        }
     }
 }

@@ -29,7 +29,7 @@ final class PlaywrightHtmlToImageRendererTest extends AbstractFunctionalTestCase
         }
 
         return new PlaywrightHtmlToImageRenderer(
-            new SymfonyProcessRunner(),
+            new SymfonyProcessRunner(new NullLogger()),
             new NullLogger(),
             'node',
             $script,
