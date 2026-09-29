@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Generator\Speech;
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -33,7 +34,10 @@ final class OpenAiSpeechSynthesizer implements SpeechSynthesizerInterface
     /** Effective model, resolved lazily once per instance by getModel(). */
     private ?string $model = null;
 
-    public function __construct(private readonly TextToSpeechService $tts) {}
+    public function __construct(
+        private readonly TextToSpeechService $tts,
+        private readonly LoggerInterface $logger,
+    ) {}
 
     public function isAvailable(): bool
     {
@@ -62,7 +66,11 @@ final class OpenAiSpeechSynthesizer implements SpeechSynthesizerInterface
                 $this->buildOptions($voice),
             );
         } catch (Throwable $e) {
-            throw RenderingException::because('TTS synthesis failed: ' . $e->getMessage(), 1749410000, $e);
+            // The message reaches the podcast's error_message, shown to every module user;
+            // the provider's detail goes to the server log only.
+            $this->logger->error('TTS synthesis failed', ['exception' => $e]);
+
+            throw RenderingException::because('TTS synthesis failed', 1749410000, $e);
         }
     }
 

@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Rendering;
 
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -21,6 +22,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * yuv420p with the moov atom at the front (plays in every browser, starts before it is
  * fully loaded). The metadata goes into the MP4 as keys (use_metadata_tags), which
  * exiftool and ffprobe read.
+ *
+ * A failed run throws a fixed message: it reaches the story artifact's error_message, which
+ * every module user sees, while ffmpeg's stderr (input paths) and the output path go to the
+ * server log only.
  */
 final readonly class FfmpegSlideshowRenderer implements SlideshowRendererInterface
 {
@@ -32,6 +37,7 @@ final readonly class FfmpegSlideshowRenderer implements SlideshowRendererInterfa
 
     public function __construct(
         private ProcessRunnerInterface $processRunner,
+        private LoggerInterface $logger,
         private string $ffmpegBinary = 'ffmpeg',
         private string $workDir = '',
         private float $timeoutSeconds = 300.0,
@@ -83,15 +89,15 @@ final readonly class FfmpegSlideshowRenderer implements SlideshowRendererInterfa
 
         if (!$result->successful()) {
             $this->removeOutput($out);
+            $this->logger->error('ffmpeg slideshow failed', ['exitCode' => $result->exitCode, 'stderr' => trim($result->stderr)]);
 
-            throw RenderingException::because(
-                sprintf('ffmpeg slideshow failed (exit %d): %s', $result->exitCode, trim($result->stderr)),
-                1749400402,
-            );
+            throw RenderingException::because(sprintf('ffmpeg slideshow failed (exit %d)', $result->exitCode), 1749400402);
         }
 
         if (!is_file($out)) {
-            throw RenderingException::because('ffmpeg produced no video at ' . $out, 1749400403);
+            $this->logger->error('ffmpeg produced no video', ['path' => $out]);
+
+            throw RenderingException::because('ffmpeg produced no video', 1749400403);
         }
 
         return $out;
