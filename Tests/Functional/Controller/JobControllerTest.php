@@ -52,15 +52,15 @@ final class JobControllerTest extends AbstractFunctionalTestCase
 {
     private const string MODULE_SPECIFIER = '@netresearch/nr-repurpose/job-new.js';
 
-    private const ADMIN = 1;
+    private const int ADMIN = 1;
 
-    private const JOBS_PER_PAGE = 25;
+    private const int JOBS_PER_PAGE = 25;
 
     /** A non-admin without the approve permission. */
-    private const EDITOR = 2;
+    private const int EDITOR = 2;
 
     /** A non-admin whose group grants nrrepurpose:approve_artifacts. */
-    private const REVIEWER = 3;
+    private const int REVIEWER = 3;
 
     /** @var array<string, mixed> */
     protected array $configurationToUseInTestInstance = [
