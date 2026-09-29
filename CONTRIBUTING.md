@@ -143,3 +143,7 @@ Checks that run on every pull request in this repository:
 Report vulnerabilities privately through
 [GitHub Security Advisories](https://github.com/netresearch/t3x-nr-repurpose/security/advisories/new),
 not in a public issue.
+
+The security expectations, threat model and controls of the extension are in
+[docs/SECURITY-ASSURANCE.md](docs/SECURITY-ASSURANCE.md). A change that adds
+or removes a control updates that document.

@@ -238,6 +238,10 @@ ingest (web/PDF) → analyze (one `ContentBrief` via nr-llm) → generate (podca
 schaubild×3 / story×N slides / text formats) → store in the TYPO3 File Abstraction Layer (FAL); the
 text formats write no file, their text lives on the artifact row.
 
+What users can expect from the extension in terms of security — threat model,
+trust boundaries and the controls that implement them — is in
+[docs/SECURITY-ASSURANCE.md](docs/SECURITY-ASSURANCE.md).
+
 ## License
 
 GPL-2.0-or-later. See [LICENSE](LICENSE).
