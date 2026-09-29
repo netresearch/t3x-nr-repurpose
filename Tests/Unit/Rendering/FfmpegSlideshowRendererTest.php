@@ -26,7 +26,7 @@ use Psr\Log\NullLogger;
 final class FfmpegSlideshowRendererTest extends TestCase
 {
     /** What the fake ffmpeg prints on a failed run: an input path, as the real one does. */
-    public const STDERR = '/var/www/html/var/transient/slide-1.png: No such file or directory';
+    public const string STDERR = '/var/www/html/var/transient/slide-1.png: No such file or directory';
 
     /** @var list<list<string>> */
     private array $commands = [];

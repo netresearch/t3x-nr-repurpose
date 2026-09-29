@@ -20,9 +20,9 @@ use PHPUnit\Framework\TestCase;
  */
 final class BundledFontsTest extends TestCase
 {
-    private const FONT_DIR = __DIR__ . '/../../../Resources/Private/Fonts';
+    private const string FONT_DIR = __DIR__ . '/../../../Resources/Private/Fonts';
 
-    private const TEMPLATE_DIR = __DIR__ . '/../../../Resources/Private/Templates/Generated';
+    private const string TEMPLATE_DIR = __DIR__ . '/../../../Resources/Private/Templates/Generated';
 
     /** @return array<string, array{file: string, sha256: string, weight: string, stretch: string, variationSettings?: string}> */
     private function families(): array
