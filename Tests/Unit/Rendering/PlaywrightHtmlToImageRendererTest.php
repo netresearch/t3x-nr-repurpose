@@ -11,12 +11,20 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
 
 use Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessResult;
+use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
+use Netresearch\NrRepurpose\Rendering\Process\SymfonyProcessRunner;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\ProcessTimeoutAssertions;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\SlowExecutable;
 use Netresearch\NrRepurpose\Tests\Unit\Rendering\Fixture\RecordingProcessRunner;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
 
 final class PlaywrightHtmlToImageRendererTest extends TestCase
 {
+    use ProcessTimeoutAssertions;
+
     private const string NODE = '/usr/bin/node';
 
     private const string SCRIPT = '/app/Resources/Private/NodeRenderer/render.cjs';
@@ -25,9 +33,13 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
 
     private const string CHROMIUM = '/usr/bin/chromium';
 
+    private RecordingLogger $logger;
+
     private function renderer(RecordingProcessRunner $runner, string $outputDir = self::OUT_DIR): PlaywrightHtmlToImageRenderer
     {
-        return new PlaywrightHtmlToImageRenderer($runner, self::NODE, self::SCRIPT, $outputDir, self::CHROMIUM);
+        $this->logger = new RecordingLogger();
+
+        return new PlaywrightHtmlToImageRenderer($runner, $this->logger, self::NODE, self::SCRIPT, $outputDir, self::CHROMIUM);
     }
 
     public function testDiagramRenderBuildsAutoHeightTransparentArgvAndFeedsHtmlOnStdin(): void
@@ -73,6 +85,19 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
         self::assertStringEndsWith('.pdf', $out);
     }
 
+    /**
+     * Symfony Process forwards only getenv() keys that are also in $_SERVER, so a putenv()
+     * in this process never reaches render.cjs and Playwright falls back to its own browser.
+     * The configured path has to travel in the process environment passed to the runner.
+     */
+    public function testChromiumPathIsPassedInTheProcessEnvironment(): void
+    {
+        $runner = new RecordingProcessRunner();
+        $this->renderer($runner)->render('<html></html>', 800, 600, 1.0, false);
+
+        self::assertSame(['CHROMIUM_PATH' => self::CHROMIUM], $runner->calls[0]['env']);
+    }
+
     public function testChromiumPathIsNotPassedViaArgv(): void
     {
         $runner = new RecordingProcessRunner();
@@ -82,14 +107,88 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
         self::assertStringEndsWith('.png', $out);
     }
 
-    public function testNonZeroExitRaisesRenderingExceptionWithStderr(): void
+    /**
+     * render.cjs stderr holds the Chromium launch line (profile directory, script path) and
+     * the renderer's own error text. The exception message reaches the artifact's
+     * error_message, shown to every module user, so stderr goes to the server log only.
+     */
+    public function testNonZeroExitRaisesAFixedMessageAndLogsStderr(): void
     {
-        $runner = new RecordingProcessRunner(new ProcessResult(1, '', 'chromium crashed'));
+        $stderr = 'browserType.launch: Target closed <launching> /usr/bin/chromium --user-data-dir=/tmp/playwright_chromiumdev_profile-AbC123';
+        $runner = new RecordingProcessRunner(new ProcessResult(1, '', $stderr));
 
-        $this->expectException(RenderingException::class);
-        $this->expectExceptionMessageMatches('/chromium crashed/');
+        try {
+            $this->renderer($runner)->render('<html></html>', 1080, 1920, 1.0, false);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('HTML render failed (exit 1)', $e->getMessage());
+            self::assertStringNotContainsString('playwright_chromiumdev_profile', $e->getMessage());
+        }
 
-        $this->renderer($runner)->render('<html></html>', 1080, 1920, 1.0, false);
+        self::assertCount(1, $this->logger->records);
+        self::assertSame(LogLevel::ERROR, $this->logger->records[0]['level']);
+        self::assertSame($stderr, $this->logger->records[0]['context']['stderr'] ?? null);
+    }
+
+    public function testAnUnwritableOutputDirRaisesAFixedMessageAndLogsThePath(): void
+    {
+        $dir          = '/proc/nrrepurpose-not-creatable';
+        $this->logger = new RecordingLogger();
+        $renderer     = new PlaywrightHtmlToImageRenderer(new RecordingProcessRunner(), $this->logger, self::NODE, self::SCRIPT, $dir, self::CHROMIUM);
+
+        try {
+            $renderer->render('<html></html>', 1080, 1920, 1.0, false);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('Render output dir not writable', $e->getMessage());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame($dir, $this->logger->records[0]['context']['path'] ?? null);
+    }
+
+    public function testAMissingOutputFileRaisesAFixedMessageAndLogsThePath(): void
+    {
+        // A successful exit that writes no file.
+        $runner = new class implements ProcessRunnerInterface {
+            public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0, array $env = []): ProcessResult
+            {
+                return new ProcessResult(0, '', '');
+            }
+        };
+        $this->logger = new RecordingLogger();
+        $renderer     = new PlaywrightHtmlToImageRenderer($runner, $this->logger, self::NODE, self::SCRIPT, self::OUT_DIR, self::CHROMIUM);
+
+        try {
+            $renderer->render('<html></html>', 1080, 1920, 1.0, false);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('Renderer produced no PNG', $e->getMessage());
+            self::assertStringNotContainsString(self::OUT_DIR, $e->getMessage());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertStringStartsWith(self::OUT_DIR . '/', (string) ($this->logger->records[0]['context']['path'] ?? ''));
+    }
+
+    /** A render that runs into the timeout, through the real process runner. */
+    public function testATimeoutRaisesAFixedMessageAndLogsTheCause(): void
+    {
+        $slow     = new SlowExecutable();
+        $logger   = new RecordingLogger();
+        $renderer = new PlaywrightHtmlToImageRenderer(new SymfonyProcessRunner($logger), $logger, $slow->path, self::SCRIPT, sys_get_temp_dir(), self::CHROMIUM, 0.1);
+
+        try {
+            self::assertTimeoutIsFixedAndLogged(
+                static fn (): string => $renderer->render('<html></html>', 1080, 1920, 1.0, false),
+                $logger,
+                RenderingException::class,
+                'External process timed out',
+                1749400501,
+            );
+        } finally {
+            $slow->remove();
+        }
     }
 
     public function testUncreatableOutputDirRaisesRenderingExceptionBeforeStartingNode(): void
