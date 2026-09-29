@@ -6,7 +6,10 @@
 services:
   worker:
     container_name: ddev-${DDEV_SITENAME}-worker
-    image: ${DDEV_WEBIMAGE}
+    # The project's built web image: ${DDEV_WEBIMAGE} alone is the stock image,
+    # without the ffmpeg, chromium and poppler-utils that web-build/Dockerfile
+    # adds and the generation needs.
+    image: ${DDEV_WEBIMAGE}-${DDEV_SITENAME}-built
     restart: "unless-stopped"
     # The host user, as in the web container. The image's default is root, and
     # the caches the consumer writes into the shared var/ would then be owned
