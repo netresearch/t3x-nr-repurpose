@@ -160,6 +160,30 @@ final class FfmpegAudioStitcherTest extends TestCase
         );
     }
 
+    /**
+     * ffprobe prints "N/A" for an input without a duration (measured with ffmpeg 7 on a PNG), but
+     * stdout is whatever the configured binary writes. It reaches the podcast's error_message,
+     * so it goes to the server log only.
+     */
+    public function testANonNumericDurationRaisesAFixedMessageAndLogsTheOutput(): void
+    {
+        $stdout = "N/A\n" . $this->tmpDir . '/a.mp3';
+        $runner = new RecordingProcessRunner(new ProcessResult(0, $stdout, ''));
+
+        try {
+            $this->stitcher($runner)->probeDurationSeconds($this->tmpDir . '/a.mp3');
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffprobe returned no numeric duration', $e->getMessage());
+            self::assertSame(1749400307, $e->getCode());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame(LogLevel::ERROR, $this->logger->records[0]['level']);
+        self::assertSame(trim($stdout), $this->logger->records[0]['context']['stdout'] ?? null);
+        self::assertSame($this->tmpDir . '/a.mp3', $this->logger->records[0]['context']['path'] ?? null);
+    }
+
     public function testProbeFailureExitRaisesAFixedMessageAndLogsStderr(): void
     {
         $stderr = $this->tmpDir . '/missing.mp3: No such file or directory';

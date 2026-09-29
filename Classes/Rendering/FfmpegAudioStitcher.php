@@ -117,7 +117,11 @@ final readonly class FfmpegAudioStitcher implements AudioStitcherInterface
 
         $value = trim($result->stdout);
         if ($value === '' || !is_numeric($value)) {
-            throw RenderingException::because('ffprobe returned no numeric duration: ' . $value, 1749400307);
+            // ffprobe prints N/A for an input without a duration, but stdout is whatever the
+            // configured binary writes, so it goes to the log, not into the message.
+            $this->logger->error('ffprobe returned no numeric duration', ['stdout' => $value, 'path' => $path]);
+
+            throw RenderingException::because('ffprobe returned no numeric duration', 1749400307);
         }
 
         return (float) $value;
