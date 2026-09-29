@@ -131,7 +131,11 @@ final readonly class JobSnapshot
         }
 
         if (is_string($value) && ctype_digit($value)) {
-            return (int) $value;
+            $digits = ltrim($value, '0');
+            // Above PHP_INT_MAX the cast saturates instead of failing; reject that.
+            if ($digits === '' || (string) (int) $digits === $digits) {
+                return (int) $digits;
+            }
         }
 
         throw new MalformedJobRowException(

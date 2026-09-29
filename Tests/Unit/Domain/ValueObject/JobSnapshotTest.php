@@ -122,6 +122,14 @@ final class JobSnapshotTest extends TestCase
         self::assertEquals(JobSnapshot::fromRow(['uid' => 5]), JobSnapshot::fromRow($row));
     }
 
+    public function testADigitStringWithLeadingZerosIsItsNumber(): void
+    {
+        $job = JobSnapshot::fromRow(['uid' => '007', 'be_user' => '000']);
+
+        self::assertSame(7, $job->uid);
+        self::assertSame(0, $job->beUser);
+    }
+
     public function testAnUnknownPdfModeFallsBackToAutoAsBefore(): void
     {
         self::assertSame(PdfMode::Auto, JobSnapshot::fromRow(['uid' => 1, 'pdf_mode' => 'ocr'])->pdfMode);
@@ -181,6 +189,7 @@ final class JobSnapshotTest extends TestCase
         yield 'pdf_mode not a string' => [['uid' => 1, 'pdf_mode' => 2], 1790500005, 'pdf_mode'];
         yield 'theme not a string' => [['uid' => 1, 'theme' => false], 1790500005, 'theme'];
         yield 'be_user not digits' => [['uid' => 1, 'be_user' => 'admin'], 1790500004, 'be_user'];
+        yield 'be_user beyond PHP_INT_MAX' => [['uid' => 1, 'be_user' => '9223372036854775808'], 1790500004, 'be_user'];
         yield 'prompt_snippets not a string' => [['uid' => 1, 'prompt_snippets' => ['audience' => 3]], 1790500005, 'prompt_snippets'];
         yield 'want flag not digits' => [['uid' => 1, 'want_video' => 'yes'], 1790500004, 'want_video'];
         yield 'want flag a bool' => [['uid' => 1, 'want_faq' => true], 1790500004, 'want_faq'];
