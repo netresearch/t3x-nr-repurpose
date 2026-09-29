@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Ingestion;
 
+use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Psr7\HttpFactory;
 use LogicException;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
@@ -19,12 +20,11 @@ use Netresearch\NrRepurpose\Ingestion\PdfVisionExtractor;
 use Netresearch\NrRepurpose\Ingestion\Poppler\SymfonyProcessPopplerRunner;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
+use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
-use Psr\Http\Client\ClientInterface;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use Psr\Log\NullLogger;
-use TYPO3\CMS\Core\Http\Response;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
@@ -39,18 +39,7 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
     {
         $html = (string) file_get_contents(dirname(__DIR__, 2) . '/Fixtures/Web/article.html');
 
-        return new readonly class ($html) implements ClientInterface {
-            public function __construct(private string $html) {}
-
-            public function sendRequest(RequestInterface $request): ResponseInterface
-            {
-                $response = new Response();
-                $response->getBody()->write($this->html);
-                $response->getBody()->rewind();
-
-                return $response;
-            }
-        };
+        return QueuedHttpClient::answering(200, $html)->client;
     }
 
     /** Fails loudly if the auto dispatcher escalates a dense text PDF to Vision. */
@@ -72,11 +61,13 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
         $runner  = new SymfonyProcessPopplerRunner(new NullLogger());
 
         return new SourceIngestionService(
-            new WebPageFetcher($client, $factory),
-            new PdfFileResolver($this->get(ResourceFactory::class), $client, $factory),
+            new WebPageFetcher($client, $factory, StaticHostResolver::publicGuard()),
+            new PdfFileResolver($this->get(ResourceFactory::class), $client, $factory, StaticHostResolver::publicGuard()),
             new PdfTextExtractor(),
             $vision,
             new PdfLayoutExtractor($runner),
+            $this->get(CapabilityGrantResolverInterface::class),
+            new NullLogger(),
         );
     }
 
