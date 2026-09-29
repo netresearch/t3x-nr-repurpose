@@ -209,9 +209,9 @@ final class GdImageCompositorTest extends TestCase
 
         $this->expectException(RenderingException::class);
         $this->expectExceptionCode(1749400206);
-        $this->expectExceptionMessage('Compositor input is not a valid image: ' . $notAnImage);
+        $this->expectExceptionMessage('Compositor input is not a valid image');
 
-        (new GdImageCompositor())->overlay($notAnImage, $fg, $this->tmpDir . '/o.png');
+        (new GdImageCompositor(new NullLogger()))->overlay($notAnImage, $fg, $this->tmpDir . '/o.png');
     }
 
     public function testUncreatableOutputDirRaisesRenderingException(): void
@@ -225,9 +225,9 @@ final class GdImageCompositorTest extends TestCase
 
         $this->expectException(RenderingException::class);
         $this->expectExceptionCode(1749400202);
-        $this->expectExceptionMessage('Compositor output dir not writable: ' . $blocker . '/sub');
+        $this->expectExceptionMessage('Compositor output dir not writable');
 
-        (new GdImageCompositor())->overlay($bg, $fg, $blocker . '/sub/out.png');
+        (new GdImageCompositor(new NullLogger()))->overlay($bg, $fg, $blocker . '/sub/out.png');
     }
 
     public function testRequiredBytesBudgetsBackgroundPlusTwoForegroundSizedImages(): void
