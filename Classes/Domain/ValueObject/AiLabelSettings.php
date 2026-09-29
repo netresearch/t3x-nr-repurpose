@@ -24,7 +24,7 @@ namespace Netresearch\NrRepurpose\Domain\ValueObject;
  */
 final readonly class AiLabelSettings
 {
-    public const GENERATOR = 'nr_repurpose';
+    public const string GENERATOR = 'nr_repurpose';
 
     public function __construct(
         public string $generator = self::GENERATOR,

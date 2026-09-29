@@ -16,6 +16,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\ExecutiveSummaryGenerator;
 use Netresearch\NrRepurpose\Generator\FaqGenerator;
@@ -37,6 +38,7 @@ use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActor;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -44,9 +46,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 {
-    private const QUARTERLY_REPORT = 'Quarterly report';
+    private const string QUARTERLY_REPORT = 'Quarterly report';
 
-    private const SOURCE_URL = 'https://example.com/';
+    private const string SOURCE_URL = 'https://example.com/';
 
     private function seedJob(int $beUser = 0): int
     {
@@ -79,8 +81,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 
     private function stubIngestion(SourceDocument $document): SourceIngestionServiceInterface
     {
-        return new class ($document) implements SourceIngestionServiceInterface {
-            public function __construct(private readonly SourceDocument $document) {}
+        return new readonly class ($document) implements SourceIngestionServiceInterface {
+            public function __construct(private SourceDocument $document) {}
 
             public function ingest(array $jobRow): SourceDocument
             {
@@ -91,14 +93,50 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 
     private function stubAnalyzer(ContentBrief $brief): DocumentAnalyzerInterface
     {
-        return new class ($brief) implements DocumentAnalyzerInterface {
-            public function __construct(private readonly ContentBrief $brief) {}
+        return new readonly class ($brief) implements DocumentAnalyzerInterface {
+            public function __construct(private ContentBrief $brief) {}
 
             public function analyze(SourceDocument $document, array $jobRow): ContentBrief
             {
                 return $this->brief;
             }
         };
+    }
+
+    /**
+     * The temp directories a generator makes (the story slides, the podcast segments)
+     * are removed once the generator is done — after a success and after a throw.
+     */
+    public function testTempDirectoriesAGeneratorLeavesAreRemovedAfterItRuns(): void
+    {
+        $jobs      = $this->get(JobProcessingRepository::class);
+        $leaving   = new TempDirLeavingGenerator($jobs, new FakeBudgetService(), false);
+        $throwing  = new TempDirLeavingGenerator($jobs, new FakeBudgetService(), true);
+        $ingestion = $this->stubIngestion($this->stubDocument());
+        $analyzer  = $this->stubAnalyzer($this->stubBrief());
+
+        foreach ([$leaving, $throwing] as $generator) {
+            $orchestrator = new GenerationOrchestrator(
+                $jobs,
+                new NullLogger(),
+                $ingestion,
+                $analyzer,
+                $this->get(PromptSnippetResolver::class),
+                $this->get(TechnicalActorContextInterface::class),
+                $this->get(ExtensionConfiguration::class),
+                $this->get(CapabilityGrantResolver::class),
+                $this->get(AiLabelSettingsFactory::class),
+                [$generator],
+            );
+            try {
+                $orchestrator->process($this->seedJob());
+            } catch (RuntimeException) {
+                // The throwing generator's exception passes through the orchestrator.
+            }
+
+            self::assertNotNull($generator->dir);
+            self::assertDirectoryDoesNotExist($generator->dir);
+        }
     }
 
     public function testProcessRunsIngestAnalyzeGenerateAndEndsDone(): void
@@ -502,6 +540,33 @@ final class RecordingArtifactGenerator implements ArtifactGeneratorInterface
         $ctx->progress?->step('Stub: halfway there', 0.5);
         $this->rowAfterStep = $this->jobs->findRow($ctx->jobUid()) ?? [];
         $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+
+        return true;
+    }
+}
+
+/** Makes a temp directory with a file in it and leaves it behind; optionally throws. */
+final class TempDirLeavingGenerator extends AbstractGenerator
+{
+    public ?string $dir = null;
+
+    public function __construct(JobProcessingRepository $jobs, FakeBudgetService $budget, private readonly bool $throw)
+    {
+        parent::__construct($jobs, $budget, new NullLogger());
+    }
+
+    public function supports(GenerationContext $ctx): bool
+    {
+        return true;
+    }
+
+    public function generate(GenerationContext $ctx): bool
+    {
+        $this->dir = $this->makeTempDir();
+        file_put_contents($this->dir . '/segment.mp3', 'MP3');
+        if ($this->throw) {
+            throw new RuntimeException('generator failed');
+        }
 
         return true;
     }

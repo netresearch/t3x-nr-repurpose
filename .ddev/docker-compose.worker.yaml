@@ -6,8 +6,23 @@
 services:
   worker:
     container_name: ddev-${DDEV_SITENAME}-worker
-    image: ${DDEV_WEBIMAGE}
+    # The project's built web image: ${DDEV_WEBIMAGE} alone is the stock image,
+    # without the ffmpeg, chromium and poppler-utils that web-build/Dockerfile
+    # adds and the generation needs.
+    image: ${DDEV_WEBIMAGE}-${DDEV_SITENAME}-built
     restart: "unless-stopped"
+    # The host user, as in the web container. The image's default is root, and
+    # the caches the consumer writes into the shared var/ would then be owned
+    # by root, so `ddev setup` fails at `cache:flush` with "Permission denied".
+    user: "$DDEV_UID:$DDEV_GID"
+    # The web image's HEALTHCHECK (/healthcheck.sh) comes with it and checks
+    # php-fpm (phpstatus) and mailpit, neither of which this container runs, so
+    # it stays "starting" forever and `ddev start` waits for it until the
+    # container timeout. A check on the consumer process would not help either:
+    # before `ddev setup` the consume command exits on every loop, so the
+    # worker would be unhealthy on exactly the first start.
+    healthcheck:
+      disable: true
     command:
       - bash
       - -c

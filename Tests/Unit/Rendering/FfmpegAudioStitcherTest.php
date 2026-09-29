@@ -11,17 +11,26 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
 
 use Netresearch\NrRepurpose\Rendering\FfmpegAudioStitcher;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessResult;
+use Netresearch\NrRepurpose\Rendering\Process\SymfonyProcessRunner;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\ProcessTimeoutAssertions;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\SlowExecutable;
 use Netresearch\NrRepurpose\Tests\Unit\Rendering\Fixture\RecordingProcessRunner;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
 
 final class FfmpegAudioStitcherTest extends TestCase
 {
-    private const FFMPEG = '/usr/bin/ffmpeg';
+    use ProcessTimeoutAssertions;
 
-    private const FFPROBE = '/usr/bin/ffprobe';
+    private const string FFMPEG = '/usr/bin/ffmpeg';
+
+    private const string FFPROBE = '/usr/bin/ffprobe';
 
     private string $tmpDir;
+
+    private RecordingLogger $logger;
 
     protected function setUp(): void
     {
@@ -40,9 +49,11 @@ final class FfmpegAudioStitcherTest extends TestCase
         @rmdir($this->tmpDir);
     }
 
-    private function stitcher(RecordingProcessRunner $runner): FfmpegAudioStitcher
+    private function stitcher(RecordingProcessRunner $runner, ?string $workDir = null): FfmpegAudioStitcher
     {
-        return new FfmpegAudioStitcher($runner, self::FFMPEG, self::FFPROBE, $this->tmpDir);
+        $this->logger = new RecordingLogger();
+
+        return new FfmpegAudioStitcher($runner, $this->logger, self::FFMPEG, self::FFPROBE, $workDir ?? $this->tmpDir);
     }
 
     public function testConcatBuildsConcatDemuxerArgvAndWritesAQuotedListFile(): void
@@ -78,12 +89,82 @@ final class FfmpegAudioStitcherTest extends TestCase
         $this->stitcher(new RecordingProcessRunner())->concat([], $this->tmpDir . '/o.mp3');
     }
 
-    public function testConcatFailureExitRaisesRenderingException(): void
+    public function testUncreatableWorkDirRaisesRenderingExceptionBeforeStartingFfmpeg(): void
     {
-        $runner = new RecordingProcessRunner(new ProcessResult(1, '', 'Invalid data found'));
-        $this->expectException(RenderingException::class);
-        $this->expectExceptionMessageMatches('/Invalid data found/');
-        $this->stitcher($runner)->concat([$this->tmpDir . '/a.mp3'], $this->tmpDir . '/o.mp3');
+        // A regular file as the parent makes mkdir() fail for every user, root
+        // included; the suppressed warning must not reach the caller.
+        $blocker = $this->tmpDir . '/blocker';
+        file_put_contents($blocker, 'x');
+        $runner   = new RecordingProcessRunner();
+        $stitcher = $this->stitcher($runner, $blocker . '/sub');
+
+        try {
+            $stitcher->concat([$this->tmpDir . '/a.mp3'], $this->tmpDir . '/o.mp3');
+            self::fail('Expected a RenderingException for a work dir that cannot be created');
+        } catch (RenderingException $e) {
+            self::assertSame(1749400302, $e->getCode());
+            // A prefix, not the whole text: whether the path belongs in the
+            // message is not this test's concern.
+            self::assertStringStartsWith('Audio work dir not writable', $e->getMessage());
+            self::assertSame([], $runner->calls, 'ffmpeg must not be started without a work dir');
+        }
+    }
+
+    /**
+     * ffmpeg's stderr names the input files (absolute temp paths). The exception message
+     * reaches the podcast's error_message, shown to every module user, so stderr goes to
+     * the server log only.
+     */
+    public function testConcatFailureExitRaisesAFixedMessageAndLogsStderr(): void
+    {
+        $stderr = $this->tmpDir . '/a.mp3: Invalid data found when processing input';
+        $runner = new RecordingProcessRunner(new ProcessResult(1, '', $stderr));
+
+        try {
+            $this->stitcher($runner)->concat([$this->tmpDir . '/a.mp3'], $this->tmpDir . '/o.mp3');
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffmpeg concat failed (exit 1)', $e->getMessage());
+            self::assertSame(1749400304, $e->getCode());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame(LogLevel::ERROR, $this->logger->records[0]['level']);
+        self::assertSame($stderr, $this->logger->records[0]['context']['stderr'] ?? null);
+    }
+
+    public function testASuccessfulConcatWithoutOutputRaisesAFixedMessageAndLogsThePath(): void
+    {
+        $out = $this->tmpDir . '/never-written.mp3';
+
+        try {
+            $this->stitcher(new RecordingProcessRunner())->concat([$this->tmpDir . '/a.mp3'], $out);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffmpeg produced no output', $e->getMessage());
+            self::assertSame(1749400305, $e->getCode());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame($out, $this->logger->records[0]['context']['path'] ?? null);
+    }
+
+    public function testAnUncreatableWorkDirRaisesAFixedMessageAndLogsThePath(): void
+    {
+        $dir          = '/proc/nrrepurpose-not-creatable';
+        $this->logger = new RecordingLogger();
+        $stitcher     = new FfmpegAudioStitcher(new RecordingProcessRunner(), $this->logger, self::FFMPEG, self::FFPROBE, $dir);
+
+        try {
+            $stitcher->concat([$this->tmpDir . '/a.mp3'], $this->tmpDir . '/o.mp3');
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('Audio work dir not writable', $e->getMessage());
+            self::assertSame(1749400302, $e->getCode());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame($dir, $this->logger->records[0]['context']['path'] ?? null);
     }
 
     public function testProbeDurationBuildsFfprobeArgvAndParsesSeconds(): void
@@ -105,10 +186,85 @@ final class FfmpegAudioStitcherTest extends TestCase
         );
     }
 
-    public function testProbeFailureExitRaisesRenderingException(): void
+    /**
+     * ffprobe prints "N/A" for an input without a duration (measured with ffmpeg 7 on a PNG), but
+     * stdout is whatever the configured binary writes. It reaches the podcast's error_message,
+     * so it goes to the server log only.
+     */
+    public function testANonNumericDurationRaisesAFixedMessageAndLogsTheOutput(): void
     {
-        $runner = new RecordingProcessRunner(new ProcessResult(1, '', 'No such file'));
-        $this->expectException(RenderingException::class);
-        $this->stitcher($runner)->probeDurationSeconds($this->tmpDir . '/missing.mp3');
+        $stdout = "N/A\n" . $this->tmpDir . '/a.mp3';
+        $runner = new RecordingProcessRunner(new ProcessResult(0, $stdout, ''));
+
+        try {
+            $this->stitcher($runner)->probeDurationSeconds($this->tmpDir . '/a.mp3');
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffprobe returned no numeric duration', $e->getMessage());
+            self::assertSame(1749400307, $e->getCode());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame(LogLevel::ERROR, $this->logger->records[0]['level']);
+        self::assertSame(trim($stdout), $this->logger->records[0]['context']['stdout'] ?? null);
+        self::assertSame($this->tmpDir . '/a.mp3', $this->logger->records[0]['context']['path'] ?? null);
+    }
+
+    public function testProbeFailureExitRaisesAFixedMessageAndLogsStderr(): void
+    {
+        $stderr = $this->tmpDir . '/missing.mp3: No such file or directory';
+        $runner = new RecordingProcessRunner(new ProcessResult(1, '', $stderr));
+
+        try {
+            $this->stitcher($runner)->probeDurationSeconds($this->tmpDir . '/missing.mp3');
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffprobe failed (exit 1)', $e->getMessage());
+            self::assertSame(1749400306, $e->getCode());
+        }
+
+        self::assertCount(1, $this->logger->records);
+        self::assertSame(LogLevel::ERROR, $this->logger->records[0]['level']);
+        self::assertSame($stderr, $this->logger->records[0]['context']['stderr'] ?? null);
+    }
+
+    /** A concat that runs into the timeout, through the real process runner. */
+    public function testAConcatTimeoutRaisesAFixedMessageAndLogsTheCause(): void
+    {
+        $slow     = new SlowExecutable();
+        $logger   = new RecordingLogger();
+        $stitcher = new FfmpegAudioStitcher(new SymfonyProcessRunner($logger), $logger, $slow->path, self::FFPROBE, $this->tmpDir, 0.1);
+
+        try {
+            self::assertTimeoutIsFixedAndLogged(
+                fn (): string => $stitcher->concat([$this->tmpDir . '/a.mp3', $this->tmpDir . '/b.mp3'], $this->tmpDir . '/out.mp3'),
+                $logger,
+                RenderingException::class,
+                'External process timed out',
+                1749400501,
+            );
+        } finally {
+            $slow->remove();
+        }
+    }
+
+    /** A probe that runs into the timeout, through the real process runner. */
+    public function testAProbeTimeoutRaisesAFixedMessageAndLogsTheCause(): void
+    {
+        $slow     = new SlowExecutable();
+        $logger   = new RecordingLogger();
+        $stitcher = new FfmpegAudioStitcher(new SymfonyProcessRunner($logger), $logger, self::FFMPEG, $slow->path, $this->tmpDir, 0.1);
+
+        try {
+            self::assertTimeoutIsFixedAndLogged(
+                fn (): float => $stitcher->probeDurationSeconds($this->tmpDir . '/a.mp3'),
+                $logger,
+                RenderingException::class,
+                'External process timed out',
+                1749400501,
+            );
+        } finally {
+            $slow->remove();
+        }
     }
 }

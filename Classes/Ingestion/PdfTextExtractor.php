@@ -25,12 +25,14 @@ class PdfTextExtractor
     /**
      * @return list<array{page:int, text:string, isSparse:bool}>
      *
-     * @throws IngestionException on a missing, encrypted or unparseable PDF
+     * @throws IngestionException on a missing, encrypted or unparseable PDF. The message
+     *                            never names the path: it becomes the job's error message,
+     *                            which every module user sees; SourceIngestionService logs it.
      */
     public function extract(string $absPath): array
     {
         if (!is_file($absPath)) {
-            throw new IngestionException('PDF file not found: ' . $absPath, 1749379420);
+            throw new IngestionException('PDF file not found', 1749379420);
         }
 
         $config = new Config();
@@ -43,11 +45,9 @@ class PdfTextExtractor
             $pageObjects = $document->getPages();
         } catch (Throwable $e) {
             // smalot throws \Exception('Secured pdf file are currently not supported.') on real encryption.
-            throw new IngestionException(
-                'PDF could not be parsed (possibly encrypted): ' . $e->getMessage(),
-                1749379421,
-                $e,
-            );
+            // The parser's own message stays on the previous exception: it describes the
+            // uploaded file, and the message here reaches the job's visible error.
+            throw new IngestionException('PDF could not be parsed (possibly encrypted or damaged)', 1749379421, $e);
         }
 
         $pages = [];
@@ -62,7 +62,7 @@ class PdfTextExtractor
         }
 
         if ($pages === []) {
-            throw new IngestionException('PDF has no pages: ' . $absPath, 1749379422);
+            throw new IngestionException('PDF has no pages', 1749379422);
         }
 
         return $pages;

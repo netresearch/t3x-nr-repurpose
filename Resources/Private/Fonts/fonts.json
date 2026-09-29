@@ -1,0 +1,31 @@
+{
+    "comment": "Web fonts the Generated/* templates request from Google Fonts. render.cjs replaces those @import rules with @font-face rules over these files, so the renderer needs no network. The files are the unmodified upstream variable fonts (SIL Open Font License 1.1, licence next to each file) from https://github.com/google/fonts at commit 23e54b51ddffbc7713c583748e3bd86f62b1fa4a.",
+    "families": {
+        "Raleway": {
+            "file": "Raleway/Raleway[wght].ttf",
+            "source": "https://github.com/google/fonts/blob/23e54b51ddffbc7713c583748e3bd86f62b1fa4a/ofl/raleway/Raleway%5Bwght%5D.ttf",
+            "version": "4.026",
+            "sha256": "8bbcc3eb8275c388f4bcd998832f8a4b943eadbaf6a595205312774b5951aefb",
+            "weight": "100 900",
+            "stretch": "100%"
+        },
+        "Open Sans": {
+            "file": "OpenSans/OpenSans[wdth,wght].ttf",
+            "source": "https://github.com/google/fonts/blob/23e54b51ddffbc7713c583748e3bd86f62b1fa4a/ofl/opensans/OpenSans%5Bwdth,wght%5D.ttf",
+            "version": "3.003",
+            "sha256": "36643644f318a812aab2d2ed3bb98f8cf0872527f835fe9398d95fe6b9adb878",
+            "weight": "300 800",
+            "stretch": "75% 100%"
+        },
+        "Inter": {
+            "file": "Inter/Inter[opsz,wght].ttf",
+            "source": "https://github.com/google/fonts/blob/23e54b51ddffbc7713c583748e3bd86f62b1fa4a/ofl/inter/Inter%5Bopsz,wght%5D.ttf",
+            "version": "4.001",
+            "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031",
+            "weight": "100 900",
+            "stretch": "100%",
+            "variationSettings": "'opsz' 14",
+            "variationSettingsReason": "Google Fonts serves Inter with the opsz axis fixed at its default of 14; without this, Chromium sizes opsz to the font size and the glyphs differ from the Google-loaded render."
+        }
+    }
+}

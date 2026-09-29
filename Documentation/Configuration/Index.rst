@@ -6,173 +6,80 @@
 Configuration
 =============
 
-nr_repurpose has no configuration of its own — everything it needs is wiring it
+nr_repurpose has five extension settings of its own (see
+:ref:`configuration-extension-settings`). Everything else it needs is wiring it
 shares with the host instance: the nr-llm provider, model and Configuration
 records, the Symfony Messenger routing, and the outbound HTTP timeouts. In the
-bundled DDEV environment the instance-level settings below are written to
+bundled DDEV environment the instance-level settings (see
+:ref:`configuration-worker`) are written to
 :path:`config/system/additional.php` by ``ddev install``; in a real deployment
 you place them in your instance configuration.
 
-.. _configuration-nr-llm:
+This page covers the extension settings and the backend permissions; the
+nr-llm wiring, the worker environment, and the AI labels and social publishing
+have their own pages:
 
-nr-llm wiring: providers, models, Configurations
-================================================
+.. toctree::
+   :titlesonly:
 
-nr_repurpose never talks to an AI provider directly and never picks one itself.
-It names nr-llm **Configuration** records (use cases) and lets nr-llm resolve
-the model, the provider, the API key, the system prompt, and the usage/cost
-attribution. Set everything up in nr-llm's backend module
-(:guilabel:`Admin Tools > LLM Management`):
+   NrLlm
+   Worker
+   AiLabelAndPublishing
 
-#.  Create a **Provider** whose API key references the key identifier nr-llm
-    issued during installation (see :ref:`installation-openai-key`).
-#.  Create the **Models** you want to use (or fetch them via nr-llm's model
-    discovery), including the specialized ones (image, text-to-speech).
-#.  Import the **Configuration** records nr_repurpose declares as presets.
-    nr_repurpose ships the three records below as *configuration presets*
-    (nr-llm ADR-056): open nr-llm's :guilabel:`Configurations` module and each
-    appears as a *pending preset* with its required capabilities — import it with
-    a single click. Each imports as a criteria-mode configuration that resolves
-    against the models you created; no provider, model or key is baked into the
-    preset. Mark the imported ``nr_repurpose_text`` record as the instance
-    default. (You may still create the records by hand instead — the identifiers
-    below are what the extension looks up.)
+.. _configuration-extension-settings:
+
+Extension settings
+==================
+
+The settings live in :guilabel:`Admin Tools > Settings > Extension
+Configuration > nr_repurpose`:
 
 .. list-table::
    :header-rows: 1
-   :widths: 26 30 44
+   :widths: 30 70
 
-   * - Configuration identifier
-     - Used for
-     - Model choice
-   * - ``nr_repurpose_text`` *(mark as default)*
-     - Analysis and copy: the brief, the podcast script, the diagram body, the
-       story copy. The pipeline resolves the instance-default Configuration.
-     - Any chat model of any nr-llm provider — OpenAI, Anthropic Claude,
-       Google Gemini, Groq, Mistral, Ollama, OpenRouter.
-   * - ``nr_repurpose_image``
-     - AI imagery (Schaubild backgrounds and full images, story backgrounds).
-     - Any model accepted by nr-llm's image services; falls back to
-       ``gpt-image-2`` when the record is absent. The record's system prompt
-       acts as a style preamble for every image prompt.
-   * - ``nr_repurpose_tts``
-     - Podcast speech synthesis.
-     - Any model of nr-llm's text-to-speech service (currently OpenAI ``tts-1``
-       / ``tts-1-hd``); falls back to ``tts-1``.
+   * - Setting
+     - Documented in
+   * - ``technicalBeUserUid``
+     - :confval:`technicalBeUserUid <technicalbeuseruid>` below
+   * - ``aiLabelImages``, ``aiLabelTexts``
+     - :ref:`configuration-ai-label`
+   * - ``socialWebhookUrl``, ``socialWebhookSecret``
+     - :ref:`configuration-social`
 
-Swapping a model — or, for text, the provider — is a backend-only change: edit
-the Configuration record, no code or deployment involved. Per-model and
-per-configuration usage and cost appear in nr-llm's analytics module.
+.. confval:: technicalBeUserUid
+   :name: technicalbeuseruid
+   :type: int
+   :default: 0
 
-Image and speech calls go through nr-llm's *specialized* services, which
-currently cover OpenAI (images, TTS) and fal.ai (images). The extension-side
-seam for additional backends is the
-:php:`ImageGeneratorInterface` / :php:`SpeechSynthesizerInterface` DI alias in
-:path:`Configuration/Services.yaml`.
+   The uid of a backend user the generation job runs as while it reads
+   secrets from nr-vault.
 
-Keys are always referenced by identifier: both the chat providers and the
-specialized services let nr-llm resolve and inject the key — no plaintext key
-is ever set here. See :ref:`adr-003`.
+   A job runs in a Symfony Messenger consumer or through the
+   ``nr_repurpose:generate`` command. For both, TYPO3 boots an
+   unauthenticated command-line user, so nr-vault has no actor to authorise
+   and refuses every secret read. The first provider call then fails, and the
+   job stops in the analysis step before any artifact exists.
 
-.. _configuration-snippets:
+   With a uid above ``0``, the whole job runs inside nr-vault's
+   :php:`TechnicalActorContextInterface::runAs()` for that user. nr-vault
+   then checks the secrets against this user like against any backend user:
+   an administrator may read every secret (unless nr-vault runs the
+   ``hardened`` security profile with ``disableAdminOverride`` set), any other
+   user needs access to the provider key's secret through its owner or its
+   groups. nr-vault refuses a
+   uid without a backend user record, a disabled user, a user outside its
+   start and end time, and a user not stored at root level (``pid`` 0) before
+   the job starts; the worker then marks the job failed with nr-vault's
+   message.
 
-Prompt snippets
-===============
+   With ``0`` (the default) the job runs without an actor, as before this
+   setting existed.
 
-The *New job* form's *audience*, *tone of voice*, *persona*, *layout* and
-*style* selectors are populated from nr-llm's prompt-snippet library (snippets
-tagged ``audience``, ``tone_of_voice``, ``persona``, ``layout``, ``style``).
-Editors maintain them in nr-llm's backend module; each snippet's description is
-shown in the form so the choice is informed. A ``layout`` snippet may carry an
-``imageSize`` metadata key (``"WIDTHxHEIGHT"``) that sets the AI-image
-dimensions for that channel — e.g. skyscraper ``768x2160``, wide ``2160x768``.
-
-.. _configuration-starter-pack:
-
-The starter pack
-----------------
-
-A fresh installation has no snippets, so all five selectors read *(none)*. The
-**Content Repurpose Starter** use-case pack installs a small library to start
-from: two audiences, two tones of voice, three podcast personas with their own
-``voice``, three layouts with their ``imageSize``, and three visual styles.
-
-Install it in nr-llm's *Use Case Packs* module, or from a provisioning script:
-
-.. code-block:: bash
-    :caption: Install the starter pack unattended
-
-    vendor/bin/typo3 nrllm:usecasepack:install content-repurpose-starter
-
-The records it creates are ordinary snippets — rename them, rewrite them,
-deactivate the ones you do not want. Installing again creates only what is
-missing and leaves your edits alone.
-
-The pack's snippets are **not** linked to the ``nr_repurpose_text``
-configuration by tag, and that is deliberate. This extension resolves the five
-families per job, from the selection in the form. Linking them would make
-nr-llm compose every active persona, layout and style into every completion as
-well — three speakers the job did not choose, and two contradictory image
-sizes. See nr-llm's ADR-186.
-
-.. _configuration-messenger:
-
-Messenger routing
-================
-
-Job submission dispatches a
-:php:`Netresearch\\NrRepurpose\\Queue\\Message\\GenerateArtifactsMessage`. Route
-it to an asynchronous transport (the doctrine transport in the dev setup) so the
-HTTP request that created the job returns immediately and the
-:ref:`worker <installation-worker>` does the long-running work:
-
-.. code-block:: php
-   :caption: config/system/additional.php — route the generation message async
-
-   use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
-
-   $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'][GenerateArtifactsMessage::class] = 'doctrine';
-   $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing']['*'] = 'default';
-
-.. note::
-
-   TYPO3 v14.3 Core has no retry/failure transport. The message handler
-   therefore catches a hard failure, marks the job failed, and does **not**
-   rethrow — otherwise the message would be lost with no record. See
-   :ref:`adr-001`.
-
-.. _configuration-http:
-
-HTTP timeouts
-============
-
-The generator worker makes outbound calls to the configured AI providers
-(script, TTS, image) and fetches source URLs. TYPO3's shared Guzzle client
-defaults to ``timeout = 0`` (no read timeout), so a stalled provider response
-would hang the worker. Bound it:
-
-.. code-block:: php
-   :caption: config/system/additional.php — bound outbound HTTP
-
-   $GLOBALS['TYPO3_CONF_VARS']['HTTP']['timeout'] = 300;
-   $GLOBALS['TYPO3_CONF_VARS']['HTTP']['connect_timeout'] = 15;
-
-Since nr-llm ``0.12.0`` the specialized image/TTS calls carry their own
-per-request timeout (image default 300 s), so a long-running image generation
-is not cut off by a shorter global value; the global timeout still governs the
-chat calls and source-URL fetches.
-
-.. _configuration-rendering:
-
-Renderer environment
-===================
-
-The HTML-to-PNG renderer shells out to ``node`` running the bundled
-``render.cjs``, which launches the system Chromium. The PHP renderer exports
-``CHROMIUM_PATH`` into the process environment for the script; the default is
-``/usr/bin/chromium``. ``ffmpeg`` and ``ffprobe`` are expected on ``PATH``.
-These defaults are baked into the service definitions and need no scalars in a
-standard install; override them only if your binaries live elsewhere.
+   The technical user does not need the ``generate_audio`` and
+   ``generate_vision`` permissions: those, and the nr-llm budget, are checked
+   for the backend user who created the job (see
+   :ref:`configuration-permissions`).
 
 .. _configuration-permissions:
 
@@ -184,8 +91,8 @@ namespace. Two gate AI spend per group, the third the approval step:
 
 -   ``generate_audio`` — podcast audio generation (maps to the nr-llm
     ``AUDIO`` capability).
--   ``generate_vision`` — AI imagery generation (maps to the nr-llm ``VISION``
-    capability).
+-   ``generate_vision`` — AI imagery generation and the Vision OCR of PDF
+    pages (maps to the nr-llm ``VISION`` capability).
 -   ``approve_artifacts`` — approve or reject artifacts in the result view and
     schedule approved social posts (see :ref:`usage-review`). Administrators
     hold it without the option.
@@ -194,76 +101,19 @@ nr-llm has no dedicated image/speech capability, so audio generation gates on
 ``AUDIO`` and image/vision generation on ``VISION``.
 
 The worker checks both options against the backend groups of the user who
-created the job, once per run (an administrator holds both):
+created the job (an administrator holds both):
 
 -   Without ``generate_audio`` the podcast artifact fails before any script or
     speech call, with an error naming the missing option.
 -   Without ``generate_vision`` the two AI image variants of the Schaubild
     (``html_bg``, ``ki_image``) fail the same way while the plain HTML variant
     is still produced, and the story is rendered on flat backgrounds.
+-   Without ``generate_vision`` a PDF is not read with Vision OCR either: in
+    the ``vision`` mode, and for a scanned page in ``auto``, the page keeps its
+    embedded text instead. A PDF that has no embedded text at all fails the
+    job with an error naming the missing option.
 
-The check runs before the budget check, so the denied speech and image calls
-are never made, and neither is the transparent diagram render that only the
+The check runs before the budget check, so the denied speech, image and OCR
+calls are never made, and neither is the transparent diagram render that only the
 ``html_bg`` variant uses. The document analysis and the text parts that stay
 permitted still call the LLM as before.
-
-.. _configuration-ai-label:
-
-AI labelling
-============
-
-Every artifact carries a machine-readable AI marker, whatever the settings
-below say: the ``aiLabel`` block of the artifact metadata, the markers embedded
-in PNG and MP3 files, and the description of the stored file. See
-:ref:`usage-ai-label` for what each artifact carries and :ref:`adr-005` for
-why. Two extension settings (*Admin Tools > Settings > Extension
-Configuration > nr_repurpose*) control the **visible** labels:
-
-``aiLabelImages`` (default: on)
-    Renders a small "AI-generated" label into the top corner of every
-    Schaubild HTML render (variants ``html`` and ``html_bg``) and every story
-    slide, in the language the artifact is written in. The full AI image
-    (``ki_image``) comes straight from the image model and never passes the
-    HTML renderer, so it carries the machine-readable marker only.
-
-``aiLabelTexts`` (default: off)
-    Appends the closing line "This text was created with AI." (German:
-    "Dieser Text wurde mit KI erstellt.") to the copy-ready text of the
-    executive summary, the FAQ, the social posts and the newsletter, in the
-    text's language. It is off by default because editors usually paste these
-    texts into a page, a newsletter tool or a social network that shows its own
-    AI disclosure, where a second one in the text is noise. The social posts
-    reserve the line's length inside their platform limit, so a post with the
-    line still fits.
-
-A setting that is missing — an installation whose extension configuration has
-not been saved since the update — keeps its default.
-
-.. _configuration-social:
-
-Publishing social posts
-=======================
-
-Approved, scheduled social posts leave through a webhook (see :ref:`adr-007`).
-Two extension settings:
-
-``socialWebhookUrl`` (default: empty)
-    The ``http`` or ``https`` URL that receives each due post by POST as JSON:
-    ``artifactUid``, ``jobUid``, ``platform`` (``linkedin``, ``x``,
-    ``instagram``), ``text``, ``publishAt`` (UTC, ISO 8601), ``sourceUrl``,
-    ``aiGenerated`` (always ``true``) and ``aiLabel``. A 2xx answer marks the
-    post published; anything else marks it failed with the status. Empty: no
-    post is sent.
-
-``socialWebhookSecret`` (default: empty)
-    With a secret, each request carries
-    ``X-Nr-Repurpose-Signature: sha256=<hex HMAC-SHA256 of the body>``, so the
-    receiver can check that it comes from this installation.
-
-The command ``nr_repurpose:publish-due`` sends the posts whose time has come.
-Add it as a task in the scheduler (it is schedulable) or run it from cron every
-few minutes:
-
-.. code-block:: bash
-
-   vendor/bin/typo3 nr_repurpose:publish-due

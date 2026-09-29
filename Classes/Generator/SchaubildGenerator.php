@@ -105,6 +105,7 @@ class SchaubildGenerator extends AbstractGenerator
     private function generateHtmlVariant(GenerationContext $ctx, int $jobUid, string $html, array $llmPrompts): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html', 0, ArtifactStatus::Pending);
+        $pngPath     = null;
         try {
             // AI-written copy set into the human-made branded template.
             $provenance = $this->provenance($ctx, DigitalSourceType::CompositeWithTrainedAlgorithmicMedia);
@@ -127,6 +128,9 @@ class SchaubildGenerator extends AbstractGenerator
             $this->failArtifact($artifactUid, $jobUid, 'Schaubild html variant error: ' . $e->getMessage());
 
             return false;
+        } finally {
+            // Also when the render or the FAL write fails: the worker runs long.
+            $this->discardRenderedFile($pngPath);
         }
     }
 
@@ -150,6 +154,8 @@ class SchaubildGenerator extends AbstractGenerator
             return false;
         }
 
+        $tmpDir = null;
+        $fgPath = null;
         try {
             $tmpDir   = $this->makeTempDir();
             $bgPath   = $tmpDir . '/bg.png';
@@ -186,6 +192,9 @@ class SchaubildGenerator extends AbstractGenerator
             $this->failArtifact($artifactUid, $jobUid, 'Schaubild html_bg variant error: ' . $e->getMessage());
 
             return false;
+        } finally {
+            $this->discardRenderedFile($fgPath);
+            $this->removeTempDir($tmpDir);
         }
     }
 
@@ -205,6 +214,7 @@ class SchaubildGenerator extends AbstractGenerator
             return false;
         }
 
+        $tmpDir = null;
         try {
             $tmpDir   = $this->makeTempDir();
             $outPath  = $tmpDir . '/ki.png';
@@ -236,6 +246,8 @@ class SchaubildGenerator extends AbstractGenerator
             $this->failArtifact($artifactUid, $jobUid, 'Schaubild ki_image variant error: ' . $e->getMessage());
 
             return false;
+        } finally {
+            $this->removeTempDir($tmpDir);
         }
     }
 

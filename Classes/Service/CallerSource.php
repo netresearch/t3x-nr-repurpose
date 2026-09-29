@@ -24,41 +24,41 @@ namespace Netresearch\NrRepurpose\Service;
 final class CallerSource
 {
     /** Extension key — composer.json `extra.typo3/cms.extension-key`. */
-    public const EXTENSION = 'nr_repurpose';
+    public const string EXTENSION = 'nr_repurpose';
 
     /** DocumentAnalyzer synthesis call (and its corrective retry) producing the ContentBrief. */
-    public const ANALYZE_DOCUMENT = 'analyzeDocument';
+    public const string ANALYZE_DOCUMENT = 'analyzeDocument';
 
     /** DocumentAnalyzer map step: one call per chunk of an oversized document. */
-    public const ANALYZE_DOCUMENT_CHUNK = 'analyzeDocumentChunk';
+    public const string ANALYZE_DOCUMENT_CHUNK = 'analyzeDocumentChunk';
 
     /** PdfVisionExtractor OCR of one rasterized PDF page. */
-    public const EXTRACT_PDF_VISION = 'extractPdfVision';
+    public const string EXTRACT_PDF_VISION = 'extractPdfVision';
 
     /** PodcastGenerator dialogue script (two-host and persona shape). */
-    public const GENERATE_PODCAST = 'generatePodcast';
+    public const string GENERATE_PODCAST = 'generatePodcast';
 
     /** SchaubildGenerator diagram body HTML. */
-    public const GENERATE_DIAGRAM = 'generateDiagram';
+    public const string GENERATE_DIAGRAM = 'generateDiagram';
 
     /** StoryGenerator carousel copy. */
-    public const GENERATE_STORY = 'generateStory';
+    public const string GENERATE_STORY = 'generateStory';
 
     /** ExecutiveSummaryGenerator summary text. */
-    public const GENERATE_EXEC_SUMMARY = 'generateExecSummary';
+    public const string GENERATE_EXEC_SUMMARY = 'generateExecSummary';
 
     /** FaqGenerator question/answer pairs. */
-    public const GENERATE_FAQ = 'generateFaq';
+    public const string GENERATE_FAQ = 'generateFaq';
 
     /** SocialPostGenerator posts for all platform variants (one call). */
-    public const GENERATE_SOCIAL_POST = 'generateSocialPost';
+    public const string GENERATE_SOCIAL_POST = 'generateSocialPost';
 
     /** NewsletterGenerator subject, preheader, body and call to action. */
-    public const GENERATE_NEWSLETTER = 'generateNewsletter';
+    public const string GENERATE_NEWSLETTER = 'generateNewsletter';
 
     /** SlideDeckGenerator slide titles and bullet points. */
-    public const GENERATE_SLIDE_DECK = 'generateSlideDeck';
+    public const string GENERATE_SLIDE_DECK = 'generateSlideDeck';
 
     /** HandoutGenerator title, lead, sections and key facts. */
-    public const GENERATE_HANDOUT = 'generateHandout';
+    public const string GENERATE_HANDOUT = 'generateHandout';
 }

@@ -6,8 +6,35 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`LICENSE`** with the GPL-2.0 text. `composer.json` and `ext_emconf.php` declare `GPL-2.0-or-later`; the repository did not ship the licence text.
+- **A developer chapter and a troubleshooting page** in the documentation: running the test suites, adding a generator, swapping the image or speech adapter; and the error messages a job or artifact shows when the worker, nr-vault, Chromium, ffmpeg, poppler, a permission or the budget stops it.
+- **The README explains how to verify a release**: `gh attestation verify` with `--signer-repo netresearch/typo3-ci-workflows`, because the shared release workflow signs the build provenance.
+- **ADR-008** records the capability-permission gate that 0.5.2 introduced: `generate_audio` and `generate_vision` are checked for the job's creator, once per run, before the budget.
+
+### Changed
+
+- **`composer.json` carries the extension version and `Package.providesPackages`** (TYPO3 deprecation #108345). `extra.typo3/cms.version` is `0.8.2`, and `providesPackages` names `smalot/pdfparser`, the one required package that is neither a TYPO3 extension nor shipped by the TYPO3 core. The entry has no vendor path, so in classic mode it only keeps TYPO3 from treating the package as a missing extension: the TER package does not contain smalot/pdfparser, and PDF ingestion in a classic installation fails with `Class "Smalot\PdfParser\Config" not found`, as it did before. With both fields present TYPO3 14 no longer evaluates `ext_emconf.php` and takes the extension's dependencies from `composer.json`'s `require`. The version has to be bumped in both files on every release; `Tests/Unit/VersionConsistencyTest.php` fails when they differ. In classic mode the Extension Manager no longer shows the `alpha` state from `ext_emconf.php`.
+- **`typo3/cms-install` moves from `require` to `require-dev`.** No class, configuration or upgrade wizard of this extension uses EXT:install. Once `composer.json` carries the #108345 metadata, TYPO3 turns every `require` entry into a hard package dependency, so every classic-mode installation and every functional test instance would have had to load EXT:install. It stays in `require-dev` for `typo3 setup` in `ddev install`.
+- **`composer.json` names the issue tracker and the repository** in `support.issues` and `support.source`, so Packagist links to both.
+- **The source URL of a job is a TCA `link` field that allows only the `url` link type** (was `input`). Editing a job in the List module now opens the link element and keeps an http(s) URL as entered (trimmed). A page, e-mail, path or JavaScript link is not stored: the field is saved empty and DataHandler logs an error, also when an existing job carries such a value and is saved again. TYPO3 counts a host without a scheme (`example.org/a.pdf`) and other schemes (`ftp:`, `file:`) as URLs too and stores them. The link browser offers no target, title, class or rel, because they would be stored as part of the URL. Jobs created in the backend module are not affected; they are stored through Extbase without this check.
+- **`ddev setup` installs the local development instance**, following the Netresearch DDEV convention. `ddev install` still works and runs the same command. Run again on an installed instance (settings file and `be_users` table present), it skips `typo3 setup`, which refuses a database that already has tables, and repeats only `composer install`, the dev settings, `extension:setup`, the key seeding, the renderer's `npm` install and the cache flush; the database, the admin account and the site stay.
+- **README**: badges (CI, codecov, documentation, OpenSSF Scorecard, PHPStan, PHP, TYPO3, licence, latest release, TER), an installation section for Composer that states classic mode (TER) is not supported, the story video and the two PDF documents in the feature list, and a licence and credits section naming Netresearch DTT GmbH.
+- The configuration and architecture chapters are split into subpages (nr-llm wiring, worker environment, AI labelling and publishing; generators). Every link target keeps its name.
+
 ### Fixed
 
+- **`ddev start` no longer waits for the worker container until it times out.** The worker reuses the web image and with it the image's health check, which tests php-fpm and Mailpit — neither runs in the worker, so the container never became healthy and `ddev start` failed after its container timeout even though the worker was consuming. The worker's health check is disabled; `ddev start` now reports it ready in under a second.
+- **`ddev setup` no longer fails at `cache:flush` with "Permission denied".** The worker ran as root and wrote the TYPO3 caches under `var/` as root, which the web container's user could not replace. The worker now runs as the host user, like the web container.
+- **The DDEV worker has ffmpeg, Chromium and Poppler.** It ran DDEV's stock web image instead of the project's built one, which `.ddev/web-build/Dockerfile` extends with these binaries, so none of the steps that call them (Playwright rendering, ffmpeg, the Poppler PDF readers) could run in the worker. It now runs the built image.
+- **Most temp files of a run are now removed.** Every run left `/tmp/nrrepurpose_*` directories with the generated images and podcast segments, the Schaubild's Chromium renders, and the downloaded `pdf_url` PDF, and the long-running worker never removed them. The Schaubild now deletes its renders and temp directories after each variant, also when the variant fails; the orchestrator removes whatever temp directory a generator made once that generator is done (the story's composited slides and background, the podcast segments), also when it threw; and a downloaded PDF is deleted once it has been read, as is a partial download when writing it fails (for example on a full disk). An attached `pdf_fal` PDF on a storage with another driver than the local one was copied into `var/transient` by the driver and the copy was never removed; the worker now reads such a file into a temp copy of its own and deletes it after reading. An attached file on the local driver is read in place and never touched. The Chromium renders of the story slides still remain in the renderer's output directory.
+- **An Extension Manager or TER install accepts nr_vault 0.16.** `ext_emconf.php` declared `nr_vault 0.15.0-0.15.99` and so refused 0.16, although every nr-llm version this extension accepts (0.35 to 0.38) requires nr-vault `^0.16.0` in its `composer.json`. `ext_emconf.php` now declares `0.16.0-0.16.99` and `composer.json` `^0.16` (its `^0.15` branch could never resolve), `ext_emconf.php` also states the PHP range `8.3.0-8.99.99` and the repository description, and `ExtensionDependencyRangeTest` compares every dependency range, PHP included, between the two files.
+- **The renderer uses the configured Chromium again.** `PlaywrightHtmlToImageRenderer` set `CHROMIUM_PATH` with `putenv()`, but Symfony Process passes on only those variables of `getenv()` that are also in `$_SERVER`, so `render.cjs` never saw it and Playwright looked for its own downloaded browser, which the extension does not install. The DDEV image hid this because it sets `CHROMIUM_PATH` itself. The path is now handed to the process as its environment: `ProcessRunnerInterface::run()` takes an optional `$env` array, which `SymfonyProcessRunner` sets on top of the inherited environment. A custom `ProcessRunnerInterface` implementation has to add the parameter.
+- **The configuration chapter documents `technicalBeUserUid`.** It said the extension has no configuration of its own, while `ext_conf_template.txt` declares five settings; the setting a worker needs to read provider keys from nr-vault was documented nowhere. The chapter now lists the five settings and describes `technicalBeUserUid`.
+- **The installation chapter states the nr-llm range `composer.json` requires** (`^0.35 || ^0.36 || ^0.37 || ^0.38`, it said `^0.25`), adds nr-vault to the requirements, and states that the extension needs a Composer installation: the TER package carries neither `smalot/pdfparser` nor the Node renderer's `package.json`, so classic mode is not supported.
+- **The changelog page of the rendered documentation covers every release up to 0.8.2.** It stopped at 0.1.0.
+- **The documentation says where `CHROMIUM_PATH` has to be set.** The configuration, installation and architecture chapters said the PHP renderer exports the variable for `render.cjs`. It calls `putenv()`, but Symfony Process passes a child only the variables that were in the environment when PHP started, so the path reaches the renderer only where the worker's environment exports `CHROMIUM_PATH`. The chapters and the troubleshooting page now say so.
 - **The job list fits the module again.** A long source URL (a 400-character tracking URL) did not wrap and pushed every column after "Source" out of view: at 1440 and 1280 px only the ID column was visible without scrolling the table. The source cell now uses the core column class `col-responsive` (one line, ellipsis, full URL in the `title`, the full text still in the cell for copying and screen readers); the artifact icons, progress and action columns use `col-nowrap`, `col-progress` and `col-control`. All six columns are visible at 1280 px and at 200 % zoom, and every row is one line high. The social-planning table does the same for its source column.
 - **Long values and generated text wrap inside the job detail view** instead of widening the page (source URL, error messages, LLM text in the artifact cards).
 - **Error text on cards and table rows is readable in the dark scheme.** Core `.text-danger` measures 4.49:1 on a card and 4.18:1 on a striped table row there, below WCAG AA; artifact and publishing errors on the cards now use the core error box (`f:be.infobox`), and in the social-planning table the publish error is plain text next to the "failed" status.
@@ -18,6 +45,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The job list no longer runs two queries per job.** Mapping a job loaded its artifacts and its source-PDF file references with it, and the artifact column read them for every row: 20 jobs cost 42 queries, one job 4. The two relations are now lazy, and the list reads the artifact summaries of all its rows in one grouped query (`ArtifactRepository::findTypeSummariesByJobs()`, the same fold as `Job::getArtifactTypeSummaries()`), so the number of queries no longer depends on the number of rows.
 - **A refused approval or scheduling attempt is logged.** When a backend user without the permission `nrrepurpose:approve_artifacts` sends an approve, reject, schedule or unschedule request, the module now writes a warning to the TYPO3 log (component `Netresearch.NrRepurpose.Controller.JobController`) with the action, the backend user uid, the artifact uid and the job uid. Opening a result view without the permission logs nothing: there the answer only hides the buttons.
 - **The module has no inline layout styles any more.** Media sizes, the story strip and wrapped prompt text live in `Resources/Public/Css/backend.css`, built on core custom properties. The job tables are named by their page heading (`aria-labelledby`), and each "Details" link names its job for screen readers.
+
+### Security
+
+- **The source URL can no longer reach the host or the internal network.** An editor enters a free URL for a `url` or `pdf_url` job, and the worker fetched it from inside the hosting network with no restriction, so a job could read a service on localhost, on the private network or the cloud metadata endpoint `169.254.169.254` and have its answer analysed into artifacts. `WebPageFetcher` and `PdfFileResolver` now pass the URL through one `RemoteSourceGuard` before the request: only `http` and `https` are fetched, and the host is refused when it does not resolve or when any of its addresses — or the IP literal in the URL — lies in loopback, RFC 1918, carrier-grade NAT, link-local, unique-local IPv6, unspecified, multicast or the reserved `240.0.0.0/4` block (an IPv6 address that carries an IPv4 address — IPv4-mapped, IPv4-compatible, NAT64 `64:ff9b::/96`, 6to4 `2002::/16` — counts as that IPv4 address). An IPv4 address written in another numeric spelling than `a.b.c.d` (`2130706433`, `0x7f.1`, `0177.0.0.1`) is refused as well, because the HTTP client reads it as an address while the system resolver may read it differently. A URL the HTTP library cannot parse is refused the same way, with the fixed reason "Source URL cannot be parsed" and the library's message in the log: `guzzlehttp/psr7` 2.9.0, the lowest version the dependencies allow, cannot parse an IPv6 literal with a dotted IPv4 tail such as `[::ffff:127.0.0.1]`. The job fails with the reason. TYPO3's `allowed_hosts` setting does not cover this: it is a host allow-list, and the HTTP client the container injects is built without the context it needs.
+- **A remote source can no longer hang the worker or fill its memory.** The web page and the PDF were read whole into memory with no size limit, and the request had no timeout (TYPO3's default `timeout` is 0). A web page is now limited to 5 MiB and 30 seconds, a PDF download to 50 MiB and 120 seconds. The download stops as soon as it passes the size or the time limit, a declared `Content-Length` above the size limit fails before the body is read, and a gzip or deflate body counts with its inflated size. With the PHP extension `curl` loaded (Guzzle then uses its curl handler) the time limit covers the whole transfer including the response headers, the connection has its own 10-second limit, and curl refuses response headers above its size cap. Without `curl` Guzzle falls back to its stream handler: the body is bounded the same way, but the time limit applies to each read only, so a server that sends its headers very slowly or without end can still hold the worker or exhaust its memory; install `curl` on the worker. Redirects are still not followed, now stated explicitly, because a redirect target would bypass the address check above.
+- **Vision OCR of a PDF now needs the `generate_vision` permission.** An editor whose groups do not grant "Generate AI imagery" (`nrrepurpose:generate_vision`) could still have every PDF page read by nr-llm Vision by choosing the `vision` PDF mode, and a scanned page in `auto` mode went there too; only the budget check applied. The permission is now checked against the job owner's groups before any OCR call: without it a page keeps its embedded text, as a denied generator step fails only its own part, and the document metadata records `visionDenied`. A PDF with no embedded text at all fails the job with an error naming the option.
+- **Ingestion errors no longer show server paths.** A failed PDF ingestion stored the absolute path of the file on the server (the attached file in the storage, or the downloaded temp copy) in the job's error message, which every user of the module sees; the text extractor added the PDF parser's own message, and the SSRF refusal named the internal address a host resolved to. These messages are now fixed texts. The path, the resolved address and the original exception go to the TYPO3 log instead (`SourceIngestionService` and `RemoteSourceGuard` log through the injected logger). Error messages about a source URL still name that URL, which is the editor's own input and is shown on the job anyway.
+- **HTML renders no longer run scripts or reach the network.** The Schaubild body is LLM output derived from the fetched page or PDF and is inserted unescaped, so a prompt-injected `<script>` ran in the worker's Chromium, and any `<img>`, CSS background or navigation in it was fetched from the worker's network. `render.cjs` now creates its browser context with JavaScript disabled and service workers blocked, aborts every request except `data:` and `blob:` URLs, and launches Chromium with an unreachable proxy and no bypass list, because Playwright's request routing does not see `<link rel="prefetch">` requests or the target of a redirect. The renderer has no network access at all: the web fonts the templates `@import` from Google Fonts (Raleway, Open Sans, Inter) now ship with the extension in `Resources/Private/Fonts` as the unmodified upstream files under the SIL Open Font License, and `render.cjs` replaces the `@import` with `@font-face` rules over them before rendering. A render no longer falls back to a system font when Google Fonts is slow or unreachable, and the worker needs no outbound access to Google. The Schaubild and Story PNGs render byte-identical to the Google-loaded renders; the slide-deck and handout PDFs rasterise identically.
+- **Error messages of the webhook publisher, the image and speech adapters, the Poppler runner and the HTML and ffmpeg renderers no longer carry webhook URLs, provider replies, process output or file paths.** An unreachable social webhook stored the HTTP client's message as the post's publishing error, and that message names the request URI — including a token in `socialWebhookUrl`. The image and speech adapters and the Poppler runner did the same with the provider's message and with Symfony Process's message (command line with the stored PDF's absolute path, and stderr), the HTML renderer with the renderer's stderr (the Chromium launch line with its profile directory) and its output paths, the ffmpeg audio stitcher and slideshow renderer with ffmpeg's stderr (input paths), ffprobe's output and their work and output paths, and the image adapter with the path it could not save to. A timeout, a failed start or a signal of the renderer, ffmpeg, ffprobe or Poppler bypassed even the fixed texts: Symfony Process throws its own exception then, whose message names the command line with the script, input and output paths, and the generators stored that message. These exceptions now carry a fixed message ("Webhook not reachable", "DALL-E image generation failed", "DALL-E could not save generated image", "TTS synthesis failed", "pdftoppm failed for page N", "pdftotext -layout failed for page N", "HTML render failed (exit N)", "Renderer produced no PNG" or "… no PDF", "Render output dir not writable", "ffmpeg concat failed (exit N)", "ffprobe failed (exit N)", "ffprobe returned no numeric duration", "ffmpeg slideshow failed (exit N)", "Audio work dir not writable", "ffmpeg produced no output", "ffmpeg produced no video", "External process timed out", "External process was terminated by a signal", "External process could not be run"); the original exception, stderr or path is written to the TYPO3 log at error level, and a wrapped exception stays attached as the previous exception.
 
 ## [0.8.2] - 2026-09-27
 
@@ -240,22 +276,79 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Documentation/guides.xml` declared `version="0.2"` alongside `release="0.3.0"`;
   both now track the released version.
 
-## [0.3.0] - 2026-07-23
+## [0.3.0] - 2026-07-24
 
-Released without a changelog entry; recorded here from the tag range for
-completeness.
+Released without a changelog entry; recorded here from the tag range
+`v0.2.3..v0.3.0`.
 
 ### Changed
 
-- **Migrated to nr-llm `^0.25`**, including `completeStructured()` for the
-  nr-llm 0.23 provider interface.
-- `symfony/process` and `symfony/messenger` updated to 8.x.
-- Backend icons redrawn in TYPO3 v14 style, artifact record icon added.
-- Templates use a themable border token instead of a hardcoded `#ccc`.
+- **Migrated to nr-llm `^0.25`** (was `^0.22.0 || ^0.23.0`); `ext_emconf.php`
+  declares `nr_llm 0.25.0-0.99.99` to match.
+
+## [0.2.3] - 2026-07-22
+
+Released without a changelog entry; recorded here from the tag range
+`v0.2.2..v0.2.3` and the GitHub release notes.
+
+### Changed
+
+- `symfony/process` and `symfony/messenger` accept 8.x: both are required at
+  `^7.0 || ^8.0`.
 
 ### Fixed
 
-- `guides.xml` repaired and documentation CI added.
+- **Composer resolves the latest tag again.** `composer.json` carried an
+  explicit `"version": "0.2.0"`, so Composer's VCS driver reported every git tag
+  as 0.2.0 and a consumer resolving the package from the repository got the
+  oldest tag, with the pre-0.23 nr-llm constraint. The field is removed; the git
+  tags drive the version.
+
+## [0.2.2] - 2026-07-22
+
+Released without a changelog entry; recorded here from the tag range
+`v0.2.1..v0.2.2` and the GitHub release notes.
+
+### Added
+
+- **nr-llm 0.23 support.** `ConfiguredCompletionService` implements the
+  `completeStructured()` and `completeStructuredForConfiguration()` methods
+  nr-llm 0.23 adds to `CompletionServiceInterface`: the plain form resolves the
+  `nr_repurpose_text` configuration, the configuration form passes through.
+- A documentation render job in CI, so `Documentation/guides.xml` is validated
+  on every change.
+
+### Changed
+
+- Requires `netresearch/nr-llm` `^0.22.0 || ^0.23.0`.
+
+### Fixed
+
+- **The documentation renders again.** The release script had corrupted the
+  XML declaration of `Documentation/guides.xml` (`<?xml version="0.2.1"?>`) and
+  left the project version stale; both are restored.
+
+## [0.2.1] - 2026-07-21
+
+Released without a changelog entry; recorded here from the tag range
+`v0.2.0..v0.2.1` and the GitHub release notes.
+
+### Changed
+
+- **Backend icons in the TYPO3 v14 style.** The module icon is redrawn with
+  filled paths, a `currentColor` glyph and one brand accent, so it follows the
+  backend light and dark scheme; the extension icon is a teal tile with the
+  repurpose arrows. The artifact table gets its own record icon
+  (`tx-nrrepurpose-artifact`); it had none (#44).
+- `netresearch/nr-vault` is accepted at `^0.10.0 || ^0.11.0`.
+
+### Fixed
+
+- **Borders in the job detail view follow the dark scheme.** The image
+  preview, the story slide images and the failed-slide placeholder used a
+  hardcoded `#ccc` border; they now use
+  `var(--typo3-component-border-color)` with `var(--bs-border-color)` as
+  fallback (#44).
 
 ## [0.2.0] - 2026-07-18
 

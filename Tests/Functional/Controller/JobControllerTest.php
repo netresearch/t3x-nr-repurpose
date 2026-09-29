@@ -50,7 +50,7 @@ use TYPO3\CMS\Extbase\Service\ExtensionService;
 #[CoversClass(JobController::class)]
 final class JobControllerTest extends AbstractFunctionalTestCase
 {
-    private const MODULE_SPECIFIER = '@netresearch/nr-repurpose/job-new.js';
+    private const string MODULE_SPECIFIER = '@netresearch/nr-repurpose/job-new.js';
 
     private const ADMIN = 1;
 
@@ -188,7 +188,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function listActionDrawsANamedProgressBar(): void
     {
-        $this->insertJob('https://example.com/report', 'queued');
+        $job = $this->insertJob('https://example.com/report', 'queued');
 
         $body = $this->renderAction('list');
 
@@ -196,7 +196,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         // it carries role, value, range and a per-row name itself; the percentage beside it is for sight only.
         self::assertMatchesRegularExpression(
             '~<div class="nrrepurpose-progress">\s*'
-            . '<progress class="nrrepurpose-progress-track" max="100" value="0"\s+aria-label="Progress of job #1"></progress>\s*'
+            . '<progress class="nrrepurpose-progress-track" max="100" value="0"\s+aria-label="Progress of job #' . $job . '"></progress>\s*'
             . '<span class="nrrepurpose-progress-value" aria-hidden="true">0%</span>~',
             $body,
         );
