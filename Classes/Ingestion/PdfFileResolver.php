@@ -12,18 +12,20 @@ namespace Netresearch\NrRepurpose\Ingestion;
 use GuzzleHttp\ClientInterface;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
-use TYPO3\CMS\Core\Resource\Exception\FileDoesNotExistException;
-use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\FileRepository;
 
 /**
  * Resolves a job row to an absolute, locally readable PDF path:
- *  - pdf_fal: on the local driver, the stored file itself (never deleted); on any
- *    other driver a temp copy of its contents, which release() deletes.
+ *  - pdf_fal: the file the job's sys_file_reference points at; on the local driver
+ *    the stored file itself (never deleted), on any other driver a temp copy of its
+ *    contents, which release() deletes.
  *  - pdf_url: the remote PDF is downloaded to a temp file, which release() deletes.
  */
 class PdfFileResolver
 {
     private const DOWNLOAD_PREFIX = 'nrrepurpose_dl_';
+
+    private const JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
 
     /** Driver key of TYPO3's local file system driver (sys_file_storage.driver). */
     private const LOCAL_DRIVER = 'Local';
@@ -35,7 +37,7 @@ class PdfFileResolver
     public const TIMEOUT_SECONDS = 120.0;
 
     public function __construct(
-        private readonly ResourceFactory $resourceFactory,
+        private readonly FileRepository $fileRepository,
         private readonly ClientInterface $httpClient,
         private readonly RequestFactoryInterface $requestFactory,
         private readonly RemoteSourceGuard $guard,
@@ -71,19 +73,23 @@ class PdfFileResolver
         unlink($absPath); // nosemgrep: php.lang.security.unlink-use.unlink-use
     }
 
-    /** @param array<string,mixed> $jobRow */
+    /**
+     * source_pdf is a TCA type=file field: its column holds the number of attached
+     * files, the file itself hangs off a sys_file_reference row of the job.
+     *
+     * @param array<string,mixed> $jobRow
+     */
     private function resolveFalFile(array $jobRow): string
     {
-        $fileUid = (int) ($jobRow['source_pdf'] ?? 0);
-        if ($fileUid <= 0) {
+        $jobUid     = (int) ($jobRow['uid'] ?? 0);
+        $references = $jobUid > 0 ? $this->fileRepository->findByRelation(self::JOB_TABLE, 'source_pdf', $jobUid) : [];
+        // findByRelation() leaves out a reference whose sys_file no longer exists.
+        if ($references === []) {
             throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441);
         }
 
-        try {
-            $file = $this->resourceFactory->getFileObject($fileUid);
-        } catch (FileDoesNotExistException $e) {
-            throw new IngestionException('Attached PDF sys_file not found: ' . $fileUid, 1749379442, $e);
-        }
+        $file    = $references[0]->getOriginalFile();
+        $fileUid = $file->getUid();
 
         if ($file->getStorage()->getDriverType() !== self::LOCAL_DRIVER) {
             // Any other driver would copy the file into var/transient for local
