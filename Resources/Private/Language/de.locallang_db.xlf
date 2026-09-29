@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en" target-language="de" datatype="plaintext" original="EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf" date="2026-09-27T00:00:00Z" product-name="nr_repurpose">
+    <body>
+      <!-- Job record -->
+      <trans-unit id="tx_nrrepurpose_domain_model_job"><source>Repurpose Job</source><target>Repurpose-Auftrag</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.source_type"><source>Source type</source><target>Quellentyp</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.source_type.url"><source>Webpage URL</source><target>Webseiten-URL</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.source_type.pdf_url"><source>PDF URL</source><target>PDF-URL</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.source_type.pdf_fal"><source>PDF file (FAL)</source><target>PDF-Datei (FAL)</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.source_value"><source>Source URL</source><target>Quell-URL</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.theme"><source>Theme</source><target>Design</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.theme.nr"><source>Netresearch CI</source><target>Netresearch-CI</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.theme.neutral"><source>Neutral</source><target>Neutral</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.pdf_mode"><source>PDF extraction mode</source><target>PDF-Extraktionsmodus</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.pdf_mode.auto"><source>Auto (staggered)</source><target>Automatisch (gestaffelt)</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.pdf_mode.text"><source>Embedded text only</source><target>Nur eingebetteter Text</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.pdf_mode.vision"><source>Vision OCR</source><target>Vision-OCR</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.pdf_mode.tables"><source>Layout / tables</source><target>Layout / Tabellen</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.source_pdf"><source>Source PDF (FAL)</source><target>Quell-PDF (FAL)</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.want_podcast"><source>Podcast</source><target>Podcast</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.want_schaubild"><source>Schaubild</source><target>Schaubild</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.want_story"><source>Story</source><target>Story</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.want_exec_summary"><source>Executive summary</source><target>Executive Summary</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.want_faq"><source>FAQ</source><target>FAQ</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.want_social_post"><source>Social posts</source><target>Social-Media-Posts</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.want_newsletter"><source>Newsletter</source><target>Newsletter</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.want_slide_deck"><source>Slide deck</source><target>Foliensatz</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.want_handout"><source>Handout</source><target>Handout</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.want_video"><source>Story as video</source><target>Story als Video</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.status"><source>Status</source><target>Status</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.progress"><source>Progress</source><target>Fortschritt</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.current_step"><source>Step</source><target>Schritt</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.error_message"><source>Error</source><target>Fehler</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.language_detected"><source>Language</source><target>Sprache</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.artifacts"><source>Artifacts</source><target>Artefakte</target></trans-unit>
+
+      <!-- Artifact record -->
+      <trans-unit id="tx_nrrepurpose_domain_model_artifact"><source>Repurpose Artifact</source><target>Repurpose-Artefakt</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_artifact.type"><source>Type</source><target>Typ</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_artifact.variant"><source>Variant</source><target>Variante</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_artifact.status"><source>Status</source><target>Status</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_artifact.review_status"><source>Review</source><target>Prüfung</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_artifact.publish_status"><source>Publishing</source><target>Veröffentlichung</target></trans-unit>
+    </body>
+  </file>
+</xliff>

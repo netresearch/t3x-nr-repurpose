@@ -40,6 +40,7 @@ use Psr\Log\NullLogger;
 use RuntimeException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
 final class SchaubildGeneratorTest extends TestCase
 {
@@ -68,7 +69,7 @@ final class SchaubildGeneratorTest extends TestCase
     ): SchaubildGenerator {
         $completion ??= $this->completion();
 
-        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage) extends SchaubildGenerator {
+        return new class ($jobs, $budget, $completion, $renderer, $compositor, $imageGenerator, $storage, $this->createStub(ViewFactoryInterface::class)) extends SchaubildGenerator {
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
@@ -77,8 +78,9 @@ final class SchaubildGeneratorTest extends TestCase
                 ImageCompositorInterface $compositor,
                 ImageGeneratorInterface $imageGenerator,
                 JobFileStorage $storage,
+                ViewFactoryInterface $viewFactory,
             ) {
-                parent::__construct($jobs, $budget, new NullLogger(), $completion, $renderer, $compositor, $imageGenerator, $storage);
+                parent::__construct($jobs, $budget, new NullLogger(), $completion, $renderer, $compositor, $imageGenerator, $storage, $viewFactory);
             }
 
             /** @var list<array<string, mixed>> the variables of every theme-template render */

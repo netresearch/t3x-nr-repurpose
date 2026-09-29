@@ -13,7 +13,6 @@ use function is_string;
 
 use Throwable;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\PathUtility;
 use TYPO3Fluid\Fluid\Core\ViewHelper\AbstractViewHelper;
 
@@ -22,9 +21,16 @@ use TYPO3Fluid\Fluid\Core\ViewHelper\AbstractViewHelper;
  * view can embed and offer downloads of generated artifacts. The artifacts are stored with raw
  * file uids (not FileReferences), so this wraps ResourceFactory::getFileObject(). Returns an
  * empty string for uid 0 or a missing/unresolvable file, letting templates guard with <f:if>.
+ *
+ * TYPO3 registers ViewHelpers as (non-shared, public) container services, so the resource
+ * factory is constructor-injected.
  */
 final class PublicUrlViewHelper extends AbstractViewHelper
 {
+    public function __construct(
+        private readonly ResourceFactory $resourceFactory,
+    ) {}
+
     public function initializeArguments(): void
     {
         $this->registerArgument('fileUid', 'int', 'sys_file uid of the artifact file', true);
@@ -38,7 +44,7 @@ final class PublicUrlViewHelper extends AbstractViewHelper
         }
 
         try {
-            $file      = GeneralUtility::makeInstance(ResourceFactory::class)->getFileObject($fileUid);
+            $file      = $this->resourceFactory->getFileObject($fileUid);
             $publicUrl = $file->getPublicUrl();
         } catch (Throwable) {
             return '';

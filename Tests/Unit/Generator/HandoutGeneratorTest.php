@@ -21,6 +21,7 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\DocumentGeneratorDoubles;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\MapTextLabels;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Resource\File;
+use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
 final class HandoutGeneratorTest extends TextGeneratorTestCase
 {
@@ -46,11 +47,11 @@ final class HandoutGeneratorTest extends TextGeneratorTestCase
     {
         $calls = &$this->templateCalls;
 
-        return new class ($this->jobs, $this->budget(), $this->logger(), $this->completion, $this->printer, $this->storage, new MapTextLabels(), $calls) extends HandoutGenerator {
+        return new class ($this->jobs, $this->budget(), $this->logger(), $this->completion, $this->printer, $this->storage, $this->createStub(ViewFactoryInterface::class), new MapTextLabels(), $calls) extends HandoutGenerator {
             /** @param list<array<string, mixed>> $calls */
-            public function __construct(JobProcessingRepository $jobs, BudgetServiceInterface $budget, LoggerInterface $logger, CompletionServiceInterface $completion, HtmlToPdfRendererInterface $printer, JobFileStorage $storage, TextLabels $labels, private array &$calls)
+            public function __construct(JobProcessingRepository $jobs, BudgetServiceInterface $budget, LoggerInterface $logger, CompletionServiceInterface $completion, HtmlToPdfRendererInterface $printer, JobFileStorage $storage, ViewFactoryInterface $viewFactory, TextLabels $labels, private array &$calls)
             {
-                parent::__construct($jobs, $budget, $logger, $completion, $printer, $storage, $labels);
+                parent::__construct($jobs, $budget, $logger, $completion, $printer, $storage, $viewFactory, $labels);
             }
 
             protected function renderDocumentHtml(string $theme, array $variables): string

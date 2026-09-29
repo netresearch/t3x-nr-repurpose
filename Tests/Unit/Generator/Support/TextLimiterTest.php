@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator\Support;
 
 use InvalidArgumentException;
-use Netresearch\NrRepurpose\Generator\Support\TextCut;
+use Netresearch\NrRepurpose\Domain\Enum\CutMode;
 use Netresearch\NrRepurpose\Generator\Support\TextLimiter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -60,7 +60,7 @@ final class TextLimiterTest extends TestCase
 
         $cut = (new TextLimiter())->cut($post, 280);
 
-        self::assertSame(TextCut::WORD, $cut->mode);
+        self::assertSame(CutMode::Word, $cut->mode);
         self::assertStringStartsWith('Big news! Our revenue grew by twelve percent', $cut->text);
         self::assertStringEndsWith('every region…', $cut->text);
         self::assertGreaterThanOrEqual(140, mb_strlen($cut->text));
@@ -72,7 +72,7 @@ final class TextLimiterTest extends TestCase
         // "One. Two." is 9 of 18 characters — exactly half — so the sentence cut stands.
         $cut = (new TextLimiter())->cut('One. Two. Three four five six seven', 18);
 
-        self::assertSame(TextCut::SENTENCE, $cut->mode);
+        self::assertSame(CutMode::Sentence, $cut->mode);
         self::assertSame('One. Two.', $cut->text);
     }
 
@@ -80,10 +80,10 @@ final class TextLimiterTest extends TestCase
     {
         $limiter = new TextLimiter();
 
-        self::assertSame(TextCut::NONE, $limiter->cut('Fits.', 10)->mode);
+        self::assertSame(CutMode::None, $limiter->cut('Fits.', 10)->mode);
         self::assertFalse($limiter->cut('Fits.', 10)->wasCut());
-        self::assertSame(TextCut::SENTENCE, $limiter->cut('One. Two. Three.', 12)->mode);
-        self::assertSame(TextCut::WORD, $limiter->cut('alpha beta gamma delta', 13)->mode);
+        self::assertSame(CutMode::Sentence, $limiter->cut('One. Two. Three.', 12)->mode);
+        self::assertSame(CutMode::Word, $limiter->cut('alpha beta gamma delta', 13)->mode);
         self::assertTrue($limiter->cut('alpha beta gamma delta', 13)->wasCut());
     }
 
