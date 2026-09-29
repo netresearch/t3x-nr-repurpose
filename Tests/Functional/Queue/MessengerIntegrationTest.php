@@ -80,8 +80,8 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
         $logger = new RecordingLogger();
         $cause  = new OrchestratorCrashException('worker exploded: Provider answered 401 for https://api.example.test/v1 with key sk-secret');
 
-        $orchestrator = new class ($cause) implements GenerationOrchestratorInterface {
-            public function __construct(private readonly OrchestratorCrashException $cause) {}
+        $orchestrator = new readonly class ($cause) implements GenerationOrchestratorInterface {
+            public function __construct(private OrchestratorCrashException $cause) {}
 
             public function process(int $jobUid): void
             {

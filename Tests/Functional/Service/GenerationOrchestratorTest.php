@@ -372,8 +372,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $logger = new RecordingLogger();
 
         $ingestion = $step === 'ingestion'
-            ? new class ($cause) implements SourceIngestionServiceInterface {
-                public function __construct(private readonly Throwable $cause) {}
+            ? new readonly class ($cause) implements SourceIngestionServiceInterface {
+                public function __construct(private Throwable $cause) {}
 
                 public function ingest(array $jobRow): SourceDocument
                 {
@@ -381,8 +381,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
                 }
             }
         : $this->stubIngestion($this->stubDocument());
-        $analyzer = new class ($cause) implements DocumentAnalyzerInterface {
-            public function __construct(private readonly Throwable $cause) {}
+        $analyzer = new readonly class ($cause) implements DocumentAnalyzerInterface {
+            public function __construct(private Throwable $cause) {}
 
             public function analyze(SourceDocument $document, array $jobRow): ContentBrief
             {
