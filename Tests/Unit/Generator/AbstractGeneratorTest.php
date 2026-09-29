@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
+use function function_exists;
+
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -67,6 +69,16 @@ final class AbstractGeneratorTest extends TestCase
             {
                 return $this->resolveImageSize($hint, $default);
             }
+
+            public function exposeMakeTempDir(): string
+            {
+                return $this->makeTempDir();
+            }
+
+            public function exposeRemoveTempDir(string $dir): void
+            {
+                $this->removeTempDir($dir);
+            }
         };
     }
 
@@ -111,6 +123,63 @@ final class AbstractGeneratorTest extends TestCase
             self::assertSame('1536x1024', $this->subject($logger)->expose($hint, '1536x1024'), 'hint: ' . $hint);
             self::assertCount(1, $logger->records, 'hint: ' . $hint);
             self::assertSame('warning', $logger->records[0]['level'], 'hint: ' . $hint);
+        }
+    }
+
+    public function testRemoveTempDirsDeletesEveryTempDirectoryWithItsContent(): void
+    {
+        $subject = $this->subject($this->logger());
+        $first   = $subject->exposeMakeTempDir();
+        $second  = $subject->exposeMakeTempDir();
+        file_put_contents($first . '/segment.mp3', 'MP3');
+        mkdir($second . '/nested');
+        file_put_contents($second . '/nested/slide.png', 'PNG');
+
+        $subject->removeTempDirs();
+
+        self::assertDirectoryDoesNotExist($first);
+        self::assertDirectoryDoesNotExist($second);
+    }
+
+    public function testAFailedRemovalIsLoggedAndRetriedLater(): void
+    {
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            self::markTestSkipped('root ignores the permission that makes the removal fail');
+        }
+
+        $logger  = $this->logger();
+        $subject = $this->subject($logger);
+        $dir     = $subject->exposeMakeTempDir();
+        mkdir($dir . '/locked');
+        file_put_contents($dir . '/locked/segment.mp3', 'MP3');
+        chmod($dir . '/locked', 0o555);
+
+        try {
+            $subject->exposeRemoveTempDir($dir);
+
+            self::assertDirectoryExists($dir);
+            self::assertCount(1, $logger->records);
+            self::assertSame('warning', $logger->records[0]['level']);
+        } finally {
+            chmod($dir . '/locked', 0o755);
+        }
+
+        $subject->removeTempDirs();
+
+        self::assertDirectoryDoesNotExist($dir);
+    }
+
+    public function testRemoveTempDirLeavesADirectoryItDidNotMakeAlone(): void
+    {
+        $foreign = sys_get_temp_dir() . '/nrrepurpose_' . bin2hex(random_bytes(8));
+        mkdir($foreign);
+
+        try {
+            $this->subject($this->logger())->exposeRemoveTempDir($foreign);
+
+            self::assertDirectoryExists($foreign);
+        } finally {
+            rmdir($foreign);
         }
     }
 }

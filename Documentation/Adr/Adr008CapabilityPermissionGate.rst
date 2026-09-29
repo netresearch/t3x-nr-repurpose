@@ -59,6 +59,12 @@ nr-llm's :php:`BudgetService` and before any call:
     (``html_bg``, ``ki_image``) fail the same way, the plain ``html`` variant
     is still produced, and the story is rendered on flat backgrounds.
 
+**PDF Vision OCR as well.** Ingestion runs before the generators, so it
+resolves ``generate_vision`` for the same job owner itself, for a PDF in the
+``vision`` or ``auto`` mode, and checks it before any OCR call. Without it a
+page keeps its embedded text; a PDF with no embedded text at all fails the job
+with a message naming the missing option.
+
 The third option in the namespace, ``approve_artifacts``, is a different
 mechanism: it gates the approval step in the result view (see
 :ref:`adr-007`), not generation.

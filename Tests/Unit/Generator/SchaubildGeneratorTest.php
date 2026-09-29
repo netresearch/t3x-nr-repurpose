@@ -37,6 +37,7 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
 
@@ -82,6 +83,14 @@ final class SchaubildGeneratorTest extends TestCase
 
             /** @var list<array<string, mixed>> the variables of every theme-template render */
             public array $renderedVariables = [];
+
+            /** @var list<string> every directory makeTempDir() handed out */
+            public array $madeTempDirs = [];
+
+            protected function makeTempDir(): string
+            {
+                return $this->madeTempDirs[] = parent::makeTempDir();
+            }
 
             protected function renderTemplate(string $area, string $theme, array $variables): string
             {
@@ -399,14 +408,64 @@ final class SchaubildGeneratorTest extends TestCase
     private function renderer(): HtmlToImageRendererInterface
     {
         return new class implements HtmlToImageRendererInterface {
+            /** @var list<string> */
+            public array $outputs = [];
+
             public function render(string $html, int $width, ?int $height, float $deviceScaleFactor = 1.0, bool $transparent = false): string
             {
                 $path = sys_get_temp_dir() . '/render_' . bin2hex(random_bytes(4)) . '.png';
                 file_put_contents($path, 'PNG');
 
-                return $path;
+                return $this->outputs[] = $path;
             }
         };
+    }
+
+    public function testLeavesNoTempFileBehindAfterASuccessfulRun(): void
+    {
+        $renderer  = $this->renderer();
+        $jobs      = $this->jobs();
+        $generator = $this->generator($renderer, $this->compositor(), $this->imageGenerator(), $this->storage(), $jobs, $this->allowingBudget());
+
+        self::assertTrue($generator->generate($this->context()));
+
+        self::assertCount(2, $renderer->outputs);           // html + transparent html_bg foreground
+        self::assertCount(2, $generator->madeTempDirs);     // html_bg + ki_image
+        $this->assertAllGone([...$renderer->outputs, ...$generator->madeTempDirs]);
+    }
+
+    public function testLeavesNoTempFileBehindWhenEveryVariantFails(): void
+    {
+        $renderer = $this->renderer();
+        $jobs     = $this->jobs();
+        $storage  = new class extends JobFileStorage {
+            public function __construct() {}
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            {
+                throw new RuntimeException('FAL write failed');
+            }
+        };
+        $generator = $this->generator($renderer, $this->compositor(), $this->imageGenerator(), $storage, $jobs, $this->allowingBudget());
+
+        self::assertFalse($generator->generate($this->context()));
+
+        foreach (['html', 'html_bg', 'ki_image'] as $variant) {
+            self::assertSame('failed', $jobs->updates[$jobs->uidForVariant($variant)]['status']);
+        }
+
+        self::assertCount(2, $renderer->outputs);
+        self::assertCount(2, $generator->madeTempDirs);
+        $this->assertAllGone([...$renderer->outputs, ...$generator->madeTempDirs]);
+    }
+
+    /** @param list<string> $paths */
+    private function assertAllGone(array $paths): void
+    {
+        foreach ($paths as $path) {
+            self::assertFileDoesNotExist($path);
+            self::assertDirectoryDoesNotExist($path);
+        }
     }
 
     private function compositor(): ImageCompositorInterface

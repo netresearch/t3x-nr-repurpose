@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Service;
 
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
+use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -185,7 +186,16 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
                 30 + 70 * $i / $count,
                 30 + 70 * ($i + 1) / $count,
             );
-            $success = $generator->generate($ctx->withProgress($band));
+            try {
+                $success = $generator->generate($ctx->withProgress($band));
+            } finally {
+                // Temp directories a generator left behind (the story slides, the
+                // podcast segments) go once it is done, also when it threw.
+                if ($generator instanceof AbstractGenerator) {
+                    $generator->removeTempDirs();
+                }
+            }
+
             $ok += $success ? 1 : 0;
             // round(), not truncation: JobProgress::step() rounds into the band, so the
             // band-end write must agree or progress could step back by one percent.

@@ -78,6 +78,56 @@ The artifact error contains ``ffmpeg concat failed (exit …)`` or
 ``ffmpeg slideshow failed (exit …)`` for the story video. ``ffmpeg`` and
 ``ffprobe`` must be on the worker's ``PATH``.
 
+.. _troubleshooting-source-url:
+
+A URL job fails with "Source URL …"
+===================================
+
+The worker fetches a *Webpage URL* or *PDF URL* source only over ``http`` or
+``https`` and only from a host outside the local and internal network. It
+refuses any other URL before the request, and the job fails with one of these
+errors:
+
+-   ``Source URL scheme "…" is not allowed, only http and https: …``
+-   ``Source URL has no host: …``
+-   ``Source URL host … is a numeric IPv4 spelling; write the address as four decimal numbers (a.b.c.d)``
+-   ``Source URL host does not resolve: …``
+-   ``Source URL host … resolves to a loopback, private, link-local or reserved address``
+    — the host, or one of the addresses it resolves to, lies in the
+    local or internal network. The address itself is written to the TYPO3
+    log, not to the error.
+-   ``Source URL cannot be parsed: …`` — the HTTP library cannot read the URL;
+    its message is in the TYPO3 log.
+
+No setting allows an internal host. For a PDF that only an internal server
+provides, attach the file to the job as a *PDF file (FAL)* source.
+
+The worker does not follow redirects, because a redirect target would bypass
+this check. A redirecting URL fails with ``URL returned HTTP 301: …`` or
+``PDF URL returned HTTP 302: …`` (or another 3xx status); enter the URL the
+redirect points to.
+
+.. _troubleshooting-source-limits:
+
+A URL job fails with "Source is larger than …" or "Source did not arrive within …"
+==================================================================================
+
+The worker reads a web page up to 5 MiB within 30 seconds and downloads a PDF
+up to 50 MiB within 120 seconds. The limits are fixed.
+
+-   ``Source is larger than 5 MiB: …`` (``50 MiB`` for a PDF) — the source is
+    larger than the limit. Attach a larger PDF to the job as a *PDF file (FAL)*
+    source instead.
+-   ``Source did not arrive within 30 seconds: …`` (``120 seconds`` for a
+    PDF) — the server did not deliver the source in time.
+-   ``Reading the source failed: …`` — the transfer broke off while the body
+    was read.
+
+Without the PHP extension ``curl`` the time limit applies to each read only,
+not to the whole transfer, so a server that sends its response headers very
+slowly can still hold the worker. Install ``curl`` on the host that runs the
+worker (see :ref:`installation-requirements`).
+
 .. _troubleshooting-poppler:
 
 A PDF job fails with "pdftoppm failed" or "pdftotext -layout failed"
@@ -88,8 +138,8 @@ pages, call the poppler tools ``pdftoppm`` and ``pdftotext``. Install
 ``poppler-utils`` on the host that runs the worker.
 
 ``No text could be extracted from the PDF`` means that no tier returned any
-text; ``PDF could not be parsed (possibly encrypted)`` means the file could not
-be opened.
+text; ``PDF could not be parsed (possibly encrypted or damaged)`` means the file
+could not be opened.
 
 .. _troubleshooting-not-permitted:
 
@@ -100,6 +150,12 @@ The error names the missing option, ``nrrepurpose:generate_audio`` or
 ``nrrepurpose:generate_vision``. The backend groups of the user who created the
 job do not grant it. Grant it in the group's custom module options (see
 :ref:`configuration-permissions`).
+
+Reading a PDF with Vision OCR needs ``nrrepurpose:generate_vision`` as well.
+Without it a page keeps its embedded text and the job continues. A PDF that has
+no embedded text at all fails the whole job with this error:
+
+``The PDF has no embedded text, and reading it with Vision OCR is not permitted: the job owner's backend groups do not grant "Generate AI imagery" (nrrepurpose:generate_vision)``
 
 .. _troubleshooting-budget:
 

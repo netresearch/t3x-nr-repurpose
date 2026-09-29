@@ -91,8 +91,8 @@ namespace. Two gate AI spend per group, the third the approval step:
 
 -   ``generate_audio`` — podcast audio generation (maps to the nr-llm
     ``AUDIO`` capability).
--   ``generate_vision`` — AI imagery generation (maps to the nr-llm ``VISION``
-    capability).
+-   ``generate_vision`` — AI imagery generation and the Vision OCR of PDF
+    pages (maps to the nr-llm ``VISION`` capability).
 -   ``approve_artifacts`` — approve or reject artifacts in the result view and
     schedule approved social posts (see :ref:`usage-review`). Administrators
     hold it without the option.
@@ -101,15 +101,19 @@ nr-llm has no dedicated image/speech capability, so audio generation gates on
 ``AUDIO`` and image/vision generation on ``VISION``.
 
 The worker checks both options against the backend groups of the user who
-created the job, once per run (an administrator holds both):
+created the job (an administrator holds both):
 
 -   Without ``generate_audio`` the podcast artifact fails before any script or
     speech call, with an error naming the missing option.
 -   Without ``generate_vision`` the two AI image variants of the Schaubild
     (``html_bg``, ``ki_image``) fail the same way while the plain HTML variant
     is still produced, and the story is rendered on flat backgrounds.
+-   Without ``generate_vision`` a PDF is not read with Vision OCR either: in
+    the ``vision`` mode, and for a scanned page in ``auto``, the page keeps its
+    embedded text instead. A PDF that has no embedded text at all fails the
+    job with an error naming the missing option.
 
-The check runs before the budget check, so the denied speech and image calls
-are never made, and neither is the transparent diagram render that only the
+The check runs before the budget check, so the denied speech, image and OCR
+calls are never made, and neither is the transparent diagram render that only the
 ``html_bg`` variant uses. The document analysis and the text parts that stay
 permitted still call the LLM as before.
