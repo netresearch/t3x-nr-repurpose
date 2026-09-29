@@ -22,7 +22,8 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use TYPO3\CMS\Core\Resource\File;
-use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\FileReference;
+use TYPO3\CMS\Core\Resource\FileRepository;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
 
 final class PdfFileResolverTest extends TestCase
@@ -30,7 +31,7 @@ final class PdfFileResolverTest extends TestCase
     private function resolver(QueuedHttpClient $http, ?RemoteSourceGuard $guard = null): PdfFileResolver
     {
         return new PdfFileResolver(
-            $this->createStub(ResourceFactory::class),
+            $this->createStub(FileRepository::class),
             $http->client,
             new HttpFactory(),
             $guard ?? StaticHostResolver::publicGuard(),
@@ -103,7 +104,7 @@ final class PdfFileResolverTest extends TestCase
             public function __construct(ClientInterface $client)
             {
                 parent::__construct(
-                    (new ReflectionClass(ResourceFactory::class))->newInstanceWithoutConstructor(),
+                    (new ReflectionClass(FileRepository::class))->newInstanceWithoutConstructor(),
                     $client,
                     new HttpFactory(),
                     StaticHostResolver::publicGuard(),
@@ -140,7 +141,7 @@ final class PdfFileResolverTest extends TestCase
         try {
             $resolver = $this->resolverForFile($this->falFile('Local', $original));
 
-            $path = $resolver->resolve(JobSnapshots::of(['source_type' => 'pdf_fal', 'source_pdf' => 5]));
+            $path = $resolver->resolve(JobSnapshots::of(['uid' => 5, 'source_type' => 'pdf_fal', 'source_pdf' => 1]));
             $resolver->release($path);
 
             self::assertSame($original, $path);
@@ -160,7 +161,7 @@ final class PdfFileResolverTest extends TestCase
         try {
             $resolver = $this->resolverForFile($file);
 
-            $path = $resolver->resolve(JobSnapshots::of(['source_type' => 'pdf_fal', 'source_pdf' => 5]));
+            $path = $resolver->resolve(JobSnapshots::of(['uid' => 5, 'source_type' => 'pdf_fal', 'source_pdf' => 1]));
             self::assertSame('%PDF remote', (string) file_get_contents($path));
             $resolver->release($path);
 
@@ -173,12 +174,18 @@ final class PdfFileResolverTest extends TestCase
         }
     }
 
+    /** A resolver for which job 5 has $file attached through its source_pdf field. */
     private function resolverForFile(File $file): PdfFileResolver
     {
-        $factory = $this->createStub(ResourceFactory::class);
-        $factory->method('getFileObject')->willReturn($file);
+        $reference = $this->createStub(FileReference::class);
+        $reference->method('getOriginalFile')->willReturn($file);
 
-        return new PdfFileResolver($factory, QueuedHttpClient::answering(200, '')->client, new HttpFactory(), StaticHostResolver::publicGuard());
+        $repository = $this->createStub(FileRepository::class);
+        $repository->method('findByRelation')->willReturnCallback(
+            static fn (string $table, string $field, int $uid): array => [$table, $field, $uid] === ['tx_nrrepurpose_domain_model_job', 'source_pdf', 5] ? [$reference] : [],
+        );
+
+        return new PdfFileResolver($repository, QueuedHttpClient::answering(200, '')->client, new HttpFactory(), StaticHostResolver::publicGuard());
     }
 
     /**

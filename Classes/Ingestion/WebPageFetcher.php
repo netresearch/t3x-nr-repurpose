@@ -48,30 +48,32 @@ class WebPageFetcher
         try {
             $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
         } catch (ClientExceptionInterface $e) {
-            throw new IngestionException('URL not reachable: ' . $url, 1749379410, $e);
+            throw new IngestionException('URL not reachable: ' . SourceUrlRedactor::redact($url), 1749379410, $e);
         }
 
         $status = $response->getStatusCode();
         if ($status < 200 || $status >= 300) {
-            throw new IngestionException(sprintf('URL returned HTTP %d: %s', $status, $url), 1749379411);
+            throw new IngestionException(sprintf('URL returned HTTP %d: %s', $status, SourceUrlRedactor::redact($url)), 1749379411);
         }
 
         $html = BoundedResponseReader::read($response, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
         if (trim($html) === '') {
-            throw new IngestionException('URL returned an empty body: ' . $url, 1749379412);
+            throw new IngestionException('URL returned an empty body: ' . SourceUrlRedactor::redact($url), 1749379412);
         }
 
         $title = $this->extractTitle($html);
         $text  = $this->extractMainText($html);
 
         if ($text === '') {
-            throw new IngestionException('No readable content extracted from: ' . $url, 1749379413);
+            throw new IngestionException('No readable content extracted from: ' . SourceUrlRedactor::redact($url), 1749379413);
         }
 
         return new SourceDocument(
             title: $title,
             text: $text,
-            sourceLabel: $url,
+            // The label reaches the text model's prompts and the published story, slide
+            // deck and handout; the fetch above needed the URL as entered.
+            sourceLabel: SourceUrlRedactor::redact($url),
             pageCount: 0,
             languageHint: $this->detectLanguageHint($html),
             meta: ['fetchedVia' => 'static'],

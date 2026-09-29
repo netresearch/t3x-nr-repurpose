@@ -222,7 +222,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
     /**
      * The job's error_message is shown to every module user, so only this extension's own
      * ingestion and analysis messages reach it: fixed texts, or naming the editor's own source
-     * URL. Any other exception (the text model, Guzzle, poppler, the database) can carry
+     * URL without user name, password, query and fragment (SourceUrlRedactor). Any other exception (the text model, Guzzle, poppler, the database) can carry
      * provider detail, paths or SQL: the row gets "<step> failed". The exception goes to the
      * log either way.
      */

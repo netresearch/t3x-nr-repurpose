@@ -14,18 +14,20 @@ use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
-use TYPO3\CMS\Core\Resource\Exception\FileDoesNotExistException;
-use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\FileRepository;
 
 /**
  * Resolves a job row to an absolute, locally readable PDF path:
- *  - pdf_fal: on the local driver, the stored file itself (never deleted); on any
- *    other driver a temp copy of its contents, which release() deletes.
+ *  - pdf_fal: the file the job's sys_file_reference points at; on the local driver
+ *    the stored file itself (never deleted), on any other driver a temp copy of its
+ *    contents, which release() deletes.
  *  - pdf_url: the remote PDF is downloaded to a temp file, which release() deletes.
  */
 class PdfFileResolver
 {
     private const DOWNLOAD_PREFIX = 'nrrepurpose_dl_';
+
+    private const JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
 
     /** Driver key of TYPO3's local file system driver (sys_file_storage.driver). */
     private const LOCAL_DRIVER = 'Local';
@@ -37,7 +39,7 @@ class PdfFileResolver
     public const TIMEOUT_SECONDS = 120.0;
 
     public function __construct(
-        private readonly ResourceFactory $resourceFactory,
+        private readonly FileRepository $fileRepository,
         private readonly ClientInterface $httpClient,
         private readonly RequestFactoryInterface $requestFactory,
         private readonly RemoteSourceGuard $guard,
@@ -46,7 +48,7 @@ class PdfFileResolver
     public function resolve(JobSnapshot $job): string
     {
         return match ($job->sourceType) {
-            SourceType::PdfFal => $this->resolveFalFile($job->sourcePdf),
+            SourceType::PdfFal => $this->resolveFalFile($job->uid),
             SourceType::PdfUrl => $this->downloadUrl($job->sourceValue),
             SourceType::Url    => throw new IngestionException('PdfFileResolver does not handle source_type: url', 1749379440),
         };
@@ -70,17 +72,20 @@ class PdfFileResolver
         unlink($absPath); // nosemgrep: php.lang.security.unlink-use.unlink-use
     }
 
-    private function resolveFalFile(int $fileUid): string
+    /**
+     * source_pdf is a TCA type=file field: its column holds the number of attached
+     * files, the file itself hangs off a sys_file_reference row of the job.
+     */
+    private function resolveFalFile(int $jobUid): string
     {
-        if ($fileUid <= 0) {
+        $references = $jobUid > 0 ? $this->fileRepository->findByRelation(self::JOB_TABLE, 'source_pdf', $jobUid) : [];
+        // findByRelation() leaves out a reference whose sys_file no longer exists.
+        if ($references === []) {
             throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441);
         }
 
-        try {
-            $file = $this->resourceFactory->getFileObject($fileUid);
-        } catch (FileDoesNotExistException $e) {
-            throw new IngestionException('Attached PDF sys_file not found: ' . $fileUid, 1749379442, $e);
-        }
+        $file    = $references[0]->getOriginalFile();
+        $fileUid = $file->getUid();
 
         if ($file->getStorage()->getDriverType() !== self::LOCAL_DRIVER) {
             // Any other driver would copy the file into var/transient for local
@@ -111,17 +116,17 @@ class PdfFileResolver
         try {
             $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
         } catch (ClientExceptionInterface $e) {
-            throw new IngestionException('PDF URL not reachable: ' . $url, 1749379445, $e);
+            throw new IngestionException('PDF URL not reachable: ' . SourceUrlRedactor::redact($url), 1749379445, $e);
         }
 
         $status = $response->getStatusCode();
         if ($status < 200 || $status >= 300) {
-            throw new IngestionException(sprintf('PDF URL returned HTTP %d: %s', $status, $url), 1749379446);
+            throw new IngestionException(sprintf('PDF URL returned HTTP %d: %s', $status, SourceUrlRedactor::redact($url)), 1749379446);
         }
 
         $bytes = BoundedResponseReader::read($response, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
         if ($bytes === '') {
-            throw new IngestionException('PDF URL returned an empty body: ' . $url, 1749379447);
+            throw new IngestionException('PDF URL returned an empty body: ' . SourceUrlRedactor::redact($url), 1749379447);
         }
 
         return $this->writeDownload($bytes);

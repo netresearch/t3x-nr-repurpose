@@ -26,8 +26,10 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use Psr\Log\NullLogger;
-use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Resource\FileRepository;
 use TYPO3\CMS\Core\Resource\StorageRepository;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
 {
@@ -63,7 +65,7 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
 
         return new SourceIngestionService(
             new WebPageFetcher($client, $factory, StaticHostResolver::publicGuard()),
-            new PdfFileResolver($this->get(ResourceFactory::class), $client, $factory, StaticHostResolver::publicGuard()),
+            new PdfFileResolver($this->get(FileRepository::class), $client, $factory, StaticHostResolver::publicGuard()),
             new PdfTextExtractor(),
             $vision,
             new PdfLayoutExtractor($runner),
@@ -91,10 +93,23 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
         $folder = $storage->hasFolder('repurpose') ? $storage->getFolder('repurpose') : $storage->createFolder('repurpose');
         $file   = $storage->createFile('ingest-test.pdf', $folder);
         $file->setContents((string) file_get_contents($this->fixturePdf()));
+        // A type=file field as DataHandler stores it: the column counts the
+        // references, the file hangs off sys_file_reference.
+        $pool = GeneralUtility::makeInstance(ConnectionPool::class);
+        $pool->getConnectionForTable('tx_nrrepurpose_domain_model_job')->insert('tx_nrrepurpose_domain_model_job', [
+            'uid' => 2, 'pid' => 0, 'source_type' => 'pdf_fal', 'source_pdf' => 1,
+        ]);
+        $pool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
+            'pid'         => 0,
+            'uid_local'   => $file->getUid(),
+            'uid_foreign' => 2,
+            'tablenames'  => 'tx_nrrepurpose_domain_model_job',
+            'fieldname'   => 'source_pdf',
+        ]);
 
         $doc = $this->service($this->htmlClient(), $this->explodingVision())
             ->ingest(JobSnapshots::of([
-                'uid'      => 2, 'source_type' => 'pdf_fal', 'source_pdf' => $file->getUid(),
+                'uid'      => 2, 'source_type' => 'pdf_fal', 'source_pdf' => 1,
                 'pdf_mode' => 'auto', 'be_user' => 0,
             ]));
 

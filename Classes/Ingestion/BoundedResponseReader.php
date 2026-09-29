@@ -172,7 +172,7 @@ final class BoundedResponseReader
                 throw self::timedOut($timeoutSeconds, $url);
             }
 
-            throw new IngestionException('Reading the source failed: ' . $url, 1749379466, $e);
+            throw new IngestionException('Reading the source failed: ' . SourceUrlRedactor::redact($url), 1749379466, $e);
         }
 
         return $buffer;
@@ -188,7 +188,7 @@ final class BoundedResponseReader
     private static function timedOut(float $timeoutSeconds, string $url): IngestionException
     {
         return new IngestionException(
-            sprintf('Source did not arrive within %d seconds: %s', (int) $timeoutSeconds, $url),
+            sprintf('Source did not arrive within %d seconds: %s', (int) $timeoutSeconds, SourceUrlRedactor::redact($url)),
             1749379465,
         );
     }
@@ -196,7 +196,7 @@ final class BoundedResponseReader
     private static function tooLarge(int $maxBytes, string $url): IngestionException
     {
         return new IngestionException(
-            sprintf('Source is larger than %d MiB: %s', intdiv($maxBytes, 1024 * 1024), $url),
+            sprintf('Source is larger than %d MiB: %s', intdiv($maxBytes, 1024 * 1024), SourceUrlRedactor::redact($url)),
             1749379464,
         );
     }

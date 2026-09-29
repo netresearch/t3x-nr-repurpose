@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Generator;
 
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
@@ -42,7 +43,7 @@ final readonly class StubArtifactGenerator implements ArtifactGeneratorInterface
             $content = sprintf(
                 "nr_repurpose stub artifact\nJob #%d\nSource: %s\nTheme: %s\nTitle: %s\nLanguage: %s\n",
                 $jobUid,
-                $ctx->job->sourceValue,
+                SourceUrlRedactor::redact($ctx->job->sourceValue),
                 $ctx->theme,
                 $ctx->brief->title,
                 $ctx->brief->language,
