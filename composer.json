@@ -1,6 +1,6 @@
 {
     "name": "netresearch/nr-repurpose",
-    "description": "Turn a webpage or PDF into a podcast, a diagram, an Instagram story and ready-to-use texts — by Netresearch, built on netresearch/nr-llm",
+    "description": "Turn a webpage or PDF into a podcast, a diagram, an Instagram story, documents and ready-to-use texts - by Netresearch",
     "license": "GPL-2.0-or-later",
     "type": "typo3-cms-extension",
     "homepage": "https://github.com/netresearch/t3x-nr-repurpose",
@@ -12,11 +12,15 @@
             "role": "Developer"
         }
     ],
+    "support": {
+        "issues": "https://github.com/netresearch/t3x-nr-repurpose/issues",
+        "source": "https://github.com/netresearch/t3x-nr-repurpose"
+    },
     "require": {
         "php": "^8.3",
         "ext-json": "*",
         "netresearch/nr-llm": "^0.35 || ^0.36 || ^0.37 || ^0.38",
-        "netresearch/nr-vault": "^0.15 || ^0.16",
+        "netresearch/nr-vault": "^0.16",
         "psr/log": "^3.0",
         "symfony/messenger": "^7.0 || ^8.0",
         "symfony/process": "^7.0 || ^8.0",
@@ -25,15 +29,15 @@
         "typo3/cms-extbase": "^14.3",
         "typo3/cms-fluid": "^14.3",
         "typo3/cms-frontend": "^14.3",
-        "typo3/cms-install": "^14.3",
         "smalot/pdfparser": "^2.12"
     },
     "require-dev": {
-        "netresearch/typo3-ci-workflows": "^1.5",
+        "netresearch/typo3-ci-workflows": "^1.12",
         "phpunit/phpunit": "^11.5",
         "typo3/cms-belog": "^14.3",
         "typo3/cms-beuser": "^14.3",
         "typo3/cms-filelist": "^14.3",
+        "typo3/cms-install": "^14.3",
         "typo3/cms-lowlevel": "^14.3",
         "typo3/cms-setup": "^14.3",
         "typo3/cms-tstemplate": "^14.3"
@@ -68,17 +72,29 @@
         "ci:rector": [
             "rector process --config Build/rector.php"
         ],
-        "ci:test:php:cgl": "php-cs-fixer fix --dry-run --diff",
+        "ci:test:php:cgl": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff \"$@\"; else ./Build/Scripts/runTests.sh -s cgl -n \"$@\"; fi' --",
         "ci:test:php:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite unit \"$@\"; else ./Build/Scripts/runTests.sh -s unit \"$@\"; fi' --",
+        "ci:test:php:fractor": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then fractor process --config Build/fractor.php --dry-run \"$@\"; else ./Build/Scripts/runTests.sh -s fractor -n \"$@\"; fi' --",
         "ci:test:php:functional": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/FunctionalTests.xml \"$@\"; else ./Build/Scripts/runTests.sh -s functional \"$@\"; fi' --",
-        "ci:test:php:phpstan": "phpstan analyse",
+        "ci:test:php:lint": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then find . -name \"*.php\" -not -path \"./.Build/*\" -not -path \"./vendor/*\" -print0 | xargs -0 -r -n1 php -l >/dev/null; else ./Build/Scripts/runTests.sh -s lint; fi'",
+        "ci:test:php:mutation": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then infection --configuration=infection.json.dist --threads=4 -s --no-progress \"$@\"; else ./Build/Scripts/runTests.sh -s mutation \"$@\"; fi' --",
+        "ci:test:php:phpstan": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpstan analyse -c Build/phpstan.neon \"$@\"; else ./Build/Scripts/runTests.sh -s phpstan \"$@\"; fi' --",
         "ci:test:php:rector": [
             "@ci:rector --dry-run"
         ]
     },
     "extra": {
+        "captainhook": {
+            "config": "Build/captainhook.json"
+        },
         "typo3/cms": {
+            "Package": {
+                "providesPackages": {
+                    "smalot/pdfparser": ""
+                }
+            },
             "extension-key": "nr_repurpose",
+            "version": "0.8.2",
             "web-dir": ".Build/Web"
         }
     }

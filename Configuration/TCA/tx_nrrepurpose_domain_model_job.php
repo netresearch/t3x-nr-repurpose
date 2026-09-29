@@ -29,9 +29,11 @@ return [
                 'default' => 'url',
             ],
         ],
+        // No link attributes: the stored value is fetched as-is, and a target
+        // or title from the link browser would be appended to it.
         'source_value' => [
             'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_value',
-            'config' => ['type' => 'input', 'size' => 60, 'eval' => 'trim'],
+            'config' => ['type' => 'link', 'allowedTypes' => ['url'], 'appearance' => ['allowedOptions' => []], 'size' => 60],
         ],
         'theme' => [
             'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.theme',

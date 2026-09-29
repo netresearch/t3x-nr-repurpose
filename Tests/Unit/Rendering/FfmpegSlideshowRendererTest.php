@@ -12,8 +12,14 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
 use Netresearch\NrRepurpose\Rendering\FfmpegSlideshowRenderer;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessResult;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
+use Netresearch\NrRepurpose\Rendering\Process\SymfonyProcessRunner;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\ProcessTimeoutAssertions;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\SlowExecutable;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
+use Psr\Log\NullLogger;
 
 /**
  * The ffmpeg command the renderer builds. The filter graph is the one that was run
@@ -22,6 +28,11 @@ use PHPUnit\Framework\TestCase;
  */
 final class FfmpegSlideshowRendererTest extends TestCase
 {
+    use ProcessTimeoutAssertions;
+
+    /** What the fake ffmpeg prints on a failed run: an input path, as the real one does. */
+    public const string STDERR = '/var/www/html/var/transient/slide-1.png: No such file or directory';
+
     /** @var list<list<string>> */
     private array $commands = [];
 
@@ -31,21 +42,21 @@ final class FfmpegSlideshowRendererTest extends TestCase
             /** @param list<list<string>> $commands */
             public function __construct(private array &$commands, private readonly int $exitCode, private readonly bool $writeOutput) {}
 
-            public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0): ProcessResult
+            public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0, array $env = []): ProcessResult
             {
                 $this->commands[] = $command;
                 if ($this->writeOutput) {
                     file_put_contents($command[count($command) - 1], 'mp4');
                 }
 
-                return new ProcessResult($this->exitCode, '', $this->exitCode === 0 ? '' : 'Invalid filter');
+                return new ProcessResult($this->exitCode, '', $this->exitCode === 0 ? '' : FfmpegSlideshowRendererTest::STDERR);
             }
         };
     }
 
     public function testTheCommandZoomsEveryImageCrossFadesAndTagsTheFile(): void
     {
-        $renderer = new FfmpegSlideshowRenderer($this->runner(), '/usr/bin/ffmpeg', sys_get_temp_dir());
+        $renderer = new FfmpegSlideshowRenderer($this->runner(), new NullLogger(), '/usr/bin/ffmpeg', sys_get_temp_dir());
 
         $out = $renderer->render(['/tmp/a.png', '/tmp/b.png', '/tmp/c.png'], 1080, 1920, 4.0, [
             'comment'        => 'AI-generated with nr_repurpose — test',
@@ -76,24 +87,38 @@ final class FfmpegSlideshowRendererTest extends TestCase
 
     public function testASingleImageNeedsNoFade(): void
     {
-        $filter = (new FfmpegSlideshowRenderer($this->runner()))->filter(1, 1080, 1920, 4.0);
+        $filter = (new FfmpegSlideshowRenderer($this->runner(), new NullLogger()))->filter(1, 1080, 1920, 4.0);
 
         self::assertStringEndsWith(';[v0]null[vout]', $filter);
         self::assertStringNotContainsString('xfade', $filter);
     }
 
-    public function testAFailedRunIsARenderingError(): void
+    /**
+     * ffmpeg's stderr names the input images (absolute temp paths). The exception message
+     * reaches the story artifact's error_message, shown to every module user, so stderr
+     * goes to the server log only.
+     */
+    public function testAFailedRunIsARenderingErrorWithAFixedMessageAndLoggedStderr(): void
     {
-        $this->expectException(RenderingException::class);
-        $this->expectExceptionMessage('ffmpeg slideshow failed (exit 1): Invalid filter');
+        $logger = new RecordingLogger();
 
-        (new FfmpegSlideshowRenderer($this->runner(1, false)))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+        try {
+            (new FfmpegSlideshowRenderer($this->runner(1, false), $logger))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffmpeg slideshow failed (exit 1)', $e->getMessage());
+            self::assertSame(1749400402, $e->getCode());
+        }
+
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
+        self::assertSame(self::STDERR, $logger->records[0]['context']['stderr'] ?? null);
     }
 
     public function testAFailedRunLeavesNoPartialVideo(): void
     {
         try {
-            (new FfmpegSlideshowRenderer($this->runner(1, true), 'ffmpeg', sys_get_temp_dir()))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+            (new FfmpegSlideshowRenderer($this->runner(1, true), new NullLogger(), 'ffmpeg', sys_get_temp_dir()))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
             self::fail('Expected a rendering error');
         } catch (RenderingException) {
         }
@@ -103,11 +128,39 @@ final class FfmpegSlideshowRendererTest extends TestCase
         self::assertFileDoesNotExist($out);
     }
 
-    public function testARunWithoutOutputIsARenderingError(): void
+    public function testARunWithoutOutputIsARenderingErrorWithAFixedMessageAndLoggedPath(): void
     {
-        $this->expectException(RenderingException::class);
-        $this->expectExceptionCode(1749400403);
+        $logger = new RecordingLogger();
 
-        (new FfmpegSlideshowRenderer($this->runner(0, false)))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+        try {
+            (new FfmpegSlideshowRenderer($this->runner(0, false), $logger, 'ffmpeg', sys_get_temp_dir()))->render(['/tmp/a.png'], 1080, 1920, 4.0, []);
+            self::fail('Expected a RenderingException');
+        } catch (RenderingException $e) {
+            self::assertSame('ffmpeg produced no video', $e->getMessage());
+            self::assertSame(1749400403, $e->getCode());
+        }
+
+        self::assertCount(1, $logger->records);
+        self::assertSame($this->commands[0][count($this->commands[0]) - 1], $logger->records[0]['context']['path'] ?? null);
+    }
+
+    /** A render that runs into the timeout, through the real process runner. */
+    public function testATimeoutIsARenderingErrorWithAFixedMessageAndLoggedCause(): void
+    {
+        $slow     = new SlowExecutable();
+        $logger   = new RecordingLogger();
+        $renderer = new FfmpegSlideshowRenderer(new SymfonyProcessRunner($logger), $logger, $slow->path, sys_get_temp_dir(), 0.1);
+
+        try {
+            self::assertTimeoutIsFixedAndLogged(
+                static fn (): string => $renderer->render(['/tmp/a.png'], 1080, 1920, 4.0, []),
+                $logger,
+                RenderingException::class,
+                'External process timed out',
+                1749400501,
+            );
+        } finally {
+            $slow->remove();
+        }
     }
 }

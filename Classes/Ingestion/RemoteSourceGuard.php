@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion;
 
+use InvalidArgumentException;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -25,6 +28,7 @@ use Psr\Log\NullLogger;
  * holds 169.254.169.254), unique-local IPv6, unspecified, multicast or the
  * reserved 240.0.0.0/4 block. An IPv6 address that carries an IPv4 address
  * (IPv4-mapped, IPv4-compatible, NAT64 64:ff9b::/96, 6to4) is judged as that IPv4 address.
+ * A URL the request factory cannot parse is refused too (see createRequest()).
  *
  * TYPO3 core offers no equivalent for the injected client: the container builds
  * it through GuzzleClientFactory::getClient() without a context, so the
@@ -57,6 +61,33 @@ final readonly class RemoteSourceGuard
         private HostResolverInterface $resolver,
         private LoggerInterface $logger = new NullLogger(),
     ) {}
+
+    /**
+     * Builds the request for the editor-supplied URL with the factory that sends it,
+     * then judges its URI with assertAllowed(). Parsing happens here so that a URL the
+     * factory rejects ends as a refusal, not as the library's exception: older
+     * guzzlehttp/psr7 releases (2.9.0, the lowest the dependency tree allows) cannot
+     * parse an IPv6 literal with a dotted IPv4 tail such as [::ffff:127.0.0.1].
+     *
+     * @throws IngestionException when the URL cannot be parsed or must not be fetched
+     */
+    public function createRequest(RequestFactoryInterface $requestFactory, string $method, string $url): RequestInterface
+    {
+        try {
+            $request = $requestFactory->createRequest($method, $url);
+        } catch (InvalidArgumentException $e) {
+            $this->logger->warning('Source URL refused: the URL cannot be parsed', [
+                'url'   => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new IngestionException('Source URL cannot be parsed: ' . $url, 1749379468, $e);
+        }
+
+        $this->assertAllowed($request->getUri());
+
+        return $request;
+    }
 
     /**
      * @throws IngestionException when the URL must not be fetched

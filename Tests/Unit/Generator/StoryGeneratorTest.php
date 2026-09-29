@@ -52,7 +52,7 @@ final class StoryGeneratorTest extends TestCase
 {
     use PromptBoundaryAssertions;
 
-    private const THREE_SLIDES = ['slides' => [
+    private const array THREE_SLIDES = ['slides' => [
         ['role' => 'cover', 'headline' => 'Big News', 'subline' => 'Details inside'],
         ['role' => 'point', 'headline' => 'Point one', 'subline' => 'It matters'],
         ['role' => 'outro', 'headline' => 'Takeaway', 'subline' => 'Source: example.com'],

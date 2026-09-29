@@ -52,30 +52,30 @@ class StoryGenerator extends AbstractGenerator
 {
     use RendersThemeTemplates;
 
-    private const WIDTH = 1080;
+    private const int WIDTH = 1080;
 
-    private const HEIGHT = 1920;
+    private const int HEIGHT = 1920;
 
     // Default gpt-image portrait size; the 2:3 image is composited as a background behind
     // the 9:16 story canvas, so the aspect difference is fine. A layout snippet may
     // override it via its metadata {"imageSize":"WxH"} (AbstractGenerator::resolveImageSize()).
-    private const IMAGE_SIZE = '1024x1536';
+    private const string IMAGE_SIZE = '1024x1536';
 
-    private const IMAGE_COST = 0.05;
+    private const float IMAGE_COST = 0.05;
 
-    private const COPY_COST_PER_SLIDE = 0.01;
+    private const float COPY_COST_PER_SLIDE = 0.01;
 
-    private const MAX_POINT_SLIDES = 4;
+    private const int MAX_POINT_SLIDES = 4;
 
-    private const MAX_SLIDES = 6;
+    private const int MAX_SLIDES = 6;
 
     // Copy limits the prompt asks the LLM for; the parser enforces the same limits so
     // non-compliant copy cannot overflow the fixed 9:16 slide layout.
-    private const MAX_HEADLINE_CHARS = 60;
+    private const int MAX_HEADLINE_CHARS = 60;
 
-    private const MAX_SUBLINE_CHARS = 110;
+    private const int MAX_SUBLINE_CHARS = 110;
 
-    private const COPY_SYSTEM_PROMPT = 'You are a social-media copywriter. Output ONLY valid JSON.';
+    private const string COPY_SYSTEM_PROMPT = 'You are a social-media copywriter. Output ONLY valid JSON.';
 
     public const VIDEO_SECONDS_PER_SLIDE = 4.0;
 

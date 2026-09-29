@@ -46,9 +46,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 {
-    private const QUARTERLY_REPORT = 'Quarterly report';
+    private const string QUARTERLY_REPORT = 'Quarterly report';
 
-    private const SOURCE_URL = 'https://example.com/';
+    private const string SOURCE_URL = 'https://example.com/';
 
     private function seedJob(int $beUser = 0): int
     {
@@ -81,8 +81,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 
     private function stubIngestion(SourceDocument $document): SourceIngestionServiceInterface
     {
-        return new class ($document) implements SourceIngestionServiceInterface {
-            public function __construct(private readonly SourceDocument $document) {}
+        return new readonly class ($document) implements SourceIngestionServiceInterface {
+            public function __construct(private SourceDocument $document) {}
 
             public function ingest(array $jobRow): SourceDocument
             {
@@ -93,8 +93,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
 
     private function stubAnalyzer(ContentBrief $brief): DocumentAnalyzerInterface
     {
-        return new class ($brief) implements DocumentAnalyzerInterface {
-            public function __construct(private readonly ContentBrief $brief) {}
+        return new readonly class ($brief) implements DocumentAnalyzerInterface {
+            public function __construct(private ContentBrief $brief) {}
 
             public function analyze(SourceDocument $document, array $jobRow): ContentBrief
             {
