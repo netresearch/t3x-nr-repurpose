@@ -19,7 +19,7 @@ return [
         'provider' => SvgIconProvider::class,
         'source'   => 'EXT:nr_repurpose/Resources/Public/Icons/artifact.svg',
     ],
-    // Extension icon (branded tile) shown in the Extension Manager / TER.
+    // Extension icon: the Netresearch [n] symbol, shown in the Extension Manager / TER.
     'nr_repurpose' => [
         'provider' => SvgIconProvider::class,
         'source'   => 'EXT:nr_repurpose/Resources/Public/Icons/Extension.svg',
