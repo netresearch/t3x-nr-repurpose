@@ -30,7 +30,7 @@ final class GdImageCompositor implements ImageCompositorInterface
      * GD holds roughly this many bytes per pixel for a truecolor image (4 channel
      * bytes plus internal row/struct overhead; empirically 5–8 — we budget high).
      */
-    private const GD_BYTES_PER_PIXEL = 8;
+    private const int GD_BYTES_PER_PIXEL = 8;
 
     public function overlay(string $backgroundPng, string $foregroundPng, string $outPath): string
     {

@@ -28,9 +28,9 @@ use TYPO3\CMS\Core\View\ViewFactoryInterface;
  */
 final class AiLabelRenderingTest extends AbstractFunctionalTestCase
 {
-    private const BADGE = '<div class="ai-label">';
+    private const string BADGE = '<div class="ai-label">';
 
-    private const BADGE_PARTIAL = 'Job/AiLabel';
+    private const string BADGE_PARTIAL = 'Job/AiLabel';
 
     protected function setUp(): void
     {

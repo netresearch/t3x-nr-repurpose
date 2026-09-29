@@ -35,7 +35,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
     // Role, source-material rule and task sit in the system prompts; the document text,
     // its title and label, and the chunk summaries reach the model only as one
     // SourceMaterial block in the user message (ADR-004).
-    private const SYSTEM_PROMPT
+    private const string SYSTEM_PROMPT
         = 'You are a precise editorial analyst. You read a source document and produce a faithful '
         . 'structured brief. Numbers, names and labels must stay exactly as in the source. '
         . 'Detect the source language and report it as an ISO-639-1 code. '
@@ -45,7 +45,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
         . '"sections" (array of {"heading": string, "body": string}), '
         . '"audience" (string), "language" (ISO-639-1 string of the source language).';
 
-    private const MAP_SYSTEM_PROMPT
+    private const string MAP_SYSTEM_PROMPT
         = 'You summarize one section of a larger document faithfully and concisely. '
         . 'Preserve numbers, names and labels exactly. Output ONLY valid JSON.' . "\n\n" . SourceMaterial::SYSTEM_RULE . "\n\n"
         . 'Task: Summarize the section in the source material faithfully as JSON with keys '

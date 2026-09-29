@@ -17,13 +17,13 @@ namespace Netresearch\NrRepurpose\Generator\Support;
 final readonly class TextCut
 {
     /** The text fitted; nothing was cut. */
-    public const NONE = '';
+    public const string NONE = '';
 
     /** Cut after the last whole sentence that fits. */
-    public const SENTENCE = 'sentence';
+    public const string SENTENCE = 'sentence';
 
     /** Cut at a word boundary, "…" appended. */
-    public const WORD = 'word';
+    public const string WORD = 'word';
 
     public function __construct(
         public string $text,

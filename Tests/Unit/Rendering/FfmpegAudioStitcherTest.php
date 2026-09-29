@@ -17,9 +17,9 @@ use PHPUnit\Framework\TestCase;
 
 final class FfmpegAudioStitcherTest extends TestCase
 {
-    private const FFMPEG = '/usr/bin/ffmpeg';
+    private const string FFMPEG = '/usr/bin/ffmpeg';
 
-    private const FFPROBE = '/usr/bin/ffprobe';
+    private const string FFPROBE = '/usr/bin/ffprobe';
 
     private string $tmpDir;
 
