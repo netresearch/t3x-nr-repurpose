@@ -29,7 +29,7 @@ use Psr\Log\LoggerInterface;
  */
 final class FaqGenerator extends AbstractTextGenerator
 {
-    public const MAX_PAIRS = 10;
+    public const int MAX_PAIRS = 10;
 
     public function __construct(
         JobProcessingRepository $jobs,

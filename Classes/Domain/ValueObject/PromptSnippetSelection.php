@@ -17,7 +17,7 @@ namespace Netresearch\NrRepurpose\Domain\ValueObject;
  */
 final readonly class PromptSnippetSelection
 {
-    public const MAX_PERSONAS = 3;
+    public const int MAX_PERSONAS = 3;
 
     /** @var list<int> persona snippet uids in selection order */
     public array $personas;

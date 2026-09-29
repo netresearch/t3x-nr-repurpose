@@ -23,7 +23,7 @@ use Netresearch\NrRepurpose\Service\CallerSource;
  */
 final class ExecutiveSummaryGenerator extends AbstractTextGenerator
 {
-    public const MAX_SENTENCES = 8;
+    public const int MAX_SENTENCES = 8;
 
     protected function artifactType(): ArtifactType
     {
