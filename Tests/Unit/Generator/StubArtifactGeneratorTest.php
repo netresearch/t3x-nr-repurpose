@@ -60,4 +60,42 @@ final class StubArtifactGeneratorTest extends TestCase
         self::assertSame([['status' => 'failed', 'error' => 'Stub artifact failed']], $jobs->inserted);
         self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
     }
+
+    /** The stub file names the source without user name, password, query and fragment. */
+    public function testTheStubFileNamesTheSourceWithoutCredentials(): void
+    {
+        $storage = new class extends JobFileStorage {
+            public string $content = '';
+
+            public function __construct() {}
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            {
+                $this->content = $content;
+
+                throw new RuntimeException('not stored in a unit test');
+            }
+        };
+        $jobs = new class extends JobProcessingRepository {
+            public function __construct() {}
+
+            public function insertArtifact(int $jobUid, ArtifactType $type, string $variant, int $fileUid, ArtifactStatus $status, ?string $error = null): int
+            {
+                return 1;
+            }
+        };
+        $context = new GenerationContext(
+            ['uid' => 7, 'source_value' => 'https://user:secret@example.com/doc.pdf?token=abc#frag'],
+            new SourceDocument('Doc', 'text', 'https://example.com/doc.pdf', 0, 'en'),
+            new ContentBrief('Doc', 'Summary', [], [], 'All', 'en'),
+            'nr',
+            0,
+        );
+
+        (new StubArtifactGenerator($storage, $jobs, new RecordingLogger()))->generate($context);
+
+        self::assertStringContainsString("Source: https://example.com/doc.pdf\n", $storage->content);
+        self::assertStringNotContainsString('secret', $storage->content);
+        self::assertStringNotContainsString('token=abc', $storage->content);
+    }
 }

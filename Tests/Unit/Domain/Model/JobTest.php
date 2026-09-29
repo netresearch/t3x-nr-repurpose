@@ -15,6 +15,8 @@ use Netresearch\NrRepurpose\Domain\Model\Artifact;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
+use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class JobTest extends TestCase
@@ -34,6 +36,27 @@ final class JobTest extends TestCase
         self::assertFalse($job->isWantFaq());
         self::assertFalse($job->isWantSocialPost());
         self::assertFalse($job->isWantNewsletter());
+    }
+
+    /** @return array<string, array{string, string}> stored value, shown value */
+    public static function sourceValues(): array
+    {
+        return [
+            'credentials, query and fragment' => ['https://user:secret@example.com/doc.pdf?token=abc#frag', 'https://example.com/doc.pdf'],
+            'plain URL'                       => ['https://example.com/doc.pdf', 'https://example.com/doc.pdf'],
+            'no URL (attached PDF)'           => ['', ''],
+            'not a URL'                       => ['user:secret@example.com/doc.pdf', SourceUrlRedactor::PLACEHOLDER],
+        ];
+    }
+
+    #[DataProvider('sourceValues')]
+    public function testTheSourceValueForDisplayLeavesOutCredentialsAndQuery(string $stored, string $shown): void
+    {
+        $job = new Job();
+        $job->setSourceValue($stored);
+
+        self::assertSame($shown, $job->getSourceValueForDisplay());
+        self::assertSame($stored, $job->getSourceValue(), 'the job keeps the URL as entered');
     }
 
     public function testArtifactTypeSummariesAreEmptyForAJobWithoutArtifacts(): void

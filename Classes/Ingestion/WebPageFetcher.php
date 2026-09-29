@@ -71,7 +71,9 @@ class WebPageFetcher
         return new SourceDocument(
             title: $title,
             text: $text,
-            sourceLabel: $url,
+            // The label reaches the text model's prompts and the published story, slide
+            // deck and handout; the fetch above needed the URL as entered.
+            sourceLabel: SourceUrlRedactor::redact($url),
             pageCount: 0,
             languageHint: $this->detectLanguageHint($html),
             meta: ['fetchedVia' => 'static'],
