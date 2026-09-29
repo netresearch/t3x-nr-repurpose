@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **`composer.json` carries the extension version and `Package.providesPackages`** (TYPO3 deprecation #108345). `extra.typo3/cms.version` is `0.8.2`, and `providesPackages` names `smalot/pdfparser`, the one required package that is neither a TYPO3 extension nor shipped by the TYPO3 core. The entry has no vendor path, so in classic mode it only keeps TYPO3 from treating the package as a missing extension: the TER package does not contain smalot/pdfparser, and PDF ingestion in a classic installation fails with `Class "Smalot\PdfParser\Config" not found`, as it did before. With both fields present TYPO3 14 no longer evaluates `ext_emconf.php` and takes the extension's dependencies from `composer.json`'s `require`. The version has to be bumped in both files on every release; `Tests/Unit/VersionConsistencyTest.php` fails when they differ. In classic mode the Extension Manager no longer shows the `alpha` state from `ext_emconf.php`.
+- **`typo3/cms-install` moves from `require` to `require-dev`.** No class, configuration or upgrade wizard of this extension uses EXT:install. Once `composer.json` carries the #108345 metadata, TYPO3 turns every `require` entry into a hard package dependency, so every classic-mode installation and every functional test instance would have had to load EXT:install. It stays in `require-dev` for `typo3 setup` in `ddev install`.
+
 ### Fixed
 
 - **The renderer uses the configured Chromium again.** `PlaywrightHtmlToImageRenderer` set `CHROMIUM_PATH` with `putenv()`, but Symfony Process passes on only those variables of `getenv()` that are also in `$_SERVER`, so `render.cjs` never saw it and Playwright looked for its own downloaded browser, which the extension does not install. The DDEV image hid this because it sets `CHROMIUM_PATH` itself. The path is now handed to the process as its environment: `ProcessRunnerInterface::run()` takes an optional `$env` array, which `SymfonyProcessRunner` sets on top of the inherited environment. A custom `ProcessRunnerInterface` implementation has to add the parameter.
