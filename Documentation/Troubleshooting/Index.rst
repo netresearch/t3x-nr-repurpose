@@ -96,8 +96,12 @@ errors:
     — the host, or one of the addresses it resolves to, lies in the
     local or internal network. The address itself is written to the TYPO3
     log, not to the error.
--   ``Source URL cannot be parsed: …`` — the HTTP library cannot read the URL;
-    its message is in the TYPO3 log.
+-   ``Source URL cannot be parsed: …`` — the HTTP library cannot read the URL.
+
+Where an error names the URL, it shows scheme, host, port and path only: a
+user name and password, the query and the fragment are left out, because every
+user of the module sees the error. A value that is not a URL with a scheme and
+a host shows as ``(URL not shown)``. The job keeps the URL as entered.
 
 No setting allows an internal host. For a PDF that only an internal server
 provides, attach the file to the job as a *PDF file (FAL)* source.
