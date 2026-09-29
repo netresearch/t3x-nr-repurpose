@@ -312,7 +312,8 @@ final class PodcastGenerator extends AbstractGenerator
         foreach ($rawTurns as $raw) {
             $speaker = $this->scalarField($raw, 'speaker') ?? '';
             if (!isset($personaVoices[$speaker])) {
-                $speaker = $names[0];
+                // (string): a numeric persona name is an int array key.
+                $speaker = (string) $names[0];
             }
 
             $text = trim($this->scalarField($raw, 'text') ?? '');

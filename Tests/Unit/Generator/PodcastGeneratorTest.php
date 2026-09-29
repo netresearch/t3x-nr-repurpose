@@ -379,6 +379,31 @@ final class PodcastGeneratorTest extends TestCase
     }
 
     /**
+     * PHP stores a numeric persona name ("123") as an int array key; the fallback for an
+     * unknown speaker must still hand DialogueTurn a string, not fail the podcast.
+     */
+    public function testUnknownSpeakerFallsBackToANumericPersonaName(): void
+    {
+        $completion = $this->completion([
+            ['speaker' => 'Dave', 'text' => 'Not on the guest list.'],
+        ]);
+        $jobs      = $this->jobs();
+        $generator = new PodcastGenerator(
+            $jobs,
+            $this->allowingBudget(),
+            new NullLogger(),
+            $completion,
+            $this->speech(),
+            $this->stitcher(),
+            $this->storage(),
+            new WebVttBuilder(),
+        );
+
+        self::assertTrue($generator->generate($this->context(1, [new Persona('123', 'Numbers person.')])));
+        self::assertStringContainsString('123: Not on the guest list.', $jobs->updates[100]['script_text']);
+    }
+
+    /**
      * The decoded LLM JSON is untrusted in shape: a turn whose text is a nested array must
      * be dropped, not voiced as "Array", and a non-scalar speaker falls back to the default.
      *
