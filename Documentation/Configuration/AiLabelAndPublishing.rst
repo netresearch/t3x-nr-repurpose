@@ -52,8 +52,9 @@ Two extension settings:
 ``socialWebhookUrl`` (default: empty)
     The ``http`` or ``https`` URL that receives each due post by POST as JSON:
     ``artifactUid``, ``jobUid``, ``platform`` (``linkedin``, ``x``,
-    ``instagram``), ``text``, ``publishAt`` (UTC, ISO 8601), ``sourceUrl``,
-    ``aiGenerated`` (always ``true``) and ``aiLabel``. A 2xx answer marks the
+    ``instagram``), ``text``, ``publishAt`` (UTC, ISO 8601), ``sourceUrl``
+    (the job's source URL without user name and password; query and fragment
+    stay), ``aiGenerated`` (always ``true``) and ``aiLabel``. A 2xx answer marks the
     post published; anything else marks it failed with the status. Empty: no
     post is sent.
 

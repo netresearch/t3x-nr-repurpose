@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Pipeline;
 use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
+use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 
@@ -25,9 +26,8 @@ use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
  */
 final readonly class GenerationContext
 {
-    /** @param array<string,mixed> $jobRow raw job DB row (JobProcessingRepository::findRow) */
     public function __construct(
-        public array $jobRow,
+        public JobSnapshot $job,
         public SourceDocument $document,
         public ContentBrief $brief,
         public string $theme,   // 'nr' | 'neutral'
@@ -42,14 +42,14 @@ final readonly class GenerationContext
 
     public function jobUid(): int
     {
-        return (int) $this->jobRow['uid'];
+        return $this->job->uid;
     }
 
     /** Derive the per-generator context carrying that generator's progress reporter. */
     public function withProgress(JobProgress $progress): self
     {
         return new self(
-            $this->jobRow,
+            $this->job,
             $this->document,
             $this->brief,
             $this->theme,

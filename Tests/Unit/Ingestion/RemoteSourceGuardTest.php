@@ -146,14 +146,16 @@ final class RemoteSourceGuardTest extends TestCase
         $factory->method('createRequest')->willThrowException(new InvalidArgumentException('Unable to parse URI: detail'));
 
         try {
-            (new RemoteSourceGuard($resolver, $logger))->createRequest($factory, 'GET', 'https://bad.example/');
+            (new RemoteSourceGuard($resolver, $logger))->createRequest($factory, 'GET', 'https://user:secret@bad.example/?token=abc');
             self::fail('An unparseable URL must be refused');
         } catch (IngestionException $e) {
             self::assertSame(1749379468, $e->getCode());
             self::assertSame('Source URL cannot be parsed: https://bad.example/', $e->getMessage());
+            self::assertNull($e->getPrevious(), 'the library exception repeats the raw URL');
         }
 
-        self::assertSame([['url' => 'https://bad.example/', 'error' => 'Unable to parse URI: detail']], $logger->contexts);
+        // The log gets the URL without user name, password and query too.
+        self::assertSame([['url' => 'https://bad.example/']], $logger->contexts);
         self::assertSame([], $resolver->asked);
     }
 

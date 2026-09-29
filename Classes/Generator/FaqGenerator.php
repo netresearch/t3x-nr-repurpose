@@ -46,11 +46,6 @@ final class FaqGenerator extends AbstractTextGenerator
         return ArtifactType::Faq;
     }
 
-    protected function wantColumn(): string
-    {
-        return 'want_faq';
-    }
-
     protected function label(): string
     {
         return 'FAQ';

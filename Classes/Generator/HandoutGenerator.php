@@ -54,11 +54,6 @@ class HandoutGenerator extends AbstractDocumentGenerator
         return ArtifactType::Handout;
     }
 
-    protected function wantColumn(): string
-    {
-        return 'want_handout';
-    }
-
     protected function label(): string
     {
         return 'Handout';

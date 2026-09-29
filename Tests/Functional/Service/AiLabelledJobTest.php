@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
+use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\FaqGenerator;
 use Netresearch\NrRepurpose\Generator\HandoutGenerator;
@@ -99,7 +100,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
             $this->get(AiLabelSettingsFactory::class),
             [
                 new PodcastGenerator($jobs, $budget, $logger, $completion, $this->speech(), $this->stitcher(), $storage, new WebVttBuilder()),
-                new SchaubildGenerator($jobs, $budget, $logger, $completion, $renderer, new GdImageCompositor(), $this->unavailableImages(), $storage, $this->get(ViewFactoryInterface::class)),
+                new SchaubildGenerator($jobs, $budget, $logger, $completion, $renderer, new GdImageCompositor(new NullLogger()), $this->unavailableImages(), $storage, $this->get(ViewFactoryInterface::class)),
                 new FaqGenerator($jobs, $budget, $logger, $completion, $labels),
             ],
         ))->process($jobUid);
@@ -168,7 +169,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
             $this->get(ExtensionConfiguration::class),
             $this->grants(),
             $this->get(AiLabelSettingsFactory::class),
-            [new SchaubildGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(40), new GdImageCompositor(), $this->unavailableImages(), $this->get(JobFileStorage::class), $this->get(ViewFactoryInterface::class))],
+            [new SchaubildGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(40), new GdImageCompositor(new NullLogger()), $this->unavailableImages(), $this->get(JobFileStorage::class), $this->get(ViewFactoryInterface::class))],
         ))->process($jobUid);
 
         $row = GeneralUtility::makeInstance(ConnectionPool::class)
@@ -305,7 +306,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
             $this->get(ExtensionConfiguration::class),
             $this->grants(),
             $this->get(AiLabelSettingsFactory::class),
-            [new StoryGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(), new GdImageCompositor(), $this->unavailableImages(), $this->get(JobFileStorage::class), $this->get(ViewFactoryInterface::class), $slideshow)],
+            [new StoryGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(), new GdImageCompositor(new NullLogger()), $this->unavailableImages(), $this->get(JobFileStorage::class), $this->get(ViewFactoryInterface::class), $slideshow)],
         ))->process($jobUid);
 
         $row = GeneralUtility::makeInstance(ConnectionPool::class)
@@ -375,7 +376,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
     private function ingestion(): SourceIngestionServiceInterface
     {
         return new class implements SourceIngestionServiceInterface {
-            public function ingest(array $jobRow): SourceDocument
+            public function ingest(JobSnapshot $job): SourceDocument
             {
                 return new SourceDocument(AiLabelledJobTest::TITLE, 'Revenue grew by twelve percent.', 'https://example.com/', 0, 'en');
             }
@@ -385,7 +386,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
     private function analyzer(): DocumentAnalyzerInterface
     {
         return new class implements DocumentAnalyzerInterface {
-            public function analyze(SourceDocument $document, array $jobRow): ContentBrief
+            public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
             {
                 return new ContentBrief(AiLabelledJobTest::TITLE, 'Revenue grew.', ['Revenue +12 %'], [], 'Analysts', 'en');
             }

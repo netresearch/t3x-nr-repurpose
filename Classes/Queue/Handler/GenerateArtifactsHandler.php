@@ -19,6 +19,11 @@ use Throwable;
 /**
  * v14.3 Core has NO retry/failure transport — so a hard failure is caught here and the job
  * is marked failed (no rethrow), otherwise the message would be lost with no record.
+ *
+ * What reaches this catch escaped the orchestrator's own step handling (a generator that
+ * threw, a database error), so its message can be the text model's answer, a path or SQL.
+ * The job's error_message is shown to every module user: it gets a fixed text, the
+ * exception goes to the log.
  */
 #[AsMessageHandler]
 final readonly class GenerateArtifactsHandler
@@ -34,8 +39,8 @@ final readonly class GenerateArtifactsHandler
         try {
             $this->orchestrator->process($message->jobUid);
         } catch (Throwable $e) {
-            $this->logger->error('Generation job crashed', ['job' => $message->jobUid, 'exception' => $e->getMessage()]);
-            $this->jobs->markFailed($message->jobUid, $e->getMessage());
+            $this->logger->error('Generation job crashed', ['job' => $message->jobUid, 'exception' => $e]);
+            $this->jobs->markFailed($message->jobUid, 'Generation failed');
         }
     }
 }

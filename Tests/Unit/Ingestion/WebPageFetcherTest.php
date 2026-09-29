@@ -47,6 +47,22 @@ final class WebPageFetcherTest extends TestCase
         self::assertSame('en', $doc->languageHint);
     }
 
+    /**
+     * The label goes into the text model's prompts and onto the published story, slide
+     * deck and handout; the fetch itself needs the URL as entered.
+     */
+    public function testTheLabelIsTheUrlWithoutCredentialsQueryOrFragment(): void
+    {
+        $http = QueuedHttpClient::answering(200, (string) file_get_contents(__DIR__ . '/../../Fixtures/Web/article.html'));
+
+        $doc = (new WebPageFetcher($http->client, new HttpFactory(), StaticHostResolver::publicGuard()))
+            ->fetch('https://user:secret@example.com/q1?token=abc#frag');
+
+        self::assertSame('https://example.com/q1', $doc->sourceLabel);
+        self::assertSame('user:secret', $http->handler->getLastRequest()?->getUri()->getUserInfo(), 'the request keeps the credentials');
+        self::assertSame('token=abc', $http->handler->getLastRequest()?->getUri()->getQuery(), 'the request keeps the query');
+    }
+
     public function testThrowsIngestionExceptionOnNon2xx(): void
     {
         $fetcher = new WebPageFetcher($this->client(404, 'Not found'), new HttpFactory(), StaticHostResolver::publicGuard());

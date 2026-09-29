@@ -77,7 +77,7 @@ final class PodcastGenerator extends AbstractGenerator
 
     public function supports(GenerationContext $ctx): bool
     {
-        return (bool) ($ctx->jobRow['want_podcast'] ?? false);
+        return $ctx->job->wantPodcast;
     }
 
     public function generate(GenerationContext $ctx): bool
@@ -166,7 +166,7 @@ final class PodcastGenerator extends AbstractGenerator
 
             return true;
         } catch (Throwable $e) {
-            $this->failArtifact($artifactUid, $jobUid, 'Podcast generation error: ' . $e->getMessage());
+            $this->failArtifactFrom($artifactUid, $jobUid, 'Podcast generation', $e);
 
             return false;
         }

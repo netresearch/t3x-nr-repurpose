@@ -18,6 +18,7 @@ use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\AiMarkerReader;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Smalot\PdfParser\Parser;
 
 /**
@@ -118,7 +119,7 @@ final class AiContentMarkerTest extends TestCase
             $foreground = imagecreatetruecolor(20, 10);
             imagesavealpha($foreground, true);
             imagepng($foreground, $dir . '/fg.png');
-            (new GdImageCompositor())->overlay($dir . '/bg.png', $dir . '/fg.png', $dir . '/out.png');
+            (new GdImageCompositor(new NullLogger()))->overlay($dir . '/bg.png', $dir . '/fg.png', $dir . '/out.png');
 
             $marked = (new AiContentMarker())->markPng((string) file_get_contents($dir . '/out.png'), $this->provenance(DigitalSourceType::TrainedAlgorithmicMedia));
         } finally {

@@ -102,7 +102,7 @@ class StoryGenerator extends AbstractGenerator
 
     public function supports(GenerationContext $ctx): bool
     {
-        return (bool) ($ctx->jobRow['want_story'] ?? false);
+        return $ctx->job->wantStory;
     }
 
     public function generate(GenerationContext $ctx): bool
@@ -113,7 +113,7 @@ class StoryGenerator extends AbstractGenerator
             $ctx->progress?->step('Story: writing copy', 0.05);
             $slides = $this->buildSlides($ctx);
         } catch (Throwable $e) {
-            $this->failStoryUpfront($jobUid, 'Story generation error: ' . $e->getMessage());
+            $this->failStoryUpfront($jobUid, $e);
 
             return false;
         }
@@ -142,7 +142,7 @@ class StoryGenerator extends AbstractGenerator
             }
 
             $ok = $images !== [];
-            if ($ok && $this->slideshow instanceof SlideshowRendererInterface && (bool) ($ctx->jobRow['want_video'] ?? false)) {
+            if ($ok && $this->slideshow instanceof SlideshowRendererInterface && $ctx->job->wantVideo) {
                 $ctx->progress?->step('Story: video', 0.95);
                 $this->generateVideoArtifact($ctx, $jobUid, $this->slideshow, $images);
             }
@@ -197,7 +197,7 @@ class StoryGenerator extends AbstractGenerator
                 'status'   => ArtifactStatus::Done->value,
             ]);
         } catch (Throwable $e) {
-            $this->failArtifact($artifactUid, $jobUid, 'Story video error: ' . $e->getMessage());
+            $this->failArtifactFrom($artifactUid, $jobUid, 'Story video', $e);
         }
     }
 
@@ -402,7 +402,7 @@ class StoryGenerator extends AbstractGenerator
             // JSON_THROW_ON_ERROR matches the success path; $metadata is a fixed shape of
             // local scalars, so encoding cannot actually fail here.
             $this->jobs->updateArtifact($artifactUid, ['metadata' => json_encode($metadata, JSON_THROW_ON_ERROR)]);
-            $this->failArtifact($artifactUid, $jobUid, sprintf('Story slide %d/%d error: %s', $index, $total, $e->getMessage()));
+            $this->failArtifactFrom($artifactUid, $jobUid, sprintf('Story slide %d/%d', $index, $total), $e);
             // Not handed to the caller, so nobody else removes it.
             $this->discardRenderedFile($pngPath);
 
@@ -415,11 +415,18 @@ class StoryGenerator extends AbstractGenerator
 
     /**
      * No usable slides (LLM error or empty/garbage carousel): record one failed story row
-     * so the result view surfaces the failure.
+     * so the result view surfaces the failure. An exception goes through failArtifactFrom(),
+     * so the text model's own message stays in the server log.
      */
-    private function failStoryUpfront(int $jobUid, string $reason): void
+    private function failStoryUpfront(int $jobUid, string|Throwable $reason): void
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Story, 'default', 0, ArtifactStatus::Pending);
+        if ($reason instanceof Throwable) {
+            $this->failArtifactFrom($artifactUid, $jobUid, 'Story generation', $reason);
+
+            return;
+        }
+
         $this->failArtifact($artifactUid, $jobUid, $reason);
     }
 

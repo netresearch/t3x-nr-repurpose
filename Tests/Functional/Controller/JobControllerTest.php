@@ -172,8 +172,9 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function listActionCutsALongSourceToOneLineAndKeepsTheFullValue(): void
     {
-        // The demo's job 2: a tracking URL of about 400 characters without a break opportunity.
-        $url = 'https://www.example.com/de-de/explorer/paris/?utm_source=google&utm_medium=cpc&gclid=' . str_repeat('Cj0KCQjw', 45);
+        // After the demo's job 2: a URL of about 400 characters without a break opportunity. The
+        // length sits in the path, since the page shows the URL without its query.
+        $url = 'https://www.example.com/de-de/explorer/paris/' . str_repeat('Cj0KCQjw', 45);
         GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job')
             ->insert('tx_nrrepurpose_domain_model_job', ['pid' => 0, 'source_type' => 'url', 'source_value' => $url, 'status' => 'failed']);
 
@@ -336,7 +337,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function showActionPutsAFailedArtifactIntoTheCoreErrorBoxAndBreaksLongValues(): void
     {
-        $url = 'https://www.example.com/?gclid=' . str_repeat('Cj0KCQjw', 45);
+        $url = 'https://www.example.com/' . str_repeat('Cj0KCQjw', 45);
         $job = $this->insertJob($url, 'partially_done');
         GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
             ->insert('tx_nrrepurpose_domain_model_artifact', ['pid' => 0, 'job' => $job, 'type' => 'podcast', 'status' => 'failed', 'error_message' => 'TTS refused ' . $url]);
@@ -423,7 +424,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function planActionCutsTheSourceOfAPostToOneLine(): void
     {
-        $url = 'https://www.example.com/?gclid=' . str_repeat('Cj0KCQjw', 45);
+        $url = 'https://www.example.com/' . str_repeat('Cj0KCQjw', 45);
         $job = $this->insertJob($url, 'done');
         GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
             ->insert('tx_nrrepurpose_domain_model_artifact', [
@@ -603,6 +604,37 @@ final class JobControllerTest extends AbstractFunctionalTestCase
 
         self::assertSame(200, $this->dispatch('show', ['job' => $job], self::EDITOR)->getStatusCode());
         self::assertSame([], RecordingLogWriter::$records);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function pagesShowingTheSource(): array
+    {
+        return ['list' => ['list'], 'show' => ['show'], 'plan' => ['plan']];
+    }
+
+    /**
+     * Every module user sees the job list, the result view and the publishing plan. They
+     * show the source URL without user name, password, query and fragment; the job keeps
+     * it as entered for the fetch, and the record form of the List module shows it whole.
+     */
+    #[Test]
+    #[DataProvider('pagesShowingTheSource')]
+    public function aPageShowsTheSourceUrlWithoutCredentialsOrQuery(string $action): void
+    {
+        // Distinctive values: the backend page itself carries words such as "secret" (nr-vault's modules).
+        $job = $this->insertJob('https://jdoe:s3cr3tPw@example.com/doc.pdf?token=t0k3nXyz#fragQ7', 'done');
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->insert('tx_nrrepurpose_domain_model_artifact', [
+                'pid'           => 0, 'job' => $job, 'type' => 'social_post', 'variant' => 'linkedin', 'status' => 'done', 'script_text' => 'Post',
+                'review_status' => 'approved', 'publish_status' => 'scheduled', 'publish_at' => 1790000000,
+            ]);
+
+        $body = $this->renderAction($action, $action === 'show' ? ['job' => $job] : []);
+
+        self::assertStringContainsString('https://example.com/doc.pdf', $body);
+        foreach (['s3cr3tPw', 't0k3nXyz', 'jdoe', 'fragQ7'] as $leak) {
+            self::assertStringNotContainsString($leak, $body);
+        }
     }
 
     private function insertJob(string $url, string $status): int

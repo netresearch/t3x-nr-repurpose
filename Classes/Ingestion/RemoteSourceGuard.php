@@ -75,13 +75,14 @@ final readonly class RemoteSourceGuard
     {
         try {
             $request = $requestFactory->createRequest($method, $url);
-        } catch (InvalidArgumentException $e) {
+        } catch (InvalidArgumentException) {
+            // The library's message repeats the whole URL ("Unable to parse URI: …") and
+            // carries no other reason, so neither it nor the exception is kept.
             $this->logger->warning('Source URL refused: the URL cannot be parsed', [
-                'url'   => $url,
-                'error' => $e->getMessage(),
+                'url' => SourceUrlRedactor::redact($url),
             ]);
 
-            throw new IngestionException('Source URL cannot be parsed: ' . $url, 1749379468, $e);
+            throw new IngestionException('Source URL cannot be parsed: ' . SourceUrlRedactor::redact($url), 1749379468);
         }
 
         $this->assertAllowed($request->getUri());
@@ -97,14 +98,14 @@ final readonly class RemoteSourceGuard
         $scheme = strtolower($uri->getScheme());
         if ($scheme !== 'http' && $scheme !== 'https') {
             throw new IngestionException(
-                sprintf('Source URL scheme "%s" is not allowed, only http and https: %s', $scheme, $uri),
+                sprintf('Source URL scheme "%s" is not allowed, only http and https: %s', $scheme, SourceUrlRedactor::redact((string) $uri)),
                 1749379460,
             );
         }
 
         $host = trim($uri->getHost(), '[]');
         if ($host === '') {
-            throw new IngestionException('Source URL has no host: ' . $uri, 1749379461);
+            throw new IngestionException('Source URL has no host: ' . SourceUrlRedactor::redact((string) $uri), 1749379461);
         }
 
         $isIpLiteral = filter_var($host, FILTER_VALIDATE_IP) !== false;

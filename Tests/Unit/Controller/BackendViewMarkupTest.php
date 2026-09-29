@@ -96,7 +96,7 @@ final class BackendViewMarkupTest extends TestCase
 
     public function testTheListCutsTheSourceToOneLineAndKeepsTheFullValue(): void
     {
-        $cells = $this->xpath('Private/Templates/Job/List.html')->query('//td[contains(., "{job.sourceValue}")]');
+        $cells = $this->xpath('Private/Templates/Job/List.html')->query('//td[contains(., "{job.sourceValueForDisplay}")]');
         self::assertNotFalse($cells);
         self::assertSame(1, $cells->length);
         $cell = $cells->item(0);
@@ -105,8 +105,8 @@ final class BackendViewMarkupTest extends TestCase
         // Core .col-responsive: one line, ellipsis, max 200px (TYPO3 13.4 and 14.3).
         self::assertStringContainsString('col-responsive', $cell->getAttribute('class'));
         // Hover shows the whole URL; the cell text itself stays complete for copying and screen readers.
-        self::assertSame('{job.sourceValue}', $cell->getAttribute('title'));
-        self::assertSame('{job.sourceValue}', trim($cell->textContent));
+        self::assertSame('{job.sourceValueForDisplay}', $cell->getAttribute('title'));
+        self::assertSame('{job.sourceValueForDisplay}', trim($cell->textContent));
     }
 
     public function testThePlanCutsTheSourceToOneLineAndKeepsTheFullValue(): void
@@ -189,7 +189,7 @@ final class BackendViewMarkupTest extends TestCase
     public static function longValues(): array
     {
         return [
-            'source'         => ['Private/Templates/Job/Show.html', '//dd[contains(., "{job.sourceValue}")]'],
+            'source'         => ['Private/Templates/Job/Show.html', '//dd[contains(., "{job.sourceValueForDisplay}")]'],
             'job error'      => ['Private/Templates/Job/Show.html', '//dd[contains(., "{job.errorMessage}")]'],
             'artifact cards' => ['Private/Templates/Job/Show.html', '//div[contains(@class, "card-body")][.//*[contains(., "{artifact.errorMessage}")]]'],
             'post text'      => ['Private/Templates/Job/Plan.html', '//td[contains(., "{post.script_text}")]'],

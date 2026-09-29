@@ -22,10 +22,11 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\ArtifactRecordingJobRepository;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
 use RuntimeException;
 
 /**
@@ -76,7 +77,7 @@ abstract class TextGeneratorTestCase extends TestCase
         );
 
         return new GenerationContext(
-            ['uid' => 31, 'theme' => 'nr', 'be_user' => 7, $this->wantColumn() => $want ? 1 : 0],
+            JobSnapshots::of(['uid' => 31, 'theme' => 'nr', 'be_user' => 7, $this->wantColumn() => $want ? 1 : 0]),
             $document,
             $brief,
             'nr',
@@ -100,9 +101,12 @@ abstract class TextGeneratorTestCase extends TestCase
         return new FakeBudgetService();
     }
 
-    protected function logger(): NullLogger
+    /** Every generator() gets this logger, so a test can read what reached the server log. */
+    private ?RecordingLogger $recordingLogger = null;
+
+    protected function logger(): RecordingLogger
     {
-        return new NullLogger();
+        return $this->recordingLogger ??= new RecordingLogger();
     }
 
     /**
@@ -273,9 +277,14 @@ abstract class TextGeneratorTestCase extends TestCase
         }
     }
 
-    public function testProviderOrSchemaFailureRecordsOneFailedRowWithAReadableReason(): void
+    /**
+     * The row's error_message is shown to every module user; the text model's own message
+     * (provider detail, request data) goes to the server log only.
+     */
+    public function testProviderOrSchemaFailureRecordsOneFailedRowWithAFixedReason(): void
     {
-        $this->completion->throwable = new RuntimeException('Structured completion did not match the required schema after one repair attempt.');
+        $cause                       = new RuntimeException('Provider answered 401 for https://api.example.test/v1 with key sk-secret');
+        $this->completion->throwable = $cause;
 
         self::assertFalse($this->generatorWithAnswer()->generate($this->context()));
 
@@ -283,10 +292,8 @@ abstract class TextGeneratorTestCase extends TestCase
         $row = $this->jobs->row('default');
         self::assertSame($this->expectedType(), $row['type']);
         self::assertSame('failed', $row['status']);
-        self::assertSame(
-            $this->expectedLabel() . ' generation error: Structured completion did not match the required schema after one repair attempt.',
-            $row['error_message'],
-        );
+        self::assertSame($this->expectedLabel() . ' generation failed', $row['error_message']);
+        self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $this->logger()->records));
     }
 
     public function testReportsAWritingStep(): void

@@ -22,6 +22,7 @@ use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use Psr\Log\NullLogger;
@@ -76,7 +77,7 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
     public function testIngestsStaticHtmlIntoSourceDocument(): void
     {
         $doc = $this->service($this->htmlClient(), $this->explodingVision())
-            ->ingest(['uid' => 1, 'source_type' => 'url', 'source_value' => 'https://example.com/q1', 'be_user' => 0]);
+            ->ingest(JobSnapshots::of(['uid' => 1, 'source_type' => 'url', 'source_value' => 'https://example.com/q1', 'be_user' => 0]));
 
         self::assertInstanceOf(SourceDocument::class, $doc);
         self::assertSame('Quarterly Results 2026', $doc->title);
@@ -107,10 +108,10 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
         ]);
 
         $doc = $this->service($this->htmlClient(), $this->explodingVision())
-            ->ingest([
+            ->ingest(JobSnapshots::of([
                 'uid'      => 2, 'source_type' => 'pdf_fal', 'source_pdf' => 1,
                 'pdf_mode' => 'auto', 'be_user' => 0,
-            ]);
+            ]));
 
         self::assertStringContainsString('Net revenue rose to 48 million euro', $doc->text);
         self::assertSame(1, $doc->pageCount);

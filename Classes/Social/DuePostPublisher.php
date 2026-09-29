@@ -13,6 +13,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\PublishStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
+use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -55,7 +56,9 @@ final readonly class DuePostPublisher
                 (string) $row['variant'],
                 (string) $row['script_text'],
                 (int) $row['publish_at'],
-                (string) $row['source_value'],
+                // Published with the post: the job keeps the user name and password for
+                // the fetch, the channel gets the page's address without them.
+                SourceUrlRedactor::withoutCredentials((string) $row['source_value']),
                 is_array($metadata) && is_array($metadata['aiLabel'] ?? null) ? $metadata['aiLabel'] : [],
             );
 

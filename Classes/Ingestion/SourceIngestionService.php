@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Ingestion;
 
 use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
+use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
@@ -45,16 +46,11 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         private LoggerInterface $logger,
     ) {}
 
-    public function ingest(array $jobRow): SourceDocument
+    public function ingest(JobSnapshot $job): SourceDocument
     {
-        $type = SourceType::tryFrom((string) ($jobRow['source_type'] ?? ''));
-        if ($type === null) {
-            throw new IngestionException('Unknown source_type: ' . ($jobRow['source_type'] ?? ''), 1749379450);
-        }
-
-        return match ($type) {
-            SourceType::Url                        => $this->ingestUrl((string) ($jobRow['source_value'] ?? '')),
-            SourceType::PdfUrl, SourceType::PdfFal => $this->ingestPdf($jobRow),
+        return match ($job->sourceType) {
+            SourceType::Url                        => $this->ingestUrl($job->sourceValue),
+            SourceType::PdfUrl, SourceType::PdfFal => $this->ingestPdf($job),
         };
     }
 
@@ -67,19 +63,16 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         return $this->webPageFetcher->fetch($url);
     }
 
-    /** @param array<string,mixed> $jobRow */
-    private function ingestPdf(array $jobRow): SourceDocument
+    private function ingestPdf(JobSnapshot $job): SourceDocument
     {
-        $mode    = PdfMode::fromJobValue((string) ($jobRow['pdf_mode'] ?? 'auto'));
-        $beUser  = (int) ($jobRow['be_user'] ?? 0);
-        $absPath = $this->pdfFileResolver->resolve($jobRow);
+        $absPath = $this->pdfFileResolver->resolve($job);
         try {
-            return $this->readPdf($absPath, $mode, $beUser);
+            return $this->readPdf($absPath, $job->pdfMode, $job->beUser);
         } catch (Throwable $e) {
             // The exception message becomes the job's error, which every module user
             // sees, so it never carries the server path; the path goes to the log.
             $this->logger->error('PDF ingestion failed', [
-                'job'       => (int) ($jobRow['uid'] ?? 0),
+                'job'       => $job->uid,
                 'path'      => $absPath,
                 'exception' => $e,
             ]);

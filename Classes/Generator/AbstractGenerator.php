@@ -11,11 +11,14 @@ namespace Netresearch\NrRepurpose\Generator;
 
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
+use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
+use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -213,5 +216,27 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
             'status'        => ArtifactStatus::Failed->value,
             'error_message' => $reason,
         ]);
+    }
+
+    /**
+     * Record a failed step caused by $e. The row's error_message is shown to every module
+     * user, so only this extension's own messages reach it — the LLM-output checks
+     * (InvalidLlmOutputException) and the rendering primitives (RenderingException). A
+     * RenderingException's message must therefore stay a fixed text: a primitive that wraps
+     * stderr, a path or a provider error logs that itself and throws without it (see
+     * GdImageCompositor). Any other exception (the text model, FAL, the database)
+     * can carry provider detail, paths or SQL: the row gets "<step> failed" and the
+     * exception goes to the server log.
+     */
+    protected function failArtifactFrom(int $artifactUid, int $jobUid, string $step, Throwable $e): void
+    {
+        if ($e instanceof InvalidLlmOutputException || $e instanceof RenderingException) {
+            $this->failArtifact($artifactUid, $jobUid, $step . ' error: ' . $e->getMessage());
+
+            return;
+        }
+
+        $this->logger->error($step . ' failed', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
+        $this->failArtifact($artifactUid, $jobUid, $step . ' failed');
     }
 }

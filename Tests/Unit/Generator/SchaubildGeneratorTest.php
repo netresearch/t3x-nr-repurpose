@@ -33,6 +33,7 @@ use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
@@ -51,7 +52,7 @@ final class SchaubildGeneratorTest extends TestCase
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief    = new ContentBrief('Report', $summary, ['A', 'B'], [['heading' => 'H', 'body' => 'B']], 'All', 'en');
 
-        return new GenerationContext(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1], $document, $brief, 'nr', 4, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
+        return new GenerationContext(JobSnapshots::of(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1]), $document, $brief, 'nr', 4, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
     }
 
     /**
@@ -445,7 +446,7 @@ final class SchaubildGeneratorTest extends TestCase
 
             public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
             {
-                throw new RuntimeException('FAL write failed');
+                throw new RuntimeException('FAL write failed: /var/www/html/fileadmin/repurpose/x.png');
             }
         };
         $generator = $this->generator($renderer, $this->compositor(), $this->imageGenerator(), $storage, $jobs, $this->allowingBudget());
@@ -453,7 +454,10 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertFalse($generator->generate($this->context()));
 
         foreach (['html', 'html_bg', 'ki_image'] as $variant) {
-            self::assertSame('failed', $jobs->updates[$jobs->uidForVariant($variant)]['status']);
+            $update = $jobs->updates[$jobs->uidForVariant($variant)];
+            self::assertSame('failed', $update['status']);
+            // A FAL error is not this extension's own message: fixed text, cause in the log.
+            self::assertSame('Schaubild ' . $variant . ' variant failed', $update['error_message']);
         }
 
         self::assertCount(2, $renderer->outputs);

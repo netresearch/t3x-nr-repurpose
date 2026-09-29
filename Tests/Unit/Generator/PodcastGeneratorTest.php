@@ -32,11 +32,14 @@ use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
 
@@ -60,7 +63,7 @@ final class PodcastGeneratorTest extends TestCase
         );
 
         return new GenerationContext(
-            ['uid' => 7, 'theme' => 'nr', 'be_user' => 3, 'want_podcast' => $wantPodcast],
+            JobSnapshots::of(['uid' => 7, 'theme' => 'nr', 'be_user' => 3, 'want_podcast' => $wantPodcast]),
             $document,
             $brief,
             'nr',
@@ -325,6 +328,26 @@ final class PodcastGeneratorTest extends TestCase
         self::assertSame('failed', $jobs->updates[100]['status']);
     }
 
+    /**
+     * The row's error_message is shown to every module user; the text model's own message
+     * (provider detail, request data) goes to the server log only.
+     */
+    public function testAFailedScriptCallStoresAFixedReasonAndLogsTheCause(): void
+    {
+        $completion            = $this->completion();
+        $cause                 = new RuntimeException('Provider answered 401 for https://api.example.test/v1 with key sk-secret');
+        $completion->throwable = $cause;
+        $logger                = new RecordingLogger();
+        $jobs                  = $this->jobs();
+
+        $generator = new PodcastGenerator($jobs, $this->allowingBudget(), $logger, $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder());
+
+        self::assertFalse($generator->generate($this->context()));
+        self::assertSame('failed', $jobs->updates[100]['status']);
+        self::assertSame('Podcast generation failed', $jobs->updates[100]['error_message']);
+        self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
+    }
+
     public function testPersonaDialogueUsesPersonaNamesMetadataVoicesAndRoundRobinFallback(): void
     {
         $personas = [
@@ -569,7 +592,7 @@ final class PodcastGeneratorTest extends TestCase
         $jobs    = $this->jobs();
         $storage = $this->storage();
         $base    = $this->context();
-        $ctx     = new GenerationContext($base->jobRow, $base->document, $base->brief, $base->theme, $base->beUser, $base->snippets, grants: $base->grants, aiLabel: new AiLabelSettings('nr_repurpose 9.9.9'));
+        $ctx     = new GenerationContext($base->job, $base->document, $base->brief, $base->theme, $base->beUser, $base->snippets, grants: $base->grants, aiLabel: new AiLabelSettings('nr_repurpose 9.9.9'));
 
         $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new NullLogger(), $this->completion(), $this->speech(), $this->stitcher(), $storage, new WebVttBuilder());
 

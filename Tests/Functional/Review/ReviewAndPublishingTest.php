@@ -134,6 +134,27 @@ final class ReviewAndPublishingTest extends AbstractFunctionalTestCase
         self::assertCount(2, $channel->sent);
     }
 
+    /**
+     * The source URL is published with the post, so it keeps its query (index.php?id=5 is
+     * the page's address) and its fragment, but not the user name and password the job
+     * stores for the fetch.
+     */
+    public function testThePublishedSourceUrlCarriesNoCredentials(): void
+    {
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->update('tx_nrrepurpose_domain_model_job', ['source_value' => 'https://user:secret@example.com/a?id=5#top'], ['uid' => $this->job]);
+        $this->artifact('social_post', review: 'approved', publishAt: self::NOW, publishStatus: 'scheduled');
+        $channel = $this->channel();
+
+        (new DuePostPublisher(GeneralUtility::makeInstance(ConnectionPool::class), $channel))->publishDue(self::NOW);
+
+        self::assertCount(1, $channel->sent);
+        self::assertSame('https://example.com/a?id=5#top', $channel->sent[0]->sourceUrl);
+        $payload = json_encode($channel->sent[0]->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        self::assertStringNotContainsString('secret', $payload);
+        self::assertStringNotContainsString('user:', $payload);
+    }
+
     public function testAPostAnotherRunHasClaimedIsNotSentAgain(): void
     {
         $this->artifact('social_post', review: 'approved', publishAt: self::NOW, publishStatus: 'publishing');
