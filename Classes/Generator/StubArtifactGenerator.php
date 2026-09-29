@@ -52,8 +52,10 @@ final readonly class StubArtifactGenerator implements ArtifactGeneratorInterface
 
             return true;
         } catch (Throwable $e) {
-            $this->logger->error('Stub artifact failed', ['job' => $jobUid, 'exception' => $e->getMessage()]);
-            $this->jobs->insertArtifact($jobUid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Failed, $e->getMessage());
+            // The row's error_message is shown to every module user and a FAL error can carry
+            // the storage path: a fixed text there, the exception in the log.
+            $this->logger->error('Stub artifact failed', ['job' => $jobUid, 'exception' => $e]);
+            $this->jobs->insertArtifact($jobUid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Failed, 'Stub artifact failed');
 
             return false;
         }
