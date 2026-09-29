@@ -22,6 +22,7 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\ArtifactRecordingJobRepository;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
@@ -76,7 +77,7 @@ abstract class TextGeneratorTestCase extends TestCase
         );
 
         return new GenerationContext(
-            ['uid' => 31, 'theme' => 'nr', 'be_user' => 7, $this->wantColumn() => $want ? 1 : 0],
+            JobSnapshots::of(['uid' => 31, 'theme' => 'nr', 'be_user' => 7, $this->wantColumn() => $want ? 1 : 0]),
             $document,
             $brief,
             'nr',

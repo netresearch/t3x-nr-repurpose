@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Ingestion;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
 final class PdfFileResolverTest extends AbstractFunctionalTestCase
@@ -26,7 +27,7 @@ final class PdfFileResolverTest extends AbstractFunctionalTestCase
         $file->setContents($bytes);
 
         $resolver = $this->get(PdfFileResolver::class);
-        $path     = $resolver->resolve(['source_type' => 'pdf_fal', 'source_pdf' => $file->getUid()]);
+        $path     = $resolver->resolve(JobSnapshots::of(['source_type' => 'pdf_fal', 'source_pdf' => $file->getUid()]));
 
         self::assertFileExists($path);
         self::assertSame($bytes, (string) file_get_contents($path));
@@ -43,6 +44,6 @@ final class PdfFileResolverTest extends AbstractFunctionalTestCase
     {
         $resolver = $this->get(PdfFileResolver::class);
         $this->expectException(IngestionException::class);
-        $resolver->resolve(['source_type' => 'pdf_fal', 'source_pdf' => 0]);
+        $resolver->resolve(JobSnapshots::of(['source_type' => 'pdf_fal', 'source_pdf' => 0]));
     }
 }

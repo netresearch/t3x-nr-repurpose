@@ -77,7 +77,7 @@ final class PodcastGenerator extends AbstractGenerator
 
     public function supports(GenerationContext $ctx): bool
     {
-        return (bool) ($ctx->jobRow['want_podcast'] ?? false);
+        return $ctx->job->wantPodcast;
     }
 
     public function generate(GenerationContext $ctx): bool

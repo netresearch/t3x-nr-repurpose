@@ -38,11 +38,6 @@ class SlideDeckGenerator extends AbstractDocumentGenerator
         return ArtifactType::SlideDeck;
     }
 
-    protected function wantColumn(): string
-    {
-        return 'want_slide_deck';
-    }
-
     protected function label(): string
     {
         return 'Slide deck';

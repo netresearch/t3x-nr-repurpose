@@ -30,11 +30,6 @@ final class ExecutiveSummaryGenerator extends AbstractTextGenerator
         return ArtifactType::ExecutiveSummary;
     }
 
-    protected function wantColumn(): string
-    {
-        return 'want_exec_summary';
-    }
-
     protected function label(): string
     {
         return 'Executive summary';

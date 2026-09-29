@@ -58,9 +58,6 @@ abstract class AbstractTextGenerator extends AbstractGenerator
     /** The artifact type this generator produces. */
     abstract protected function artifactType(): ArtifactType;
 
-    /** The job-row flag that requests this format (e.g. `want_faq`). */
-    abstract protected function wantColumn(): string;
-
     /** Human-readable format name, used in progress steps and error messages. */
     abstract protected function label(): string;
 
@@ -94,7 +91,7 @@ abstract class AbstractTextGenerator extends AbstractGenerator
 
     public function supports(GenerationContext $ctx): bool
     {
-        return (bool) ($ctx->jobRow[$this->wantColumn()] ?? false);
+        return $ctx->job->wants($this->artifactType());
     }
 
     public function generate(GenerationContext $ctx): bool

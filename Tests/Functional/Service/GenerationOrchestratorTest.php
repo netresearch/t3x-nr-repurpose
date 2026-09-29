@@ -15,7 +15,9 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
+use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\MalformedJobRowException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\ExecutiveSummaryGenerator;
@@ -88,7 +90,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         return new readonly class ($document) implements SourceIngestionServiceInterface {
             public function __construct(private SourceDocument $document) {}
 
-            public function ingest(array $jobRow): SourceDocument
+            public function ingest(JobSnapshot $job): SourceDocument
             {
                 return $this->document;
             }
@@ -100,7 +102,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         return new readonly class ($brief) implements DocumentAnalyzerInterface {
             public function __construct(private ContentBrief $brief) {}
 
-            public function analyze(SourceDocument $document, array $jobRow): ContentBrief
+            public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
             {
                 return $this->brief;
             }
@@ -300,7 +302,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $jobs   = $this->get(JobProcessingRepository::class);
 
         $ingestion = new class implements SourceIngestionServiceInterface {
-            public function ingest(array $jobRow): SourceDocument
+            public function ingest(JobSnapshot $job): SourceDocument
             {
                 // The real contract: SourceIngestionServiceInterface::ingest() throws
                 // IngestionException on an unreachable source.
@@ -310,7 +312,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $analyzer = new class implements DocumentAnalyzerInterface {
             public bool $called = false;
 
-            public function analyze(SourceDocument $document, array $jobRow): ContentBrief
+            public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
             {
                 $this->called = true;
 
@@ -341,6 +343,41 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('source unreachable', (string) $row['error_message']);
         self::assertFalse($analyzer->called);
         self::assertFalse($generator->called);
+    }
+
+    /**
+     * JobSnapshot::fromRow() types the row once, before ingestion: a source_type outside
+     * the enum fails the job there, with a fixed message, and the exception is logged.
+     */
+    public function testAMalformedJobRowFailsTheJobBeforeIngestion(): void
+    {
+        $jobUid = $this->seedJob();
+        GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->update('tx_nrrepurpose_domain_model_job', ['source_type' => 'docx'], ['uid' => $jobUid]);
+        $jobs   = $this->get(JobProcessingRepository::class);
+        $logger = new RecordingLogger();
+
+        $ingestion = new class implements SourceIngestionServiceInterface {
+            public bool $called = false;
+
+            public function ingest(JobSnapshot $job): SourceDocument
+            {
+                $this->called = true;
+
+                return new SourceDocument('t', 'b', 's', 0, 'en');
+            }
+        };
+
+        (new GenerationOrchestrator($jobs, $logger, $ingestion, $this->stubAnalyzer($this->stubBrief()), $this->get(PromptSnippetResolver::class), $this->get(TechnicalActorContextInterface::class), $this->get(ExtensionConfiguration::class), $this->get(CapabilityGrantResolver::class), $this->get(AiLabelSettingsFactory::class), []))->process($jobUid);
+
+        $row = $jobs->findRow($jobUid);
+        self::assertSame('failed', $row['status'] ?? null);
+        self::assertSame('Reading the job failed', $row['error_message'] ?? null);
+        self::assertFalse($ingestion->called);
+        $logged = array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records);
+        self::assertContainsOnlyInstancesOf(MalformedJobRowException::class, array_filter($logged));
+        self::assertNotSame([], array_filter($logged));
     }
 
     /**
@@ -375,7 +412,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             ? new readonly class ($cause) implements SourceIngestionServiceInterface {
                 public function __construct(private Throwable $cause) {}
 
-                public function ingest(array $jobRow): SourceDocument
+                public function ingest(JobSnapshot $job): SourceDocument
                 {
                     throw $this->cause;
                 }
@@ -384,7 +421,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $analyzer = new readonly class ($cause) implements DocumentAnalyzerInterface {
             public function __construct(private Throwable $cause) {}
 
-            public function analyze(SourceDocument $document, array $jobRow): ContentBrief
+            public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
             {
                 throw $this->cause;
             }

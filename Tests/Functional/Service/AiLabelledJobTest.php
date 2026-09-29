@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
+use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\FaqGenerator;
 use Netresearch\NrRepurpose\Generator\HandoutGenerator;
@@ -375,7 +376,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
     private function ingestion(): SourceIngestionServiceInterface
     {
         return new class implements SourceIngestionServiceInterface {
-            public function ingest(array $jobRow): SourceDocument
+            public function ingest(JobSnapshot $job): SourceDocument
             {
                 return new SourceDocument(AiLabelledJobTest::TITLE, 'Revenue grew by twelve percent.', 'https://example.com/', 0, 'en');
             }
@@ -385,7 +386,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
     private function analyzer(): DocumentAnalyzerInterface
     {
         return new class implements DocumentAnalyzerInterface {
-            public function analyze(SourceDocument $document, array $jobRow): ContentBrief
+            public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
             {
                 return new ContentBrief(AiLabelledJobTest::TITLE, 'Revenue grew.', ['Revenue +12 %'], [], 'Analysts', 'en');
             }

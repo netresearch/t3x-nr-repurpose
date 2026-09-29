@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Understanding;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
+use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Service\CallerSource;
@@ -58,9 +59,9 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
         private int $chunkSize = 12000,
     ) {}
 
-    public function analyze(SourceDocument $document, array $jobRow): ContentBrief
+    public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
     {
-        $beUser = (int) ($jobRow['be_user'] ?? 0);
+        $beUser = $job->beUser;
         $text   = trim($document->text);
 
         if ($text === '') {

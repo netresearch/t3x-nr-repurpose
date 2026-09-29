@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Ingestion;
 
 use GuzzleHttp\ClientInterface;
+use Netresearch\NrRepurpose\Domain\Enum\SourceType;
+use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use TYPO3\CMS\Core\Resource\Exception\FileDoesNotExistException;
@@ -41,15 +43,12 @@ class PdfFileResolver
         private readonly RemoteSourceGuard $guard,
     ) {}
 
-    /** @param array<string,mixed> $jobRow */
-    public function resolve(array $jobRow): string
+    public function resolve(JobSnapshot $job): string
     {
-        $type = (string) ($jobRow['source_type'] ?? '');
-
-        return match ($type) {
-            'pdf_fal' => $this->resolveFalFile($jobRow),
-            'pdf_url' => $this->downloadUrl((string) ($jobRow['source_value'] ?? '')),
-            default   => throw new IngestionException('PdfFileResolver does not handle source_type: ' . $type, 1749379440),
+        return match ($job->sourceType) {
+            SourceType::PdfFal => $this->resolveFalFile($job->sourcePdf),
+            SourceType::PdfUrl => $this->downloadUrl($job->sourceValue),
+            SourceType::Url    => throw new IngestionException('PdfFileResolver does not handle source_type: url', 1749379440),
         };
     }
 
@@ -71,10 +70,8 @@ class PdfFileResolver
         unlink($absPath); // nosemgrep: php.lang.security.unlink-use.unlink-use
     }
 
-    /** @param array<string,mixed> $jobRow */
-    private function resolveFalFile(array $jobRow): string
+    private function resolveFalFile(int $fileUid): string
     {
-        $fileUid = (int) ($jobRow['source_pdf'] ?? 0);
         if ($fileUid <= 0) {
             throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441);
         }

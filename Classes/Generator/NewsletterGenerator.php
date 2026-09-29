@@ -42,11 +42,6 @@ final class NewsletterGenerator extends AbstractTextGenerator
         return ArtifactType::Newsletter;
     }
 
-    protected function wantColumn(): string
-    {
-        return 'want_newsletter';
-    }
-
     protected function label(): string
     {
         return 'Newsletter';

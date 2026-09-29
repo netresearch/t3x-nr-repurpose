@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzer;
@@ -150,7 +151,7 @@ final class DocumentAnalyzerTest extends TestCase
         $fake     = new FakeCompletionService([$this->briefResult('en')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 24000, chunkSize: 12000);
 
-        $brief = $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 7]);
+        $brief = $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
 
         self::assertInstanceOf(ContentBrief::class, $brief);
         self::assertSame('Quarterly report', $brief->title);
@@ -166,7 +167,7 @@ final class DocumentAnalyzerTest extends TestCase
         $fake     = new FakeCompletionService([$this->briefResult('en')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 24000, chunkSize: 12000);
 
-        $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 7]);
+        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
 
         $call = $fake->jsonCalls[0];
         self::assertStringContainsString('Revenue grew across all regions.', $call['prompt']);
@@ -186,7 +187,7 @@ final class DocumentAnalyzerTest extends TestCase
         $fake     = new FakeCompletionService([$this->briefResult('en')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
-        $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 7]);
+        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
 
         $options = $fake->jsonCalls[0]['options'];
         self::assertInstanceOf(ChatOptions::class, $options);
@@ -202,7 +203,7 @@ final class DocumentAnalyzerTest extends TestCase
         ]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
-        $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 0]);
+        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
 
         $options = $fake->jsonCalls[1]['options'];
         self::assertInstanceOf(ChatOptions::class, $options);
@@ -229,7 +230,7 @@ final class DocumentAnalyzerTest extends TestCase
         $fake      = new FakeCompletionService([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
         $analyzer  = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000);
 
-        $analyzer->analyze($document, ['uid' => 1, 'be_user' => 7]);
+        $analyzer->analyze($document, JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
 
         $operations = array_map(
             static function (array $call): ?string {
@@ -263,7 +264,7 @@ final class DocumentAnalyzerTest extends TestCase
         $fake     = new FakeCompletionService([$this->briefResult('de')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
-        $brief = $analyzer->analyze($document, ['uid' => 1, 'be_user' => 0]);
+        $brief = $analyzer->analyze($document, JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
 
         self::assertSame('de', $brief->language);
     }
@@ -286,7 +287,7 @@ final class DocumentAnalyzerTest extends TestCase
         $fake      = new FakeCompletionService($results);
         $analyzer  = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000);
 
-        $brief = $analyzer->analyze($document, ['uid' => 1, 'be_user' => 7]);
+        $brief = $analyzer->analyze($document, JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
 
         self::assertSame('Quarterly report', $brief->title);
         self::assertCount(4, $fake->jsonCalls);
@@ -302,7 +303,7 @@ final class DocumentAnalyzerTest extends TestCase
         ]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
-        $brief = $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 0]);
+        $brief = $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
 
         self::assertSame('Quarterly report', $brief->title);
         self::assertCount(2, $fake->jsonCalls);
@@ -320,7 +321,7 @@ final class DocumentAnalyzerTest extends TestCase
 
         $this->expectException(AnalysisException::class);
         $this->expectExceptionMessageMatches('/received keys: keyPoints, language/');
-        $analyzer->analyze($this->smallDocument(), ['uid' => 1, 'be_user' => 0]);
+        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
     }
 
     private function documentWith(string $text): SourceDocument
@@ -331,7 +332,7 @@ final class DocumentAnalyzerTest extends TestCase
     public function testAnInstructionPayloadInTheDocumentStaysInsideTheSourceBlock(): void
     {
         $fake = new FakeCompletionService([$this->briefResult('en')]);
-        (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::INSTRUCTION_PAYLOAD), ['uid' => 1, 'be_user' => 0]);
+        (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::INSTRUCTION_PAYLOAD), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
 
         $call = $fake->jsonCalls[0];
         self::assertInstructionPayloadContained((string) $call['options']?->getSystemPrompt(), $call['prompt']);
@@ -340,7 +341,7 @@ final class DocumentAnalyzerTest extends TestCase
     public function testASpoofedSourceTagInTheDocumentIsNeutralised(): void
     {
         $fake = new FakeCompletionService([$this->briefResult('en')]);
-        (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::SPOOF_PAYLOAD), ['uid' => 1, 'be_user' => 0]);
+        (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::SPOOF_PAYLOAD), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
 
         $call = $fake->jsonCalls[0];
         self::assertSpoofNeutralised((string) $call['options']?->getSystemPrompt(), $call['prompt']);
@@ -350,7 +351,7 @@ final class DocumentAnalyzerTest extends TestCase
     public function testTheCorrectiveRetryKeepsThePayloadInsideTheSourceBlock(): void
     {
         $fake = new FakeCompletionService([['keyPoints' => ['x']], $this->briefResult('en')]);
-        (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::INSTRUCTION_PAYLOAD), ['uid' => 1, 'be_user' => 0]);
+        (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::INSTRUCTION_PAYLOAD), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
 
         $call = $fake->jsonCalls[1];
         self::assertInstructionPayloadContained((string) $call['options']?->getSystemPrompt(), $call['prompt']);
@@ -364,7 +365,7 @@ final class DocumentAnalyzerTest extends TestCase
         $fake      = new FakeCompletionService([$mapResult, $mapResult, $this->briefResult('en')]);
 
         (new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000))
-            ->analyze($this->documentWith($paragraph . "\n\n" . $paragraph), ['uid' => 1, 'be_user' => 0]);
+            ->analyze($this->documentWith($paragraph . "\n\n" . $paragraph), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
 
         self::assertCount(3, $fake->jsonCalls);
         foreach ($fake->jsonCalls as $i => $call) {

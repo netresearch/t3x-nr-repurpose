@@ -18,6 +18,7 @@ use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -54,7 +55,7 @@ final class StubArtifactGeneratorTest extends TestCase
             }
         };
         $logger  = new RecordingLogger();
-        $context = new GenerationContext(['uid' => 7], new SourceDocument('Doc', 'text', 'https://example.com/', 0, 'en'), new ContentBrief('Doc', 'Summary', [], [], 'All', 'en'), 'nr', 0);
+        $context = new GenerationContext(JobSnapshots::of(['uid' => 7]), new SourceDocument('Doc', 'text', 'https://example.com/', 0, 'en'), new ContentBrief('Doc', 'Summary', [], [], 'All', 'en'), 'nr', 0);
 
         self::assertFalse((new StubArtifactGenerator($storage, $jobs, $logger))->generate($context));
         self::assertSame([['status' => 'failed', 'error' => 'Stub artifact failed']], $jobs->inserted);

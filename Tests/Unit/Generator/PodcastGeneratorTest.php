@@ -32,6 +32,7 @@ use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
@@ -62,7 +63,7 @@ final class PodcastGeneratorTest extends TestCase
         );
 
         return new GenerationContext(
-            ['uid' => 7, 'theme' => 'nr', 'be_user' => 3, 'want_podcast' => $wantPodcast],
+            JobSnapshots::of(['uid' => 7, 'theme' => 'nr', 'be_user' => 3, 'want_podcast' => $wantPodcast]),
             $document,
             $brief,
             'nr',
@@ -591,7 +592,7 @@ final class PodcastGeneratorTest extends TestCase
         $jobs    = $this->jobs();
         $storage = $this->storage();
         $base    = $this->context();
-        $ctx     = new GenerationContext($base->jobRow, $base->document, $base->brief, $base->theme, $base->beUser, $base->snippets, grants: $base->grants, aiLabel: new AiLabelSettings('nr_repurpose 9.9.9'));
+        $ctx     = new GenerationContext($base->job, $base->document, $base->brief, $base->theme, $base->beUser, $base->snippets, grants: $base->grants, aiLabel: new AiLabelSettings('nr_repurpose 9.9.9'));
 
         $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new NullLogger(), $this->completion(), $this->speech(), $this->stitcher(), $storage, new WebVttBuilder());
 

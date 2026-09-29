@@ -37,6 +37,7 @@ use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Rendering\SlideshowRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
@@ -66,7 +67,7 @@ final class StoryGeneratorTest extends TestCase
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief    = new ContentBrief('Report', $summary, $keyPoints, [], 'All', 'en');
 
-        return new GenerationContext(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0, 'want_video' => $wantVideo ? 1 : 0], $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
+        return new GenerationContext(JobSnapshots::of(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0, 'want_video' => $wantVideo ? 1 : 0]), $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
     }
 
     /** @param array<mixed>|Throwable $completionResult */

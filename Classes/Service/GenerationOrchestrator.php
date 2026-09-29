@@ -10,7 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Service;
 
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
-use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
+use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
+use Netresearch\NrRepurpose\Exception\MalformedJobRowException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
@@ -111,14 +112,23 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             return;
         }
 
-        if (JobStatus::from((string) $row['status'])->isTerminal()) {
+        // The only conversion of the raw row; everything downstream reads the snapshot.
+        try {
+            $job = JobSnapshot::fromRow($row);
+        } catch (MalformedJobRowException $e) {
+            $this->failJob($jobUid, 'Reading the job', $e);
+
+            return;
+        }
+
+        if ($job->status->isTerminal()) {
             return; // idempotent: never reprocess a finished job
         }
 
         // 1) Ingestion — turn the source into a SourceDocument.
         $this->jobs->markStatus($jobUid, JobStatus::Ingesting, 'ingesting', 5);
         try {
-            $document = $this->ingestion->ingest($row);
+            $document = $this->ingestion->ingest($job);
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Ingestion', $e);
 
@@ -128,7 +138,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         // 2) Understanding — build exactly one ContentBrief.
         $this->jobs->markStatus($jobUid, JobStatus::Analyzing, 'analyzing', 20);
         try {
-            $brief = $this->analyzer->analyze($document, $row);
+            $brief = $this->analyzer->analyze($document, $job);
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Analysis', $e);
 
@@ -142,9 +152,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         // snippet-free by design — snippets steer generation only). An empty selection
         // short-circuits inside the resolver without any repository access.
         try {
-            $snippets = $this->snippetResolver->resolve(
-                PromptSnippetSelection::fromJson((string) ($row['prompt_snippets'] ?? '')),
-            );
+            $snippets = $this->snippetResolver->resolve($job->promptSnippets);
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Prompt snippet resolution', $e);
 
@@ -153,13 +161,13 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
 
         // 4) Build the shared per-run context.
         $ctx = new GenerationContext(
-            jobRow: $row,
+            job: $job,
             document: $document,
             brief: $brief,
-            theme: (string) ($row['theme'] ?? 'nr'),
-            beUser: (int) ($row['be_user'] ?? 0),
+            theme: $job->theme,
+            beUser: $job->beUser,
             snippets: $snippets,
-            grants: $this->grantResolver->resolve((int) ($row['be_user'] ?? 0)),
+            grants: $this->grantResolver->resolve($job->beUser),
             // Visible labels in the language the artifacts are written in (ADR-005).
             aiLabel: $this->aiLabelSettings->create($brief->language),
         );

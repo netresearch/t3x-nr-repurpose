@@ -102,7 +102,7 @@ class StoryGenerator extends AbstractGenerator
 
     public function supports(GenerationContext $ctx): bool
     {
-        return (bool) ($ctx->jobRow['want_story'] ?? false);
+        return $ctx->job->wantStory;
     }
 
     public function generate(GenerationContext $ctx): bool
@@ -142,7 +142,7 @@ class StoryGenerator extends AbstractGenerator
             }
 
             $ok = $images !== [];
-            if ($ok && $this->slideshow instanceof SlideshowRendererInterface && (bool) ($ctx->jobRow['want_video'] ?? false)) {
+            if ($ok && $this->slideshow instanceof SlideshowRendererInterface && $ctx->job->wantVideo) {
                 $ctx->progress?->step('Story: video', 0.95);
                 $this->generateVideoArtifact($ctx, $jobUid, $this->slideshow, $images);
             }

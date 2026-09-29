@@ -16,6 +16,7 @@ use GuzzleHttp\RequestOptions;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\RemoteSourceGuard;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use PHPUnit\Framework\TestCase;
@@ -42,7 +43,7 @@ final class PdfFileResolverTest extends TestCase
         $resolver = $this->resolver($http, new RemoteSourceGuard(new StaticHostResolver(['intranet.example' => ['10.0.0.8']])));
 
         try {
-            $resolver->resolve(['source_type' => 'pdf_url', 'source_value' => 'https://intranet.example/report.pdf']);
+            $resolver->resolve(JobSnapshots::of(['source_type' => 'pdf_url', 'source_value' => 'https://intranet.example/report.pdf']));
             self::fail('A private address must be refused');
         } catch (IngestionException $e) {
             self::assertSame(1749379463, $e->getCode());
@@ -58,7 +59,7 @@ final class PdfFileResolverTest extends TestCase
         $resolver = $this->resolver($http, new RemoteSourceGuard(new StaticHostResolver()));
 
         try {
-            $resolver->resolve(['source_type' => 'pdf_url', 'source_value' => 'https://[::ffff:127.0.0.1]/report.pdf']);
+            $resolver->resolve(JobSnapshots::of(['source_type' => 'pdf_url', 'source_value' => 'https://[::ffff:127.0.0.1]/report.pdf']));
             self::fail('An IPv4-mapped loopback literal must be refused');
         } catch (IngestionException $e) {
             self::assertContains($e->getCode(), [1749379463, 1749379468]);
@@ -71,7 +72,7 @@ final class PdfFileResolverTest extends TestCase
     {
         $http = QueuedHttpClient::answering(200, '%PDF-1.7 body');
 
-        $path = $this->resolver($http)->resolve(['source_type' => 'pdf_url', 'source_value' => 'https://example.com/r.pdf']);
+        $path = $this->resolver($http)->resolve(JobSnapshots::of(['source_type' => 'pdf_url', 'source_value' => 'https://example.com/r.pdf']));
         $body = (string) file_get_contents($path);
         unlink($path);
 
@@ -90,7 +91,7 @@ final class PdfFileResolverTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379464);
 
-        $this->resolver($http)->resolve(['source_type' => 'pdf_url', 'source_value' => 'https://example.com/huge.pdf']);
+        $this->resolver($http)->resolve(JobSnapshots::of(['source_type' => 'pdf_url', 'source_value' => 'https://example.com/huge.pdf']));
     }
 
     public function testAFailedWriteLeavesNoPartialDownloadBehind(): void
@@ -119,7 +120,7 @@ final class PdfFileResolverTest extends TestCase
         };
 
         try {
-            $resolver->resolve(['source_type' => 'pdf_url', 'source_value' => 'https://example.com/r.pdf']);
+            $resolver->resolve(JobSnapshots::of(['source_type' => 'pdf_url', 'source_value' => 'https://example.com/r.pdf']));
             self::fail('A failed write must fail the download');
         } catch (IngestionException $e) {
             self::assertSame(1749379448, $e->getCode());
@@ -139,7 +140,7 @@ final class PdfFileResolverTest extends TestCase
         try {
             $resolver = $this->resolverForFile($this->falFile('Local', $original));
 
-            $path = $resolver->resolve(['source_type' => 'pdf_fal', 'source_pdf' => 5]);
+            $path = $resolver->resolve(JobSnapshots::of(['source_type' => 'pdf_fal', 'source_pdf' => 5]));
             $resolver->release($path);
 
             self::assertSame($original, $path);
@@ -159,7 +160,7 @@ final class PdfFileResolverTest extends TestCase
         try {
             $resolver = $this->resolverForFile($file);
 
-            $path = $resolver->resolve(['source_type' => 'pdf_fal', 'source_pdf' => 5]);
+            $path = $resolver->resolve(JobSnapshots::of(['source_type' => 'pdf_fal', 'source_pdf' => 5]));
             self::assertSame('%PDF remote', (string) file_get_contents($path));
             $resolver->release($path);
 
