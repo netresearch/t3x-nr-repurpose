@@ -162,15 +162,13 @@ final class RemoteSourceGuardTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379468);
 
-        (new RemoteSourceGuard(new StaticHostResolver()))->createRequest(new HttpFactory(), 'GET', 'http://:80');
+        (new RemoteSourceGuard(new StaticHostResolver()))->createRequest(new HttpFactory(), 'GET', 'https://:80');
     }
 
     private function guzzleParses(string $url): bool
     {
         try {
-            new Uri($url);
-
-            return true;
+            return (string) new Uri($url) !== '';
         } catch (InvalidArgumentException) {
             return false;
         }
