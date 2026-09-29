@@ -17,7 +17,7 @@
 ```bash
 cp .ddev/.env.dist .ddev/.env   # set OPENAI_API_KEY, the only required key
 ddev start
-ddev install                    # installs TYPO3 and stores the key in nr-vault
+ddev setup                      # installs TYPO3 and stores the key in nr-vault
 ```
 
 The key stays in the development environment; nr_repurpose itself never reads

@@ -12,11 +12,11 @@ TYPO3 v14 extension `nr_repurpose` (`netresearch/nr-repurpose`): turns a URL or 
 ## Setup / Environment
 ```bash
 cp .ddev/.env.dist .ddev/.env   # set OPENAI_API_KEY — the only required key
-ddev start && ddev install      # TYPO3 v14.3 into .Build/Web, key stored in nr-vault as nr_repurpose_openai
+ddev start && ddev setup        # TYPO3 v14.3 into .Build/Web, key stored in nr-vault as nr_repurpose_openai
 ```
 - Tests need only Docker plus, on the very first run, `composer` on the host: `Build/Scripts/runTests.sh` is a stub that runs `composer install` to fetch the shared runner into `.Build/bin/`.
-- `OPENAI_API_KEY` is dev-only; `.ddev/commands/web/install` reads it. The extension never reads a key — production keys live in nr-llm/nr-vault.
-- `CHROMIUM_PATH`: `render.cjs` reads it. `Classes/Rendering/PlaywrightHtmlToImageRenderer.php` `putenv()`s its `chromiumPath` argument (default `/usr/bin/chromium`), but Symfony Process passes on only `getenv()` keys that are also in `$_SERVER`: the value reaches node only if `CHROMIUM_PATH` was already exported when PHP started (the DDEV web image does), otherwise Playwright looks for its own browser. Worker binaries (node, chromium, ffmpeg, poppler): see `Documentation/Installation/Index.rst`.
+- `OPENAI_API_KEY` is dev-only; `.ddev/commands/web/setup` reads it (`ddev install` is an alias of `ddev setup`). The extension never reads a key — production keys live in nr-llm/nr-vault.
+- `CHROMIUM_PATH`: `render.cjs` reads it from its environment. `Classes/Rendering/PlaywrightHtmlToImageRenderer.php` passes its `chromiumPath` argument (default `/usr/bin/chromium`) to the child explicitly through `ProcessRunnerInterface::run()`'s `$env`, so the worker does not need to export it; another Chromium path can be set as the `$chromiumPath` argument of that service in `Configuration/Services.yaml`. Worker binaries (node, chromium, ffmpeg, poppler): see `Documentation/Installation/Index.rst`.
 
 ## Commands (verified 2026-09-28)
 > ALWAYS via the Docker test runner — NEVER `phpunit`/`php-cs-fixer` directly.

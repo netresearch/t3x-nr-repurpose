@@ -50,7 +50,7 @@ Hand-maintained (outside the generated blocks). Reuse these before writing a hel
 <!-- AGENTS-GENERATED:START setup -->
 ## Setup & environment
 - PHP ^8.3, TYPO3 ^14.3; nr-llm/nr-vault floors: see `composer.json` (do not pin versions here)
-- Local dev: `ddev start && ddev install` (seeds the provider key + nr-llm wiring)
+- Local dev: `ddev start && ddev setup` (seeds the provider key + nr-llm wiring)
 - Tests/static analysis: see root `AGENTS.md` Commands — Docker runner only
 <!-- AGENTS-GENERATED:END setup -->
 
