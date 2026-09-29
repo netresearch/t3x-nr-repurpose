@@ -25,7 +25,7 @@ Requirements
      - ``^0.35 || ^0.36 || ^0.37 || ^0.38`` — AI access (completion, TTS,
        image), budget enforcement and one-click configuration presets.
    * - :composer:`netresearch/nr-vault`
-     - ``^0.15 || ^0.16`` — holds the provider keys nr-llm reads; its
+     - ``^0.16`` — holds the provider keys nr-llm reads; its
        technical-actor API lets the worker read them (see
        :ref:`configuration-extension-settings`).
    * - PHP extension ``curl`` (recommended)
@@ -129,10 +129,8 @@ Playwright download its own browser:
    cd Resources/Private/NodeRenderer
    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci
 
-The renderer locates Chromium via the ``CHROMIUM_PATH`` environment variable.
-Export it (for example ``CHROMIUM_PATH=/usr/bin/chromium``) in the environment
-the worker starts with; see :ref:`configuration-rendering` for why the value
-must come from there.
+The renderer starts the Chromium binary at ``/usr/bin/chromium``. For another
+path, see :ref:`configuration-rendering`.
 
 .. _installation-openai-key:
 
@@ -207,9 +205,9 @@ The repository ships a DDEV setup whose web image already contains
 
    cp .ddev/.env.dist .ddev/.env     # then set OPENAI_API_KEY=sk-…
    ddev start                        # builds the web image
-   ddev install                      # composer install + TYPO3 setup into .Build/Web
+   ddev setup                        # composer install + TYPO3 setup into .Build/Web
 
-``ddev install`` installs TYPO3 v14.3 into :path:`.Build/Web`, seeds the OpenAI
+``ddev setup`` installs TYPO3 v14.3 into :path:`.Build/Web`, seeds the OpenAI
 key into nr-vault under ``nr_repurpose_openai``, wires the nr-llm provider and
 the messenger routing in :path:`config/system/additional.php`, and installs the
 Node renderer. The backend is then at ``https://nr-repurpose.ddev.site/typo3/``.

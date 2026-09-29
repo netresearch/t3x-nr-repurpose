@@ -4,6 +4,6 @@
 ## Example: ddev install
 #
 # `setup` is the canonical one-shot entry point (Netresearch DDEV convention).
-# This name stays because the README and AGENTS.md tell people to run
+# This name stays as an alias for setups and habits that still run
 # `ddev install`.
 exec "$(dirname "$0")/setup" "$@"

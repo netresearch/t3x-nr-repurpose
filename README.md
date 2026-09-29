@@ -194,10 +194,10 @@ Prerequisites: Docker + DDEV.
 ```bash
 cp .ddev/.env.dist .ddev/.env     # then set OPENAI_API_KEY=sk-...
 ddev start                        # builds the web image (ffmpeg, poppler-utils, chromium)
-ddev install                      # composer install + TYPO3 v14.3 setup into .Build/Web
+ddev setup                        # composer install + TYPO3 v14.3 setup into .Build/Web
 ```
 
-The bundled dev wiring uses OpenAI: `ddev install` seeds the key into nr-vault
+The bundled dev wiring uses OpenAI: `ddev setup` seeds the key into nr-vault
 under `nr_repurpose_openai` and wires nr-llm's provider, so no further
 configuration is required for a dev instance.
 

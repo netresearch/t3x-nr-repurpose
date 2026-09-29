@@ -153,8 +153,8 @@ Process):
 -   **HTML → PNG** — :php:`PlaywrightHtmlToImageRenderer` drives the bundled
     ``render.cjs`` (``playwright-core`` + the apt ``chromium`` binary). HTML is
     fed on **stdin** (avoiding argv limits and shell quoting); ``render.cjs``
-    reads the Chromium path from ``CHROMIUM_PATH``, which the child process
-    only receives when the worker's own environment exports it (see
+    reads the Chromium path from ``CHROMIUM_PATH``, which the renderer passes
+    to the child process from its ``$chromiumPath`` argument (see
     :ref:`configuration-rendering`). ``height=null`` renders
     full-page/auto-height (the diagram); a fixed height clips to the viewport
     (the story). ``transparent`` uses ``omitBackground`` for the overlay layers.

@@ -38,10 +38,12 @@ is routed to.
 The job fails in "analyzing" with a denied secret
 =================================================
 
-The error reads like ``Access denied to secret "…": insufficient
-permissions``, and no artifact is produced. The worker and the CLI command run
-as an unauthenticated command-line user, and nr-vault refuses every secret
-read without an actor.
+The error reads like this, and no artifact is produced:
+
+``Access denied to secret "…": insufficient permissions``
+
+The worker and the CLI command run as an unauthenticated command-line user,
+and nr-vault refuses every secret read without an actor.
 
 Set :confval:`technicalBeUserUid <technicalbeuseruid>` to a backend user that
 may read the provider key's secret: a user with access to the secret through
@@ -53,15 +55,14 @@ administrator override is not disabled.
 Schaubild or story images fail with "HTML render failed"
 ========================================================
 
-The artifact error contains ``HTML render failed (exit …)`` followed by the
-renderer's error output. The images are rendered by ``node`` running the
-bundled ``render.cjs``, which starts Chromium.
+The artifact error reads ``HTML render failed (exit …)``. The renderer's error
+output is in the TYPO3 log, in the entry ``HTML render failed`` with the exit
+code and ``stderr``. The images are rendered by ``node`` running the bundled
+``render.cjs``, which starts Chromium.
 
--   ``node`` must be on the worker's ``PATH``, and the worker's environment
-    must export ``CHROMIUM_PATH`` with the path of the Chromium binary. The
-    error output ``Executable doesn't exist at …`` with a path in Playwright's
-    own browser directory means ``CHROMIUM_PATH`` did not reach the renderer
-    (see :ref:`configuration-rendering`).
+-   ``node`` must be on the worker's ``PATH``.
+-   The Chromium binary must exist at the renderer's Chromium path, default
+    ``/usr/bin/chromium`` (see :ref:`configuration-rendering`).
 -   The renderer's own dependency must be installed (see
     :ref:`installation-node-renderer`).
 

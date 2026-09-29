@@ -1,6 +1,6 @@
 <!-- FOR AI AGENTS - Human readability is a side effect, not a goal -->
 <!-- Managed by agent: keep sections and order; edit content, not structure -->
-<!-- Last updated: 2026-09-28 | Last verified: 2026-09-28 -->
+<!-- Last updated: 2026-09-29 | Last verified: 2026-09-29 -->
 
 # AGENTS.md
 
@@ -31,14 +31,14 @@ ddev start && ddev setup        # TYPO3 v14.3 into .Build/Web, key stored in nr-
 | PHPStan | `./Build/Scripts/runTests.sh -s phpstan` | ~10s |
 | Code style check | `./Build/Scripts/runTests.sh -p 8.3 -s cgl -n` (drop `-n` to fix) | ~5s |
 | Rector check | `./Build/Scripts/runTests.sh -s rector -n` (drop `-n` to apply) | ~5s |
+| Fractor check (Fluid, TypoScript, YAML, XML/XLIFF, .htaccess) | `./Build/Scripts/runTests.sh -s fractor -n` (drop `-n` to apply) | ~5s |
 | Pin PHP version | `./Build/Scripts/runTests.sh -p 8.3 -s composerUpdate`, then `-p 8.3 -s <suite>` (default 8.5) | ~1min |
 | Reinstall deps | `./Build/Scripts/runTests.sh -s composerUpdate` | ~1min |
 <!-- AGENTS-GENERATED:END commands -->
 
 - Dependencies are resolved for one PHP version: after `-s composerUpdate` on 8.5, every `-p 8.3` suite except `lint` dies in Composer's platform check (`requires a PHP version ">= 8.4.1"`). Re-run `composerUpdate` with the same `-p` first.
-- The tools (`phpstan`, `php-cs-fixer`, `rector`) come from `netresearch/typo3-ci-workflows` (require-dev) into `.Build/bin/`; configs: `phpstan.neon` (level 8, `Classes` only — level 10 plus `Tests` costs ~280 findings), `.php-cs-fixer.dist.php`, `Build/rector.php`.
+- The tools (`phpstan`, `php-cs-fixer`, `rector`, `fractor`) come from `netresearch/typo3-ci-workflows` (require-dev) into `.Build/bin/`. Configs: `Build/phpstan.neon` is the entry point the runner and `composer ci:test:php:phpstan` use; it includes `phpstan.neon` (analysis settings: level 8, `Classes` only — level 10 plus `Tests` costs ~280 findings) and adds the phpat architecture rules from `Tests/Architecture/`. The runner's note that the root `phpstan.neon` is ignored is expected, since `Build/phpstan.neon` includes it. Also `.php-cs-fixer.dist.php`, `Build/rector.php`, `Build/fractor.php`. "config file does not exist" means a missing config, not a missing tool.
 - **Run cgl on PHP 8.3** — CI's cgl job takes the first `php-versions` entry, and formatting on a newer runtime can produce output that job then rejects.
-- "config file does not exist" means a missing config, not a missing tool.
 
 ## Workflow
 1. **Before coding**: Read nearest `AGENTS.md` + check Golden Samples for the area you're touching
@@ -94,8 +94,9 @@ Shared helpers — generator base methods, `Classes/Generator/Support/*` (text l
 
 <!-- AGENTS-GENERATED:START ci-rules -->
 ## CI (reusable netresearch/typo3-ci-workflows)
-- `ci.yml` sets `run-cgl`, `run-phpstan`, `run-rector`, `run-unit-tests`, `run-functional-tests: true`; matrix PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3
-- Per PHP version: lint, PHPStan, unit, functional (SQLite, the reusable default); once on PHP 8.3 (first matrix entry): cgl, rector; one advisory PHPStan pass against the unpinned PHPUnit (warns, does not fail); plus a docs render of `Documentation/guides.xml` — all behind the `All CI checks` gate
+- `ci.yml` sets `run-cgl`, `run-phpstan`, `run-rector`, `run-fractor`, `run-unit-tests`, `run-functional-tests` and `upload-coverage: true`; matrix PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3
+- Per PHP version: lint, PHPStan (with the phpat rules), unit, functional (SQLite, the reusable default); once on PHP 8.3 (first matrix entry): cgl, rector, fractor; one advisory PHPStan pass against the unpinned PHPUnit (warns, does not fail); unit and functional coverage go to Codecov. The functional command installs ffmpeg, poppler-utils, a Chromium at `/usr/bin/chromium` and the NodeRenderer's `node_modules`, and runs with `--fail-on-skipped`: a real-binary test that skips for a missing binary fails the job
+- `lowest-dependencies` job (PHP 8.3): `composer update --prefer-lowest` of every declared package except `netresearch/typo3-ci-workflows` and `phpunit/*`, then unit tests and PHPStan. `mutation` job: Infection (`infection.json.dist`) through the shared `fuzz.yml`, on pull requests and the weekly schedule; reports only (continue-on-error), thresholds 65 % MSI and covered MSI. `docs.yml` renders `Documentation/` through the shared docs workflow
 - `checks.yml` (drift-enforced): security (Opengrep SAST, composer audit), betterleaks, zizmor, fuzz, license-check, CodeQL, Scorecard, dependency-review, pr-quality — all behind one required `All security checks` gate; SonarCloud + DCO run as apps
 - Release: signed annotated tag `vX.Y.Z` triggers `release.yml`, which publishes to TER, verifies Packagist, then creates the GitHub release with Cosign-signed artifacts; the tag push itself triggers the docs.typo3.org render through the Intercept webhook, and the release only checks that Intercept accepted the render (a render run exists), without waiting for its result or gating on it
 - `republish.yml` (manual, `tag` + `target`): re-uploads to TER only if the version is missing there (the TER metadata sync runs either way), only checks that Packagist lists the version and that Intercept has a render run for it, never touches the GitHub release — details in `CONTRIBUTING.md` § Releasing

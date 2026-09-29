@@ -12,7 +12,7 @@ shares with the host instance: the nr-llm provider, model and Configuration
 records, the Symfony Messenger routing, and the outbound HTTP timeouts. In the
 bundled DDEV environment the instance-level settings (see
 :ref:`configuration-worker`) are written to
-:path:`config/system/additional.php` by ``ddev install``; in a real deployment
+:path:`config/system/additional.php` by ``ddev setup``; in a real deployment
 you place them in your instance configuration.
 
 This page covers the extension settings and the backend permissions; the

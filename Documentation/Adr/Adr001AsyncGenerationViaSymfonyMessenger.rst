@@ -43,9 +43,10 @@ Split submission from execution over a Symfony Messenger transport.
    asynchronous transport (the doctrine transport in the dev setup); a
    ``messenger:consume`` worker runs :php:`GenerationOrchestrator::process()`.
    The orchestrator updates the job's ``status`` / ``progress`` /
-   ``current_step`` as it advances (``queued → ingesting → analyzing →
-   generating → done|partially_done|failed``), which is exactly what the list
-   view renders.
+   ``current_step`` as it advances through the statuses
+   ``queued → ingesting → analyzing → generating → done|partially_done|failed``.
+   The list view renders ``status`` and ``progress``; the detail view adds
+   ``current_step``.
 
 3. **The handler records failures instead of rethrowing.** TYPO3 v14.3 Core
    ships no retry/failure transport. So :php:`GenerateArtifactsHandler` wraps the

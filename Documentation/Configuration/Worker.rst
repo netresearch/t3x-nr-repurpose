@@ -63,22 +63,21 @@ Renderer environment
 ===================
 
 The HTML-to-PNG renderer shells out to ``node`` running the bundled
-``render.cjs``, which launches the Chromium binary named in the
-``CHROMIUM_PATH`` environment variable. ``node``, ``ffmpeg`` and ``ffprobe``
+``render.cjs``, which launches Chromium. ``node``, ``ffmpeg`` and ``ffprobe``
 are expected on ``PATH``; these defaults are baked into the service
 definitions and need no scalars in a standard install.
 
-.. important::
+The renderer passes the Chromium path to ``render.cjs`` itself, in the child
+process's ``CHROMIUM_PATH`` variable. The path is the ``$chromiumPath``
+argument of
+``Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer``, default
+``/usr/bin/chromium``. The worker does not need to export ``CHROMIUM_PATH``.
+For a Chromium binary at another path, set the argument in your site's
+:path:`Services.yaml`:
 
-   Export ``CHROMIUM_PATH`` (for example ``/usr/bin/chromium``) in the
-   environment the worker and the ``nr_repurpose:generate`` command start
-   with. The PHP renderer sets the variable itself with ``putenv()`` (from its
-   ``chromiumPath`` argument, default ``/usr/bin/chromium``), but Symfony
-   Process passes a child process only the variables that were already in the
-   environment when PHP started. Without an exported ``CHROMIUM_PATH``,
-   ``render.cjs`` starts Playwright without a browser path: Playwright then
-   looks for a browser it downloaded itself, and with
-   ``PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`` (see
-   :ref:`installation-node-renderer`) there is none, so the render fails with
-   ``Executable doesn't exist at …``. The bundled DDEV image exports
-   ``CHROMIUM_PATH=/usr/bin/chromium``.
+.. code-block:: yaml
+   :caption: config/system/services.yaml (or a site package's Services.yaml)
+
+   Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer:
+     arguments:
+       $chromiumPath: '/usr/lib/chromium/chromium'
