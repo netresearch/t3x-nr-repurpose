@@ -12,6 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A developer chapter and a troubleshooting page** in the documentation: running the test suites, adding a generator, swapping the image or speech adapter; and the error messages a job or artifact shows when the worker, nr-vault, Chromium, ffmpeg, poppler, a permission or the budget stops it.
 - **The README explains how to verify a release**: `gh attestation verify` with `--signer-repo netresearch/typo3-ci-workflows`, because the shared release workflow signs the build provenance.
 - **ADR-008** records the capability-permission gate that 0.5.2 introduced: `generate_audio` and `generate_vision` are checked for the job's creator, once per run, before the budget.
+- **The usage chapter shows the backend module.** Six screenshots in `Documentation/Images/Usage/`: the job list with its pager, the *New job* form, the top of a result view, the story strip, social posts in the approval step, and the social planning view.
 
 ### Changed
 
