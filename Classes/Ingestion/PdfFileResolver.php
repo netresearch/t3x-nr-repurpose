@@ -120,17 +120,17 @@ class PdfFileResolver
         try {
             $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
         } catch (ClientExceptionInterface $e) {
-            throw new IngestionException('PDF URL not reachable: ' . $url, 1749379445, $e);
+            throw new IngestionException('PDF URL not reachable: ' . SourceUrlRedactor::redact($url), 1749379445, $e);
         }
 
         $status = $response->getStatusCode();
         if ($status < 200 || $status >= 300) {
-            throw new IngestionException(sprintf('PDF URL returned HTTP %d: %s', $status, $url), 1749379446);
+            throw new IngestionException(sprintf('PDF URL returned HTTP %d: %s', $status, SourceUrlRedactor::redact($url)), 1749379446);
         }
 
         $bytes = BoundedResponseReader::read($response, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
         if ($bytes === '') {
-            throw new IngestionException('PDF URL returned an empty body: ' . $url, 1749379447);
+            throw new IngestionException('PDF URL returned an empty body: ' . SourceUrlRedactor::redact($url), 1749379447);
         }
 
         return $this->writeDownload($bytes);

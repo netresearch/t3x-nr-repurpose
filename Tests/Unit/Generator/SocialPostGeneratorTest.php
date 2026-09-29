@@ -15,6 +15,7 @@ use Netresearch\NrRepurpose\Generator\Support\TextLimiter;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\ArtifactRecordingJobRepository;
 use RuntimeException;
+use Throwable;
 
 final class SocialPostGeneratorTest extends TextGeneratorTestCase
 {
@@ -140,7 +141,12 @@ final class SocialPostGeneratorTest extends TextGeneratorTestCase
         self::assertSame('done', $this->jobs->row('linkedin')['status']);
         self::assertSame('done', $this->jobs->row('instagram')['status']);
         self::assertSame('failed', $this->jobs->row('x')['status']);
-        self::assertSame('Social posts (x) storage error: connection lost', $this->jobs->row('x')['error_message']);
+        // A database error is not the extension's own message: fixed text, cause in the log.
+        self::assertSame('Social posts (x) storage failed', $this->jobs->row('x')['error_message']);
+        self::assertContains('connection lost', array_map(
+            static fn (array $record): string => ($record['context']['exception'] ?? null) instanceof Throwable ? $record['context']['exception']->getMessage() : '',
+            $this->logger()->records,
+        ));
     }
 
     public function testTheHashtagLineCountsAgainstTheInstagramLimit(): void

@@ -16,6 +16,7 @@ use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
+use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
 use TYPO3\CMS\Extbase\Attribute\ORM\Lazy;
 use TYPO3\CMS\Extbase\Domain\Model\FileReference;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
@@ -127,6 +128,15 @@ class Job extends AbstractEntity
     public function setSourceValue(string $sourceValue): void
     {
         $this->sourceValue = $sourceValue;
+    }
+
+    /**
+     * The source URL as the module's pages show it to every module user: without user
+     * name, password, query and fragment. Empty for a job without one (an attached PDF).
+     */
+    public function getSourceValueForDisplay(): string
+    {
+        return $this->sourceValue === '' ? '' : SourceUrlRedactor::redact($this->sourceValue);
     }
 
     public function getTheme(): string

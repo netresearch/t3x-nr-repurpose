@@ -44,7 +44,9 @@ page number beyond the last page shows the last page.
    :class: with-border with-shadow
 
    The first of two pages of the job list. A long source URL is cut with an
-   ellipsis; the full URL is in the tooltip.
+   ellipsis; the full URL is in the tooltip. The list, the result view and the
+   social planning show the URL without user name, password, query and
+   fragment; the job record in the List module keeps it as entered.
 
 .. _usage-new:
 

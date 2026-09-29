@@ -99,7 +99,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
             $this->get(AiLabelSettingsFactory::class),
             [
                 new PodcastGenerator($jobs, $budget, $logger, $completion, $this->speech(), $this->stitcher(), $storage, new WebVttBuilder()),
-                new SchaubildGenerator($jobs, $budget, $logger, $completion, $renderer, new GdImageCompositor(), $this->unavailableImages(), $storage, $this->get(ViewFactoryInterface::class)),
+                new SchaubildGenerator($jobs, $budget, $logger, $completion, $renderer, new GdImageCompositor(new NullLogger()), $this->unavailableImages(), $storage, $this->get(ViewFactoryInterface::class)),
                 new FaqGenerator($jobs, $budget, $logger, $completion, $labels),
             ],
         ))->process($jobUid);
@@ -168,7 +168,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
             $this->get(ExtensionConfiguration::class),
             $this->grants(),
             $this->get(AiLabelSettingsFactory::class),
-            [new SchaubildGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(40), new GdImageCompositor(), $this->unavailableImages(), $this->get(JobFileStorage::class), $this->get(ViewFactoryInterface::class))],
+            [new SchaubildGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(40), new GdImageCompositor(new NullLogger()), $this->unavailableImages(), $this->get(JobFileStorage::class), $this->get(ViewFactoryInterface::class))],
         ))->process($jobUid);
 
         $row = GeneralUtility::makeInstance(ConnectionPool::class)
@@ -305,7 +305,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
             $this->get(ExtensionConfiguration::class),
             $this->grants(),
             $this->get(AiLabelSettingsFactory::class),
-            [new StoryGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(), new GdImageCompositor(), $this->unavailableImages(), $this->get(JobFileStorage::class), $this->get(ViewFactoryInterface::class), $slideshow)],
+            [new StoryGenerator($jobs, new FakeBudgetService(), new NullLogger(), $completion, $this->renderer(), new GdImageCompositor(new NullLogger()), $this->unavailableImages(), $this->get(JobFileStorage::class), $this->get(ViewFactoryInterface::class), $slideshow)],
         ))->process($jobUid);
 
         $row = GeneralUtility::makeInstance(ConnectionPool::class)

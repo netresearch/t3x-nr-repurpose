@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
+use GuzzleHttp\Psr7\HttpFactory;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -25,23 +26,38 @@ use Netresearch\NrRepurpose\Generator\SocialPostGenerator;
 use Netresearch\NrRepurpose\Generator\Support\TextLabels;
 use Netresearch\NrRepurpose\Generator\Support\TextLimiter;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
+use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
+use Netresearch\NrRepurpose\Ingestion\PdfLayoutExtractor;
+use Netresearch\NrRepurpose\Ingestion\PdfTextExtractor;
+use Netresearch\NrRepurpose\Ingestion\PdfVisionExtractor;
+use Netresearch\NrRepurpose\Ingestion\Poppler\SymfonyProcessPopplerRunner;
+use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
+use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
+use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
+use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActor;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Resource\FileRepository;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
@@ -337,6 +353,119 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('source unreachable', (string) $row['error_message']);
         self::assertFalse($analyzer->called);
         self::assertFalse($generator->called);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: Throwable, 2: string}> failing step, exception, stored error_message
+     */
+    public static function jobStepFailures(): array
+    {
+        $foreign = 'Provider answered 401 for https://api.example.test/v1 with key sk-secret; /var/www/html/var/transient/x.pdf';
+
+        return [
+            'ingestion, own message'         => ['ingestion', new IngestionException('PDF URL returned HTTP 404: https://example.com/a.pdf'), 'PDF URL returned HTTP 404: https://example.com/a.pdf'],
+            'ingestion, foreign exception'   => ['ingestion', new RuntimeException($foreign), 'Ingestion failed'],
+            'analysis, own message'          => ['analysis', new AnalysisException('Cannot analyze an empty source document'), 'Cannot analyze an empty source document'],
+            'analysis, text model exception' => ['analysis', new RuntimeException($foreign), 'Analysis failed'],
+        ];
+    }
+
+    /**
+     * The job's error_message is shown to every module user. The extension's own ingestion
+     * and analysis messages are written for it and stay; any other exception (the text model,
+     * Guzzle, poppler, the database) can carry provider detail, paths or SQL: the row gets
+     * "<step> failed" and the exception goes to the log.
+     */
+    #[DataProvider('jobStepFailures')]
+    public function testAFailedJobStepStoresOnlyTheExtensionsOwnMessage(string $step, Throwable $cause, string $expected): void
+    {
+        $jobUid = $this->seedJob();
+        $jobs   = $this->get(JobProcessingRepository::class);
+        $logger = new RecordingLogger();
+
+        $ingestion = $step === 'ingestion'
+            ? new readonly class ($cause) implements SourceIngestionServiceInterface {
+                public function __construct(private Throwable $cause) {}
+
+                public function ingest(array $jobRow): SourceDocument
+                {
+                    throw $this->cause;
+                }
+            }
+        : $this->stubIngestion($this->stubDocument());
+        $analyzer = new readonly class ($cause) implements DocumentAnalyzerInterface {
+            public function __construct(private Throwable $cause) {}
+
+            public function analyze(SourceDocument $document, array $jobRow): ContentBrief
+            {
+                throw $this->cause;
+            }
+        };
+
+        (new GenerationOrchestrator($jobs, $logger, $ingestion, $analyzer, $this->get(PromptSnippetResolver::class), $this->get(TechnicalActorContextInterface::class), $this->get(ExtensionConfiguration::class), $this->get(CapabilityGrantResolver::class), $this->get(AiLabelSettingsFactory::class), []))->process($jobUid);
+
+        $row = $jobs->findRow($jobUid);
+        self::assertSame('failed', $row['status']);
+        self::assertSame($expected, $row['error_message']);
+        self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}> source_type, source_value, stored error_message
+     */
+    public static function sourceUrlsWithCredentials(): array
+    {
+        $url = 'https://user:secret@example.com/doc.pdf?token=abc#frag';
+
+        return [
+            'web page answers 404' => ['url', $url, 'URL returned HTTP 404: https://example.com/doc.pdf'],
+            'PDF URL answers 404'  => ['pdf_url', $url, 'PDF URL returned HTTP 404: https://example.com/doc.pdf'],
+            'scheme refused'       => [
+                'url',
+                'ftp://user:secret@example.com/doc.pdf?token=abc#frag',
+                'Source URL scheme "ftp" is not allowed, only http and https: ftp://example.com/doc.pdf',
+            ],
+        ];
+    }
+
+    /**
+     * The editor's source URL can carry a user name, a password and a query token. The
+     * error_message a failed ingestion stores is shown to every module user, so it names the
+     * URL without them. Real ingestion service, fetchers and guard; only the transport is faked.
+     */
+    #[DataProvider('sourceUrlsWithCredentials')]
+    public function testAFailedIngestionStoresTheSourceUrlWithoutCredentialsOrQuery(string $sourceType, string $sourceValue, string $expected): void
+    {
+        $conn = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job');
+        $conn->insert('tx_nrrepurpose_domain_model_job', [
+            'pid'    => 0, 'source_type' => $sourceType, 'source_value' => $sourceValue,
+            'theme'  => 'nr', 'want_podcast' => 0, 'want_schaubild' => 0, 'want_story' => 0,
+            'status' => 'queued',
+        ]);
+        $jobUid = (int) $conn->lastInsertId();
+
+        $client    = QueuedHttpClient::answering(404, 'Not found')->client;
+        $factory   = new HttpFactory();
+        $ingestion = new SourceIngestionService(
+            new WebPageFetcher($client, $factory, StaticHostResolver::publicGuard()),
+            new PdfFileResolver($this->get(FileRepository::class), $client, $factory, StaticHostResolver::publicGuard()),
+            new PdfTextExtractor(),
+            $this->createStub(PdfVisionExtractor::class),
+            new PdfLayoutExtractor(new SymfonyProcessPopplerRunner(new NullLogger())),
+            $this->get(CapabilityGrantResolverInterface::class),
+            new NullLogger(),
+        );
+        $jobs = $this->get(JobProcessingRepository::class);
+
+        (new GenerationOrchestrator($jobs, new NullLogger(), $ingestion, $this->stubAnalyzer($this->stubBrief()), $this->get(PromptSnippetResolver::class), $this->get(TechnicalActorContextInterface::class), $this->get(ExtensionConfiguration::class), $this->get(CapabilityGrantResolver::class), $this->get(AiLabelSettingsFactory::class), []))->process($jobUid);
+
+        $error = (string) ($jobs->findRow($jobUid)['error_message'] ?? '');
+        // The positive half: the job failed on the fetcher's own message, not on a foreign
+        // exception that failJob() would have replaced with "Ingestion failed".
+        self::assertSame($expected, $error);
+        foreach (['secret', 'token=abc', 'user:', 'frag'] as $leak) {
+            self::assertStringNotContainsString($leak, $error);
+        }
     }
 
     public function testReprocessingClearsPriorArtifacts(): void

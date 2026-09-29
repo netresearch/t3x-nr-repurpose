@@ -122,7 +122,7 @@ abstract class AbstractTextGenerator extends AbstractGenerator
             );
         } catch (Throwable $e) {
             $artifactUid = $this->jobs->insertArtifact($jobUid, $this->artifactType(), 'default', 0, ArtifactStatus::Pending);
-            $this->failArtifact($artifactUid, $jobUid, sprintf('%s generation error: %s', $this->label(), $e->getMessage()));
+            $this->failArtifactFrom($artifactUid, $jobUid, $this->label() . ' generation', $e);
 
             return false;
         }
@@ -138,7 +138,7 @@ abstract class AbstractTextGenerator extends AbstractGenerator
             try {
                 $fileFields = $this->fileFields($artifact, $ctx, $provenance);
             } catch (Throwable $e) {
-                $this->failArtifact($artifactUid, $jobUid, sprintf('%s (%s) file error: %s', $this->label(), $artifact->variant, $e->getMessage()));
+                $this->failArtifactFrom($artifactUid, $jobUid, sprintf('%s (%s) file', $this->label(), $artifact->variant), $e);
                 continue;
             }
 
@@ -150,7 +150,7 @@ abstract class AbstractTextGenerator extends AbstractGenerator
                 ] + $fileFields);
                 $ok = true;
             } catch (Throwable $e) {
-                $this->failArtifact($artifactUid, $jobUid, sprintf('%s (%s) storage error: %s', $this->label(), $artifact->variant, $e->getMessage()));
+                $this->failArtifactFrom($artifactUid, $jobUid, sprintf('%s (%s) storage', $this->label(), $artifact->variant), $e);
             }
         }
 

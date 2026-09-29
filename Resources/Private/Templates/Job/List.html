@@ -36,7 +36,7 @@
                                 <td>{job.uid}</td>
                                 <f:comment><!-- One line with an ellipsis (core .col-responsive): a 400-character tracking URL must not
                                      widen the table. The full value stays in the DOM (copy, screen readers) and in the title (hover). --></f:comment>
-                                <td class="col-responsive" title="{job.sourceValue}">{job.sourceValue}</td>
+                                <td class="col-responsive" title="{job.sourceValueForDisplay}">{job.sourceValueForDisplay}</td>
                                 <td>
                                     <span class="badge badge-{job.statusEnum.severity}">
                                         <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{job.statusEnum.labelKey}" />

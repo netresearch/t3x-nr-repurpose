@@ -20,17 +20,26 @@
             box-sizing: border-box;
             width: 1080px;
             height: 1920px;
-            padding: 120px 96px;
+            /* The copy ends 330px above the bottom edge, and the label row starts 330px from
+               the top, out of the band the story UI covers — see Story/Nr.html for the 14% of
+               Meta's Stories ads guide and the 8% zoom of the story video behind 330px. */
+            padding: 120px 96px 330px;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
             color: #ffffff;
             font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
         }
-        .story__indicator {
+        /* AI label and slide indicator, top right. */
+        .story__meta {
             position: absolute;
-            top: 96px;
+            top: 330px;
             right: 96px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .story__indicator {
             font-weight: 600;
             font-size: 32px;
             letter-spacing: 1px;
@@ -39,17 +48,33 @@
         .story__accent { width: 120px; height: 12px; background: #3b6ef5; margin-bottom: 40px; }
         .story__headline {
             font-weight: 700;
-            font-size: <f:if condition="{role} == 'cover'"><f:then>116px</f:then><f:else>88px</f:else></f:if>;
+            /* One size for every slide, as in Story/Nr.html: a 60-character headline of words that
+               do not pair on a line took eight lines at the cover's former 116px and ran up past
+               the AI label row at the top. */
+            font-size: 88px;
             line-height: 1.1;
             margin: 0 0 32px;
+            /* A long compound can be wider than the 888px line. */
+            overflow-wrap: break-word;
         }
         .story__subline { font-size: 40px; line-height: 1.4; font-weight: 400; margin: 0; }
         .story__source { font-size: 30px; line-height: 1.4; font-weight: 400; margin: 48px 0 0; opacity: 0.8; word-break: break-all; }
+        /* The source label is the job's URL or file name, of any length: two lines at most, so a
+           long URL cannot push the copy up into the label row. The side padding keeps the clip clear
+           of the plate's 16px side extension in the transparent render. */
+        .story__source { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; padding: 0 16px; margin-left: -16px; margin-right: -16px; }
+        <f:if condition="{transparent}">
+            /* Over a KI background the white copy has no backing of its own, and a light image
+               leaves it white on white: headline, subline, source and slide indicator sit on the
+               dark end of the opaque gradient, line by line (#1f2933, 14.76:1 for white). */
+            /* The side extension is a shadow, not padding, so the plate does not narrow the line
+               and the copy wraps as in the opaque render. */
+            .story__plate { background: #1f2933; padding: 4px 0; box-shadow: -16px 0 0 #1f2933, 16px 0 0 #1f2933; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+            .story__source, .story__indicator { opacity: 1; }
+            .story__indicator { background: #1f2933; padding: 8px 20px; border-radius: 8px; }
+        </f:if>
         /* Visible AI label (ADR-005): own dark plate, legible over any background. */
         .ai-label {
-            position: absolute;
-            top: 96px;
-            left: 96px;
             padding: 8px 20px;
             border-radius: 8px;
             background: rgba(0, 0, 0, 0.72);
@@ -63,17 +88,19 @@
 </head>
 <body>
     <div class="story">
-        <f:if condition="{aiLabel}">
-            <div class="ai-label">{aiLabel}</div>
-        </f:if>
-        <f:if condition="{role} != 'cover'">
-            <div class="story__indicator">{slideIndex}/{slideTotal}</div>
-        </f:if>
+        <div class="story__meta">
+            <f:if condition="{aiLabel}">
+                <div class="ai-label">{aiLabel}</div>
+            </f:if>
+            <f:if condition="{role} != 'cover'">
+                <div class="story__indicator">{slideIndex}/{slideTotal}</div>
+            </f:if>
+        </div>
         <div class="story__accent"></div>
-        <h1 class="story__headline">{headline}</h1>
-        <p class="story__subline">{subline}</p>
+        <h1 class="story__headline"><span class="story__plate">{headline}</span></h1>
+        <p class="story__subline"><span class="story__plate">{subline}</span></p>
         <f:if condition="{role} == 'outro'">
-            <p class="story__source">{sourceLabel}</p>
+            <p class="story__source"><span class="story__plate">{sourceLabel}</span></p>
         </f:if>
     </div>
 </body>

@@ -134,7 +134,7 @@ class SchaubildGenerator extends AbstractGenerator
 
             return true;
         } catch (Throwable $e) {
-            $this->failArtifact($artifactUid, $jobUid, 'Schaubild html variant error: ' . $e->getMessage());
+            $this->failArtifactFrom($artifactUid, $jobUid, 'Schaubild html variant', $e);
 
             return false;
         } finally {
@@ -198,7 +198,7 @@ class SchaubildGenerator extends AbstractGenerator
 
             return true;
         } catch (Throwable $e) {
-            $this->failArtifact($artifactUid, $jobUid, 'Schaubild html_bg variant error: ' . $e->getMessage());
+            $this->failArtifactFrom($artifactUid, $jobUid, 'Schaubild html_bg variant', $e);
 
             return false;
         } finally {
@@ -252,7 +252,7 @@ class SchaubildGenerator extends AbstractGenerator
 
             return true;
         } catch (Throwable $e) {
-            $this->failArtifact($artifactUid, $jobUid, 'Schaubild ki_image variant error: ' . $e->getMessage());
+            $this->failArtifactFrom($artifactUid, $jobUid, 'Schaubild ki_image variant', $e);
 
             return false;
         } finally {

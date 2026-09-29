@@ -13,6 +13,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\PublishStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
+use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
@@ -107,7 +108,8 @@ final readonly class ArtifactReviewService
 
     /**
      * The social posts on the schedule or past it, oldest publishing time first, with
-     * their job's source.
+     * their job's source as the publishing plan shows it: without user name, password,
+     * query and fragment (SourceUrlRedactor), empty for a job without a URL.
      *
      * @return list<array{uid: int, job: int, variant: string, script_text: string, publish_at: int, publish_status: string, published_at: int, publish_error: string, source_value: string}>
      */
@@ -136,7 +138,7 @@ final readonly class ArtifactReviewService
             'publish_status' => (string) $row['publish_status'],
             'published_at'   => (int) $row['published_at'],
             'publish_error'  => (string) $row['publish_error'],
-            'source_value'   => (string) $row['source_value'],
+            'source_value'   => (string) $row['source_value'] === '' ? '' : SourceUrlRedactor::redact((string) $row['source_value']),
         ], $rows);
     }
 

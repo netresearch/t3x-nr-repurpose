@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Generator;
 
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
@@ -42,7 +43,7 @@ final readonly class StubArtifactGenerator implements ArtifactGeneratorInterface
             $content = sprintf(
                 "nr_repurpose stub artifact\nJob #%d\nSource: %s\nTheme: %s\nTitle: %s\nLanguage: %s\n",
                 $jobUid,
-                (string) ($ctx->jobRow['source_value'] ?? ''),
+                SourceUrlRedactor::redact((string) ($ctx->jobRow['source_value'] ?? '')),
                 $ctx->theme,
                 $ctx->brief->title,
                 $ctx->brief->language,
@@ -52,8 +53,10 @@ final readonly class StubArtifactGenerator implements ArtifactGeneratorInterface
 
             return true;
         } catch (Throwable $e) {
-            $this->logger->error('Stub artifact failed', ['job' => $jobUid, 'exception' => $e->getMessage()]);
-            $this->jobs->insertArtifact($jobUid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Failed, $e->getMessage());
+            // The row's error_message is shown to every module user and a FAL error can carry
+            // the storage path: a fixed text there, the exception in the log.
+            $this->logger->error('Stub artifact failed', ['job' => $jobUid, 'exception' => $e]);
+            $this->jobs->insertArtifact($jobUid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Failed, 'Stub artifact failed');
 
             return false;
         }
