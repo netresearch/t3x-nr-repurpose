@@ -1,46 +1,51 @@
 <!-- FOR AI AGENTS - Human readability is a side effect, not a goal -->
 <!-- Managed by agent: keep sections and order; edit content, not structure -->
-<!-- Last updated: 2026-08-19 | Last verified: 2026-08-19 -->
+<!-- Last updated: 2026-09-28 | Last verified: 2026-09-28 -->
 
 # AGENTS.md
 
 **Precedence:** the **closest `AGENTS.md`** to the files you're changing wins. Root holds global defaults only.
 
-## Commands (verified 2026-08-19)
+## Overview
+TYPO3 v14 extension `nr_repurpose` (`netresearch/nr-repurpose`): turns a URL or PDF into a podcast, a diagram (Schaubild), a story carousel (optionally as MP4 video), four text formats, and a slide deck and a handout (PDF) from the TYPO3 backend. Every AI call goes through nr-llm. Pipeline: see `## Architecture` below; component map in `docs/ARCHITECTURE.md`; user docs in `Documentation/`; human contributor flow in `CONTRIBUTING.md`.
+
+## Setup / Environment
+```bash
+cp .ddev/.env.dist .ddev/.env   # set OPENAI_API_KEY — the only required key
+ddev start && ddev setup        # TYPO3 v14.3 into .Build/Web, key stored in nr-vault as nr_repurpose_openai
+```
+- Tests need only Docker plus, on the very first run, `composer` on the host: `Build/Scripts/runTests.sh` is a stub that runs `composer install` to fetch the shared runner into `.Build/bin/`.
+- `OPENAI_API_KEY` is dev-only; `.ddev/commands/web/setup` reads it (`ddev install` is an alias of `ddev setup`). The extension never reads a key — production keys live in nr-llm/nr-vault.
+- `CHROMIUM_PATH`: `render.cjs` reads it from its environment. `Classes/Rendering/PlaywrightHtmlToImageRenderer.php` passes its `chromiumPath` argument (default `/usr/bin/chromium`) to the child explicitly through `ProcessRunnerInterface::run()`'s `$env`, so the worker does not need to export it; another Chromium path can be set as the `$chromiumPath` argument of that service in `Configuration/Services.yaml`. Worker binaries (node, chromium, ffmpeg, poppler): see `Documentation/Installation/Index.rst`.
+
+## Commands (verified 2026-09-28)
 > ALWAYS via the Docker test runner — NEVER `phpunit`/`php-cs-fixer` directly.
 
 <!-- AGENTS-GENERATED:START commands -->
 | Task | Command | ~Time |
 |------|---------|-------|
-| Unit tests | `./Build/Scripts/runTests.sh -s unit` | ~30s |
-| Functional tests (sqlite) | `./Build/Scripts/runTests.sh -s functional` | ~1min |
-| Functional vs MariaDB | `./Build/Scripts/runTests.sh -s functional -d mariadb` | ~2min |
-| PHP lint | `./Build/Scripts/runTests.sh -s lint` | ~20s |
-| Pin PHP version | `./Build/Scripts/runTests.sh -p 8.3 -s unit` (default 8.5) | — |
-| Reinstall deps | `./Build/Scripts/runTests.sh -s composerUpdate` | ~2min |
+| Unit tests | `./Build/Scripts/runTests.sh -s unit` | ~5s |
+| Functional tests (sqlite) | `./Build/Scripts/runTests.sh -s functional` | ~30s |
+| Functional vs MariaDB | `./Build/Scripts/runTests.sh -s functional -d mariadb` | ~1.5min |
+| PHP lint | `./Build/Scripts/runTests.sh -s lint` | ~5s |
+| PHPStan | `./Build/Scripts/runTests.sh -s phpstan` | ~10s |
+| Code style check | `./Build/Scripts/runTests.sh -p 8.3 -s cgl -n` (drop `-n` to fix) | ~5s |
+| Rector check | `./Build/Scripts/runTests.sh -s rector -n` (drop `-n` to apply) | ~5s |
+| Pin PHP version | `./Build/Scripts/runTests.sh -p 8.3 -s composerUpdate`, then `-p 8.3 -s <suite>` (default 8.5) | ~1min |
+| Reinstall deps | `./Build/Scripts/runTests.sh -s composerUpdate` | ~1min |
 <!-- AGENTS-GENERATED:END commands -->
 
-> **PHPStan, cgl, rector and lint all run here.** The tools come in through
-> `netresearch/typo3-ci-workflows` (require-dev) — a plain install puts
-> `phpstan`, `php-cs-fixer` and `rector` into `.Build/bin/`. Composer scripts:
-> `ci:cgl`, `ci:rector`, `ci:test:php:{cgl,phpstan,rector}`.
->
-> PHPStan runs at level 8 over `Classes` only (`phpstan.neon`) — level 10 plus
-> `Tests` costs ~280 findings, and a baseline that size hides every new one.
->
-> Code style uses the shared ruleset via `.php-cs-fixer.dist.php`. **Run cgl on
-> PHP 8.3** — CI's cgl job takes the first `php-versions` entry, and formatting
-> on a newer runtime can produce output that job then rejects.
->
-> If a tool reports "config file does not exist", that is a missing config, not
-> a missing tool — check before concluding a tool is absent.
+- Dependencies are resolved for one PHP version: after `-s composerUpdate` on 8.5, every `-p 8.3` suite except `lint` dies in Composer's platform check (`requires a PHP version ">= 8.4.1"`). Re-run `composerUpdate` with the same `-p` first.
+- The tools (`phpstan`, `php-cs-fixer`, `rector`) come from `netresearch/typo3-ci-workflows` (require-dev) into `.Build/bin/`; configs: `phpstan.neon` (level 8, `Classes` only — level 10 plus `Tests` costs ~280 findings), `.php-cs-fixer.dist.php`, `Build/rector.php`.
+- **Run cgl on PHP 8.3** — CI's cgl job takes the first `php-versions` entry, and formatting on a newer runtime can produce output that job then rejects.
+- "config file does not exist" means a missing config, not a missing tool.
 
 ## Workflow
 1. **Before coding**: Read nearest `AGENTS.md` + check Golden Samples for the area you're touching
 2. **After each change**: Run the smallest relevant check (lint → typecheck → single test)
 3. **Before committing**: Run full test suite if changes affect >2 files or touch shared code
 4. **Response style**: answer first, no sycophantic openers; match response length to task complexity
-4. **Before claiming done**: Run verification and **show output as evidence** — never say "try again", "should work now", "tested", "verified", or "all green" without pasted command output in the same turn
+5. **Before claiming done**: Run verification and **show output as evidence** — never say "try again", "should work now", "tested", "verified", or "all green" without pasted command output in the same turn
 
 ## File Map
 <!-- AGENTS-GENERATED:START filemap -->
@@ -63,6 +68,9 @@ Build/           → project files
 | Test | `Tests/Functional/Persistence/JobProcessingRepositoryTest.php` | DB fixtures |
 <!-- AGENTS-GENERATED:END golden-samples -->
 
+## Utilities (check before creating new)
+Shared helpers — generator base methods, `Classes/Generator/Support/*` (text limits, labels, WebVTT), process runner, FAL storage, AI markers: see `Classes/AGENTS.md` § Utilities before writing a new one.
+
 ## Heuristics (quick decisions)
 <!-- AGENTS-GENERATED:START heuristics -->
 | When | Do |
@@ -72,8 +80,8 @@ Build/           → project files
 | Changing models/prompts | Edit nr-llm Configuration records (`nr_repurpose_image`, `nr_repurpose_tts`, instance default for text) — never hardcode model ids beyond documented fallbacks |
 | Steering generation | nr-llm prompt snippets, tags `audience` / `tone_of_voice` / `persona` / `layout` / `style`; layout metadata `{"imageSize":"WxH"}` drives AI-image dimensions |
 | Committing | Conventional Commits + `git commit -S -s` (DCO + SSH signing enforced) |
-| Merging a PR | `--merge`, directly — this repo has NO merge queue; gate: threads resolved + checks green + no in-flight review |
-| Running locally | `ddev start` + `ddev install` (seeds the provider key, see README) |
+| Merging a PR | `--merge`, directly — this repo has NO merge queue; gate: 1 approving review + threads resolved + checks green + no in-flight review |
+| Running locally | See `## Setup / Environment` above |
 | Adding dependency | Ask first — we minimize deps |
 <!-- AGENTS-GENERATED:END heuristics -->
 
@@ -86,10 +94,11 @@ Build/           → project files
 
 <!-- AGENTS-GENERATED:START ci-rules -->
 ## CI (reusable netresearch/typo3-ci-workflows)
-- `ci.yml` matrix: PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3 — lint, unit and functional (SQLite) tests per version
-- `run-cgl`, `run-phpstan`, `run-rector`, `run-functional-tests` are `true`
+- `ci.yml` sets `run-cgl`, `run-phpstan`, `run-rector`, `run-unit-tests`, `run-functional-tests: true`; matrix PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3
+- Per PHP version: lint, PHPStan, unit, functional (SQLite, the reusable default); once on PHP 8.3 (first matrix entry): cgl, rector; one advisory PHPStan pass against the unpinned PHPUnit (warns, does not fail); plus a docs render of `Documentation/guides.xml` — all behind the `All CI checks` gate
 - `checks.yml` (drift-enforced): security (Opengrep SAST, composer audit), betterleaks, zizmor, fuzz, license-check, CodeQL, Scorecard, dependency-review, pr-quality — all behind one required `All security checks` gate; SonarCloud + DCO run as apps
 - Release: signed annotated tag `vX.Y.Z` triggers `release.yml`, which publishes to TER, verifies Packagist, then creates the GitHub release with Cosign-signed artifacts; the tag push itself triggers the docs.typo3.org render through the Intercept webhook, and the release only checks that Intercept accepted the render (a render run exists), without waiting for its result or gating on it
+- `republish.yml` (manual, `tag` + `target`): re-uploads to TER only if the version is missing there (the TER metadata sync runs either way), only checks that Packagist lists the version and that Intercept has a render run for it, never touches the GitHub release — details in `CONTRIBUTING.md` § Releasing
 <!-- AGENTS-GENERATED:END ci-rules -->
 
 ## Boundaries
@@ -99,7 +108,6 @@ Build/           → project files
 - Add tests for new code paths
 - Use conventional commit format: `type(scope): subject`
 - Use **atomic commits** (one logical change per commit); preserve signatures, keep bisection useful
-- **Show test output as evidence before claiming work is complete** — never say "try again", "should work now", "tested", "verified", or "all green" without pasted command output
 - Before any edit, verify `pwd` resolves inside the intended repo worktree — not `.bare/`, not `~/.claude/skills/…`, not `~/.claude/plugins/cache/…` (those are read-only caches that get clobbered on update)
 - For upstream dependency fixes: run **full** test suite, not just affected tests
 - Force-push only with `--force-with-lease`
@@ -127,14 +135,8 @@ Build/           → project files
 
 ## Architecture (pipeline — component map: `docs/ARCHITECTURE.md`)
 <!-- AGENTS-GENERATED:START codebase-state -->
-ingest (`Classes/Ingestion/`: URL fetch or tiered PDF reader) → analyze
-(`Classes/Understanding/DocumentAnalyzer` → one `ContentBrief` via nr-llm
-completion, map-reduce above 24k chars) → generate (`Classes/Generator/`:
-podcast with 1–3 persona speakers, Schaubild ×3 variants, story ×N slides, four
-text formats; async via Symfony Messenger doctrine transport, worker needs
-ffmpeg, chromium, poppler) → store in FAL (`repurpose/` folder). ALL AI calls go
-through nr-llm — this extension contains zero provider code; the keys belong to
-nr-llm (identifier `nr_repurpose_openai` on the live instance).
+ingest (`Classes/Ingestion/`: URL fetch or tiered PDF reader) → analyze (`Classes/Understanding/DocumentAnalyzer` → one `ContentBrief` via nr-llm completion, map-reduce above 24k chars) → generate (`Classes/Generator/`: podcast with 1–3 persona speakers, Schaubild ×3 variants, story ×N slides (+ optional MP4), four text formats, slide deck + handout PDFs; async via Symfony Messenger doctrine transport, worker needs ffmpeg, chromium, poppler) → store in FAL (`repurpose/` folder).
+ALL AI calls go through nr-llm — this extension contains zero provider code; the keys belong to nr-llm (identifier `nr_repurpose_openai` on the live instance).
 <!-- AGENTS-GENERATED:END codebase-state -->
 
 ## Scoped AGENTS.md (MUST read when working in these directories)
@@ -143,7 +145,4 @@ nr-llm (identifier `nr_repurpose_openai` on the live instance).
 - `./Tests/AGENTS.md` — unit + functional suites via runTests.sh
 <!-- AGENTS-GENERATED:END scope-index -->
 
-> **Agents**: When you read or edit files in a listed directory, you **must** load its AGENTS.md first. It contains directory-specific conventions that override this root file.
-
-## When instructions conflict
-The nearest `AGENTS.md` wins. Explicit user prompts override files.
+> **Agents**: When you read or edit files in a listed directory, you **must** load its AGENTS.md first. It contains directory-specific conventions that override this root file. Explicit user prompts override both.
