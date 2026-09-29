@@ -34,11 +34,15 @@ use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActor;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -337,6 +341,61 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('source unreachable', (string) $row['error_message']);
         self::assertFalse($analyzer->called);
         self::assertFalse($generator->called);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: Throwable, 2: string}> failing step, exception, stored error_message
+     */
+    public static function jobStepFailures(): array
+    {
+        $foreign = 'Provider answered 401 for https://api.example.test/v1 with key sk-secret; /var/www/html/var/transient/x.pdf';
+
+        return [
+            'ingestion, own message'         => ['ingestion', new IngestionException('PDF URL returned HTTP 404: https://example.com/a.pdf'), 'PDF URL returned HTTP 404: https://example.com/a.pdf'],
+            'ingestion, foreign exception'   => ['ingestion', new RuntimeException($foreign), 'Ingestion failed'],
+            'analysis, own message'          => ['analysis', new AnalysisException('Cannot analyze an empty source document'), 'Cannot analyze an empty source document'],
+            'analysis, text model exception' => ['analysis', new RuntimeException($foreign), 'Analysis failed'],
+        ];
+    }
+
+    /**
+     * The job's error_message is shown to every module user. The extension's own ingestion
+     * and analysis messages are written for it and stay; any other exception (the text model,
+     * Guzzle, poppler, the database) can carry provider detail, paths or SQL: the row gets
+     * "<step> failed" and the exception goes to the log.
+     */
+    #[DataProvider('jobStepFailures')]
+    public function testAFailedJobStepStoresOnlyTheExtensionsOwnMessage(string $step, Throwable $cause, string $expected): void
+    {
+        $jobUid = $this->seedJob();
+        $jobs   = $this->get(JobProcessingRepository::class);
+        $logger = new RecordingLogger();
+
+        $ingestion = $step === 'ingestion'
+            ? new class ($cause) implements SourceIngestionServiceInterface {
+                public function __construct(private readonly Throwable $cause) {}
+
+                public function ingest(array $jobRow): SourceDocument
+                {
+                    throw $this->cause;
+                }
+            }
+        : $this->stubIngestion($this->stubDocument());
+        $analyzer = new class ($cause) implements DocumentAnalyzerInterface {
+            public function __construct(private readonly Throwable $cause) {}
+
+            public function analyze(SourceDocument $document, array $jobRow): ContentBrief
+            {
+                throw $this->cause;
+            }
+        };
+
+        (new GenerationOrchestrator($jobs, $logger, $ingestion, $analyzer, $this->get(PromptSnippetResolver::class), $this->get(TechnicalActorContextInterface::class), $this->get(ExtensionConfiguration::class), $this->get(CapabilityGrantResolver::class), $this->get(AiLabelSettingsFactory::class), []))->process($jobUid);
+
+        $row = $jobs->findRow($jobUid);
+        self::assertSame('failed', $row['status']);
+        self::assertSame($expected, $row['error_message']);
+        self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
     }
 
     public function testReprocessingClearsPriorArtifacts(): void

@@ -14,6 +14,7 @@ use Netresearch\NrRepurpose\Queue\Handler\GenerateArtifactsHandler;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Psr\Log\NullLogger;
 use RuntimeException;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -65,24 +66,36 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
         self::assertSame($jobUid, $orchestrator->processed);
     }
 
-    public function testHandlerCatchesOrchestratorCrashAndMarksJobFailed(): void
+    /**
+     * What reaches the handler escaped the orchestrator's own step handling — a generator
+     * that threw (the Schaubild's diagram completion is not caught in the generator), a
+     * database error. Its message can be the text model's answer, a path or SQL, and the
+     * job's error_message is shown to every module user: the row gets a fixed text and the
+     * exception goes to the log.
+     */
+    public function testHandlerCatchesOrchestratorCrashAndMarksJobFailedWithAFixedReason(): void
     {
         $jobUid = $this->seedJob();
         $jobs   = $this->get(JobProcessingRepository::class);
+        $logger = new RecordingLogger();
+        $cause  = new OrchestratorCrashException('worker exploded: Provider answered 401 for https://api.example.test/v1 with key sk-secret');
 
-        $orchestrator = new class implements GenerationOrchestratorInterface {
+        $orchestrator = new class ($cause) implements GenerationOrchestratorInterface {
+            public function __construct(private readonly OrchestratorCrashException $cause) {}
+
             public function process(int $jobUid): void
             {
-                throw new OrchestratorCrashException('worker exploded');
+                throw $this->cause;
             }
         };
 
-        $handler = new GenerateArtifactsHandler($orchestrator, $jobs, new NullLogger());
+        $handler = new GenerateArtifactsHandler($orchestrator, $jobs, $logger);
         $handler(new GenerateArtifactsMessage($jobUid));
 
         $row = $jobs->findRow($jobUid);
         self::assertSame('failed', $row['status']);
-        self::assertStringContainsString('worker exploded', (string) $row['error_message']);
+        self::assertSame('Generation failed', $row['error_message']);
+        self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
     }
 }
 

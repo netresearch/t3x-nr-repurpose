@@ -13,12 +13,14 @@ use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
+use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
+use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Psr\Log\LoggerInterface;
@@ -118,8 +120,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         try {
             $document = $this->ingestion->ingest($row);
         } catch (Throwable $e) {
-            $this->logger->error('Ingestion failed', ['job' => $jobUid, 'exception' => $e->getMessage()]);
-            $this->jobs->markFailed($jobUid, $e->getMessage());
+            $this->failJob($jobUid, 'Ingestion', $e);
 
             return;
         }
@@ -129,8 +130,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         try {
             $brief = $this->analyzer->analyze($document, $row);
         } catch (Throwable $e) {
-            $this->logger->error('Analysis failed', ['job' => $jobUid, 'exception' => $e->getMessage()]);
-            $this->jobs->markFailed($jobUid, $e->getMessage());
+            $this->failJob($jobUid, 'Analysis', $e);
 
             return;
         }
@@ -146,8 +146,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
                 PromptSnippetSelection::fromJson((string) ($row['prompt_snippets'] ?? '')),
             );
         } catch (Throwable $e) {
-            $this->logger->error('Prompt snippet resolution failed', ['job' => $jobUid, 'exception' => $e->getMessage()]);
-            $this->jobs->markFailed($jobUid, $e->getMessage());
+            $this->failJob($jobUid, 'Prompt snippet resolution', $e);
 
             return;
         }
@@ -210,5 +209,21 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             ? JobStatus::Done
             : ($ok > 0 ? JobStatus::PartiallyDone : JobStatus::Failed);
         $this->jobs->markStatus($jobUid, $final, 'done', 100);
+    }
+
+    /**
+     * The job's error_message is shown to every module user, so only this extension's own
+     * ingestion and analysis messages reach it: fixed texts, or naming the editor's own source
+     * URL. Any other exception (the text model, Guzzle, poppler, the database) can carry
+     * provider detail, paths or SQL: the row gets "<step> failed". The exception goes to the
+     * log either way.
+     */
+    private function failJob(int $jobUid, string $step, Throwable $e): void
+    {
+        $this->logger->error($step . ' failed', ['job' => $jobUid, 'exception' => $e]);
+        $this->jobs->markFailed(
+            $jobUid,
+            $e instanceof IngestionException || $e instanceof AnalysisException ? $e->getMessage() : $step . ' failed',
+        );
     }
 }
