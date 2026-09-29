@@ -8,7 +8,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **`composer.json` requires `netresearch/nr-vault` at `^0.16`.** It allowed `^0.15 || ^0.16`, but every nr-llm version this extension accepts (0.35 to 0.38) requires `netresearch/nr-vault: ^0.16.0`, so the `^0.15` branch could never resolve.
 - **`composer.json` carries the extension version and `Package.providesPackages`** (TYPO3 deprecation #108345). `extra.typo3/cms.version` is `0.8.2`, and `providesPackages` names `smalot/pdfparser`, the one required package that is neither a TYPO3 extension nor shipped by the TYPO3 core. The entry has no vendor path, so in classic mode it only keeps TYPO3 from treating the package as a missing extension: the TER package does not contain smalot/pdfparser, and PDF ingestion in a classic installation fails with `Class "Smalot\PdfParser\Config" not found`, as it did before. With both fields present TYPO3 14 no longer evaluates `ext_emconf.php` and takes the extension's dependencies from `composer.json`'s `require`. The version has to be bumped in both files on every release; `Tests/Unit/VersionConsistencyTest.php` fails when they differ. In classic mode the Extension Manager no longer shows the `alpha` state from `ext_emconf.php`.
 - **`typo3/cms-install` moves from `require` to `require-dev`.** No class, configuration or upgrade wizard of this extension uses EXT:install. Once `composer.json` carries the #108345 metadata, TYPO3 turns every `require` entry into a hard package dependency, so every classic-mode installation and every functional test instance would have had to load EXT:install. It stays in `require-dev` for `typo3 setup` in `ddev install`.
 - **`composer.json` names the issue tracker and the repository** in `support.issues` and `support.source`, so Packagist links to both.
@@ -20,6 +19,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`ddev start` no longer waits for the worker container until it times out.** The worker reuses the web image and with it the image's health check, which tests php-fpm and Mailpit — neither runs in the worker, so the container never became healthy and `ddev start` failed after its container timeout even though the worker was consuming. The worker's health check is disabled; `ddev start` now reports it ready in under a second.
 - **`ddev setup` no longer fails at `cache:flush` with "Permission denied".** The worker ran as root and wrote the TYPO3 caches under `var/` as root, which the web container's user could not replace. The worker now runs as the host user, like the web container.
 - **The DDEV worker has ffmpeg, Chromium and Poppler.** It ran DDEV's stock web image instead of the project's built one, which `.ddev/web-build/Dockerfile` extends with these binaries, so none of the steps that call them (Playwright rendering, ffmpeg, the Poppler PDF readers) could run in the worker. It now runs the built image.
+
+### Fixed
+
+- **An Extension Manager or TER install accepts nr_vault 0.16.** `ext_emconf.php` declared `nr_vault 0.15.0-0.15.99` and so refused 0.16, although every nr-llm version this extension accepts (0.35 to 0.38) requires nr-vault `^0.16.0` in its `composer.json`. `ext_emconf.php` now declares `0.16.0-0.16.99` and `composer.json` `^0.16` (its `^0.15` branch could never resolve), `ext_emconf.php` also states the PHP range `8.3.0-8.99.99` and the repository description, and `ExtensionDependencyRangeTest` compares every dependency range, PHP included, between the two files.
 
 ## [0.8.2] - 2026-09-27
 
