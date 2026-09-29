@@ -14,6 +14,7 @@ use DateTimeZone;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
 use Netresearch\NrRepurpose\Domain\Model\Job;
+use Netresearch\NrRepurpose\Domain\Repository\ArtifactRepository;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Review\ArtifactReviewService;
@@ -22,29 +23,37 @@ use Netresearch\NrRepurpose\Review\ReviewRefusedException;
 use Netresearch\NrRepurpose\Service\JobSubmissionService;
 use Netresearch\NrRepurpose\Social\SocialPublisherInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\Pagination\SimplePagination;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
+use TYPO3\CMS\Extbase\Pagination\QueryResultPaginator;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 #[AsController]
 class JobController extends ActionController
 {
+    /** Rows per page of the job list. */
+    private const int JOBS_PER_PAGE = 25;
+
     protected ModuleTemplate $moduleTemplate;
 
     public function __construct(
         protected readonly ModuleTemplateFactory $moduleTemplateFactory,
         protected readonly JobRepository $jobRepository,
+        protected readonly ArtifactRepository $artifactRepository,
         protected readonly JobSubmissionService $jobSubmissionService,
         protected readonly PromptSnippetRepository $promptSnippetRepository,
         protected readonly ArtifactReviewService $reviewService,
         protected readonly ReviewPermission $reviewPermission,
         protected readonly SocialPublisherInterface $socialPublisher,
         protected readonly PageRenderer $pageRenderer,
+        protected readonly LoggerInterface $logger,
     ) {}
 
     protected function initializeAction(): void
@@ -57,10 +66,28 @@ class JobController extends ActionController
         $this->pageRenderer->addCssFile('EXT:nr_repurpose/Resources/Public/Css/backend.css');
     }
 
-    public function listAction(): ResponseInterface
+    /** @param int $currentPage 1-based; a lower value shows the first page, a higher one the last. */
+    public function listAction(int $currentPage = 1): ResponseInterface
     {
         $this->moduleTemplate->setTitle($this->moduleTitle());
-        $this->moduleTemplate->assign('jobs', $this->jobRepository->findAll());
+        // The upper bound keeps the paginator's offset (page size × page) an integer; it clamps to
+        // the last page itself.
+        $currentPage = min(max(1, $currentPage), intdiv(PHP_INT_MAX, self::JOBS_PER_PAGE));
+        $paginator   = new QueryResultPaginator($this->jobRepository->findAll(), $currentPage, self::JOBS_PER_PAGE);
+        $jobs        = [];
+        foreach ($paginator->getPaginatedItems() as $job) {
+            $jobs[] = $job;
+        }
+
+        $this->moduleTemplate->assignMultiple([
+            'jobs'       => $jobs,
+            'paginator'  => $paginator,
+            'pagination' => new SimplePagination($paginator),
+            // One grouped query for the artifact column instead of loading each row's artifacts.
+            'artifactSummaries' => $this->artifactRepository->findTypeSummariesByJobs(
+                array_map(static fn (Job $job): int => (int) $job->getUid(), $jobs),
+            ),
+        ]);
 
         return $this->moduleTemplate->renderResponse('Job/List');
     }
@@ -114,8 +141,7 @@ class JobController extends ActionController
             storyStyle: $snippetStoryStyle,
         ));
 
-        $beUser = (int) ($GLOBALS['BE_USER']->user['uid'] ?? 0);
-        $this->jobSubmissionService->submit($newJob, $beUser);
+        $this->jobSubmissionService->submit($newJob, $this->backendUser()?->getUserId() ?? 0);
         $this->addFlashMessage(
             LocalizationUtility::translate('job.created', 'nr_repurpose') ?? 'Job created and queued for generation.',
         );
@@ -144,7 +170,7 @@ class JobController extends ActionController
     {
         $status = ReviewStatus::tryFrom($decision);
 
-        return $this->reviewStep($job, function () use ($artifact, $status): string {
+        return $this->reviewStep($artifact, $job, function () use ($artifact, $status): string {
             if ($status === null || $status === ReviewStatus::Open) {
                 throw new ReviewRefusedException('review.refused.decision', 1790400007);
             }
@@ -158,7 +184,7 @@ class JobController extends ActionController
     /** Schedule an approved social post; $publishAt is a datetime-local value in server time. */
     public function scheduleAction(int $artifact, int $job, string $publishAt = ''): ResponseInterface
     {
-        return $this->reviewStep($job, function () use ($artifact, $publishAt): string {
+        return $this->reviewStep($artifact, $job, function () use ($artifact, $publishAt): string {
             $time = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $publishAt, new DateTimeZone(date_default_timezone_get()));
             $this->reviewService->schedule($artifact, $time === false ? 0 : $time->getTimestamp());
 
@@ -168,7 +194,7 @@ class JobController extends ActionController
 
     public function unscheduleAction(int $artifact, int $job): ResponseInterface
     {
-        return $this->reviewStep($job, function () use ($artifact): string {
+        return $this->reviewStep($artifact, $job, function () use ($artifact): string {
             $this->reviewService->unschedule($artifact);
 
             return 'publish.done.unscheduled';
@@ -195,11 +221,20 @@ class JobController extends ActionController
      * Runs one review or scheduling step for a user with the approve permission and
      * returns to the job; the step returns the label of its success message.
      *
+     * A refused attempt is logged here and not in ReviewPermission::allows(): showAction asks
+     * the same question for every result view, where "no" only hides the buttons.
+     *
      * @param callable(): string $step
      */
-    private function reviewStep(int $job, callable $step): ResponseInterface
+    private function reviewStep(int $artifact, int $job, callable $step): ResponseInterface
     {
         if (!$this->reviewPermission->allows($this->backendUser())) {
+            $this->logger->warning('Refused {action} of artifact {artifact} (job {job}): backend user {backendUser} lacks the approve permission', [
+                'action'      => $this->request->getControllerActionName(),
+                'backendUser' => $this->backendUser()?->getUserId() ?? 0,
+                'artifact'    => $artifact,
+                'job'         => $job,
+            ]);
             $this->addFlashMessage($this->label('review.refused.permission'), '', ContextualFeedbackSeverity::ERROR);
 
             // Extbase builds the backend route of the fixed action "show"; $job is an int, not a URL.
@@ -221,6 +256,10 @@ class JobController extends ActionController
         return LocalizationUtility::translate($key, 'nr_repurpose') ?? $key;
     }
 
+    /**
+     * The one place this controller reads $GLOBALS['BE_USER']: the review permission needs the
+     * authentication object for check(), which the Context's backend.user aspect does not expose.
+     */
     private function backendUser(): ?BackendUserAuthentication
     {
         $user = $GLOBALS['BE_USER'] ?? null;

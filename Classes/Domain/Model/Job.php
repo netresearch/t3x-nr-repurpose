@@ -16,6 +16,7 @@ use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
+use TYPO3\CMS\Extbase\Attribute\ORM\Lazy;
 use TYPO3\CMS\Extbase\Domain\Model\FileReference;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
@@ -68,10 +69,18 @@ class Job extends AbstractEntity
 
     protected int $beUser = 0;
 
-    /** @var ObjectStorage<Artifact> */
+    /**
+     * Lazy: the job list maps a page of jobs and must not load every job's artifacts and
+     * file references with them; it reads the artifact summaries in one grouped query
+     * (ArtifactRepository::findTypeSummariesByJobs()).
+     *
+     * @var ObjectStorage<Artifact>
+     */
+    #[Lazy]
     protected ObjectStorage $artifacts;
 
     /** @var ObjectStorage<FileReference> */
+    #[Lazy]
     protected ObjectStorage $sourcePdf;
 
     public function __construct()
@@ -324,23 +333,41 @@ class Job extends AbstractEntity
 
     /**
      * One aggregate summary per artifact type this job has artifacts for,
-     * in enum order. `get` prefix so Fluid `{job.artifactTypeSummaries}`
-     * resolves it.
+     * in enum order.
      *
      * @return list<ArtifactTypeSummary>
      */
     public function getArtifactTypeSummaries(): array
     {
-        $statusesByType = [];
+        $pairs = [];
         foreach ($this->artifacts as $artifact) {
+            $pairs[] = [$artifact->getType(), $artifact->getStatus()];
+        }
+
+        return self::summarizeArtifactStatuses($pairs);
+    }
+
+    /**
+     * Folds [type, status] pairs of one job's artifacts into one summary per type, in enum
+     * order. Shared by getArtifactTypeSummaries() and the job list's grouped query
+     * (ArtifactRepository::findTypeSummariesByJobs()), so both show the same aggregate.
+     *
+     * @param iterable<array{0: string, 1: string}> $pairs
+     *
+     * @return list<ArtifactTypeSummary>
+     */
+    public static function summarizeArtifactStatuses(iterable $pairs): array
+    {
+        $statusesByType = [];
+        foreach ($pairs as [$type, $statusValue]) {
             // tryFrom: a corrupted/legacy status string in a single row must not
             // throw and take down the whole job list view — skip that artifact.
-            $status = ArtifactStatus::tryFrom($artifact->getStatus());
+            $status = ArtifactStatus::tryFrom($statusValue);
             if ($status === null) {
                 continue;
             }
 
-            $statusesByType[$artifact->getType()][] = $status;
+            $statusesByType[$type][] = $status;
         }
 
         $summaries = [];

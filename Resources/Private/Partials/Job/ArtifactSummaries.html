@@ -5,7 +5,8 @@
     The artifact column of the job list: one icon per requested artifact type. The status
     is in the accessible name, in the text colour and, for everything but "done", in a
     core icon overlay, so it does not depend on telling colours apart.
-    Argument: summaries (Job::getArtifactTypeSummaries(), evaluated once per row).
+    Argument: summaries (list<ArtifactTypeSummary>; the job list passes one entry of
+    ArtifactRepository::findTypeSummariesByJobs(), read for the whole page in one query).
     ArtifactSummariesRenderingTest renders this partial.
 --></f:comment>
 <f:if condition="{summaries}">
