@@ -21,8 +21,8 @@ use Netresearch\NrRepurpose\Exception\MalformedJobRowException;
  * generators read these properties.
  *
  * A missing column takes the value the pipeline assumed before this object existed:
- * status "queued", source_type "url", theme "nr", pdf_mode Auto, 0 for be_user and
- * source_pdf, an empty string for source_value and no snippet selection, and false for
+ * status "queued", source_type "url", theme "nr", pdf_mode Auto, 0 for be_user, an
+ * empty string for source_value and no snippet selection, and false for
  * every want_* flag. A present value of the wrong type, an unknown status or
  * source_type, and a missing or non-positive uid are rejected.
  */
@@ -34,8 +34,6 @@ final readonly class JobSnapshot
         public SourceType $sourceType,
         // The URL of a url or pdf_url job; '' when the column is NULL.
         public string $sourceValue,
-        // The number PdfFileResolver passes to ResourceFactory::getFileObject() for a pdf_fal job.
-        public int $sourcePdf,
         public PdfMode $pdfMode,
         public string $theme,   // 'nr' | 'neutral', not validated (as before)
         public int $beUser,
@@ -79,7 +77,6 @@ final readonly class JobSnapshot
             status: $status,
             sourceType: $sourceType,
             sourceValue: self::string($row, 'source_value', ''),
-            sourcePdf: self::unsignedInt($row, 'source_pdf', 0),
             pdfMode: PdfMode::fromJobValue(self::string($row, 'pdf_mode', PdfMode::Auto->value)),
             theme: self::string($row, 'theme', 'nr'),
             beUser: self::unsignedInt($row, 'be_user', 0),

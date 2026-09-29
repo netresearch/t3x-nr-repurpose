@@ -76,7 +76,6 @@ final class JobSnapshotTest extends TestCase
         self::assertSame(JobStatus::Generating, $job->status);
         self::assertSame(SourceType::PdfFal, $job->sourceType);
         self::assertSame('https://example.com/report.pdf', $job->sourceValue);
-        self::assertSame(9, $job->sourcePdf);
         self::assertSame(PdfMode::Tables, $job->pdfMode);
         self::assertSame('neutral', $job->theme);
         self::assertSame(7, $job->beUser);
@@ -104,7 +103,6 @@ final class JobSnapshotTest extends TestCase
         self::assertSame(JobStatus::Queued, $job->status);
         self::assertSame(SourceType::Url, $job->sourceType);
         self::assertSame('', $job->sourceValue);
-        self::assertSame(0, $job->sourcePdf);
         self::assertSame(PdfMode::Auto, $job->pdfMode);
         self::assertSame('nr', $job->theme);
         self::assertSame(0, $job->beUser);
@@ -117,7 +115,7 @@ final class JobSnapshotTest extends TestCase
     public function testNullColumnsTakeThePipelineDefaults(): void
     {
         $row = ['uid' => 5];
-        foreach (['status', 'source_type', 'source_value', 'source_pdf', 'pdf_mode', 'theme', 'be_user', 'prompt_snippets', ...array_keys(self::FLAGS)] as $column) {
+        foreach (['status', 'source_type', 'source_value', 'pdf_mode', 'theme', 'be_user', 'prompt_snippets', ...array_keys(self::FLAGS)] as $column) {
             $row[$column] = null;
         }
 
@@ -180,7 +178,6 @@ final class JobSnapshotTest extends TestCase
         yield 'status not a string' => [['uid' => 1, 'status' => 3], 1790500005, 'status'];
         yield 'source_type unknown' => [['uid' => 1, 'source_type' => 'docx'], 1790500003, 'source_type'];
         yield 'source_value not a string' => [['uid' => 1, 'source_value' => ['https://intranet.example/secret.pdf']], 1790500005, 'source_value'];
-        yield 'source_pdf negative' => [['uid' => 1, 'source_pdf' => -1], 1790500004, 'source_pdf'];
         yield 'pdf_mode not a string' => [['uid' => 1, 'pdf_mode' => 2], 1790500005, 'pdf_mode'];
         yield 'theme not a string' => [['uid' => 1, 'theme' => false], 1790500005, 'theme'];
         yield 'be_user not digits' => [['uid' => 1, 'be_user' => 'admin'], 1790500004, 'be_user'];
