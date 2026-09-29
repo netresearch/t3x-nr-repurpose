@@ -48,19 +48,28 @@
         .story__accent { width: 120px; height: 12px; background: #3b6ef5; margin-bottom: 40px; }
         .story__headline {
             font-weight: 700;
-            font-size: <f:if condition="{role} == 'cover'"><f:then>116px</f:then><f:else>88px</f:else></f:if>;
+            /* One size for every slide, as in Story/Nr.html: a 60-character headline of words that
+               do not pair on a line took eight lines at the cover's former 116px and ran up past
+               the AI label row at the top. */
+            font-size: 88px;
             line-height: 1.1;
             margin: 0 0 32px;
-            /* A long compound ("Mehrfamilienhaus:") is wider than the 888px line at 116px. */
+            /* A long compound can be wider than the 888px line. */
             overflow-wrap: break-word;
         }
         .story__subline { font-size: 40px; line-height: 1.4; font-weight: 400; margin: 0; }
         .story__source { font-size: 30px; line-height: 1.4; font-weight: 400; margin: 48px 0 0; opacity: 0.8; word-break: break-all; }
+        /* The source label is the job's URL or file name, of any length: two lines at most, so a
+           long URL cannot push the copy up into the logo. The side padding keeps the clip clear
+           of the plate's 16px side extension in the transparent render. */
+        .story__source { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; padding: 0 16px; margin-left: -16px; margin-right: -16px; }
         <f:if condition="{transparent}">
             /* Over a KI background the white copy has no backing of its own, and a light image
                leaves it white on white: headline, subline, source and slide indicator sit on the
                dark end of the opaque gradient, line by line (#1f2933, 14.76:1 for white). */
-            .story__plate { background: #1f2933; padding: 4px 16px; border-radius: 8px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+            /* The side extension is a shadow, not padding, so the plate does not narrow the line
+               and the copy wraps as in the opaque render. */
+            .story__plate { background: #1f2933; padding: 4px 0; box-shadow: -16px 0 0 #1f2933, 16px 0 0 #1f2933; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
             .story__source, .story__indicator { opacity: 1; }
             .story__indicator { background: #1f2933; padding: 8px 20px; border-radius: 8px; }
         </f:if>

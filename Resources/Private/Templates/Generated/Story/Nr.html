@@ -55,14 +55,21 @@
         .story__headline {
             font-family: 'Raleway', 'Helvetica Neue', Arial, sans-serif;
             font-weight: 700;
-            font-size: <f:if condition="{role} == 'cover'"><f:then>116px</f:then><f:else>88px</f:else></f:if>;
+            /* One size for every slide. The copy has 1140px between the logo (it ends 450px from
+               the top) and the bottom margin; a 60-character headline of words that do not pair
+               on a line took eight lines at the cover's former 116px and ran into the logo. */
+            font-size: 88px;
             line-height: 1.1;
             margin: 0 0 32px;
-            /* A long compound ("Mehrfamilienhaus:") is wider than the 888px line at 116px. */
+            /* A long compound can be wider than the 888px line. */
             overflow-wrap: break-word;
         }
         .story__subline { font-size: 40px; line-height: 1.4; font-weight: 400; margin: 0; }
         .story__source { font-size: 30px; line-height: 1.4; font-weight: 400; margin: 48px 0 0; opacity: 0.8; word-break: break-all; }
+        /* The source label is the job's URL or file name, of any length: two lines at most, so a
+           long URL cannot push the copy up into the logo. The side padding keeps the clip clear
+           of the plate's 16px side extension in the transparent render. */
+        .story__source { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; padding: 0 16px; margin-left: -16px; margin-right: -16px; }
         .story__brand { margin-top: 64px; font-family: 'Raleway', sans-serif; font-weight: 600; font-size: 28px; letter-spacing: 0.5px; }
         .story__brand a { color: inherit; text-decoration: none; }
         <f:if condition="{transparent}">
@@ -72,7 +79,9 @@
             /* Over a KI background the white copy has no backing of its own, and a light image
                leaves it white on white: headline, subline, source and slide indicator sit on the
                dark end of the opaque gradient, line by line (#0f3f44, 11.57:1 for white). */
-            .story__plate { background: #0f3f44; padding: 4px 16px; border-radius: 8px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+            /* The side extension is a shadow, not padding, so the plate does not narrow the line
+               and the copy wraps as in the opaque render. */
+            .story__plate { background: #0f3f44; padding: 4px 0; box-shadow: -16px 0 0 #0f3f44, 16px 0 0 #0f3f44; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
             .story__source, .story__indicator { opacity: 1; }
             .story__indicator { background: #0f3f44; padding: 8px 20px; border-radius: 8px; }
         </f:if>

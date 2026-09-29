@@ -192,8 +192,8 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The cover headline is 116px on an 888px line: a long German compound ("Mehrfamilienhaus:")
-     * is wider than that and ran off the right edge. It breaks inside the word instead.
+     * A long German compound can be wider than the 888px line at headline size and ran off the
+     * right edge of the cover. It breaks inside the word instead.
      */
     #[DataProvider('storyTemplates')]
     public function testALongWordInTheHeadlineBreaksInsteadOfLeavingTheSlide(string $template): void
@@ -201,6 +201,31 @@ final class BrandingRenderingTest extends AbstractFunctionalTestCase
         $html = $this->render($template, ['headline' => 'H', 'subline' => 'S', 'role' => 'cover', 'slideIndex' => 1, 'slideTotal' => 3, 'sourceLabel' => '', 'transparent' => false, 'aiLabel' => null]);
 
         self::assertSame(1, preg_match('~\.story__headline\s*\{[^}]*\boverflow-wrap:\s*break-word;~', $html));
+    }
+
+    /**
+     * The copy stacks up from 330px above the bottom and has to stop under the logo, which ends
+     * 450px from the top: 1140px for accent, headline, subline, source and company line. A
+     * 60-character headline of words that do not pair on a line took eight lines at the cover's
+     * former 116px (1020px) and pushed the accent 286px up into the logo, rendered; at 88px the
+     * worst rendered cover keeps 138px to the logo, the worst outro 6px. The source label (a URL
+     * or file name of any length) is held to two lines for the same reason, and the transparent
+     * render's plate widens the line by a shadow, not by padding, so the copy wraps as in the
+     * opaque render.
+     */
+    #[DataProvider('storyTemplates')]
+    public function testTheStoryCopyCannotGrowIntoTheLogo(string $template): void
+    {
+        $variables = ['headline' => 'H', 'subline' => 'S', 'slideIndex' => 1, 'slideTotal' => 3, 'sourceLabel' => 'https://example.com/', 'aiLabel' => null];
+
+        foreach (['cover', 'point', 'outro'] as $role) {
+            $html = $this->render($template, $variables + ['role' => $role, 'transparent' => true]);
+            self::assertSame(1, preg_match('~\.story__headline\s*\{[^}]*\bfont-size:\s*(\d+)px~', $html, $size), $role);
+            self::assertLessThanOrEqual(88, (int) $size[1], $role . ' headline size');
+            self::assertSame(1, preg_match('~\.story__plate\s*\{[^}]*\bpadding:\s*\d+px 0;~', $html), $role . ': plate without side padding');
+        }
+
+        self::assertSame(1, preg_match('~\.story__source\s*\{[^}]*-webkit-line-clamp:\s*2;[^}]*overflow:\s*hidden;~', $this->render($template, $variables + ['role' => 'outro', 'transparent' => false])), 'source held to two lines');
     }
 
     /** @param array<string, mixed> $variables */
