@@ -86,10 +86,10 @@ Build/           → project files
 
 <!-- AGENTS-GENERATED:START ci-rules -->
 ## CI (reusable netresearch/typo3-ci-workflows)
-- `ci.yml` matrix: PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3 — lint + unit tests per version
-- `run-cgl`, `run-phpstan`, `run-rector` are `true`; `run-functional-tests: false` is the only gate still off
+- `ci.yml` matrix: PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3 — lint, unit and functional (SQLite) tests per version
+- `run-cgl`, `run-phpstan`, `run-rector`, `run-functional-tests` are `true`
 - `checks.yml` (drift-enforced): security (Opengrep SAST, composer audit), betterleaks, zizmor, fuzz, license-check, CodeQL, Scorecard, dependency-review, pr-quality — all behind one required `All security checks` gate; SonarCloud + DCO run as apps
-- Release: signed annotated tag `vX.Y.Z` triggers `release.yml`, which publishes to TER, verifies Packagist, dispatches the docs.typo3.org render without gating the release, then creates the signed GitHub release
+- Release: signed annotated tag `vX.Y.Z` triggers `release.yml`, which publishes to TER, verifies Packagist, then creates the GitHub release with Cosign-signed artifacts; the tag push itself triggers the docs.typo3.org render through the Intercept webhook, and the release only checks that Intercept accepted the render (a render run exists), without waiting for its result or gating on it
 <!-- AGENTS-GENERATED:END ci-rules -->
 
 ## Boundaries
