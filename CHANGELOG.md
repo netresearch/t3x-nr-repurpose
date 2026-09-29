@@ -6,9 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Changed
+### Fixed
 
-- **`composer.json` requires `netresearch/nr-vault` at `^0.16`.** It allowed `^0.15 || ^0.16`, but every nr-llm version this extension accepts (0.35 to 0.38) requires `netresearch/nr-vault: ^0.16.0`, so the `^0.15` branch could never resolve.
+- **An Extension Manager or TER install accepts nr_vault 0.16.** `ext_emconf.php` declared `nr_vault 0.15.0-0.15.99` and so refused 0.16, although every nr-llm version this extension accepts (0.35 to 0.38) requires nr-vault `^0.16.0` in its `composer.json`. `ext_emconf.php` now declares `0.16.0-0.16.99` and `composer.json` `^0.16` (its `^0.15` branch could never resolve), `ext_emconf.php` also states the PHP range `8.3.0-8.99.99` and the repository description, and `ExtensionDependencyRangeTest` compares every dependency range, PHP included, between the two files.
 
 ## [0.8.2] - 2026-09-27
 
