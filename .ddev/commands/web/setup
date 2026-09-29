@@ -14,11 +14,20 @@ cd /var/www/html
 # clone, and skips them in a worktree ("We ARRR in a worktree").
 CAPTAINHOOK_DISABLE=true composer install --no-interaction --no-progress
 
-.Build/bin/typo3 setup -n \
-  --driver=mysqli --host=db --port=3306 --dbname=db --username=db --password=db \
-  --admin-username=admin --admin-user-password='Demo1234!' --admin-email=admin@example.com \
-  --project-name='nr_repurpose Dev' \
-  --create-site=https://nr-repurpose.ddev.site/ --server-type=apache --force
+# `typo3 setup` refuses a database that already has tables, so a second run
+# would stop here. An instance counts as installed when its settings file and
+# its be_users table both exist; then only the steps below run again (they are
+# safe to repeat), and the database, the admin account and the site stay.
+if [ -f config/system/settings.php ] \
+  && [ -n "$(mysql -h db -u db -pdb db -N -e "SHOW TABLES LIKE 'be_users'")" ]; then
+  echo "TYPO3 is already installed; skipping typo3 setup."
+else
+  .Build/bin/typo3 setup -n \
+    --driver=mysqli --host=db --port=3306 --dbname=db --username=db --password=db \
+    --admin-username=admin --admin-user-password='Demo1234!' --admin-email=admin@example.com \
+    --project-name='nr_repurpose Dev' \
+    --create-site=https://nr-repurpose.ddev.site/ --server-type=apache --force
+fi
 
 # Route the generation message to the async doctrine transport (dev settings).
 mkdir -p config/system
