@@ -47,7 +47,7 @@ use Netresearch\NrRepurpose\Service\Preset\RepurposeConfigurationPresetProvider;
  */
 final class RepurposeStarterPackProvider implements UseCasePackProviderInterface
 {
-    public const PACK = 'content-repurpose-starter';
+    public const string PACK = 'content-repurpose-starter';
 
     /**
      * @return list<UseCasePack>
