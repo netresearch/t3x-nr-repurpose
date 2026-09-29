@@ -393,6 +393,37 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The terminal-status check reads the raw status before the row is parsed: a
+     * finished job whose row no longer parses is left as it is on a redelivery.
+     */
+    public function testAFinishedJobWithAMalformedRowIsLeftAsItIs(): void
+    {
+        $jobUid = $this->seedJob();
+        GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->update('tx_nrrepurpose_domain_model_job', ['status' => 'done', 'source_type' => 'docx', 'error_message' => ''], ['uid' => $jobUid]);
+        $jobs = $this->get(JobProcessingRepository::class);
+
+        $ingestion = new class implements SourceIngestionServiceInterface {
+            public bool $called = false;
+
+            public function ingest(JobSnapshot $job): SourceDocument
+            {
+                $this->called = true;
+
+                return new SourceDocument('t', 'b', 's', 0, 'en');
+            }
+        };
+
+        (new GenerationOrchestrator($jobs, new RecordingLogger(), $ingestion, $this->stubAnalyzer($this->stubBrief()), $this->get(PromptSnippetResolver::class), $this->get(TechnicalActorContextInterface::class), $this->get(ExtensionConfiguration::class), $this->get(CapabilityGrantResolver::class), $this->get(AiLabelSettingsFactory::class), []))->process($jobUid);
+
+        $row = $jobs->findRow($jobUid);
+        self::assertSame('done', $row['status'] ?? null);
+        self::assertSame('', $row['error_message'] ?? null);
+        self::assertFalse($ingestion->called);
+    }
+
+    /**
      * @return array<string, array{0: string, 1: Throwable, 2: string}> failing step, exception, stored error_message
      */
     public static function jobStepFailures(): array

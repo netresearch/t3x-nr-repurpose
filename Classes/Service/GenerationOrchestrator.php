@@ -112,6 +112,13 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             return;
         }
 
+        // Idempotent: never reprocess a finished job. Checked on the raw status before
+        // the row is parsed, so a finished job whose row no longer parses stays as it is.
+        $status = $row['status'] ?? null;
+        if (is_string($status) && JobStatus::tryFrom($status)?->isTerminal() === true) {
+            return;
+        }
+
         // The only conversion of the raw row; everything downstream reads the snapshot.
         try {
             $job = JobSnapshot::fromRow($row);
@@ -119,10 +126,6 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             $this->failJob($jobUid, 'Reading the job', $e);
 
             return;
-        }
-
-        if ($job->status->isTerminal()) {
-            return; // idempotent: never reprocess a finished job
         }
 
         // 1) Ingestion — turn the source into a SourceDocument.
