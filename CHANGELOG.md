@@ -6,8 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`LICENSE`** with the GPL-2.0 text. `composer.json` and `ext_emconf.php` declare `GPL-2.0-or-later`; the repository did not ship the licence text.
+- **A developer chapter and a troubleshooting page** in the documentation: running the test suites, adding a generator, swapping the image or speech adapter; and the error messages a job or artifact shows when the worker, nr-vault, Chromium, ffmpeg, poppler, a permission or the budget stops it.
+- **The README explains how to verify a release**: `gh attestation verify` with `--signer-repo netresearch/typo3-ci-workflows`, because the shared release workflow signs the build provenance.
+- **ADR-008** records the capability-permission gate that 0.5.2 introduced: `generate_audio` and `generate_vision` are checked for the job's creator, once per run, before the budget.
+
 ### Changed
 
+- **README**: badges (CI, codecov, documentation, OpenSSF Scorecard, PHPStan, PHP, TYPO3, licence, latest release, TER), an installation section for Composer that states classic mode (TER) is not supported, the story video and the two PDF documents in the feature list, and a licence and credits section naming Netresearch DTT GmbH.
+- The configuration and architecture chapters are split into subpages (nr-llm wiring, worker environment, AI labelling and publishing; generators). Every link target keeps its name.
 - **`composer.json` carries the extension version and `Package.providesPackages`** (TYPO3 deprecation #108345). `extra.typo3/cms.version` is `0.8.2`, and `providesPackages` names `smalot/pdfparser`, the one required package that is neither a TYPO3 extension nor shipped by the TYPO3 core. The entry has no vendor path, so in classic mode it only keeps TYPO3 from treating the package as a missing extension: the TER package does not contain smalot/pdfparser, and PDF ingestion in a classic installation fails with `Class "Smalot\PdfParser\Config" not found`, as it did before. With both fields present TYPO3 14 no longer evaluates `ext_emconf.php` and takes the extension's dependencies from `composer.json`'s `require`. The version has to be bumped in both files on every release; `Tests/Unit/VersionConsistencyTest.php` fails when they differ. In classic mode the Extension Manager no longer shows the `alpha` state from `ext_emconf.php`.
 - **`typo3/cms-install` moves from `require` to `require-dev`.** No class, configuration or upgrade wizard of this extension uses EXT:install. Once `composer.json` carries the #108345 metadata, TYPO3 turns every `require` entry into a hard package dependency, so every classic-mode installation and every functional test instance would have had to load EXT:install. It stays in `require-dev` for `typo3 setup` in `ddev install`.
 - **`composer.json` names the issue tracker and the repository** in `support.issues` and `support.source`, so Packagist links to both.
@@ -19,11 +28,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`ddev start` no longer waits for the worker container until it times out.** The worker reuses the web image and with it the image's health check, which tests php-fpm and Mailpit — neither runs in the worker, so the container never became healthy and `ddev start` failed after its container timeout even though the worker was consuming. The worker's health check is disabled; `ddev start` now reports it ready in under a second.
 - **`ddev setup` no longer fails at `cache:flush` with "Permission denied".** The worker ran as root and wrote the TYPO3 caches under `var/` as root, which the web container's user could not replace. The worker now runs as the host user, like the web container.
 - **The DDEV worker has ffmpeg, Chromium and Poppler.** It ran DDEV's stock web image instead of the project's built one, which `.ddev/web-build/Dockerfile` extends with these binaries, so none of the steps that call them (Playwright rendering, ffmpeg, the Poppler PDF readers) could run in the worker. It now runs the built image.
-
-### Fixed
-
-- **The renderer uses the configured Chromium again.** `PlaywrightHtmlToImageRenderer` set `CHROMIUM_PATH` with `putenv()`, but Symfony Process passes on only those variables of `getenv()` that are also in `$_SERVER`, so `render.cjs` never saw it and Playwright looked for its own downloaded browser, which the extension does not install. The DDEV image hid this because it sets `CHROMIUM_PATH` itself. The path is now handed to the process as its environment: `ProcessRunnerInterface::run()` takes an optional `$env` array, which `SymfonyProcessRunner` sets on top of the inherited environment. A custom `ProcessRunnerInterface` implementation has to add the parameter.
+- **The configuration chapter documents `technicalBeUserUid`.** It said the extension has no configuration of its own, while `ext_conf_template.txt` declares five settings; the setting a worker needs to read provider keys from nr-vault was documented nowhere. The chapter now lists the five settings and describes `technicalBeUserUid`.
+- **The installation chapter states the nr-llm range `composer.json` requires** (`^0.35 || ^0.36 || ^0.37 || ^0.38`, it said `^0.25`), adds nr-vault to the requirements, and states that the extension needs a Composer installation: the TER package carries neither `smalot/pdfparser` nor the Node renderer's `package.json`, so classic mode is not supported.
+- **The changelog page of the rendered documentation covers every release up to 0.8.2.** It stopped at 0.1.0.
+- **The documentation says where `CHROMIUM_PATH` has to be set.** The configuration, installation and architecture chapters said the PHP renderer exports the variable for `render.cjs`. It calls `putenv()`, but Symfony Process passes a child only the variables that were in the environment when PHP started, so the path reaches the renderer only where the worker's environment exports `CHROMIUM_PATH`. The chapters and the troubleshooting page now say so.
 - **An Extension Manager or TER install accepts nr_vault 0.16.** `ext_emconf.php` declared `nr_vault 0.15.0-0.15.99` and so refused 0.16, although every nr-llm version this extension accepts (0.35 to 0.38) requires nr-vault `^0.16.0` in its `composer.json`. `ext_emconf.php` now declares `0.16.0-0.16.99` and `composer.json` `^0.16` (its `^0.15` branch could never resolve), `ext_emconf.php` also states the PHP range `8.3.0-8.99.99` and the repository description, and `ExtensionDependencyRangeTest` compares every dependency range, PHP included, between the two files.
+- **The renderer uses the configured Chromium again.** `PlaywrightHtmlToImageRenderer` set `CHROMIUM_PATH` with `putenv()`, but Symfony Process passes on only those variables of `getenv()` that are also in `$_SERVER`, so `render.cjs` never saw it and Playwright looked for its own downloaded browser, which the extension does not install. The DDEV image hid this because it sets `CHROMIUM_PATH` itself. The path is now handed to the process as its environment: `ProcessRunnerInterface::run()` takes an optional `$env` array, which `SymfonyProcessRunner` sets on top of the inherited environment. A custom `ProcessRunnerInterface` implementation has to add the parameter.
 
 ### Security
 
@@ -251,22 +261,79 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Documentation/guides.xml` declared `version="0.2"` alongside `release="0.3.0"`;
   both now track the released version.
 
-## [0.3.0] - 2026-07-23
+## [0.3.0] - 2026-07-24
 
-Released without a changelog entry; recorded here from the tag range for
-completeness.
+Released without a changelog entry; recorded here from the tag range
+`v0.2.3..v0.3.0`.
 
 ### Changed
 
-- **Migrated to nr-llm `^0.25`**, including `completeStructured()` for the
-  nr-llm 0.23 provider interface.
-- `symfony/process` and `symfony/messenger` updated to 8.x.
-- Backend icons redrawn in TYPO3 v14 style, artifact record icon added.
-- Templates use a themable border token instead of a hardcoded `#ccc`.
+- **Migrated to nr-llm `^0.25`** (was `^0.22.0 || ^0.23.0`); `ext_emconf.php`
+  declares `nr_llm 0.25.0-0.99.99` to match.
+
+## [0.2.3] - 2026-07-22
+
+Released without a changelog entry; recorded here from the tag range
+`v0.2.2..v0.2.3` and the GitHub release notes.
+
+### Changed
+
+- `symfony/process` and `symfony/messenger` accept 8.x: both are required at
+  `^7.0 || ^8.0`.
 
 ### Fixed
 
-- `guides.xml` repaired and documentation CI added.
+- **Composer resolves the latest tag again.** `composer.json` carried an
+  explicit `"version": "0.2.0"`, so Composer's VCS driver reported every git tag
+  as 0.2.0 and a consumer resolving the package from the repository got the
+  oldest tag, with the pre-0.23 nr-llm constraint. The field is removed; the git
+  tags drive the version.
+
+## [0.2.2] - 2026-07-22
+
+Released without a changelog entry; recorded here from the tag range
+`v0.2.1..v0.2.2` and the GitHub release notes.
+
+### Added
+
+- **nr-llm 0.23 support.** `ConfiguredCompletionService` implements the
+  `completeStructured()` and `completeStructuredForConfiguration()` methods
+  nr-llm 0.23 adds to `CompletionServiceInterface`: the plain form resolves the
+  `nr_repurpose_text` configuration, the configuration form passes through.
+- A documentation render job in CI, so `Documentation/guides.xml` is validated
+  on every change.
+
+### Changed
+
+- Requires `netresearch/nr-llm` `^0.22.0 || ^0.23.0`.
+
+### Fixed
+
+- **The documentation renders again.** The release script had corrupted the
+  XML declaration of `Documentation/guides.xml` (`<?xml version="0.2.1"?>`) and
+  left the project version stale; both are restored.
+
+## [0.2.1] - 2026-07-21
+
+Released without a changelog entry; recorded here from the tag range
+`v0.2.0..v0.2.1` and the GitHub release notes.
+
+### Changed
+
+- **Backend icons in the TYPO3 v14 style.** The module icon is redrawn with
+  filled paths, a `currentColor` glyph and one brand accent, so it follows the
+  backend light and dark scheme; the extension icon is a teal tile with the
+  repurpose arrows. The artifact table gets its own record icon
+  (`tx-nrrepurpose-artifact`); it had none (#44).
+- `netresearch/nr-vault` is accepted at `^0.10.0 || ^0.11.0`.
+
+### Fixed
+
+- **Borders in the job detail view follow the dark scheme.** The image
+  preview, the story slide images and the failed-slide placeholder used a
+  hardcoded `#ccc` border; they now use
+  `var(--typo3-component-border-color)` with `var(--bs-border-color)` as
+  fallback (#44).
 
 ## [0.2.0] - 2026-07-18
 
