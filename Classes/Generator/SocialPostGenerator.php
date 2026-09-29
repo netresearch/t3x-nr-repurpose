@@ -59,11 +59,6 @@ final class SocialPostGenerator extends AbstractTextGenerator
         return ArtifactType::SocialPost;
     }
 
-    protected function wantColumn(): string
-    {
-        return 'want_social_post';
-    }
-
     protected function label(): string
     {
         return 'Social posts';

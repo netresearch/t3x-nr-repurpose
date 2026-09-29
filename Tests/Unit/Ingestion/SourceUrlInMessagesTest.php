@@ -26,6 +26,7 @@ use Netresearch\NrRepurpose\Ingestion\BoundedResponseReader;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -71,7 +72,7 @@ final class SourceUrlInMessagesTest extends TestCase
     /** @return array<string, array{Closure(self): mixed, string}> the failing call, its message */
     public static function failures(): array
     {
-        $pdf = static fn (self $test, ClientInterface $client): string => $test->pdfResolver($client)->resolve(['source_type' => 'pdf_url', 'source_value' => self::URL]);
+        $pdf = static fn (self $test, ClientInterface $client): string => $test->pdfResolver($client)->resolve(JobSnapshots::of(['source_type' => 'pdf_url', 'source_value' => self::URL]));
 
         return [
             'page not reachable' => [static fn (): mixed => self::fetcher(self::unreachable())->fetch(self::URL), 'URL not reachable: ' . self::SHOWN],

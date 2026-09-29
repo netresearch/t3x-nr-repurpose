@@ -13,6 +13,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 
@@ -30,7 +31,7 @@ final class GenerationContextTest extends TestCase
         $brief = new ContentBrief('Quarterly report', 'Summary.', ['Point'], [], 'Analysts', 'en');
 
         return new GenerationContext(
-            jobRow: ['uid' => 42, 'theme' => 'nr', 'be_user' => 7, 'want_podcast' => 1],
+            job: JobSnapshots::of(['uid' => 42, 'theme' => 'nr', 'be_user' => 7, 'want_podcast' => 1]),
             document: $document,
             brief: $brief,
             theme: 'nr',
@@ -38,7 +39,7 @@ final class GenerationContextTest extends TestCase
         );
     }
 
-    public function testJobUidReadsTheRawRow(): void
+    public function testJobUidReadsTheJobSnapshot(): void
     {
         self::assertSame(42, $this->makeContext()->jobUid());
     }
@@ -51,7 +52,7 @@ final class GenerationContextTest extends TestCase
         self::assertSame(7, $ctx->beUser);
         self::assertSame('Quarterly report', $ctx->document->title);
         self::assertSame('en', $ctx->brief->language);
-        self::assertSame(1, $ctx->jobRow['want_podcast']);
+        self::assertTrue($ctx->job->wantPodcast);
     }
 
     public function testWithProgressDerivesANewContextCarryingTheReporter(): void
@@ -64,7 +65,7 @@ final class GenerationContextTest extends TestCase
         self::assertNotSame($ctx, $derived);
         self::assertNull($ctx->progress);          // the shared base context stays reporter-free
         self::assertSame($progress, $derived->progress);
-        self::assertSame($ctx->jobRow, $derived->jobRow);
+        self::assertSame($ctx->job, $derived->job);
         self::assertSame($ctx->document, $derived->document);
         self::assertSame($ctx->brief, $derived->brief);
         self::assertSame($ctx->snippets, $derived->snippets);

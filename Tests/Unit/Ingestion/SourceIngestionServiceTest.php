@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
 
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
+use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\PdfLayoutExtractor;
@@ -19,6 +20,7 @@ use Netresearch\NrRepurpose\Ingestion\Poppler\PopplerRunnerInterface;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Stringable;
@@ -87,7 +89,7 @@ final class SourceIngestionServiceTest extends TestCase
         $resolver = new class ($resolvedPath) extends PdfFileResolver {
             public function __construct(private readonly string $path) {}
 
-            public function resolve(array $jobRow): string
+            public function resolve(JobSnapshot $job): string
             {
                 return $this->path;
             }
@@ -129,9 +131,9 @@ final class SourceIngestionServiceTest extends TestCase
             ['page' => 3, 'text' => "Region   Q1   Q2\nNorth     10   14\nSouth     8    9", 'isSparse' => false],
         ]);
 
-        $doc = $service->ingest([
+        $doc = $service->ingest(JobSnapshots::of([
             'uid' => 5, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'auto', 'be_user' => 0,
-        ]);
+        ]));
 
         self::assertStringContainsString('dense narrative text', $doc->text);
         self::assertStringContainsString('VISION-P2', $doc->text);
@@ -148,10 +150,10 @@ final class SourceIngestionServiceTest extends TestCase
             ['page' => 2, 'text' => 'dense', 'isSparse' => false],
         ]);
 
-        $doc = $service->ingest([
+        $doc = $service->ingest(JobSnapshots::of([
             'uid'      => 6, 'source_type' => 'pdf_url', 'source_value' => 'https://example.com/x.pdf',
             'pdf_mode' => 'vision', 'be_user' => 0,
-        ]);
+        ]));
 
         self::assertSame("VISION-P1\n\nVISION-P2", $doc->text);
         self::assertSame(['vision'], $doc->meta['tiersUsed']);
@@ -163,9 +165,9 @@ final class SourceIngestionServiceTest extends TestCase
             ['page' => 1, 'text' => 'dense', 'isSparse' => false],
         ]);
 
-        $doc = $service->ingest([
+        $doc = $service->ingest(JobSnapshots::of([
             'uid' => 7, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'tables', 'be_user' => 0,
-        ]);
+        ]));
 
         self::assertSame('LAYOUT-P1', $doc->text);
         self::assertSame(['tables'], $doc->meta['tiersUsed']);
@@ -177,9 +179,9 @@ final class SourceIngestionServiceTest extends TestCase
             ['page' => 1, 'text' => 'thin', 'isSparse' => true],
         ]);
 
-        $doc = $service->ingest([
+        $doc = $service->ingest(JobSnapshots::of([
             'uid' => 8, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0,
-        ]);
+        ]));
 
         self::assertSame('thin', $doc->text);
         self::assertSame(['text'], $doc->meta['tiersUsed']);
@@ -192,9 +194,9 @@ final class SourceIngestionServiceTest extends TestCase
         ]);
 
         $this->expectException(IngestionException::class);
-        $service->ingest([
+        $service->ingest(JobSnapshots::of([
             'uid' => 9, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0,
-        ]);
+        ]));
     }
 
     public function testDeletesTheDownloadedPdfOnceItIsRead(): void
@@ -203,7 +205,7 @@ final class SourceIngestionServiceTest extends TestCase
         file_put_contents($download, '%PDF');
 
         $this->service([['page' => 1, 'text' => 'dense', 'isSparse' => false]], $download)
-            ->ingest(['uid' => 10, 'source_type' => 'pdf_url', 'source_value' => 'https://example.com/x.pdf', 'pdf_mode' => 'text', 'be_user' => 0]);
+            ->ingest(JobSnapshots::of(['uid' => 10, 'source_type' => 'pdf_url', 'source_value' => 'https://example.com/x.pdf', 'pdf_mode' => 'text', 'be_user' => 0]));
 
         self::assertFileDoesNotExist($download);
     }
@@ -215,7 +217,7 @@ final class SourceIngestionServiceTest extends TestCase
 
         try {
             $this->service([['page' => 1, 'text' => '', 'isSparse' => false]], $download)
-                ->ingest(['uid' => 11, 'source_type' => 'pdf_url', 'source_value' => 'https://example.com/x.pdf', 'pdf_mode' => 'text', 'be_user' => 0]);
+                ->ingest(JobSnapshots::of(['uid' => 11, 'source_type' => 'pdf_url', 'source_value' => 'https://example.com/x.pdf', 'pdf_mode' => 'text', 'be_user' => 0]));
             self::fail('An empty PDF must fail the ingestion');
         } catch (IngestionException) {
         }
@@ -233,7 +235,7 @@ final class SourceIngestionServiceTest extends TestCase
 
         try {
             $this->service([['page' => 1, 'text' => 'dense', 'isSparse' => false]], $attached)
-                ->ingest(['uid' => 12, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]);
+                ->ingest(JobSnapshots::of(['uid' => 12, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]));
 
             self::assertFileExists($attached);
         } finally {
@@ -249,9 +251,9 @@ final class SourceIngestionServiceTest extends TestCase
             ['page' => 2, 'text' => 'embedded two', 'isSparse' => false],
         ], grants: new CapabilityGrants(audio: true, vision: false));
 
-        $doc = $service->ingest([
+        $doc = $service->ingest(JobSnapshots::of([
             'uid' => 13, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'vision', 'be_user' => 7,
-        ]);
+        ]));
 
         self::assertSame("embedded one\n\nembedded two", $doc->text);
         self::assertSame(['text'], $doc->meta['tiersUsed']);
@@ -267,9 +269,9 @@ final class SourceIngestionServiceTest extends TestCase
             ['page' => 2, 'text' => 'thin', 'isSparse' => true],
         ], grants: CapabilityGrants::none());
 
-        $doc = $service->ingest([
+        $doc = $service->ingest(JobSnapshots::of([
             'uid' => 14, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'auto', 'be_user' => 7,
-        ]);
+        ]));
 
         self::assertSame("dense narrative text\n\nthin", $doc->text);
         self::assertSame(0, $this->vision->calls);
@@ -282,9 +284,9 @@ final class SourceIngestionServiceTest extends TestCase
         ], grants: CapabilityGrants::none());
 
         try {
-            $service->ingest([
+            $service->ingest(JobSnapshots::of([
                 'uid' => 15, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'auto', 'be_user' => 7,
-            ]);
+            ]));
             self::fail('A scanned PDF without the grant has no text to read');
         } catch (IngestionException $e) {
             self::assertSame(1749379453, $e->getCode());
@@ -298,7 +300,7 @@ final class SourceIngestionServiceTest extends TestCase
     {
         foreach (['text', 'tables'] as $mode) {
             $this->service([['page' => 1, 'text' => 'dense', 'isSparse' => false]], grants: CapabilityGrants::none())
-                ->ingest(['uid' => 16, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => $mode, 'be_user' => 7]);
+                ->ingest(JobSnapshots::of(['uid' => 16, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => $mode, 'be_user' => 7]));
 
             self::assertSame([], $this->grantResolver->askedFor, $mode);
         }
@@ -310,7 +312,7 @@ final class SourceIngestionServiceTest extends TestCase
         $service = $this->service([['page' => 1, 'text' => '', 'isSparse' => false]], $path);
 
         try {
-            $service->ingest(['uid' => 17, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]);
+            $service->ingest(JobSnapshots::of(['uid' => 17, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]));
             self::fail('A PDF without text must fail');
         } catch (IngestionException $e) {
             self::assertSame(1749379452, $e->getCode());
@@ -340,7 +342,7 @@ final class SourceIngestionServiceTest extends TestCase
         $resolver = new class ($path) extends PdfFileResolver {
             public function __construct(private readonly string $path) {}
 
-            public function resolve(array $jobRow): string
+            public function resolve(JobSnapshot $job): string
             {
                 return $this->path;
             }
@@ -379,7 +381,7 @@ final class SourceIngestionServiceTest extends TestCase
         );
 
         try {
-            $service->ingest(['uid' => 18, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]);
+            $service->ingest(JobSnapshots::of(['uid' => 18, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]));
             self::fail('The parse failure must reach the caller');
         } catch (IngestionException $e) {
             self::assertSame($failure, $e);

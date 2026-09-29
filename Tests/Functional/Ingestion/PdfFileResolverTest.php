@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Ingestion;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -30,7 +31,7 @@ final class PdfFileResolverTest extends AbstractFunctionalTestCase
         $this->attachToJob(3, $file->getUid());
 
         $resolver = $this->get(PdfFileResolver::class);
-        $path     = $resolver->resolve(['uid' => 3, 'source_type' => 'pdf_fal', 'source_pdf' => 1]);
+        $path     = $resolver->resolve(JobSnapshots::of(['uid' => 3, 'source_type' => 'pdf_fal', 'source_pdf' => 1]));
 
         self::assertFileExists($path);
         self::assertSame($bytes, (string) file_get_contents($path));
@@ -68,7 +69,7 @@ final class PdfFileResolverTest extends AbstractFunctionalTestCase
         $this->attachToJob($jobUid, $attached->getUid());
 
         $path = $this->get(PdfFileResolver::class)
-            ->resolve(['uid' => $jobUid, 'source_type' => 'pdf_fal', 'source_pdf' => 1]);
+            ->resolve(JobSnapshots::of(['uid' => $jobUid, 'source_type' => 'pdf_fal', 'source_pdf' => 1]));
 
         self::assertSame($attachedBytes, (string) file_get_contents($path));
     }
@@ -82,7 +83,7 @@ final class PdfFileResolverTest extends AbstractFunctionalTestCase
         $resolver = $this->get(PdfFileResolver::class);
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379441);
-        $resolver->resolve(['uid' => 4, 'source_type' => 'pdf_fal', 'source_pdf' => 0]);
+        $resolver->resolve(JobSnapshots::of(['uid' => 4, 'source_type' => 'pdf_fal', 'source_pdf' => 0]));
     }
 
     /** A pdf_fal job with one attached file, stored as DataHandler stores it. */

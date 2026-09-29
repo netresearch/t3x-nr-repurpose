@@ -43,7 +43,7 @@ final readonly class StubArtifactGenerator implements ArtifactGeneratorInterface
             $content = sprintf(
                 "nr_repurpose stub artifact\nJob #%d\nSource: %s\nTheme: %s\nTitle: %s\nLanguage: %s\n",
                 $jobUid,
-                SourceUrlRedactor::redact((string) ($ctx->jobRow['source_value'] ?? '')),
+                SourceUrlRedactor::redact($ctx->job->sourceValue),
                 $ctx->theme,
                 $ctx->brief->title,
                 $ctx->brief->language,

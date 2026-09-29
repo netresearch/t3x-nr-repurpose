@@ -125,7 +125,8 @@ The orchestrator collects the generators tagged ``nr_repurpose.artifact_generato
 (podcast, Schaubild, story and the four text formats), filters them by
 ``supports()`` against the job's
 ``want_*`` flags, and runs each one with a shared per-run :php:`GenerationContext`
-(job row, document, brief, theme, backend user). A generator records its own
+(the job row typed once as a :php:`JobSnapshot`, document, brief, theme, backend
+user). A generator records its own
 artifact rows and returns a boolean; one failing generator never aborts the
 others. The final job status is ``done`` (all succeeded), ``partially_done``
 (some), or ``failed`` (none). All generators extend :php:`AbstractGenerator`,

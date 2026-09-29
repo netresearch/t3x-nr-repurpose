@@ -74,7 +74,7 @@ class SchaubildGenerator extends AbstractGenerator
 
     public function supports(GenerationContext $ctx): bool
     {
-        return (bool) ($ctx->jobRow['want_schaubild'] ?? false);
+        return $ctx->job->wantSchaubild;
     }
 
     public function generate(GenerationContext $ctx): bool
