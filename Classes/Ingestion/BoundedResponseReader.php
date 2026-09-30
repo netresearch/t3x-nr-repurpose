@@ -15,6 +15,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\NetworkTimeoutException;
 use GuzzleHttp\Exception\ResponseTimeoutException;
 use GuzzleHttp\Exception\TransferException;
+use GuzzleHttp\Psr7\Exception\TimeoutException as Psr7TimeoutException;
 use GuzzleHttp\Psr7\InflateStream;
 use GuzzleHttp\RequestOptions;
 use Psr\Http\Message\RequestInterface;
@@ -107,8 +108,9 @@ final class BoundedResponseReader
         try {
             return $client->send($request, self::requestOptions($maxBytes, $timeoutSeconds, $url));
         } catch (TransferException $e) {
-            // The stream and mock handlers wrap an exception thrown by on_headers or
-            // progress; curl reports its own expired `timeout` as errno 28.
+            // The handlers wrap an exception thrown by on_headers or progress (Guzzle 7:
+            // stream and mock; Guzzle 8: curl too); an expired `timeout` is errno 28 on
+            // Guzzle 7 and a timeout exception class on Guzzle 8.
             for ($cause = $e->getPrevious(); $cause instanceof Throwable; $cause = $cause->getPrevious()) {
                 if ($cause instanceof IngestionException) {
                     throw $cause;
@@ -169,8 +171,9 @@ final class BoundedResponseReader
             }
         } catch (RuntimeException $e) {
             // The stream handler reports an expired read timeout as a failed read;
-            // the flag is gone once the stream is closed.
-            $timedOut = $body->getMetadata('timed_out') === true;
+            // the flag is gone once the stream is closed. psr7 3's InflateStream
+            // throws its own TimeoutException for a timed-out source instead.
+            $timedOut = $e instanceof Psr7TimeoutException || $body->getMetadata('timed_out') === true;
             $body->close();
 
             if ($e instanceof IngestionException) {
@@ -208,7 +211,7 @@ final class BoundedResponseReader
             }
         }
 
-        // PHPStan sees only the installed Guzzle; Build/phpstan.neon lets the
+        // PHPStan sees only the installed Guzzle; phpstan.neon lets the
         // other major's view of this call pass.
         if (!method_exists($e, 'getHandlerContext')) {
             return false;

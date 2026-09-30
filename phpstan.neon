@@ -86,11 +86,11 @@ parameters:
             path: Classes/Rendering/GdImageCompositor.php
             reportUnmatched: false
 
-        # Guzzle-version dependent: the timeout check lists Guzzle 8's timeout
-        # exceptions, which do not exist when the matrix leg resolves Guzzle 7.
+        # Guzzle-version dependent: the timeout checks name Guzzle 8's and psr7 3's
+        # timeout exceptions, which do not exist when the matrix leg resolves Guzzle 7.
         # `::class` and `instanceof` do not autoload, so the code runs on both.
         -
-            message: '#^Class GuzzleHttp\\Exception\\(Connect|Network|Response)TimeoutException not found\.$#'
+            message: '#^Class GuzzleHttp\\(Exception\\(Connect|Network|Response)TimeoutException|Psr7\\Exception\\TimeoutException) not found\.$#'
             identifier: class.notFound
             path: Classes/Ingestion/BoundedResponseReader.php
             reportUnmatched: false
