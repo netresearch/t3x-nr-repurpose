@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-30
+
 ### Added
 
 - **`LICENSE`** with the GPL-2.0 text. `composer.json` and `ext_emconf.php` declare `GPL-2.0-or-later`; the repository did not ship the licence text.
@@ -45,7 +47,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The configuration chapter documents `technicalBeUserUid`.** It said the extension has no configuration of its own, while `ext_conf_template.txt` declares five settings; the setting a worker needs to read provider keys from nr-vault was documented nowhere. The chapter now lists the five settings and describes `technicalBeUserUid`.
 - **The installation chapter states the nr-llm range `composer.json` requires** (`^0.35 || ^0.36 || ^0.37 || ^0.38`, it said `^0.25`), adds nr-vault to the requirements, and states that the extension needs a Composer installation: the TER package carries neither `smalot/pdfparser` nor the Node renderer's `package.json`, so classic mode is not supported.
 - **The changelog page of the rendered documentation covers every release up to 0.8.2.** It stopped at 0.1.0.
-- **The documentation says where `CHROMIUM_PATH` has to be set.** The configuration, installation and architecture chapters said the PHP renderer exports the variable for `render.cjs`. It calls `putenv()`, but Symfony Process passes a child only the variables that were in the environment when PHP started, so the path reaches the renderer only where the worker's environment exports `CHROMIUM_PATH`. The chapters and the troubleshooting page now say so.
+- **The documentation describes how the renderer finds Chromium.** The configuration, installation, architecture and troubleshooting pages said the worker has to export `CHROMIUM_PATH`, or that the PHP renderer exports it. The renderer passes the path to `render.cjs` itself (see the entry above), from its `$chromiumPath` argument, default `/usr/bin/chromium`; the pages now say so and show how to set another path in a `Services.yaml`.
 - **The job list fits the module again.** A long source URL (a 400-character tracking URL) did not wrap and pushed every column after "Source" out of view: at 1440 and 1280 px only the ID column was visible without scrolling the table. The source cell now uses the core column class `col-responsive` (one line, ellipsis, full URL in the `title`, the full text still in the cell for copying and screen readers); the artifact icons, progress and action columns use `col-nowrap`, `col-progress` and `col-control`. All six columns are visible at 1280 px and at 200 % zoom, and every row is one line high. The social-planning table does the same for its source column.
 - **Long values and generated text wrap inside the job detail view** instead of widening the page (source URL, error messages, LLM text in the artifact cards).
 - **Error text on cards and table rows is readable in the dark scheme.** Core `.text-danger` measures 4.49:1 on a card and 4.18:1 on a striped table row there, below WCAG AA; artifact and publishing errors on the cards now use the core error box (`f:be.infobox`), and in the social-planning table the publish error is plain text next to the "failed" status.
@@ -426,7 +428,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.7.0...v0.8.0
