@@ -56,6 +56,31 @@ class JobProcessingRepository
             ->update(self::JOB_TABLE, $fields, ['uid' => $jobUid]);
     }
 
+    /**
+     * End a generation run: final status, its error message ('' clears one from an
+     * earlier run), and the artifacts counter. The counter is the inline field's
+     * column; DataHandler keeps it for records it writes, and the worker writes
+     * artifact rows directly, so the rows are counted here.
+     */
+    public function finishJob(int $jobUid, JobStatus $status, string $error): void
+    {
+        $artifacts = $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)
+            ->count('uid', self::ARTIFACT_TABLE, ['job' => $jobUid]);
+
+        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
+            self::JOB_TABLE,
+            [
+                'status'        => $status->value,
+                'current_step'  => 'done',
+                'progress'      => 100,
+                'error_message' => $error,
+                'artifacts'     => $artifacts,
+                'tstamp'        => time(),
+            ],
+            ['uid' => $jobUid],
+        );
+    }
+
     public function markFailed(int $jobUid, string $error): void
     {
         $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
@@ -123,6 +148,8 @@ class JobProcessingRepository
         }
 
         $connection->delete(self::ARTIFACT_TABLE, ['job' => $jobUid]);
+        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)
+            ->update(self::JOB_TABLE, ['artifacts' => 0], ['uid' => $jobUid]);
     }
 
     /**

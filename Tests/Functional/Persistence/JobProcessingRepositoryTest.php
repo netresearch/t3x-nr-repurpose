@@ -76,4 +76,18 @@ final class JobProcessingRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame(0, $conn->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobA]));
         self::assertSame(1, $conn->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $jobB]));
     }
+
+    /** A run that dies after the delete must not leave the old run's count on the job. */
+    public function testDeleteArtifactsForJobResetsTheArtifactsCounter(): void
+    {
+        $uid  = $this->seedJob();
+        $repo = $this->get(JobProcessingRepository::class);
+        GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->update('tx_nrrepurpose_domain_model_job', ['artifacts' => 5], ['uid' => $uid]);
+
+        $repo->deleteArtifactsForJob($uid);
+
+        self::assertSame(0, (int) ($repo->findRow($uid)['artifacts'] ?? -1));
+    }
 }
