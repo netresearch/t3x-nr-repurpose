@@ -107,10 +107,8 @@ Shared helpers — generator base methods, `Classes/Generator/Support/*` (text l
 ## Boundaries
 
 ### Always Do
-- Run pre-commit checks before committing
-- Add tests for new code paths
-- Use conventional commit format: `type(scope): subject`
-- Use **atomic commits** (one logical change per commit); preserve signatures, keep bisection useful
+- Run pre-commit checks before committing; add tests for new code paths
+- Use conventional commit format (`type(scope): subject`) and **atomic commits** (one logical change per commit); preserve signatures, keep bisection useful
 - Before any edit, verify `pwd` resolves inside the intended repo worktree — not `.bare/`, not `~/.claude/skills/…`, not `~/.claude/plugins/cache/…` (those are read-only caches that get clobbered on update)
 - For upstream dependency fixes: run **full** test suite, not just affected tests
 - Force-push only with `--force-with-lease`
