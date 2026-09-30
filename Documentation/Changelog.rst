@@ -73,6 +73,8 @@ Changed
 Fixed
 -----
 
+-   A failed job names how many formats failed, instead of showing an empty
+    error, and its artifact count matches its artifacts.
 -   A ``pdf_fal`` job reads the PDF attached to it, not the file whose uid
     equals the number of attachments.
 -   Story headlines no longer run off the slide, and the footer and copy stay

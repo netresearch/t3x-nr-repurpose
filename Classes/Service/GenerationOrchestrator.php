@@ -215,11 +215,15 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             $this->jobs->markStatus($jobUid, JobStatus::Generating, null, $progress);
         }
 
-        // 6) Final status (Plan 1 logic preserved).
-        $final = $ok === $count
-            ? JobStatus::Done
-            : ($ok > 0 ? JobStatus::PartiallyDone : JobStatus::Failed);
-        $this->jobs->markStatus($jobUid, $final, 'done', 100);
+        // 6) Final status. Each artifact carries its own error; the job names how many
+        // formats failed, so a failed job is never without a reason (#77).
+        $failed          = $count - $ok;
+        [$final, $error] = match (true) {
+            $failed === 0 => [JobStatus::Done, ''],
+            $ok > 0       => [JobStatus::PartiallyDone, sprintf('%d of %d formats failed; each failed artifact shows its error', $failed, $count)],
+            default       => [JobStatus::Failed, sprintf('All %d formats failed; each artifact shows its error', $count)],
+        };
+        $this->jobs->finishJob($jobUid, $final, $error);
     }
 
     /**

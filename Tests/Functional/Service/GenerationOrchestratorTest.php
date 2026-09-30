@@ -566,6 +566,56 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Generators as [succeeds, artifact rows], final status, stored error_message, artifacts counter.
+     *
+     * @return array<string, array{0: list<array{0: bool, 1: int}>, 1: string, 2: string, 3: int}>
+     */
+    public static function jobOutcomes(): array
+    {
+        return [
+            'every format fails'       => [[[false, 1], [false, 2]], 'failed', 'All 2 formats failed; each artifact shows its error', 3],
+            'one of two formats fails' => [[[true, 1], [false, 1]], 'partially_done', '1 of 2 formats failed; each failed artifact shows its error', 2],
+            'every format succeeds'    => [[[true, 3], [true, 1]], 'done', '', 4],
+        ];
+    }
+
+    /**
+     * The job row says why a run failed and counts its artifact rows (#77): the
+     * artifacts carry their own errors, the job's error_message names how many formats
+     * failed, and the artifacts counter matches the rows. A message from an earlier run
+     * does not survive a later one.
+     *
+     * @param list<array{0: bool, 1: int}> $generators
+     */
+    #[DataProvider('jobOutcomes')]
+    public function testTheFinishedJobNamesItsFailedFormatsAndCountsItsArtifacts(array $generators, string $status, string $error, int $artifacts): void
+    {
+        $jobUid = $this->seedJob();
+        GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->update('tx_nrrepurpose_domain_model_job', ['error_message' => 'left over from an earlier run', 'artifacts' => 7], ['uid' => $jobUid]);
+        $jobs = $this->get(JobProcessingRepository::class);
+
+        (new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $this->stubIngestion($this->stubDocument()),
+            $this->stubAnalyzer($this->stubBrief()),
+            $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
+            $this->get(CapabilityGrantResolver::class),
+            $this->get(AiLabelSettingsFactory::class),
+            array_map(static fn (array $g): OutcomeArtifactGenerator => new OutcomeArtifactGenerator($jobs, $g[0], $g[1]), $generators),
+        ))->process($jobUid);
+
+        $row = $jobs->findRow($jobUid);
+        self::assertSame($status, $row['status'] ?? null);
+        self::assertSame($error, $row['error_message'] ?? null);
+        self::assertSame($artifacts, (int) ($row['artifacts'] ?? -1));
+    }
+
+    /**
      * The reason this class takes a TechnicalActorContextInterface at all: both callers run
      * without an authenticated backend user, and nr_vault then denies every secret read. The
      * generator asserting inside its own generate() is the point - it proves the scope is open
@@ -739,6 +789,37 @@ final class RecordingArtifactGenerator implements ArtifactGeneratorInterface
         $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
 
         return true;
+    }
+}
+
+/** Writes a given number of artifact rows and reports success or failure. */
+final readonly class OutcomeArtifactGenerator implements ArtifactGeneratorInterface
+{
+    public function __construct(
+        private JobProcessingRepository $jobs,
+        private bool $succeeds,
+        private int $rows,
+    ) {}
+
+    public function supports(GenerationContext $ctx): bool
+    {
+        return true;
+    }
+
+    public function generate(GenerationContext $ctx): bool
+    {
+        for ($i = 0; $i < $this->rows; ++$i) {
+            $this->jobs->insertArtifact(
+                $ctx->jobUid(),
+                ArtifactType::Stub,
+                'v' . $i,
+                0,
+                $this->succeeds ? ArtifactStatus::Done : ArtifactStatus::Failed,
+                $this->succeeds ? null : 'Stub failed',
+            );
+        }
+
+        return $this->succeeds;
     }
 }
 
