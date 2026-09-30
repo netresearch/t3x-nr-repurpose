@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # nr_repurpose — Content Repurpose for TYPO3
 
 [![CI](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/ci.yml)
@@ -235,6 +237,10 @@ Configuration, Usage, Architecture, and the Architecture Decision Records). Pipe
 ingest (web/PDF) → analyze (one `ContentBrief` via nr-llm) → generate (podcast /
 schaubild×3 / story×N slides / text formats) → store in the TYPO3 File Abstraction Layer (FAL); the
 text formats write no file, their text lives on the artifact row.
+
+What users can expect from the extension in terms of security — threat model,
+trust boundaries and the controls that implement them — is in
+[docs/SECURITY-ASSURANCE.md](docs/SECURITY-ASSURANCE.md).
 
 ## License
 

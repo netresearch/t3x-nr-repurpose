@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 services:
   # A listener of the file metadata update that JobFileStorage triggers when it
   # describes a stored artifact. It does nothing until a test switches it on.

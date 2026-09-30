@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 // CommonJS so it runs without ESM config. Reads HTML from stdin, writes a PNG,
 // or with --pdf a PDF whose page size and breaks come from the HTML's CSS (@page).
 // argv: --width <int> --height <int|auto> --scale <float> --out <path> (--transparent|--opaque) [--pdf]

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 # cat=basic; type=int+; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:technicalBeUserUid
 technicalBeUserUid = 0
 

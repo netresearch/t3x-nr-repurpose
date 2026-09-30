@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 # Continuous Symfony Messenger consumer for the doctrine transport.
 # Reuses the web image (same PHP + typo3 binary). The restart loop survives the
 # deliberate time/memory limits that recycle the worker. Dependencies (nr-llm,

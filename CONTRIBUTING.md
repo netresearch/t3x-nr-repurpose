@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Contributing to nr_repurpose
 
 ## Development Setup
@@ -105,8 +107,46 @@ If a release ran only partly, `.github/workflows/republish.yml` (manual
   because the release run stopped before creating it, re-run the failed
   `release.yml` run for that tag instead.
 
+## Governance and policies
+
+This extension follows the organisation-wide Netresearch policies:
+
+- [Governance](https://github.com/netresearch/.github/blob/main/GOVERNANCE.md):
+  ownership, roles, how decisions are made and conflicts resolved.
+- [Roadmap](https://github.com/netresearch/.github/blob/main/ROADMAP.md):
+  planned and excluded work for the next twelve months.
+- [Handling of dependency and code analysis findings](https://github.com/netresearch/.github/blob/main/SECURITY.md#handling-of-dependency-and-code-analysis-findings):
+  which vulnerability, licence and static-analysis findings must be fixed,
+  by when, and how exceptions are recorded.
+- [Secret management](https://github.com/netresearch/.github/blob/main/SECURITY.md#secret-management):
+  where project, CI and release credentials are stored, who may use them,
+  and when they are rotated.
+- [Access roster](https://github.com/netresearch/.github/blob/main/docs/access-roster.md):
+  the people and teams with administrative or write access to this
+  repository.
+
+Checks that run on every pull request in this repository:
+
+- `.github/workflows/checks.yml`: Composer Audit (fails on any advisory for
+  an installed package) and Opengrep SAST (`--config auto --error --severity
+  WARNING`: fails on findings of rules with severity WARNING), both through
+  `typo3-ci-workflows`' `security.yml`;
+  Dependency Review (fails on newly added dependencies with a vulnerability
+  of severity high or higher); PHP License Audit (`license-check.yml`, fails
+  when a licence string in `composer licenses` output matches the pattern
+  `"(SSPL|BSL)"`, that is the bare identifiers `SSPL` or `BSL`);
+  CodeQL; Betterleaks secret scanning; zizmor for the workflow files.
+- `.github/workflows/ci.yml`: PHPStan (`Build/phpstan.neon`, which includes
+  `phpstan.neon` and adds the phpat architecture rules), PHP lint, code style,
+  Rector and Fractor checks, unit and functional tests, and Infection
+  mutation testing (reports, does not block).
+
 ## Security
 
 Report vulnerabilities privately through
 [GitHub Security Advisories](https://github.com/netresearch/t3x-nr-repurpose/security/advisories/new),
 not in a public issue.
+
+The security expectations, threat model and controls of the extension are in
+[docs/SECURITY-ASSURANCE.md](docs/SECURITY-ASSURANCE.md). A change that adds
+or removes a control updates that document.

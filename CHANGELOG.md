@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Changelog
 
 All notable changes to this extension are documented here. The format is based on
@@ -5,6 +7,12 @@ All notable changes to this extension are documented here. The format is based o
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- **`docs/SECURITY-ASSURANCE.md`** states what users can and cannot expect in terms of security, the threat model, trust boundaries, the design principles applied and how common weaknesses are countered, each tied to the file that implements it. README and CONTRIBUTING link it.
+- **SPDX notices in the source files.** The configuration, script, SQL, XLIFF, Fluid, Markdown and RST files carry `SPDX-License-Identifier` and `SPDX-FileCopyrightText`; the PHP classes already carried `SPDX-License-Identifier` next to their copyright line; the RST manual is `CC-BY-4.0`, the workflow and labeler files synced from the organisation's typo3-extension template `MIT`, everything else `GPL-2.0-or-later`.
+- **CONTRIBUTING links the organisation's governance, roadmap, finding-handling and secret-management policies and the access roster**, and names the checks every pull request runs.
 
 ## [0.9.0] - 2026-09-30
 

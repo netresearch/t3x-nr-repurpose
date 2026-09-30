@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 ## Description: Alias of `ddev setup`: install TYPO3 v14.3 and activate nr_repurpose + nr_llm
 ## Usage: install
 ## Example: ddev install
