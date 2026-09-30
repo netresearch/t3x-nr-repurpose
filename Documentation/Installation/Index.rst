@@ -25,7 +25,7 @@ Requirements
      - ``^0.35 || ^0.36 || ^0.37 || ^0.38`` — AI access (completion, TTS,
        image), budget enforcement and one-click configuration presets.
    * - :composer:`netresearch/nr-vault`
-     - ``^0.16`` — holds the provider keys nr-llm reads; its
+     - ``^1.1`` — holds the provider keys nr-llm reads; its
        technical-actor API lets the worker read them (see
        :ref:`configuration-extension-settings`).
    * - PHP extension ``curl`` (recommended)

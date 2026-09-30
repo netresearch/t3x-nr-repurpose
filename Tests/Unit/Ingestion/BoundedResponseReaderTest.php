@@ -11,9 +11,13 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\ConnectTimeoutException;
+use GuzzleHttp\Exception\NetworkTimeoutException;
+use GuzzleHttp\Exception\ResponseTimeoutException;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Promise\PromiseInterface;
+use GuzzleHttp\Psr7\Exception\TimeoutException as Psr7TimeoutException;
 use GuzzleHttp\Psr7\FnStream;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
@@ -95,6 +99,26 @@ final class BoundedResponseReaderTest extends TestCase
         BoundedResponseReader::read(new Response(200, [], $expired), 100, 5.0, 'https://example.com/');
     }
 
+    /**
+     * psr7 3's InflateStream throws a TimeoutException for a timed-out source
+     * rather than returning an empty string, and carries no `timed_out` flag.
+     */
+    public function testAPsr7TimeoutFromTheBodyIsATimeout(): void
+    {
+        if (!class_exists(Psr7TimeoutException::class)) {
+            self::markTestSkipped('guzzlehttp/psr7 3 only');
+        }
+
+        $stalled = FnStream::decorate(Utils::streamFor('x'), [
+            'read' => static fn (int $length): string => throw new Psr7TimeoutException('Read timed out'),
+        ]);
+
+        $this->expectException(IngestionException::class);
+        $this->expectExceptionCode(1749379465);
+
+        BoundedResponseReader::read(new Response(200, [], $stalled), 100, 5.0, 'https://example.com/');
+    }
+
     public function testTheRequestOptionsBoundTheTransferInsideTheHandler(): void
     {
         $options = BoundedResponseReader::requestOptions(100, 5.0, 'https://example.com/');
@@ -160,12 +184,55 @@ final class BoundedResponseReaderTest extends TestCase
     public function testSendTurnsACurlTimeoutIntoTheTimeoutCode(): void
     {
         $request = new Request('GET', 'https://example.com/');
-        $client  = $this->failingClient(new ConnectException('cURL error 28: Operation timed out', $request, null, ['errno' => 28]));
+        // What the installed Guzzle raises for curl's errno 28: Guzzle 8 a
+        // ConnectTimeoutException, Guzzle 7 a ConnectException carrying the errno.
+        $timeout = class_exists(ConnectTimeoutException::class)
+            ? new ConnectTimeoutException('cURL error 28: Operation timed out', $request)
+            : new ConnectException('cURL error 28: Operation timed out', $request, null, ['errno' => 28]);
+        self::assertInstanceOf(ConnectException::class, $timeout);
+        $client = $this->failingClient($timeout);
 
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379465);
 
         BoundedResponseReader::send($client, $request, 100, 5.0, 'https://example.com/');
+    }
+
+    /**
+     * Guzzle 8 raises a stall before the response head as NetworkTimeoutException,
+     * which is neither a ConnectException nor a RequestException.
+     */
+    public function testSendTurnsAGuzzle8NetworkTimeoutIntoTheTimeoutCode(): void
+    {
+        if (!class_exists(NetworkTimeoutException::class)) {
+            self::markTestSkipped('Guzzle 8 only');
+        }
+
+        $request = new Request('GET', 'https://example.com/');
+        $timeout = new NetworkTimeoutException('cURL error 28: Operation timed out', $request);
+
+        $this->expectException(IngestionException::class);
+        $this->expectExceptionCode(1749379465);
+
+        BoundedResponseReader::send($this->failingClient($timeout), $request, 100, 5.0, 'https://example.com/');
+    }
+
+    /**
+     * Guzzle 8 raises a stall after the response head as ResponseTimeoutException.
+     */
+    public function testSendTurnsAGuzzle8ResponseTimeoutIntoTheTimeoutCode(): void
+    {
+        if (!class_exists(ResponseTimeoutException::class)) {
+            self::markTestSkipped('Guzzle 8 only');
+        }
+
+        $request = new Request('GET', 'https://example.com/');
+        $timeout = new ResponseTimeoutException('cURL error 28: Operation timed out', $request, new Response(200));
+
+        $this->expectException(IngestionException::class);
+        $this->expectExceptionCode(1749379465);
+
+        BoundedResponseReader::send($this->failingClient($timeout), $request, 100, 5.0, 'https://example.com/');
     }
 
     public function testSendLeavesOtherTransportErrorsToTheCaller(): void
