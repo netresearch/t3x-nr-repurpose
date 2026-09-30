@@ -26,7 +26,9 @@ Security
     ``http`` and ``https`` are fetched, and a host that resolves to a
     loopback, private, link-local or reserved address is refused.
 -   A remote source is limited to 5 MiB and 30 seconds (a PDF to 50 MiB and
-    120 seconds), and redirects are not followed.
+    120 seconds), and redirects are not followed. The time limit covers the
+    whole transfer only with the PHP extension ``curl``; without it, it
+    applies to each read. See :ref:`troubleshooting-source-limits`.
 -   Job and artifact errors no longer show the text model's messages, server
     paths, SQL, process output or webhook URLs; those go to the TYPO3 log. A
     source URL in an error, a label or a prompt is shown without user name,
@@ -45,6 +47,11 @@ Added
 Changed
 -------
 
+-   **Requires nr-vault 1.1** (``^1.1``, was ``^0.16``) and therefore nr-llm
+    0.38.2 or later. nr-vault 1.x refuses a provider host that DNS does not
+    resolve: a host reached through :file:`/etc/hosts` or a container
+    runtime's resolver needs an entry in
+    ``$GLOBALS['TYPO3_CONF_VARS']['HTTP']['allowed_hosts']``.
 -   The Netresearch-theme Schaubild, story slides, slide deck and handout
     carry the [n] logo and a linked company footer; the extension icon is the
     [n] symbol.
@@ -75,7 +82,9 @@ Fixed
 -   Slide renders and most temp files of a run are removed.
 -   The job list is paged, draws its progress bar and fits the module; error
     text on cards and table rows is readable in the dark scheme.
--   An Extension Manager or TER install accepts nr_vault 0.16.
+-   Source downloads work under Guzzle 8.
+-   ``ext_emconf.php`` states the same dependency ranges as
+    ``composer.json``.
 
 .. _version-0-8-2:
 

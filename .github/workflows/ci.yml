@@ -68,7 +68,8 @@ jobs:
 
   # The matrix above installs the newest version each constraint allows. This
   # leg installs the lowest of every package the extension declares (nr-llm
-  # 0.35, nr-vault 0.16, TYPO3 14.3.0, symfony, smalot/pdfparser) and runs the
+  # 0.38.2, the first to accept nr-vault 1.x; nr-vault 1.1, TYPO3 14.3.0,
+  # symfony, smalot/pdfparser) and runs the
   # unit tests and PHPStan against them. The reusable workflow has no input
   # for it.
   #
