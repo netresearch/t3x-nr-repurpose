@@ -136,7 +136,8 @@ Checks that run on every pull request in this repository:
   when a licence string in `composer licenses` output matches the pattern
   `"(SSPL|BSL)"`, that is the bare identifiers `SSPL` or `BSL`);
   CodeQL; Betterleaks secret scanning; zizmor for the workflow files.
-- `.github/workflows/ci.yml`: PHPStan (`phpstan.neon`), PHP lint, code style,
+- `.github/workflows/ci.yml`: PHPStan (`Build/phpstan.neon`, which includes
+  `phpstan.neon` and adds the phpat architecture rules), PHP lint, code style,
   Rector and Fractor checks, unit and functional tests, and Infection
   mutation testing (reports, does not block).
 
