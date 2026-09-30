@@ -86,6 +86,15 @@ parameters:
             path: Classes/Rendering/GdImageCompositor.php
             reportUnmatched: false
 
+        # Guzzle-version dependent: the timeout check lists Guzzle 8's timeout
+        # exceptions, which do not exist when the matrix leg resolves Guzzle 7.
+        # `::class` and `instanceof` do not autoload, so the code runs on both.
+        -
+            message: '#^Class GuzzleHttp\\Exception\\(Connect|Network|Response)TimeoutException not found\.$#'
+            identifier: class.notFound
+            path: Classes/Ingestion/BoundedResponseReader.php
+            reportUnmatched: false
+
         # FAL has no public API to change a file's existing metadata record: the
         # indexer creates one when the file is written, and the only ways to update
         # it — MetaDataAspect::save() and MetaDataRepository::update() — are both
