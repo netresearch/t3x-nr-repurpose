@@ -93,8 +93,10 @@ extension. Since 2026-08-11 nr_repurpose requires
 ``1.1.0-1.99.99`` in ``ext_emconf.php``):
 :php:`GenerationOrchestrator` imports nr-vault's
 :php:`TechnicalActorContextInterface` and, with
-:confval:`technicalBeUserUid <technicalbeuseruid>` set, runs a job inside its
-``runAs()`` scope, so that nr-vault checks the secret's access grants against
-that backend user instead of denying the worker, which runs without one. The extension still holds no key and has no provider code; the
-credential stays in nr-llm's store. nr-llm is required as
-``^0.35 || ^0.36 || ^0.37 || ^0.38``, not ``^0.25``.
+:confval:`technicalBeUserUid <technicalbeuseruid>` set to a positive backend
+user uid, runs a job inside its ``runAs()`` scope, so that nr-vault checks the
+secret's access grants against that backend user instead of denying the
+worker, which runs without one. A value of 0 or below sets no actor, and the
+job runs outside that scope as before. The extension still holds no key and
+has no provider code; the credential stays in nr-llm's store. nr-llm is
+required as ``^0.35 || ^0.36 || ^0.37 || ^0.38``, not ``^0.25``.
