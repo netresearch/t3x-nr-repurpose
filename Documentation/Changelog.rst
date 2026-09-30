@@ -14,6 +14,80 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-9-0:
+
+Version 0.9.0 (2026-09-30)
+==========================
+
+Security
+--------
+
+-   A source URL can no longer reach the host or the internal network: only
+    ``http`` and ``https`` are fetched, and a host that resolves to a
+    loopback, private, link-local or reserved address is refused.
+-   A remote source is limited to 5 MiB and 30 seconds (a PDF to 50 MiB and
+    120 seconds), and redirects are not followed. The time limit covers the
+    whole transfer only with the PHP extension ``curl``; without it, it
+    applies to each read. See :ref:`troubleshooting-source-limits`.
+-   Job and artifact errors no longer show the text model's messages, server
+    paths, SQL, process output or webhook URLs; those go to the TYPO3 log. A
+    source URL in an error, a label or a prompt is shown without user name,
+    password, query and fragment.
+-   HTML renders run without JavaScript and without network access.
+-   Vision OCR of a PDF needs the ``nrrepurpose:generate_vision`` permission.
+
+Added
+-----
+
+-   A developer chapter, a troubleshooting page and a usage chapter with
+    screenshots of the backend module.
+-   ``LICENSE`` with the GPL-2.0 text, and README instructions for verifying
+    a release.
+
+Changed
+-------
+
+-   **Requires nr-vault 1.1** (``^1.1``, was ``^0.16``) and therefore nr-llm
+    0.38.2 or later. nr-vault 1.x refuses a provider host that DNS does not
+    resolve: a host reached through :file:`/etc/hosts` or a container
+    runtime's resolver needs an entry in
+    ``$GLOBALS['TYPO3_CONF_VARS']['HTTP']['allowed_hosts']``.
+-   The Netresearch-theme Schaubild, story slides, slide deck and handout
+    carry the [n] logo and a linked company footer; the extension icon is the
+    [n] symbol.
+-   Record forms, permission options and extension settings are translated
+    (English and German).
+-   ``composer.json`` carries the extension version and
+    ``providesPackages``; ``typo3/cms-install`` moves to ``require-dev``.
+-   The renderer passes the Chromium path to ``render.cjs`` itself; the
+    worker no longer needs to export ``CHROMIUM_PATH``. See
+    :ref:`configuration-rendering`.
+-   **Breaking for custom PHP code:** the pipeline passes a typed
+    ``JobSnapshot`` instead of the raw job row
+    (``SourceIngestionServiceInterface::ingest()``,
+    ``DocumentAnalyzerInterface::analyze()``, ``PdfFileResolver::resolve()``,
+    ``GenerationContext``), and ``ProcessRunnerInterface::run()`` takes an
+    optional ``$env`` argument. Code that implements or calls these has to
+    follow.
+
+Fixed
+-----
+
+-   A failed job names how many formats failed, instead of showing an empty
+    error, and its artifact count matches its artifacts.
+-   A ``pdf_fal`` job reads the PDF attached to it, not the file whose uid
+    equals the number of attachments.
+-   Story headlines no longer run off the slide, and the footer and copy stay
+    legible over a KI background.
+-   A podcast no longer fails on a numeric persona name or a nested value in
+    the dialogue script.
+-   Slide renders and most temp files of a run are removed.
+-   The job list is paged, draws its progress bar and fits the module; error
+    text on cards and table rows is readable in the dark scheme.
+-   Source downloads work under Guzzle 8.
+-   ``ext_emconf.php`` states the same dependency ranges as
+    ``composer.json``.
+
 .. _version-0-8-2:
 
 Version 0.8.2 (2026-09-27)
