@@ -8,14 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`docs/SECURITY-ASSURANCE.md`** states what users can and cannot expect in terms of security, the threat model, trust boundaries, the design principles applied and how common weaknesses are countered, each tied to the file that implements it. README and CONTRIBUTING link it.
+- **SPDX notices in the source files.** The configuration, script, SQL, XLIFF, Fluid, Markdown and RST files carry `SPDX-License-Identifier` and `SPDX-FileCopyrightText`; the PHP classes already carried `SPDX-License-Identifier` next to their copyright line; the RST manual is `CC-BY-4.0`, everything else `GPL-2.0-or-later`.
+- **CONTRIBUTING links the organisation's governance, roadmap, finding-handling and secret-management policies and the access roster**, and names the checks every pull request runs.
+
 ## [0.9.0] - 2026-09-30
 
 ### Added
 
 - **`LICENSE`** with the GPL-2.0 text. `composer.json` and `ext_emconf.php` declare `GPL-2.0-or-later`; the repository did not ship the licence text.
-- **`docs/SECURITY-ASSURANCE.md`** states what users can and cannot expect in terms of security, the threat model, trust boundaries, the design principles applied and how common weaknesses are countered, each tied to the file that implements it. README and CONTRIBUTING link it.
-- **SPDX notices in the source files.** The configuration, script, SQL, XLIFF, Fluid, Markdown and RST files carry `SPDX-License-Identifier` and `SPDX-FileCopyrightText`; the PHP classes already carried `SPDX-License-Identifier` next to their copyright line; the RST manual is `CC-BY-4.0`, everything else `GPL-2.0-or-later`.
-- **CONTRIBUTING links the organisation's governance, roadmap, finding-handling and secret-management policies and the access roster**, and names the checks every pull request runs.
 - **A developer chapter and a troubleshooting page** in the documentation: running the test suites, adding a generator, swapping the image or speech adapter; and the error messages a job or artifact shows when the worker, nr-vault, Chromium, ffmpeg, poppler, a permission or the budget stops it.
 - **The README explains how to verify a release**: `gh attestation verify` with `--signer-repo netresearch/typo3-ci-workflows`, because the shared release workflow signs the build provenance.
 - **ADR-008** records the capability-permission gate that 0.5.2 introduced: `generate_audio` and `generate_vision` are checked for the job's creator, once per run, before the budget.
