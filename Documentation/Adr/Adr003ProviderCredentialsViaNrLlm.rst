@@ -89,8 +89,8 @@ Note (2026-09-29)
 
 Point 3 of the decision and the last consequence no longer describe the
 extension. Since 2026-08-11 nr_repurpose requires
-:composer:`netresearch/nr-vault` directly (``^0.16`` in ``composer.json``,
-``0.16.0-0.16.99`` in ``ext_emconf.php``):
+:composer:`netresearch/nr-vault` directly (now ``^1.1`` in ``composer.json``,
+``1.1.0-1.99.99`` in ``ext_emconf.php``):
 :php:`GenerationOrchestrator` imports nr-vault's
 :php:`TechnicalActorContextInterface` and, with
 :confval:`technicalBeUserUid <technicalbeuseruid>` set, runs a job inside its
