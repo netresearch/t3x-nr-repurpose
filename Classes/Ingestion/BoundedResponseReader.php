@@ -108,9 +108,9 @@ final class BoundedResponseReader
         try {
             return $client->send($request, self::requestOptions($maxBytes, $timeoutSeconds, $url));
         } catch (TransferException $e) {
-            // The handlers wrap an exception thrown by on_headers or progress (Guzzle 7:
-            // stream and mock; Guzzle 8: curl too); an expired `timeout` is errno 28 on
-            // Guzzle 7 and a timeout exception class on Guzzle 8.
+            // Every handler wraps an exception thrown by on_headers; progress is wrapped
+            // by stream and mock on Guzzle 7 and by all handlers on Guzzle 8. An expired
+            // `timeout` is errno 28 on Guzzle 7 and a timeout exception class on Guzzle 8.
             for ($cause = $e->getPrevious(); $cause instanceof Throwable; $cause = $cause->getPrevious()) {
                 if ($cause instanceof IngestionException) {
                     throw $cause;
