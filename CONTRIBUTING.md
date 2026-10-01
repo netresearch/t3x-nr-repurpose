@@ -128,13 +128,15 @@ This extension follows the organisation-wide Netresearch policies:
 Checks that run on every pull request in this repository:
 
 - `.github/workflows/checks.yml`: Composer Audit (fails on any advisory for
-  an installed package) and Opengrep SAST (`--config auto --error --severity
-  WARNING`: fails on findings of rules with severity WARNING), both through
-  `typo3-ci-workflows`' `security.yml`;
+  an installed package) and Opengrep SAST, both through
+  `typo3-ci-workflows`' `security.yml` (which Opengrep findings block a
+  pull request is set by the organisation's
+  [static analysis rule](https://github.com/netresearch/.github/blob/main/SECURITY.md#static-analysis-sast));
   Dependency Review (fails on newly added dependencies with a vulnerability
   of severity high or higher); PHP License Audit (`license-check.yml`, fails
-  when a licence string in `composer licenses` output matches the pattern
-  `"(SSPL|BSL)"`, that is the bare identifiers `SSPL` or `BSL`);
+  when a licence string in `composer licenses` output matches its default
+  forbidden-licence pattern, which refuses `SSPL`, `BSL` and `BUSL` and every
+  `SSPL-` or `BUSL-` identifier of any version (`BSL-1.0` passes));
   CodeQL; Betterleaks secret scanning; zizmor for the workflow files.
 - `.github/workflows/ci.yml`: PHPStan (`Build/phpstan.neon`, which includes
   `phpstan.neon` and adds the phpat architecture rules), PHP lint, code style,
