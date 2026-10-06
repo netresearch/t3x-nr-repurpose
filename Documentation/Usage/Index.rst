@@ -410,3 +410,39 @@ The command has no options. It invokes the same orchestrator the worker uses, so
 the status transitions, per-artifact isolation, and idempotency (a job already
 in a terminal status is skipped) behave identically. Create the job first — via
 the backend *New job* form or directly as a database record — then pass its uid.
+
+.. _usage-chat-tool:
+
+Starting a job from the backend chat
+====================================
+
+With nr-llm's tool runtime, the backend chat (nr_mcp_agent) can start a job for
+you. nr_repurpose registers the tool ``start_repurpose_job`` in the tool group
+``nr_repurpose``. It is **off by default**, because a job spends provider
+money: an administrator switches it on in the nr-llm *Tools* module and permits
+the group ``nr_repurpose`` in the chat configuration.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 12 68
+
+   * - Argument
+     - Required
+     - Description
+   * - ``source_url``
+     - yes
+     - The http(s) URL of the web page or PDF. Credentials in the URL are refused.
+   * - ``source_type``
+     - no
+     - ``url`` (default) or ``pdf_url``.
+   * - ``artifacts``
+     - yes
+     - The formats to generate: ``podcast``, ``schaubild``, ``story``,
+       ``exec_summary``, ``faq``, ``social_post``, ``newsletter``,
+       ``slide_deck``, ``handout``. Nothing is generated that is not listed. The
+       video is only available in the module.
+
+Every call is shown to the person in the chat for approval before the job is
+created. The user needs access to the *Repurpose* module; the job belongs to
+them, so the audio and vision permissions apply as for a job created in the
+module. Progress and results are in the module.
