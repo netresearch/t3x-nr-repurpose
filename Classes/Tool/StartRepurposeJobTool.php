@@ -118,7 +118,8 @@ final readonly class StartRepurposeJobTool implements ToolInterface, ToolEffectI
             return ToolResult::error('source_url must be an absolute http(s) URL without credentials.');
         }
 
-        $type = SourceType::tryFrom(is_string($arguments['source_type'] ?? null) ? $arguments['source_type'] : SourceType::Url->value);
+        $rawType = $arguments['source_type'] ?? SourceType::Url->value;
+        $type    = is_string($rawType) ? SourceType::tryFrom($rawType) : null;
         if ($type !== SourceType::Url && $type !== SourceType::PdfUrl) {
             return ToolResult::error('source_type must be "url" or "pdf_url".');
         }

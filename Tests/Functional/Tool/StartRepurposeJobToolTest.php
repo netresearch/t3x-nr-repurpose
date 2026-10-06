@@ -128,6 +128,7 @@ final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
         yield 'file scheme' => [['source_url' => 'file:///etc/passwd', 'artifacts' => ['faq']]];
         yield 'credentials in the url' => [['source_url' => 'https://user:secret@example.com/', 'artifacts' => ['faq']]];
         yield 'unknown source type' => [['source_url' => 'https://example.com/', 'source_type' => 'pdf_fal', 'artifacts' => ['faq']]];
+        yield 'source type not a string' => [['source_url' => 'https://example.com/', 'source_type' => 5, 'artifacts' => ['faq']]];
         yield 'no artifact' => [['source_url' => 'https://example.com/', 'artifacts' => []]];
         yield 'artifacts missing' => [['source_url' => 'https://example.com/']];
         yield 'unknown artifact' => [['source_url' => 'https://example.com/', 'artifacts' => ['faq', 'hologram']]];
