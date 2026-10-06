@@ -83,6 +83,20 @@ final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(GenerateArtifactsMessage::class, $this->dispatched[0]);
     }
 
+    public function testTheResultDoesNotRepeatQueryStringOrFragmentOfTheSourceUrl(): void
+    {
+        $result = $this->tool()->execute(
+            ['source_url' => 'https://example.com/article?token=s3cret#part', 'artifacts' => ['faq']],
+            $this->contextOf(11),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('https://example.com/article', $result->content);
+        self::assertStringNotContainsString('s3cret', $result->content);
+        $row = $this->get(JobProcessingRepository::class)->findRow($this->onlyJobUid()) ?? [];
+        self::assertSame('https://example.com/article?token=s3cret#part', $row['source_value'], 'the job keeps the full URL for ingestion');
+    }
+
     public function testAnAdministratorMayStartAPdfSourceJob(): void
     {
         $result = $this->tool()->execute(
@@ -128,6 +142,7 @@ final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
         yield 'file scheme' => [['source_url' => 'file:///etc/passwd', 'artifacts' => ['faq']]];
         yield 'credentials in the url' => [['source_url' => 'https://user:secret@example.com/', 'artifacts' => ['faq']]];
         yield 'unknown source type' => [['source_url' => 'https://example.com/', 'source_type' => 'pdf_fal', 'artifacts' => ['faq']]];
+        yield 'source type null' => [['source_url' => 'https://example.com/', 'source_type' => null, 'artifacts' => ['faq']]];
         yield 'source type not a string' => [['source_url' => 'https://example.com/', 'source_type' => 5, 'artifacts' => ['faq']]];
         yield 'no artifact' => [['source_url' => 'https://example.com/', 'artifacts' => []]];
         yield 'artifacts missing' => [['source_url' => 'https://example.com/']];
