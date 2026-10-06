@@ -177,8 +177,8 @@ final class BackendViewMarkupTest extends TestCase
         foreach ($form->childNodes as $child) {
             if ($child instanceof DOMElement) {
                 $children[] = $child->tagName . '[name=' . $child->getAttribute('name') . ']';
-            } elseif (trim((string) $child->textContent) !== '') {
-                $children[] = 'text: ' . trim((string) $child->textContent);
+            } elseif (trim($child->textContent) !== '') {
+                $children[] = 'text: ' . trim($child->textContent);
             }
         }
 
