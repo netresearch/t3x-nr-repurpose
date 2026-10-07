@@ -11,10 +11,8 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
-use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\StorySlideRole;
@@ -37,6 +35,8 @@ use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Rendering\SlideshowRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
@@ -78,7 +78,7 @@ final class StoryGeneratorTest extends TestCase
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
         ImageCompositorInterface $compositor,
-        ?CompletionServiceInterface $completion = null,
+        ?TextCompletionInterface $completion = null,
         ?SlideshowRendererInterface $slideshow = null,
         ?JobFileStorage $storage = null,
         ?LoggerInterface $logger = null,
@@ -89,7 +89,7 @@ final class StoryGeneratorTest extends TestCase
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
-                CompletionServiceInterface $completion,
+                TextCompletionInterface $completion,
                 HtmlToImageRendererInterface $renderer,
                 ImageCompositorInterface $compositor,
                 ImageGeneratorInterface $imageGenerator,
@@ -755,9 +755,9 @@ final class StoryGeneratorTest extends TestCase
     }
 
     /** @param array<mixed>|Throwable $result */
-    private function completion(array|Throwable $result): FakeCompletionService
+    private function completion(array|Throwable $result): FakeTextCompletion
     {
-        $completion = new FakeCompletionService();
+        $completion = new FakeTextCompletion();
         if ($result instanceof Throwable) {
             $completion->throwable = $result;
         } else {

@@ -9,13 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Understanding;
 
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -54,7 +54,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
         . '"summary" (string) and "keyPoints" (array of strings).';
 
     public function __construct(
-        private CompletionServiceInterface $completion,
+        private TextCompletionInterface $completion,
         private LoggerInterface $logger,
         private int $chunkThreshold = 24000,
         private int $chunkSize = 12000,

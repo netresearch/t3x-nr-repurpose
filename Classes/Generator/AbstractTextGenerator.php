@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Generator;
 
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
@@ -21,6 +20,7 @@ use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -48,9 +48,7 @@ abstract class AbstractTextGenerator extends AbstractGenerator
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
         LoggerInterface $logger,
-        // Must stay named $completion: Services.yaml binds that name to the
-        // ConfiguredCompletionService (the nr_repurpose_text configuration).
-        protected readonly CompletionServiceInterface $completion,
+        protected readonly TextCompletionInterface $completion,
     ) {
         parent::__construct($jobs, $budget, $logger);
     }
@@ -126,7 +124,7 @@ abstract class AbstractTextGenerator extends AbstractGenerator
 
         // One row per result; a failed write fails only that row, like a story slide.
         $prompts = $this->promptsMetadata(system: $system, user: $prompt);
-        // nr-llm's completion API does not report the model, so none is named (ADR-005).
+        // TextCompletionInterface returns only the answer, not the model, so none is named (ADR-005).
         $provenance = $this->provenance($ctx, DigitalSourceType::TrainedAlgorithmicMedia);
         $aiLabel    = $provenance->toArray();
         $ok         = false;

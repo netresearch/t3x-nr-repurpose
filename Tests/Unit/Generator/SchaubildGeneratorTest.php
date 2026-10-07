@@ -11,10 +11,8 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
-use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
@@ -33,6 +31,8 @@ use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
@@ -66,7 +66,7 @@ final class SchaubildGeneratorTest extends TestCase
         JobFileStorage $storage,
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
-        ?CompletionServiceInterface $completion = null,
+        ?TextCompletionInterface $completion = null,
     ): SchaubildGenerator {
         $completion ??= $this->completion();
 
@@ -74,7 +74,7 @@ final class SchaubildGeneratorTest extends TestCase
             public function __construct(
                 JobProcessingRepository $jobs,
                 BudgetServiceInterface $budget,
-                CompletionServiceInterface $completion,
+                TextCompletionInterface $completion,
                 HtmlToImageRendererInterface $renderer,
                 ImageCompositorInterface $compositor,
                 ImageGeneratorInterface $imageGenerator,
@@ -131,7 +131,7 @@ final class SchaubildGeneratorTest extends TestCase
     /** The template outputs the body unescaped, so only static, styled markup may reach it. */
     public function testTheDiagramBodyReachesTheTemplateAsStaticMarkupOnly(): void
     {
-        $completion                 = new FakeCompletionService();
+        $completion                 = new FakeTextCompletion();
         $completion->markdownResult = "```html\n<div style=\"display:flex\"><h2>Revenue</h2><script>document.title = 1</script>"
             . '<p onclick="go()">Up <strong>12 %</strong></p><img src="https://example.com/x.png"></div>' . "\n```";
 
@@ -416,9 +416,9 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertTrue($generator->supports($this->context()));
     }
 
-    private function completion(): FakeCompletionService
+    private function completion(): FakeTextCompletion
     {
-        $completion                 = new FakeCompletionService();
+        $completion                 = new FakeTextCompletion();
         $completion->markdownResult = '<p>body</p>';
 
         return $completion;

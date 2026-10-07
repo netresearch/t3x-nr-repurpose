@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Generator;
 
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Generator\Support\TextArtifact;
@@ -20,6 +19,7 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Rendering\HtmlToPdfRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
@@ -40,7 +40,7 @@ class HandoutGenerator extends AbstractDocumentGenerator
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
         LoggerInterface $logger,
-        CompletionServiceInterface $completion,
+        TextCompletionInterface $completion,
         HtmlToPdfRendererInterface $pdfRenderer,
         JobFileStorage $fileStorage,
         ViewFactoryInterface $viewFactory,

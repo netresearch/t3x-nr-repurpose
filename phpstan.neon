@@ -98,6 +98,15 @@ parameters:
             path: Classes/Ingestion/BoundedResponseReader.php
             reportUnmatched: false
 
+        # nr-llm 0.39 returns a StructuredCompletionResponse from
+        # completeStructured() (ADR-211); the class does not exist when nr-llm 0.38
+        # is installed. `instanceof` does not autoload, so the code runs on both.
+        -
+            message: '#^(Class Netresearch\\NrLlm\\Domain\\Model\\StructuredCompletionResponse not found|Access to property \$data on an unknown class Netresearch\\NrLlm\\Domain\\Model\\StructuredCompletionResponse)\.$#'
+            identifier: class.notFound
+            path: Classes/Service/ConfiguredCompletionService.php
+            reportUnmatched: false
+
         # FAL has no public API to change a file's existing metadata record: the
         # indexer creates one when the file is written, and the only ways to update
         # it — MetaDataAspect::save() and MetaDataRepository::update() — are both

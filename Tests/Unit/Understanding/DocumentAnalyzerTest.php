@@ -11,13 +11,11 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Understanding;
 
 use BadMethodCallException;
 use LogicException;
-use Netresearch\NrLlm\Domain\Model\CompletionResponse;
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Understanding\AnalysisException;
@@ -26,10 +24,10 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
 /**
- * In-file fake implementing the public nr-llm interface. Records calls and replays scripted
+ * In-file fake of the extension's completion interface. Records calls and replays scripted
  * decoded JSON, so no real provider is ever hit.
  */
-final class FakeCompletionService implements CompletionServiceInterface
+final class ScriptedJsonCompletion implements TextCompletionInterface
 {
     private const string NOT_USED = 'not used in this test';
 
@@ -43,15 +41,10 @@ final class FakeCompletionService implements CompletionServiceInterface
     {
         $this->jsonCalls[] = ['prompt' => $prompt, 'options' => $options];
         if ($this->jsonResults === []) {
-            throw new LogicException('FakeCompletionService ran out of scripted results');
+            throw new LogicException('ScriptedJsonCompletion ran out of scripted results');
         }
 
         return array_shift($this->jsonResults);
-    }
-
-    public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
-    {
-        throw new BadMethodCallException(self::NOT_USED);
     }
 
     /**
@@ -65,51 +58,6 @@ final class FakeCompletionService implements CompletionServiceInterface
     }
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
-    {
-        throw new BadMethodCallException(self::NOT_USED);
-    }
-
-    public function completeFactual(string $prompt, ?ChatOptions $options = null): CompletionResponse
-    {
-        throw new BadMethodCallException(self::NOT_USED);
-    }
-
-    public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
-    {
-        throw new BadMethodCallException(self::NOT_USED);
-    }
-
-    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
-    {
-        throw new BadMethodCallException(self::NOT_USED);
-    }
-
-    public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
-    {
-        throw new BadMethodCallException(self::NOT_USED);
-    }
-
-    /**
-     * @param array<string, mixed> $schema
-     *
-     * @return array<string, mixed>
-     */
-    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
-    {
-        throw new BadMethodCallException(self::NOT_USED);
-    }
-
-    public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
-    {
-        throw new BadMethodCallException(self::NOT_USED);
-    }
-
-    public function completeFactualForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
-    {
-        throw new BadMethodCallException(self::NOT_USED);
-    }
-
-    public function completeCreativeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
         throw new BadMethodCallException(self::NOT_USED);
     }
@@ -148,7 +96,7 @@ final class DocumentAnalyzerTest extends TestCase
 
     public function testSmallDocumentUsesOneCallAndMapsJsonToContentBrief(): void
     {
-        $fake     = new FakeCompletionService([$this->briefResult('en')]);
+        $fake     = new ScriptedJsonCompletion([$this->briefResult('en')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 24000, chunkSize: 12000);
 
         $brief = $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
@@ -164,7 +112,7 @@ final class DocumentAnalyzerTest extends TestCase
 
     public function testPromptCarriesDocumentTextAndJsonBudgetOptions(): void
     {
-        $fake     = new FakeCompletionService([$this->briefResult('en')]);
+        $fake     = new ScriptedJsonCompletion([$this->briefResult('en')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 24000, chunkSize: 12000);
 
         $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
@@ -184,7 +132,7 @@ final class DocumentAnalyzerTest extends TestCase
      */
     public function testSynthesisCallNamesThisExtensionAndTheAnalysisOperation(): void
     {
-        $fake     = new FakeCompletionService([$this->briefResult('en')]);
+        $fake     = new ScriptedJsonCompletion([$this->briefResult('en')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
         $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
@@ -197,7 +145,7 @@ final class DocumentAnalyzerTest extends TestCase
 
     public function testCorrectiveRetryKeepsTheAnalysisOperation(): void
     {
-        $fake = new FakeCompletionService([
+        $fake = new ScriptedJsonCompletion([
             ['keyPoints' => ['x'], 'language' => 'en'],
             $this->briefResult('en'),
         ]);
@@ -227,7 +175,7 @@ final class DocumentAnalyzerTest extends TestCase
         );
 
         $mapResult = ['summary' => 'Chunk summary.', 'keyPoints' => ['kp']];
-        $fake      = new FakeCompletionService([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
+        $fake      = new ScriptedJsonCompletion([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
         $analyzer  = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000);
 
         $analyzer->analyze($document, JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
@@ -261,7 +209,7 @@ final class DocumentAnalyzerTest extends TestCase
             pageCount: 0,
             languageHint: '',
         );
-        $fake     = new FakeCompletionService([$this->briefResult('de')]);
+        $fake     = new ScriptedJsonCompletion([$this->briefResult('de')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
         $brief = $analyzer->analyze($document, JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
@@ -284,7 +232,7 @@ final class DocumentAnalyzerTest extends TestCase
 
         $mapResult = ['summary' => 'Chunk summary.', 'keyPoints' => ['kp']];
         $results   = [$mapResult, $mapResult, $mapResult, $this->briefResult('en')];
-        $fake      = new FakeCompletionService($results);
+        $fake      = new ScriptedJsonCompletion($results);
         $analyzer  = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000);
 
         $brief = $analyzer->analyze($document, JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
@@ -311,7 +259,7 @@ final class DocumentAnalyzerTest extends TestCase
     public function testAnalysesATextOfExactlyTheMaximumChunkCount(): void
     {
         $mapResult = ['summary' => 'Chunk summary.', 'keyPoints' => ['kp']];
-        $fake      = new FakeCompletionService([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
+        $fake      = new ScriptedJsonCompletion([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
 
         (new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000, maxChunks: 3))
             ->analyze($this->threeChunkDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
@@ -321,7 +269,7 @@ final class DocumentAnalyzerTest extends TestCase
 
     public function testRefusesATextAboveTheMaximumChunkCountBeforeAnyCall(): void
     {
-        $fake = new FakeCompletionService([]);
+        $fake = new ScriptedJsonCompletion([]);
 
         try {
             (new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000, maxChunks: 2))
@@ -338,7 +286,7 @@ final class DocumentAnalyzerTest extends TestCase
     public function testRetriesOnceWhenRequiredKeysMissingAndRecovers(): void
     {
         // First synthesis answer has the wrong shape, the corrective retry succeeds.
-        $fake = new FakeCompletionService([
+        $fake = new ScriptedJsonCompletion([
             ['keyPoints' => ['x'], 'language' => 'en'],
             $this->briefResult('en'),
         ]);
@@ -357,7 +305,7 @@ final class DocumentAnalyzerTest extends TestCase
     public function testThrowsWhenRequiredKeysMissingTwice(): void
     {
         $badShape = ['keyPoints' => ['x'], 'language' => 'en'];
-        $fake     = new FakeCompletionService([$badShape, $badShape]);
+        $fake     = new ScriptedJsonCompletion([$badShape, $badShape]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
         $this->expectException(AnalysisException::class);
@@ -372,7 +320,7 @@ final class DocumentAnalyzerTest extends TestCase
 
     public function testAnInstructionPayloadInTheDocumentStaysInsideTheSourceBlock(): void
     {
-        $fake = new FakeCompletionService([$this->briefResult('en')]);
+        $fake = new ScriptedJsonCompletion([$this->briefResult('en')]);
         (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::INSTRUCTION_PAYLOAD), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
 
         $call = $fake->jsonCalls[0];
@@ -381,7 +329,7 @@ final class DocumentAnalyzerTest extends TestCase
 
     public function testASpoofedSourceTagInTheDocumentIsNeutralised(): void
     {
-        $fake = new FakeCompletionService([$this->briefResult('en')]);
+        $fake = new ScriptedJsonCompletion([$this->briefResult('en')]);
         (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::SPOOF_PAYLOAD), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
 
         $call = $fake->jsonCalls[0];
@@ -391,7 +339,7 @@ final class DocumentAnalyzerTest extends TestCase
     /** The corrective retry keeps the boundary: its correction goes to the system prompt. */
     public function testTheCorrectiveRetryKeepsThePayloadInsideTheSourceBlock(): void
     {
-        $fake = new FakeCompletionService([['keyPoints' => ['x']], $this->briefResult('en')]);
+        $fake = new ScriptedJsonCompletion([['keyPoints' => ['x']], $this->briefResult('en')]);
         (new DocumentAnalyzer($fake, new NullLogger()))->analyze($this->documentWith(self::INSTRUCTION_PAYLOAD), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
 
         $call = $fake->jsonCalls[1];
@@ -403,7 +351,7 @@ final class DocumentAnalyzerTest extends TestCase
     {
         $paragraph = self::INSTRUCTION_PAYLOAD . "\n" . self::SPOOF_PAYLOAD . ' ' . str_repeat('Section content sentence. ', 400);
         $mapResult = ['summary' => self::INSTRUCTION_PAYLOAD, 'keyPoints' => ['kp']];
-        $fake      = new FakeCompletionService([$mapResult, $mapResult, $this->briefResult('en')]);
+        $fake      = new ScriptedJsonCompletion([$mapResult, $mapResult, $this->briefResult('en')]);
 
         (new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000))
             ->analyze($this->documentWith($paragraph . "\n\n" . $paragraph), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));

@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrRepurpose\Generator\SlideDeckGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
@@ -19,6 +18,7 @@ use Netresearch\NrRepurpose\Rendering\HtmlToPdfRendererInterface;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\ArtifactRecordingJobRepository;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\DocumentGeneratorDoubles;
 use Psr\Log\LoggerInterface;
@@ -51,7 +51,7 @@ final class SlideDeckGeneratorTest extends TextGeneratorTestCase
 
         return new class ($this->jobs, $this->budget(), $this->logger(), $this->completion, $this->printer, $this->storage, $this->createStub(ViewFactoryInterface::class), $calls) extends SlideDeckGenerator {
             /** @param list<array<string, mixed>> $calls */
-            public function __construct(JobProcessingRepository $jobs, BudgetServiceInterface $budget, LoggerInterface $logger, CompletionServiceInterface $completion, HtmlToPdfRendererInterface $printer, JobFileStorage $storage, ViewFactoryInterface $viewFactory, private array &$calls)
+            public function __construct(JobProcessingRepository $jobs, BudgetServiceInterface $budget, LoggerInterface $logger, TextCompletionInterface $completion, HtmlToPdfRendererInterface $printer, JobFileStorage $storage, ViewFactoryInterface $viewFactory, private array &$calls)
             {
                 parent::__construct($jobs, $budget, $logger, $completion, $printer, $storage, $viewFactory);
             }

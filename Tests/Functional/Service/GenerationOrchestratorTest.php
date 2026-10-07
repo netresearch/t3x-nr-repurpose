@@ -11,7 +11,6 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
 use GuzzleHttp\Psr7\HttpFactory;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
-use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
@@ -45,6 +44,7 @@ use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
@@ -226,7 +226,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $jobUid = (int) $conn->lastInsertId();
 
         $jobs                         = $this->get(JobProcessingRepository::class);
-        $completion                   = new FakeCompletionService();
+        $completion                   = new FakeTextCompletion();
         $completion->structuredResult = ['faq' => [
             ['question' => 'How much did revenue grow?', 'answer' => 'By twelve percent.'],
             ['question' => 'Where did a branch open?', 'answer' => 'In Leipzig.'],
@@ -278,7 +278,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
     {
         $jobUid     = $this->seedJob();
         $jobs       = $this->get(JobProcessingRepository::class);
-        $completion = new FakeCompletionService();
+        $completion = new FakeTextCompletion();
         $budget     = new FakeBudgetService();
         $logger     = new NullLogger();
 

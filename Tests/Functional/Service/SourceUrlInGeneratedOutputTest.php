@@ -12,7 +12,6 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 use GuzzleHttp\Psr7\HttpFactory;
 use LogicException;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
-use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\FaqGenerator;
@@ -39,6 +38,7 @@ use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzer;
@@ -95,7 +95,7 @@ final class SourceUrlInGeneratedOutputTest extends AbstractFunctionalTestCase
         ]);
         $jobUid = (int) $conn->lastInsertId();
 
-        $analysis             = new FakeCompletionService();
+        $analysis             = new FakeTextCompletion();
         $analysis->jsonResult = ['title' => 'Quarterly Results 2026', 'summary' => 'Revenue grew.', 'keyPoints' => ['Revenue +12 %'], 'sections' => [], 'audience' => 'Analysts', 'language' => 'en'];
 
         $generation = $this->generationCompletion($kind);
@@ -154,9 +154,9 @@ final class SourceUrlInGeneratedOutputTest extends AbstractFunctionalTestCase
         }
     }
 
-    private function generationCompletion(string $kind): FakeCompletionService
+    private function generationCompletion(string $kind): FakeTextCompletion
     {
-        $completion = new FakeCompletionService();
+        $completion = new FakeTextCompletion();
         match ($kind) {
             'faq'   => $completion->structuredResult = ['faq' => [['question' => 'How much did revenue grow?', 'answer' => 'By twelve percent.']]],
             'story' => $completion->jsonResult       = ['slides' => [
@@ -179,7 +179,7 @@ final class SourceUrlInGeneratedOutputTest extends AbstractFunctionalTestCase
         return $completion;
     }
 
-    private function generator(string $kind, FakeCompletionService $completion, HtmlToImageRendererInterface $renderer, HtmlToPdfRendererInterface $printer): ArtifactGeneratorInterface
+    private function generator(string $kind, FakeTextCompletion $completion, HtmlToImageRendererInterface $renderer, HtmlToPdfRendererInterface $printer): ArtifactGeneratorInterface
     {
         $jobs    = $this->get(JobProcessingRepository::class);
         $budget  = new FakeBudgetService();

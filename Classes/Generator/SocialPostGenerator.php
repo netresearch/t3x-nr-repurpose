@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Generator;
 
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Generator\Support\TextArtifact;
@@ -18,6 +17,7 @@ use Netresearch\NrRepurpose\Generator\Support\TextLimiter;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -48,7 +48,7 @@ final class SocialPostGenerator extends AbstractTextGenerator
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
         LoggerInterface $logger,
-        CompletionServiceInterface $completion,
+        TextCompletionInterface $completion,
         private readonly TextLimiter $limiter,
     ) {
         parent::__construct($jobs, $budget, $logger, $completion);

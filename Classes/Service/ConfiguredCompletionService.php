@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Service;
 
-use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
 use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
@@ -19,23 +19,25 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Psr\Log\LoggerInterface;
 
 /**
- * Routes the extension's plain-text completions to the "nr_repurpose_text"
- * nr-llm Configuration record, so text generation targets its own named
+ * Routes the extension's text completions to the "nr_repurpose_text" nr-llm
+ * Configuration record, so text generation targets its own named
  * configuration exactly like image generation ("nr_repurpose_image") and
  * speech ("nr_repurpose_tts") do — provider, model, system prompt, budget and
  * cost attribution all steer from that one record.
  *
- * It decorates nr-llm's CompletionService (nr-llm 0.22+ / ADR-077): the five
- * plain methods resolve the named configuration and dispatch through the
- * matching `*ForConfiguration()` entry point; the `*ForConfiguration()` methods
- * pass straight through (the caller already named a configuration). Per-call
- * budget metadata on the options is preserved on the configuration path.
+ * It calls nr-llm's CompletionService (nr-llm 0.22+ / ADR-077): each method
+ * resolves the named configuration and dispatches through the matching
+ * `*ForConfiguration()` entry point. Per-call budget metadata on the options
+ * is preserved on the configuration path. It implements the extension's own
+ * TextCompletionInterface, not nr-llm's interface, so it loads with nr-llm
+ * 0.38 and 0.39 alike; the one return shape that differs between them, the
+ * structured answer, is unwrapped here.
  *
  * Fail-soft: when the "nr_repurpose_text" record is not imported (or inactive,
  * or access-restricted in a user-less worker context) resolution falls back to
  * the instance-default configuration — the pre-0.22 behaviour — so an
- * unconfigured install keeps working. Wired into the generators via a scoped
- * `$completion` bind in Configuration/Services.yaml.
+ * unconfigured install keeps working. Wired into the generators through the
+ * TextCompletionInterface alias in Configuration/Services.yaml.
  *
  * Every text completion in this extension passes through here, so this is also
  * where the caller identity (nr-llm ADR-177) is guaranteed: options that already
@@ -43,7 +45,7 @@ use Psr\Log\LoggerInterface;
  * site, not here — and options that name none are stamped with the extension key,
  * so a new call site cannot land in the Analytics "Unattributed" bucket.
  */
-final class ConfiguredCompletionService implements CompletionServiceInterface
+final class ConfiguredCompletionService implements TextCompletionInterface
 {
     /** The nr-llm Configuration record (identifier) steering text generation. */
     public const string CONFIGURATION = 'nr_repurpose_text';
@@ -54,25 +56,13 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
     private bool $resolved = false;
 
     /**
-     * @param CompletionServiceInterface $inner the real nr-llm completion service; the distinct
-     *                                          parameter name (not `$completion`) keeps the
-     *                                          Services.yaml `$completion` bind from recursing here
+     * @param CompletionServiceInterface $inner the real nr-llm completion service
      */
     public function __construct(
         private readonly CompletionServiceInterface $inner,
         private readonly ConfigurationResolver $configurationResolver,
         private readonly LoggerInterface $logger,
     ) {}
-
-    public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
-    {
-        $options       = $this->withCallerIdentity($options);
-        $configuration = $this->resolveConfiguration();
-
-        return $configuration instanceof LlmConfiguration
-            ? $this->inner->completeForConfiguration($prompt, $configuration, $options)
-            : $this->inner->complete($prompt, $options);
-    }
 
     /**
      * @return array<string, mixed>
@@ -97,9 +87,9 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
         $options       = $this->withCallerIdentity($options);
         $configuration = $this->resolveConfiguration();
 
-        return $configuration instanceof LlmConfiguration
+        return $this->structuredData($configuration instanceof LlmConfiguration
             ? $this->inner->completeStructuredForConfiguration($prompt, $configuration, $schema, $options)
-            : $this->inner->completeStructured($prompt, $schema, $options);
+            : $this->inner->completeStructured($prompt, $schema, $options));
     }
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
@@ -112,62 +102,23 @@ final class ConfiguredCompletionService implements CompletionServiceInterface
             : $this->inner->completeMarkdown($prompt, $options);
     }
 
-    public function completeFactual(string $prompt, ?ChatOptions $options = null): CompletionResponse
-    {
-        $options       = $this->withCallerIdentity($options);
-        $configuration = $this->resolveConfiguration();
-
-        return $configuration instanceof LlmConfiguration
-            ? $this->inner->completeFactualForConfiguration($prompt, $configuration, $options)
-            : $this->inner->completeFactual($prompt, $options);
-    }
-
-    public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
-    {
-        $options       = $this->withCallerIdentity($options);
-        $configuration = $this->resolveConfiguration();
-
-        return $configuration instanceof LlmConfiguration
-            ? $this->inner->completeCreativeForConfiguration($prompt, $configuration, $options)
-            : $this->inner->completeCreative($prompt, $options);
-    }
-
-    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
-    {
-        return $this->inner->completeForConfiguration($prompt, $configuration, $this->withCallerIdentity($options));
-    }
-
     /**
-     * @return array<string, mixed>
-     */
-    public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
-    {
-        return $this->inner->completeJsonForConfiguration($prompt, $configuration, $this->withCallerIdentity($options));
-    }
-
-    /**
-     * @param array<string, mixed> $schema
+     * The decoded answer of a structured completion. nr-llm up to 0.38 returns
+     * it as the array itself; 0.39 returns a StructuredCompletionResponse whose
+     * `data` it is (ADR-211). The parameter is `mixed` because the declared
+     * type depends on the installed nr-llm version. `instanceof` does not
+     * autoload, so the check runs on 0.38, where the class does not exist.
      *
      * @return array<string, mixed>
      */
-    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
+    private function structuredData(mixed $result): array
     {
-        return $this->inner->completeStructuredForConfiguration($prompt, $configuration, $schema, $this->withCallerIdentity($options));
-    }
+        if ($result instanceof StructuredCompletionResponse) {
+            return $result->data;
+        }
 
-    public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
-    {
-        return $this->inner->completeMarkdownForConfiguration($prompt, $configuration, $this->withCallerIdentity($options));
-    }
-
-    public function completeFactualForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
-    {
-        return $this->inner->completeFactualForConfiguration($prompt, $configuration, $this->withCallerIdentity($options));
-    }
-
-    public function completeCreativeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
-    {
-        return $this->inner->completeCreativeForConfiguration($prompt, $configuration, $this->withCallerIdentity($options));
+        /** @var array<string, mixed> $result nr-llm < 0.39 declares this shape */
+        return $result;
     }
 
     /**

@@ -10,13 +10,13 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Generator;
 
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrRepurpose\Generator\Support\TextArtifact;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Rendering\HtmlToPdfRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\View\ViewFactoryInterface;
 
@@ -37,7 +37,7 @@ abstract class AbstractDocumentGenerator extends AbstractTextGenerator
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
         LoggerInterface $logger,
-        CompletionServiceInterface $completion,
+        TextCompletionInterface $completion,
         private readonly HtmlToPdfRendererInterface $pdfRenderer,
         private readonly JobFileStorage $fileStorage,
         private readonly ViewFactoryInterface $viewFactory,

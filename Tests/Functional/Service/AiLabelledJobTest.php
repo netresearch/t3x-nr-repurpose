@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
 use Netresearch\NrLlm\Testing\FakeBudgetService;
-use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
@@ -40,6 +39,7 @@ use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\AiMarkerReader;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -77,7 +77,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         $jobUid = $this->seedJob();
         $jobs   = $this->get(JobProcessingRepository::class);
 
-        $completion                   = new FakeCompletionService();
+        $completion                   = new FakeTextCompletion();
         $completion->jsonResult       = ['turns' => [['speaker' => 'Host A', 'text' => 'Revenue grew.'], ['speaker' => 'Host B', 'text' => 'By twelve percent.']]];
         $completion->markdownResult   = '<p>Revenue +12 %</p>';
         $completion->structuredResult = ['faq' => [['question' => 'How much did revenue grow?', 'answer' => 'By twelve percent.']]];
@@ -154,7 +154,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
     {
         $jobUid                     = $this->seedJob(podcast: false, faq: false);
         $jobs                       = $this->get(JobProcessingRepository::class);
-        $completion                 = new FakeCompletionService();
+        $completion                 = new FakeTextCompletion();
         $completion->markdownResult = '<p>Revenue +12 %</p>';
 
         $filesBefore = $this->fileCount();
@@ -216,7 +216,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
     {
         $jobUid                       = $this->seedJob(podcast: false, faq: false, schaubild: false, document: $column);
         $jobs                         = $this->get(JobProcessingRepository::class);
-        $completion                   = new FakeCompletionService();
+        $completion                   = new FakeTextCompletion();
         $completion->structuredResult = $answer;
 
         $printer = $this->printer();
@@ -276,7 +276,7 @@ final class AiLabelledJobTest extends AbstractFunctionalTestCase
         GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job')
             ->update('tx_nrrepurpose_domain_model_job', ['want_video' => 1], ['uid' => $jobUid]);
         $jobs                   = $this->get(JobProcessingRepository::class);
-        $completion             = new FakeCompletionService();
+        $completion             = new FakeTextCompletion();
         $completion->jsonResult = ['slides' => [
             ['role' => 'cover', 'headline' => self::TITLE, 'subline' => 'Q3'],
             ['role' => 'outro', 'headline' => 'Growth continues', 'subline' => 'example.com'],

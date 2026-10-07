@@ -10,13 +10,13 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrRepurpose\Generator\HandoutGenerator;
 use Netresearch\NrRepurpose\Generator\Support\TextLabels;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Rendering\HtmlToPdfRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\DocumentGeneratorDoubles;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\MapTextLabels;
 use Psr\Log\LoggerInterface;
@@ -49,7 +49,7 @@ final class HandoutGeneratorTest extends TextGeneratorTestCase
 
         return new class ($this->jobs, $this->budget(), $this->logger(), $this->completion, $this->printer, $this->storage, $this->createStub(ViewFactoryInterface::class), new MapTextLabels(), $calls) extends HandoutGenerator {
             /** @param list<array<string, mixed>> $calls */
-            public function __construct(JobProcessingRepository $jobs, BudgetServiceInterface $budget, LoggerInterface $logger, CompletionServiceInterface $completion, HtmlToPdfRendererInterface $printer, JobFileStorage $storage, ViewFactoryInterface $viewFactory, TextLabels $labels, private array &$calls)
+            public function __construct(JobProcessingRepository $jobs, BudgetServiceInterface $budget, LoggerInterface $logger, TextCompletionInterface $completion, HtmlToPdfRendererInterface $printer, JobFileStorage $storage, ViewFactoryInterface $viewFactory, TextLabels $labels, private array &$calls)
             {
                 parent::__construct($jobs, $budget, $logger, $completion, $printer, $storage, $viewFactory, $labels);
             }
