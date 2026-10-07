@@ -9,7 +9,7 @@
 AI labelling and publishing
 ===========================
 
-Four extension settings control the visible AI labels and the webhook
+Five extension settings control the visible AI labels and the webhook
 that publishes approved social posts.
 
 .. _configuration-ai-label:
@@ -74,11 +74,17 @@ Three extension settings:
     request carries
     ``X-Nr-Repurpose-Signature: sha256=<hex HMAC-SHA256 of the body>``, so the
     receiver can check that it comes from this installation. Store the secret
-    in nr-vault (its backend module, or ``vendor/bin/typo3 vault:store``) and
-    enter the identifier here. ``nr_repurpose:publish-due`` runs on the
-    command line, where nr-vault refuses every read without an actor: set
-    :confval:`technicalBeUserUid <technicalbeuseruid>` to a backend user with
-    read access to the secret. A secret that cannot be read fails the post
+    in nr-vault through its backend module and enter the identifier here. On
+    the command line, ``vendor/bin/typo3 vault:store`` works only with
+    ``--as-provisioner`` and nr-vault's ``provisioningBeUserUid`` set, or with
+    nr-vault's CLI access switched on. ``nr_repurpose:publish-due`` must be
+    able to read the secret. With
+    :confval:`technicalBeUserUid <technicalbeuseruid>` set, it reads as that
+    backend user, who needs read access to the secret (administrator, owner,
+    or a group the secret is shared with). With ``technicalBeUserUid`` at 0, it
+    reads as the ``_cli_`` administrator when ``scheduler:run`` starts it; started
+    directly from cron or a shell, it has no actor, and nr-vault refuses the
+    read unless its CLI access is switched on. A secret that cannot be read fails the post
     with ``The webhook signing secret could not be read from nr-vault`` (the
     reason is in the TYPO3 log); an unknown identifier with ``The webhook
     signing secret was not found in nr-vault``.

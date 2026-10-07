@@ -17,6 +17,46 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-10-0:
+
+Version 0.10.0 (2026-10-07)
+===========================
+
+Upgrade notes
+-------------
+
+-   **Installations that sign their social posts** move the signing secret
+    to nr-vault: 0.10.0 no longer reads the extension setting
+    ``socialWebhookSecret``, and while it still holds a value no post is sent.
+    Before updating, store the secret in nr-vault through its backend module
+    (on the command line, ``vault:store`` works only with ``--as-provisioner``
+    and nr-vault's ``provisioningBeUserUid`` set, or with its CLI access on),
+    and make sure ``nr_repurpose:publish-due`` can read it: with
+    ``technicalBeUserUid`` set it reads as that backend user, who needs read
+    access to the secret; with ``technicalBeUserUid`` at 0 it reads as the
+    ``_cli_`` administrator under ``scheduler:run`` and needs nr-vault's CLI
+    access when started from cron. After updating, enter the identifier in the new setting
+    ``socialWebhookSecretIdentifier`` and then clear ``socialWebhookSecret``.
+-   The ``socialWebhookUrl`` must point to a host on the public internet; a
+    host that resolves to a non-public address is refused.
+
+Security
+--------
+
+-   The social webhook is sent only to a checked public host, without
+    redirects and with a 15-second limit.
+-   The Schaubild body the text model writes is reduced to static markup
+    before it is rendered.
+
+Added
+-----
+
+-   The backend chat can start a repurpose job through the tool
+    ``start_repurpose_job`` (off by default, every call needs approval), see
+    :ref:`usage-chat-tool`.
+-   Extension setting ``chromiumSandbox`` (default off) starts Chromium with
+    its sandbox.
+
 .. _version-0-9-2:
 
 Version 0.9.2 (2026-10-07)
