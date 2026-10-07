@@ -70,9 +70,8 @@ final class GeneratorRegistrationTest extends AbstractFunctionalTestCase
 
     /**
      * The text generators receive the completion service through the abstract base's
-     * constructor; Services.yaml routes it to the nr_repurpose_text configuration only
-     * when the parameter is named $completion. A rename would silently fall back to
-     * nr-llm's unconfigured service.
+     * constructor, typed TextCompletionInterface; Services.yaml aliases that interface
+     * to the service that routes to the nr_repurpose_text configuration.
      */
     public function testTheTextGeneratorsUseTheConfiguredCompletionService(): void
     {

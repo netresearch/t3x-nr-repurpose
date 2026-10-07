@@ -11,7 +11,6 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
-use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
@@ -22,6 +21,7 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\ArtifactRecordingJobRepository;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
@@ -40,13 +40,13 @@ abstract class TextGeneratorTestCase extends TestCase
 
     protected ArtifactRecordingJobRepository $jobs;
 
-    protected FakeCompletionService $completion;
+    protected FakeTextCompletion $completion;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->jobs       = new ArtifactRecordingJobRepository();
-        $this->completion = new FakeCompletionService();
+        $this->completion = new FakeTextCompletion();
     }
 
     abstract protected function generator(): AbstractTextGenerator;

@@ -9,9 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Service;
 
-use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
-use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -76,29 +74,71 @@ final class ConfiguredCompletionServiceTest extends TestCase
         $inactive = self::createStub(LlmConfiguration::class);
         $inactive->method('isActive')->willReturn(false);
 
-        $inner            = new FakeCompletionService();
-        $inner->responses = [$this->response()];
+        $inner = new FakeCompletionService();
 
-        $this->subject($inner, $inactive)->complete('prompt');
+        $this->subject($inner, $inactive)->completeJson('prompt');
 
-        self::assertCount(1, $inner->completeCalls);
-        self::assertSame([], $inner->completeForConfigurationCalls);
+        self::assertCount(1, $inner->completeJsonCalls);
+        self::assertSame([], $inner->completeJsonForConfigurationCalls);
     }
 
-    public function testRoutesMarkdownAndCompleteToTheConfigurationPath(): void
+    public function testRoutesMarkdownToTheConfigurationPath(): void
     {
         $configuration         = $this->activeConfigurationStub();
         $inner                 = new FakeCompletionService();
         $inner->markdownResult = '# heading';
-        $inner->responses      = [$this->response()];
 
-        $subject = $this->subject($inner, $configuration);
-
-        self::assertSame('# heading', $subject->completeMarkdown('p'));
-        $subject->complete('p');
+        self::assertSame('# heading', $this->subject($inner, $configuration)->completeMarkdown('p'));
 
         self::assertCount(1, $inner->completeMarkdownForConfigurationCalls);
-        self::assertCount(1, $inner->completeForConfigurationCalls);
+        self::assertSame([], $inner->completeMarkdownCalls);
+    }
+
+    public function testFallsBackToTheInstanceDefaultForMarkdown(): void
+    {
+        $inner                 = new FakeCompletionService();
+        $inner->markdownResult = '# heading';
+
+        self::assertSame('# heading', $this->subject($inner, null)->completeMarkdown('p'));
+
+        self::assertCount(1, $inner->completeMarkdownCalls);
+        self::assertSame([], $inner->completeMarkdownForConfigurationCalls);
+    }
+
+    /**
+     * nr-llm 0.38 returns the decoded answer of a structured completion as an
+     * array, 0.39 wraps it in a StructuredCompletionResponse (ADR-211). nr-llm's
+     * own fake returns whichever shape the installed version declares, so this
+     * test runs against the real shape of both versions.
+     */
+    public function testReturnsTheDecodedStructuredAnswerOnTheConfigurationPath(): void
+    {
+        $configuration           = $this->activeConfigurationStub();
+        $inner                   = new FakeCompletionService();
+        $inner->structuredResult = ['faq' => [['question' => 'Q?', 'answer' => 'A.']]];
+
+        $schema = ['type' => 'object'];
+
+        $result = $this->subject($inner, $configuration)->completeStructured('prompt', $schema);
+
+        self::assertSame(['faq' => [['question' => 'Q?', 'answer' => 'A.']]], $result);
+        self::assertCount(1, $inner->completeStructuredForConfigurationCalls);
+        self::assertSame($configuration, $inner->completeStructuredForConfigurationCalls[0]['configuration']);
+        self::assertSame($schema, $inner->completeStructuredForConfigurationCalls[0]['schema']);
+        self::assertSame('nr_repurpose', $inner->completeStructuredForConfigurationCalls[0]['options']?->getCallerSourceExtension());
+        self::assertSame([], $inner->completeStructuredCalls);
+    }
+
+    public function testReturnsTheDecodedStructuredAnswerOnTheFallbackPath(): void
+    {
+        $inner                   = new FakeCompletionService();
+        $inner->structuredResult = ['summary' => 'Revenue grew.'];
+
+        $result = $this->subject($inner, null)->completeStructured('prompt', ['type' => 'object']);
+
+        self::assertSame(['summary' => 'Revenue grew.'], $result);
+        self::assertCount(1, $inner->completeStructuredCalls);
+        self::assertSame([], $inner->completeStructuredForConfigurationCalls);
     }
 
     public function testResolvesTheConfigurationOnlyOncePerInstance(): void
@@ -118,22 +158,8 @@ final class ConfiguredCompletionServiceTest extends TestCase
         $subject->completeJson('b');
     }
 
-    public function testForConfigurationMethodsPassStraightThrough(): void
-    {
-        $explicit          = self::createStub(LlmConfiguration::class);
-        $inner             = new FakeCompletionService();
-        $inner->jsonResult = ['explicit' => true];
-
-        // No resolver interaction needed: the caller already named a configuration.
-        $subject = $this->subject($inner, null);
-        $result  = $subject->completeJsonForConfiguration('p', $explicit);
-
-        self::assertSame(['explicit' => true], $result);
-        self::assertSame($explicit, $inner->completeJsonForConfigurationCalls[0]['configuration']);
-    }
-
     /**
-     * The decorator is the funnel for every text completion in this extension, so a
+     * This service is the funnel for every text completion in this extension, so a
      * call that names no caller still reaches nr-llm attributed to the extension
      * rather than landing in the Analytics "Unattributed" bucket.
      */
@@ -165,7 +191,7 @@ final class ConfiguredCompletionServiceTest extends TestCase
 
     /**
      * The operation identifies the pipeline step and only the call site knows it —
-     * the decorator must never overwrite what a caller already set.
+     * this service must never overwrite what a caller already set.
      */
     public function testKeepsTheOperationTheCallSiteSet(): void
     {
@@ -178,22 +204,5 @@ final class ConfiguredCompletionServiceTest extends TestCase
         $options = $inner->completeJsonForConfigurationCalls[0]['options'];
         self::assertInstanceOf(ChatOptions::class, $options);
         self::assertSame(CallerSource::GENERATE_STORY, $options->getCallerSourceOperation());
-    }
-
-    public function testForConfigurationPassThroughAlsoCarriesTheExtensionKey(): void
-    {
-        $inner                 = new FakeCompletionService();
-        $inner->markdownResult = '# heading';
-
-        $this->subject($inner, null)->completeMarkdownForConfiguration('p', self::createStub(LlmConfiguration::class));
-
-        $options = $inner->completeMarkdownForConfigurationCalls[0]['options'];
-        self::assertInstanceOf(ChatOptions::class, $options);
-        self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
-    }
-
-    private function response(): CompletionResponse
-    {
-        return new CompletionResponse('text', 'fake-model', new UsageStatistics(0, 0, 0));
     }
 }

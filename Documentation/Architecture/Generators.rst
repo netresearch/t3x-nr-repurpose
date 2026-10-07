@@ -51,7 +51,7 @@ as "Unattributed". The operation names are constants on
    generateSlideDeck      slide deck titles and bullet points
    generateHandout        handout title, lead, sections and key facts
 
-:php:`ConfiguredCompletionService`, the decorator every text completion passes
+:php:`ConfiguredCompletionService`, the service every text completion passes
 through, stamps the extension key on options that carry none, so a new call site
 is attributed even if it forgets. The operation stays with the call site — only
 it knows which step it is.
@@ -119,7 +119,7 @@ Text formats
 :php:`ExecutiveSummaryGenerator`, :php:`FaqGenerator`,
 :php:`SocialPostGenerator` and :php:`NewsletterGenerator` extend
 :php:`AbstractTextGenerator`. Each makes one
-:php:`CompletionServiceInterface::completeStructured()` call with its own JSON
+:php:`TextCompletionInterface::completeStructured()` call with its own JSON
 schema; nr-llm validates the answer against the schema and asks once more with
 the validation failure when it does not match. The generator then applies what
 a schema cannot express — caps, the platform character limits

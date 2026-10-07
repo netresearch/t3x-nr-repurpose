@@ -12,7 +12,6 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
-use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
@@ -32,6 +31,7 @@ use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
@@ -74,7 +74,7 @@ final class PodcastGeneratorTest extends TestCase
     }
 
     /** @param list<array{speaker: string, text: string}>|null $turns */
-    private function completion(?array $turns = null): FakeCompletionService
+    private function completion(?array $turns = null): FakeTextCompletion
     {
         $turns ??= [
             ['speaker' => 'Host A', 'text' => 'Welcome to the show.'],
@@ -82,7 +82,7 @@ final class PodcastGeneratorTest extends TestCase
             ['speaker' => 'Host A', 'text' => 'Lets dig in.'],
         ];
 
-        $completion             = new FakeCompletionService();
+        $completion             = new FakeTextCompletion();
         $completion->jsonResult = ['turns' => $turns];
 
         return $completion;
@@ -435,7 +435,7 @@ final class PodcastGeneratorTest extends TestCase
     #[DataProvider('dialogueShapes')]
     public function testTurnsWithNonScalarFieldsAreSkippedOrFallBack(array $personas): void
     {
-        $completion             = new FakeCompletionService();
+        $completion             = new FakeTextCompletion();
         $completion->jsonResult = ['turns' => [
             ['speaker' => 'Host B', 'text' => ['nested' => 'Should never be spoken.']],
             ['speaker' => ['Host B'], 'text' => 'Spoken by the default speaker.'],
@@ -655,7 +655,7 @@ final class PodcastGeneratorTest extends TestCase
         self::assertFalse($generator->supports($this->context(0)));
     }
 
-    private function podcastGenerator(FakeCompletionService $completion): PodcastGenerator
+    private function podcastGenerator(FakeTextCompletion $completion): PodcastGenerator
     {
         return new PodcastGenerator($this->jobs(), $this->allowingBudget(), new NullLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder());
     }

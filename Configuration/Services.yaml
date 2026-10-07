@@ -6,13 +6,6 @@ services:
     autowire: true
     autoconfigure: true
     public: false
-    # Route the generators' text completions through the "nr_repurpose_text"
-    # named configuration (ConfiguredCompletionService, nr-llm 0.22+/ADR-077).
-    # Scoped to this file's services only — nr-llm's own CompletionServiceInterface
-    # consumers keep the real service. The decorator itself injects the concrete
-    # CompletionService ($inner), so this bind does not recurse into it.
-    bind:
-      Netresearch\NrLlm\Service\Feature\CompletionServiceInterface $completion: '@Netresearch\NrRepurpose\Service\ConfiguredCompletionService'
 
   Netresearch\NrRepurpose\:
     resource: '../Classes/*'
@@ -48,6 +41,12 @@ services:
 
   Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface:
     alias: Netresearch\NrRepurpose\Service\CapabilityGrantResolver
+
+  # Every text completion goes through the "nr_repurpose_text" named
+  # configuration (ConfiguredCompletionService, nr-llm 0.22+/ADR-077), which
+  # itself injects nr-llm's CompletionServiceInterface.
+  Netresearch\NrRepurpose\Service\TextCompletionInterface:
+    alias: Netresearch\NrRepurpose\Service\ConfiguredCompletionService
 
   Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface:
     alias: Netresearch\NrRepurpose\Understanding\DocumentAnalyzer

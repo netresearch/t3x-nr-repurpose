@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Generator;
 
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
@@ -24,6 +23,7 @@ use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\View\ViewFactoryInterface;
@@ -58,7 +58,7 @@ class SchaubildGenerator extends AbstractGenerator
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
         LoggerInterface $logger,
-        private readonly CompletionServiceInterface $completion,
+        private readonly TextCompletionInterface $completion,
         private readonly HtmlToImageRendererInterface $renderer,
         private readonly ImageCompositorInterface $compositor,
         private readonly ImageGeneratorInterface $imageGenerator,

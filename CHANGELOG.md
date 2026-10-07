@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **nr-llm 0.39 is supported, next to 0.38 (breaking for code that subclasses a generator or `DocumentAnalyzer`, or calls `ConfiguredCompletionService` directly).** nr-llm 0.39 returns a `StructuredCompletionResponse` from `completeStructured()` instead of the decoded array (nr-llm ADR-211). Under 0.39, 0.10.0 stops at class load: `ConfiguredCompletionService` implemented nr-llm's `CompletionServiceInterface` with the 0.38 return types, and no class can declare that method for both versions. The extension now has its own `TextCompletionInterface` (`completeJson()`, `completeStructured()`, `completeMarkdown()`), which `ConfiguredCompletionService` implements while calling nr-llm's interface; it returns the decoded answer of a structured completion on both versions. The generators and `DocumentAnalyzer` take `TextCompletionInterface` in their constructors instead of nr-llm's interface, and `ConfiguredCompletionService` drops the nine methods only nr-llm's interface required. Code that subclasses a generator or `DocumentAnalyzer` and passes nr-llm's completion service to its constructor has to pass a `TextCompletionInterface` instead; code that calls `complete()`, `completeFactual()`, `completeCreative()` or a `*ForConfiguration()` method on `ConfiguredCompletionService` has to call nr-llm's `CompletionServiceInterface` instead. The composer constraint is `^0.35 || ^0.36 || ^0.37 || ^0.38 || ^0.39`; `ext_emconf.php` allows `0.35.0-0.39.99`.
+
 ## [0.10.0] - 2026-10-07
 
 ### Upgrade notes

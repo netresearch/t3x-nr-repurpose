@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Generator;
 
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -27,6 +26,7 @@ use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -66,7 +66,7 @@ final class PodcastGenerator extends AbstractGenerator
         JobProcessingRepository $jobs,
         BudgetServiceInterface $budget,
         LoggerInterface $logger,
-        private readonly CompletionServiceInterface $completion,
+        private readonly TextCompletionInterface $completion,
         private readonly SpeechSynthesizerInterface $speech,
         private readonly AudioStitcherInterface $stitcher,
         private readonly JobFileStorage $fileStorage,
