@@ -33,8 +33,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * it. When no page has text left, the ingestion fails naming the missing option.
  *
  * A PDF with more pages than the extension setting `maxPdfPages` (default 200) fails
- * before any page is read with OCR or the layout tier, so one job cannot run an
- * unbounded number of poppler and Vision calls.
+ * after parsing and before any page's text is extracted or read with OCR or the layout
+ * tier, so one job cannot run an unbounded number of text, poppler and Vision calls.
  */
 final readonly class SourceIngestionService implements SourceIngestionServiceInterface
 {
@@ -96,13 +96,12 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
 
     private function readPdf(string $absPath, PdfMode $mode, int $beUser): SourceDocument
     {
-        $pages    = $this->textExtractor->extract($absPath);
+        // The extractor refuses an oversized PDF before reading any page's text; the check
+        // here holds for an extractor that does not apply the limit.
         $maxPages = $this->maxPdfPages();
+        $pages    = $this->textExtractor->extract($absPath, $maxPages);
         if (count($pages) > $maxPages) {
-            throw new IngestionException(
-                sprintf('The PDF has %d pages; at most %d pages are read (extension setting maxPdfPages)', count($pages), $maxPages),
-                1749379454,
-            );
+            throw PdfTextExtractor::tooManyPages(count($pages), $maxPages);
         }
 
         // Only the modes that can reach tier 2 look the grant up. Resolved from the
