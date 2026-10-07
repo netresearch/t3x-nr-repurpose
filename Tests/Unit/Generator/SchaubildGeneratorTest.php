@@ -128,6 +128,22 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertSame('<p>x</p>', $subject->expose('  <p>x</p>  '));
     }
 
+    /** The template outputs the body unescaped, so only static, styled markup may reach it. */
+    public function testTheDiagramBodyReachesTheTemplateAsStaticMarkupOnly(): void
+    {
+        $completion                 = new FakeCompletionService();
+        $completion->markdownResult = "```html\n<div style=\"display:flex\"><h2>Revenue</h2><script>document.title = 1</script>"
+            . '<p onclick="go()">Up <strong>12 %</strong></p><img src="https://example.com/x.png"></div>' . "\n```";
+
+        $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $this->jobs(), $this->allowingBudget(), $completion);
+        self::assertTrue($generator->generate($this->context()));
+
+        self::assertNotSame([], $generator->renderedVariables);
+        foreach ($generator->renderedVariables as $variables) {
+            self::assertSame('<div style="display:flex"><h2>Revenue</h2><p>Up <strong>12 %</strong></p></div>', $variables['bodyHtml']);
+        }
+    }
+
     public function testProducesThreeVariantArtifactsWhenBudgetAllows(): void
     {
         $compositor     = $this->compositor();

@@ -30,6 +30,7 @@
         "typo3/cms-extbase": "^14.3",
         "typo3/cms-fluid": "^14.3",
         "typo3/cms-frontend": "^14.3",
+        "typo3/html-sanitizer": "^2.3.2",
         "smalot/pdfparser": "^2.12"
     },
     "require-dev": {
