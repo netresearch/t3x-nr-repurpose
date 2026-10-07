@@ -81,17 +81,33 @@ without the fix.
 
 ## Releasing
 
-1. Merge a `chore(release): X.Y.Z` pull request that sets the version in
-   `ext_emconf.php` and `Documentation/guides.xml`, and in `CHANGELOG.md` adds
-   the `## [X.Y.Z] - date` heading below `## [Unreleased]` plus the compare
-   links.
-   `composer.json` carries no version.
+1. Merge a `chore: prepare release vX.Y.Z` pull request that sets the version
+   in `ext_emconf.php`, in `composer.json` (`extra.typo3/cms.version`) and in
+   `Documentation/guides.xml` (`version` and `release`), moves the entries
+   under `## [Unreleased]` in `CHANGELOG.md` below a new
+   `## [X.Y.Z] - date` heading with the compare links, and adds the version
+   to `Documentation/Changelog.rst`. The release workflow compares the tag
+   with `composer.json` before it builds anything; the TER upload compares it
+   with `ext_emconf.php`.
 2. Push a signed annotated tag `vX.Y.Z` on the merge commit. The tag push
    starts `.github/workflows/release.yml`: it builds the archives and signs
-   them with Cosign, publishes to TER, waits until Packagist lists the
-   version, checks that Intercept accepted the docs.typo3.org render (a render
-   run exists; it does not wait for the result and never gates), and — only
-   after TER and Packagist succeeded — creates the GitHub release.
+   them with Cosign, creates the GitHub release, and then, independently of
+   each other, publishes to TER, waits until Packagist lists the version and
+   checks that Intercept accepted the docs.typo3.org render (a render run
+   exists; it does not wait for the result and never gates). The release body
+   ends with a publication-status block that names the result of each.
+
+The TER upload comment is the version's section in `CHANGELOG.md`, cut at
+1,900 characters, so put upgrade notes first. A filter in front of the TER
+API refuses some text that looks like SQL, for example a parenthesis directly
+followed by a database column name; the upload then fails with
+`Unknown (Status 403)`, and since the comment comes from the tagged commit,
+re-running the release cannot fix it — the fix is a new version with
+reworded text (netresearch/typo3-ci-workflows#273).
+
+A patch release for an older line is cut the same way from a `release/X.Y`
+branch created from that line's last tag, with the pull request targeting that
+branch; `CHANGELOG.md` on `main` records the version afterwards.
 
 If a release ran only partly, `.github/workflows/republish.yml` (manual
 `workflow_dispatch`, inputs `tag` and `target`: `all`, `ter`, `packagist` or
