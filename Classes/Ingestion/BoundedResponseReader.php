@@ -108,8 +108,10 @@ final class BoundedResponseReader
             throw new IngestionException('Fetching a remote source needs the PHP extension curl', 1749379469);
         }
 
-        $options                       = self::requestOptions($maxBytes, $timeoutSeconds, $url);
-        $options[RequestOptions::CURL] = $request->curlOptions();
+        $options = self::requestOptions($maxBytes, $timeoutSeconds, $url);
+        // Guzzle's `curl` request option; the oldest supported Guzzle 7 releases have no
+        // RequestOptions constant for it.
+        $options['curl'] = $request->curlOptions();
 
         try {
             return $client->send($request->request, $options);

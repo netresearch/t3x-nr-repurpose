@@ -124,7 +124,7 @@ final class WebPageFetcherTest extends TestCase
         self::assertSame(1, $resolver->lookups);
         self::assertSame(
             [CURLOPT_RESOLVE => ['example.com:443:93.184.215.14']],
-            $http->handler->getLastOptions()[RequestOptions::CURL] ?? null,
+            $http->handler->getLastOptions()['curl'] ?? null,
         );
     }
 

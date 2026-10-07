@@ -270,7 +270,7 @@ final class BoundedResponseReaderTest extends TestCase
 
         self::assertSame(
             [CURLOPT_RESOLVE => ['example.com:8443:93.184.215.14,[2606:2800:21f:cb07:6820:80da:af6b:8b2c]']],
-            $http->handler->getLastOptions()[RequestOptions::CURL] ?? null,
+            $http->handler->getLastOptions()['curl'] ?? null,
         );
     }
 
@@ -290,16 +290,16 @@ final class BoundedResponseReaderTest extends TestCase
 
         BoundedResponseReader::send($http->client, $this->guarded(new Request('GET', $url)), 100, 5.0, $url);
 
-        self::assertSame([CURLOPT_RESOLVE => [$entry]], $http->handler->getLastOptions()[RequestOptions::CURL] ?? null);
+        self::assertSame([CURLOPT_RESOLVE => [$entry]], $http->handler->getLastOptions()['curl'] ?? null);
     }
 
     public function testAnIpLiteralNeedsNoPinnedAddress(): void
     {
         $http = QueuedHttpClient::answering(200, 'body');
 
-        BoundedResponseReader::send($http->client, new GuardedRequest(new Request('GET', 'http://93.184.215.14/'), ['93.184.215.14']), 100, 5.0, 'http://93.184.215.14/');
+        BoundedResponseReader::send($http->client, new GuardedRequest(new Request('GET', 'https://93.184.215.14/'), ['93.184.215.14']), 100, 5.0, 'https://93.184.215.14/');
 
-        self::assertSame([], $http->handler->getLastOptions()[RequestOptions::CURL] ?? null);
+        self::assertSame([], $http->handler->getLastOptions()['curl'] ?? null);
     }
 
     public function testInflatesAGzipBody(): void

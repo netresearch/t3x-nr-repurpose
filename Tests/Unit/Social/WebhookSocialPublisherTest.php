@@ -281,7 +281,7 @@ final class WebhookSocialPublisherTest extends TestCase
         self::assertSame(WebhookSocialPublisher::TIMEOUT_SECONDS, $options[RequestOptions::TIMEOUT]);
         self::assertGreaterThan(0, $options[RequestOptions::CONNECT_TIMEOUT]);
         self::assertFalse($options[RequestOptions::ALLOW_REDIRECTS]);
-        self::assertSame([CURLOPT_RESOLVE => ['hooks.example.com:443:93.184.215.14']], $options[RequestOptions::CURL] ?? null);
+        self::assertSame([CURLOPT_RESOLVE => ['hooks.example.com:443:93.184.215.14']], $options['curl'] ?? null);
     }
 
     public function testARedirectIsNotFollowedAndCountsAsARefusal(): void
