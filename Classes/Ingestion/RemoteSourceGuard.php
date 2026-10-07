@@ -36,7 +36,7 @@ use Psr\Log\NullLogger;
  *
  * createRequest() returns the request together with the addresses it judged
  * (GuardedRequest), and BoundedResponseReader::send() connects to exactly those
- * addresses, so the transfer cannot reach an address the check did not see.
+ * addresses (unless an HTTP proxy is configured, see GuardedRequest).
  */
 final readonly class RemoteSourceGuard
 {
