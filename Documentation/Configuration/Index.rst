@@ -45,9 +45,14 @@ Configuration > nr_repurpose`:
      - Documented in
    * - ``technicalBeUserUid``
      - :confval:`technicalBeUserUid <technicalbeuseruid>` below
+   * - ``maxPdfPages``
+     - :confval:`maxPdfPages <maxpdfpages>` below
+   * - ``chromiumSandbox``
+     - :ref:`configuration-chromium-sandbox`
    * - ``aiLabelImages``, ``aiLabelTexts``
      - :ref:`configuration-ai-label`
-   * - ``socialWebhookUrl``, ``socialWebhookSecret``
+   * - ``socialWebhookUrl``, ``socialWebhookSecretIdentifier``,
+       ``socialWebhookSecret``
      - :ref:`configuration-social`
 
 .. confval:: technicalBeUserUid
@@ -83,6 +88,20 @@ Configuration > nr_repurpose`:
    ``generate_vision`` permissions: those, and the nr-llm budget, are checked
    for the backend user who created the job (see
    :ref:`configuration-permissions`).
+
+.. confval:: maxPdfPages
+   :name: maxpdfpages
+   :type: int
+   :default: 200
+
+   The most pages of one PDF source the worker reads. A PDF with more pages
+   fails before any page goes to Vision OCR or the layout reader, with
+   ``The PDF has … pages; at most … pages are read (extension setting
+   maxPdfPages)``. An empty value or ``0`` means 200.
+
+   The analysis has a limit of its own: a source text that splits into more
+   than 100 sections of about 12,000 characters fails before the first
+   completion call, with ``The source text is too long to analyse: …``.
 
 .. _configuration-permissions:
 

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
+use Netresearch\NrRepurpose\Generator\Support\DiagramBodySanitizer;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
@@ -311,7 +312,9 @@ class SchaubildGenerator extends AbstractGenerator
             beUserUid: $ctx->beUser,
             plannedCost: 0.03,
         ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_DIAGRAM);
-        $bodyHtml = self::stripCodeFences($this->completion->completeMarkdown($this->diagramBodyPrompt($ctx), $options));
+        // The body is model output steered by the source text: only static, styled markup
+        // reaches the template, which outputs it unescaped.
+        $bodyHtml = DiagramBodySanitizer::sanitize(self::stripCodeFences($this->completion->completeMarkdown($this->diagramBodyPrompt($ctx), $options)));
 
         return $this->renderTemplate('Schaubild', $ctx->theme, [
             'title'       => $brief->title,

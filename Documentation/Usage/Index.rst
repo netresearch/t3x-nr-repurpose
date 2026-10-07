@@ -29,7 +29,9 @@ Job list
 --------
 
 The landing view lists the jobs of all storage pages, newest first, 25 per
-page. Each row shows the source, the selected artifacts, and the live status as
+page. Administrators and users whose backend group grants *Approve artifacts*
+see every job; any other user sees the jobs they created, and the result view
+of another user's job refuses them. Each row shows the source, the selected artifacts, and the live status as
 the worker advances it: ``queued → ingesting → analyzing → generating → done``
 (or ``partially_done`` / ``failed``). From here you open the *New job* form or
 a job's result view.
@@ -287,7 +289,7 @@ review and schedule.
    yet reviewed.
 
 :guilabel:`Social planning` in the job list shows every scheduled, published
-and failed post across all jobs, oldest time first, with the channel's reason
+and failed post of the jobs you see, oldest time first, with the channel's reason
 for a failure and a notice when no webhook is configured.
 
 .. figure:: /Images/Usage/SocialPlanning.png

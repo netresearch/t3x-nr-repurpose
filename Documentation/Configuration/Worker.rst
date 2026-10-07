@@ -45,9 +45,9 @@ HTTP timeouts
 ============
 
 The generator worker makes outbound calls to the configured AI providers
-(script, TTS, image) and fetches source URLs. TYPO3's shared Guzzle client
-defaults to ``timeout = 0`` (no read timeout), so a stalled provider response
-would hang the worker. Bound it:
+(script, TTS, image). TYPO3's shared Guzzle client defaults to
+``timeout = 0`` (no read timeout), so a stalled provider response would hang
+the worker. Bound it:
 
 .. code-block:: php
    :caption: config/system/additional.php — bound outbound HTTP
@@ -58,7 +58,9 @@ would hang the worker. Bound it:
 Since nr-llm ``0.12.0`` the specialized image/TTS calls carry their own
 per-request timeout (image default 300 s), so a long-running image generation
 is not cut off by a shorter global value; the global timeout still governs the
-chat calls and source-URL fetches.
+chat calls. Source-URL fetches and the social webhook set their own limits per
+request (30 seconds for a web page, 120 for a PDF, 15 for the webhook) and do
+not depend on this value (see :ref:`troubleshooting-source-limits`).
 
 .. _configuration-rendering:
 
@@ -84,3 +86,25 @@ For a Chromium binary at another path, set the argument in your site's
    Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer:
      arguments:
        $chromiumPath: '/usr/lib/chromium/chromium'
+
+.. _configuration-chromium-sandbox:
+
+Chromium sandbox
+----------------
+
+The rendered HTML carries text the language model wrote from the source.
+``render.cjs`` disables JavaScript and blocks every network request, and the
+diagram body is reduced to static markup before it is rendered. With the
+extension setting ``chromiumSandbox`` on, Chromium also runs with its sandbox,
+so a fault in its HTML or CSS handling stays confined to a process without
+access to the worker's files and credentials.
+
+The sandbox needs unprivileged user namespaces or Chromium's setuid sandbox
+helper on the host that runs the worker. A container started with Docker's
+default seccomp profile does not provide them, and Chromium refuses to start
+as root with its sandbox; every render then fails with ``HTML render failed``
+and the cause (``No usable sandbox!`` or ``Running as root without
+--no-sandbox is not supported``) is in the TYPO3 log. The setting is therefore
+off by default. Turn it on where the worker runs as an unprivileged user on a
+host or in a container that allows user namespaces, and check one Schaubild
+after the change.

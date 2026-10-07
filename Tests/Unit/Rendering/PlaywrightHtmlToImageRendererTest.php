@@ -18,8 +18,10 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\ProcessTimeoutAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\SlowExecutable;
 use Netresearch\NrRepurpose\Tests\Unit\Rendering\Fixture\RecordingProcessRunner;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 final class PlaywrightHtmlToImageRendererTest extends TestCase
 {
@@ -83,6 +85,43 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
         );
         self::assertSame('<html><body>deck</body></html>', $runner->calls[0]['stdin']);
         self::assertStringEndsWith('.pdf', $out);
+    }
+
+    public function testChromiumRunsWithItsSandboxWhenTheSettingIsOn(): void
+    {
+        $runner = new RecordingProcessRunner();
+        $this->rendererWithSandboxSetting($runner, '1')->render('<html></html>', 800, 600, 1.0, false);
+        $this->rendererWithSandboxSetting($runner, '1')->renderPdf('<html></html>', 1920);
+
+        self::assertSame('--sandbox', $runner->calls[0]['command'][array_key_last($runner->calls[0]['command'])]);
+        self::assertSame('--sandbox', $runner->calls[1]['command'][array_key_last($runner->calls[1]['command'])]);
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function sandboxOff(): iterable
+    {
+        yield 'off' => ['0'];
+        yield 'not configured' => [null];
+    }
+
+    #[DataProvider('sandboxOff')]
+    public function testChromiumRunsWithoutItsSandboxByDefault(mixed $setting): void
+    {
+        $runner = new RecordingProcessRunner();
+        $this->rendererWithSandboxSetting($runner, $setting)->render('<html></html>', 800, 600, 1.0, false);
+
+        self::assertNotContains('--sandbox', $runner->calls[0]['command']);
+    }
+
+    private function rendererWithSandboxSetting(RecordingProcessRunner $runner, mixed $setting): PlaywrightHtmlToImageRenderer
+    {
+        $this->logger  = new RecordingLogger();
+        $configuration = $this->createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturnCallback(
+            static fn (string $extension, string $path = ''): mixed => $path === 'chromiumSandbox' ? $setting : null,
+        );
+
+        return new PlaywrightHtmlToImageRenderer($runner, $this->logger, self::NODE, self::SCRIPT, self::OUT_DIR, self::CHROMIUM, extensionConfiguration: $configuration);
     }
 
     /**

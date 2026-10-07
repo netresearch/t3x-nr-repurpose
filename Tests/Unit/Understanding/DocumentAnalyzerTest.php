@@ -294,6 +294,47 @@ final class DocumentAnalyzerTest extends TestCase
         self::assertStringContainsString('Chunk summary.', $fake->jsonCalls[3]['prompt']);
     }
 
+    /** Three chunks of 10,000 characters each, above the 20,000-character threshold. */
+    private function threeChunkDocument(): SourceDocument
+    {
+        $paragraph = str_repeat('Section content sentence. ', 400);
+
+        return new SourceDocument(
+            title: 'Big report',
+            text: implode("\n\n", [$paragraph, $paragraph, $paragraph]),
+            sourceLabel: 'https://example.com/big',
+            pageCount: 0,
+            languageHint: 'en',
+        );
+    }
+
+    public function testAnalysesATextOfExactlyTheMaximumChunkCount(): void
+    {
+        $mapResult = ['summary' => 'Chunk summary.', 'keyPoints' => ['kp']];
+        $fake      = new FakeCompletionService([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
+
+        (new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000, maxChunks: 3))
+            ->analyze($this->threeChunkDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
+
+        self::assertCount(4, $fake->jsonCalls);
+    }
+
+    public function testRefusesATextAboveTheMaximumChunkCountBeforeAnyCall(): void
+    {
+        $fake = new FakeCompletionService([]);
+
+        try {
+            (new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000, maxChunks: 2))
+                ->analyze($this->threeChunkDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
+            self::fail('A text above the chunk limit must fail');
+        } catch (AnalysisException $e) {
+            self::assertSame(1749384001, $e->getCode());
+            self::assertSame('The source text is too long to analyse: 3 sections of about 11000 characters, at most 2 are analysed', $e->getMessage());
+        }
+
+        self::assertSame([], $fake->jsonCalls);
+    }
+
     public function testRetriesOnceWhenRequiredKeysMissingAndRecovers(): void
     {
         // First synthesis answer has the wrong shape, the corrective retry succeeds.

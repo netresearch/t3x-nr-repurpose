@@ -100,3 +100,9 @@ worker, which runs without one. A value of 0 or below sets no actor, and the
 job runs outside that scope as before. The extension still holds no key and
 has no provider code; the credential stays in nr-llm's store. nr-llm is
 required as ``^0.35 || ^0.36 || ^0.37 || ^0.38``, not ``^0.25``.
+
+The extension also reads one secret from nr-vault itself: the signing secret
+of the social webhook, by the identifier in ``socialWebhookSecretIdentifier``
+(:php:`WebhookSecretResolver`). The ``nr_repurpose:publish-due`` command reads
+it in a ``runAs()`` scope of its own for the same technical backend user. It is
+not a provider credential and does not change the decision for those.

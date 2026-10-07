@@ -15,11 +15,12 @@ A backend user submits a URL or a PDF. A worker (Symfony Messenger, doctrine tra
 Users can expect:
 
 - **No provider credentials in this extension.** It reads no API key; every AI call goes through nr-llm, which holds the key by identifier (ADR-003, `Documentation/Adr/Adr003ProviderCredentialsViaNrLlm.rst`). No `getenv`, `$_ENV` or `apiKey` read exists in `Classes/`.
-- **Only public http(s) sources are fetched.** `Classes/Ingestion/RemoteSourceGuard.php` allows only `http` and `https` (lines 98-99), refuses hosts that do not resolve, numeric host spellings, and any resolved address in loopback, private, link-local, carrier-grade NAT, multicast or reserved ranges (`BLOCKED_RANGES`, lines 44-58), including IPv4 embedded in IPv6. Redirects are not followed (`Classes/Ingestion/BoundedResponseReader.php`, `ALLOW_REDIRECTS => false`).
-- **Bounded downloads.** 5 MiB and 30 s for a web page (`Classes/Ingestion/WebPageFetcher.php`), 50 MiB and 120 s for a PDF (`Classes/Ingestion/PdfFileResolver.php`); the size limit is checked on `Content-Length`, while reading and after decompression (`BoundedResponseReader.php`).
-- **Generated HTML cannot run scripts or reach the network while it is rendered.** `Resources/Private/NodeRenderer/render.cjs` sets `javaScriptEnabled: false`, blocks service workers, aborts every request except `data:` and `blob:` URLs, and points the browser at a dead proxy as a second barrier. HTML reaches the renderer on stdin, not in a command line (`Classes/Rendering/PlaywrightHtmlToImageRenderer.php`).
+- **Only public http(s) sources are fetched.** `Classes/Ingestion/RemoteSourceGuard.php` allows only `http` and `https` (lines 98-99), refuses hosts that do not resolve, numeric host spellings, and any resolved address in loopback, private, link-local, carrier-grade NAT, multicast or reserved ranges (`BLOCKED_RANGES`, lines 44-58), including IPv4 embedded in IPv6. The transfer connects to exactly the addresses that were checked (`Classes/Ingestion/GuardedRequest.php`, curl `CURLOPT_RESOLVE`; without the PHP extension curl a fetch is refused). With an HTTP proxy configured in `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']` the proxy resolves the name, and limiting where it connects is the proxy's configuration. Redirects are not followed (`Classes/Ingestion/BoundedResponseReader.php`, `ALLOW_REDIRECTS => false`).
+- **Bounded downloads and processing.** 5 MiB and 30 s for a web page (`Classes/Ingestion/WebPageFetcher.php`), 50 MiB and 120 s for a PDF (`Classes/Ingestion/PdfFileResolver.php`); the size limit is checked on `Content-Length`, while reading and after decompression (`BoundedResponseReader.php`). A PDF with more pages than `maxPdfPages` (default 200) fails before OCR or layout reading (`Classes/Ingestion/SourceIngestionService.php`), and the analysis refuses a text of more than 100 chunks before its first model call (`Classes/Understanding/DocumentAnalyzer.php`).
+- **Generated HTML cannot run scripts or reach the network while it is rendered.** The diagram body the model writes is reduced to static, styled markup before it enters the template (`Classes/Generator/Support/DiagramBodySanitizer.php`). `Resources/Private/NodeRenderer/render.cjs` sets `javaScriptEnabled: false`, blocks service workers, aborts every request except `data:` and `blob:` URLs, and points the browser at a dead proxy as a second barrier. HTML reaches the renderer on stdin, not in a command line (`Classes/Rendering/PlaywrightHtmlToImageRenderer.php`).
 - **No shell.** node, ffmpeg, pdftoppm and pdftotext are started through Symfony Process with argument arrays (`Classes/Rendering/Process/SymfonyProcessRunner.php`, `Classes/Ingestion/Poppler/SymfonyProcessPopplerRunner.php`, `Classes/Rendering/FfmpegAudioStitcher.php`, `Classes/Rendering/FfmpegSlideshowRenderer.php`), each with a timeout. No `exec`, `shell_exec`, `proc_open` or `Process::fromShellCommandline` exists in `Classes/`.
 - **Expensive AI calls are permission-checked before they are made.** Speech and image generation and PDF vision OCR require the custom permissions `nrrepurpose:generate_audio` and `nrrepurpose:generate_vision` of the job's creator (`Classes/Service/CapabilityGrantResolver.php`, ADR-008), checked before nr-llm's budget check (`Classes/Generator/AbstractGenerator.php`, `specializedAllowed()`).
+- **Each user sees their own jobs.** Users without the approve permission see, open and plan only the jobs they created; administrators and reviewers see all (`Classes/Review/JobVisibility.php`, enforced in `JobController` list, show and plan).
 - **Publishing needs a human approval.** Approving, rejecting and scheduling require `nrrepurpose:approve_artifacts` (`Classes/Review/ReviewPermission.php`, enforced in `Classes/Controller/JobController.php`); the publish command sends only approved posts (ADR-007).
 - **AI-generated output is labelled.** PNG, MP3, WebVTT and PDF files carry machine-readable provenance (`Classes/Provenance/AiContentMarker.php`, ADR-005); webhook posts carry `aiGenerated` and `aiLabel`.
 - **Parameterised database access.** Queries use the QueryBuilder with named parameters or the DBAL connection's criteria arrays (`Classes/Persistence/JobProcessingRepository.php`, `Classes/Social/DuePostPublisher.php`, `Classes/Review/ArtifactReviewService.php`); no SQL is built by string concatenation.
@@ -39,7 +40,7 @@ Users cannot expect:
 | Language model → templates and renderer | Generated text and HTML | Fluid escaping in the backend templates; rendering without JavaScript and network |
 | Worker → external binaries | File paths and arguments | Argument arrays, no shell, timeouts |
 | Worker → nr-llm | Prompts, budget | nr-llm budget check before specialised calls; credentials stay in nr-llm |
-| `publish-due` command → webhook | Configured URL | http(s) only, optional HMAC-SHA256 signature `X-Nr-Repurpose-Signature` (`Classes/Social/WebhookSocialPublisher.php`) |
+| `publish-due` command → webhook | Configured URL | `RemoteSourceGuard` and the checked addresses, no redirects, 15 s limit; optional HMAC-SHA256 signature `X-Nr-Repurpose-Signature` with a secret read from nr-vault (`Classes/Social/WebhookSocialPublisher.php`, `Classes/Social/WebhookSecretResolver.php`) |
 
 Attackers considered: a backend user trying to reach internal hosts through the URL field (SSRF), a malicious web page or PDF trying to exploit the parser or the renderer, and a language-model answer carrying markup or script. The TYPO3 administrator, the worker host and the nr-llm configuration are trusted.
 
@@ -47,22 +48,22 @@ Attackers considered: a backend user trying to reach internal hosts through the 
 
 - **Least privilege:** the extension holds no provider credentials; spend and approval each need their own permission; the worker can run as a dedicated technical backend user (`technicalBeUserUid`, `Classes/Service/GenerationOrchestrator.php`), and capability checks use the job's creator, not that actor.
 - **Fail-safe defaults:** the grant default is "no grant" (`GenerationContext`); an unresolvable or non-public host is refused; a missing webhook URL sends nothing.
-- **Complete mediation:** every fetch of a source URL goes through `RemoteSourceGuard` (`WebPageFetcher`, `PdfFileResolver`).
+- **Complete mediation:** every fetch of a source URL and every webhook request goes through `RemoteSourceGuard` (`WebPageFetcher`, `PdfFileResolver`, `WebhookSocialPublisher`); every job view checks `JobVisibility`.
 - **Economy of mechanism:** all external programs go through two runner interfaces (`ProcessRunnerInterface`, `PopplerRunnerInterface`).
-- **Defence in depth:** the renderer blocks the network by route and by dead proxy, and runs without JavaScript.
+- **Defence in depth:** the renderer blocks the network by route and by dead proxy, and runs without JavaScript; the diagram body is sanitised before it is rendered; with `chromiumSandbox` on, Chromium also runs in its sandbox (off by default, because a container with Docker's default seccomp profile cannot provide it; see `Documentation/Configuration/Worker.rst`).
 - **Error hiding:** process, renderer, speech, image, PDF-parser and webhook failures store a fixed message and log the cause (for example `SymfonyProcessRunner.php`, `WebhookSocialPublisher.php`).
 
 ## Countering common weaknesses
 
 | Weakness (CWE / OWASP) | Counter |
 |------------------------|---------|
-| SSRF (CWE-918, A10:2021) | `RemoteSourceGuard` on every source fetch, no redirects |
+| SSRF (CWE-918, A10:2021) | `RemoteSourceGuard` on every source fetch and webhook request, connection to the checked addresses, no redirects |
 | OS command injection (CWE-78) | Argument arrays through Symfony Process, no shell |
 | SQL injection (CWE-89) | QueryBuilder named parameters, DBAL criteria arrays |
-| Cross-site scripting (CWE-79) | Fluid auto-escaping in backend templates; no `escaping=false` in `Resources/Private` |
-| Missing authorisation (CWE-862) | `ReviewPermission`, `CapabilityGrantResolver` |
-| Uncontrolled resource consumption (CWE-400) | Download size and time limits, process timeouts, output caps (for example 10 slides in `SlideDeckGenerator.php`, 6 in `StoryGenerator.php`), nr-llm budget |
-| Hard-coded credentials (CWE-798) | None in the code; Betterleaks scans every pull request (`.github/workflows/checks.yml`) |
+| Cross-site scripting (CWE-79) | Fluid auto-escaping in backend templates; no `escaping=false` in `Resources/Private`; the one raw output of model text, the Schaubild body, is sanitised (`DiagramBodySanitizer`) |
+| Missing authorisation (CWE-862, CWE-639) | `ReviewPermission`, `CapabilityGrantResolver`, `JobVisibility` |
+| Uncontrolled resource consumption (CWE-400) | Download size and time limits, PDF page limit, analysis chunk limit, process timeouts, output caps (for example 10 slides in `SlideDeckGenerator.php`, 6 in `StoryGenerator.php`), nr-llm budget |
+| Hard-coded credentials (CWE-798), cleartext storage (CWE-312) | None in the code; the webhook signing secret is read from nr-vault by identifier; Betterleaks scans every pull request (`.github/workflows/checks.yml`) |
 | Vulnerable components (A06:2021) | Composer Audit and Dependency Review on every pull request (`checks.yml`) |
 
 Static checks on every pull request (Opengrep, CodeQL, PHPStan level 8 on `Classes/`) and the unit and functional suites (`Tests/`) back these claims; see "Governance and policies" in `CONTRIBUTING.md`.

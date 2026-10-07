@@ -24,8 +24,10 @@ use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Psr7\Utils;
 use GuzzleHttp\RequestOptions;
 use Netresearch\NrRepurpose\Ingestion\BoundedResponseReader;
+use Netresearch\NrRepurpose\Ingestion\GuardedRequest;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Throwable;
@@ -39,6 +41,12 @@ final class BoundedResponseReaderTest extends TestCase
     private function failingClient(Throwable $reason): Client
     {
         return new Client(['handler' => HandlerStack::create(static fn (): PromiseInterface => Create::rejectionFor($reason))]);
+    }
+
+    /** A request as RemoteSourceGuard hands it over: with the address it checked. */
+    private function guarded(Request $request): GuardedRequest
+    {
+        return new GuardedRequest($request, ['93.184.215.14']);
     }
 
     public function testReturnsABodyWithinTheLimits(): void
@@ -178,7 +186,7 @@ final class BoundedResponseReaderTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379464);
 
-        BoundedResponseReader::send($http->client, new Request('GET', 'https://example.com/'), 100, 5.0, 'https://example.com/');
+        BoundedResponseReader::send($http->client, $this->guarded(new Request('GET', 'https://example.com/')), 100, 5.0, 'https://example.com/');
     }
 
     public function testSendTurnsACurlTimeoutIntoTheTimeoutCode(): void
@@ -195,7 +203,7 @@ final class BoundedResponseReaderTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379465);
 
-        BoundedResponseReader::send($client, $request, 100, 5.0, 'https://example.com/');
+        BoundedResponseReader::send($client, $this->guarded($request), 100, 5.0, 'https://example.com/');
     }
 
     /**
@@ -214,7 +222,7 @@ final class BoundedResponseReaderTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379465);
 
-        BoundedResponseReader::send($this->failingClient($timeout), $request, 100, 5.0, 'https://example.com/');
+        BoundedResponseReader::send($this->failingClient($timeout), $this->guarded($request), 100, 5.0, 'https://example.com/');
     }
 
     /**
@@ -232,7 +240,7 @@ final class BoundedResponseReaderTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379465);
 
-        BoundedResponseReader::send($this->failingClient($timeout), $request, 100, 5.0, 'https://example.com/');
+        BoundedResponseReader::send($this->failingClient($timeout), $this->guarded($request), 100, 5.0, 'https://example.com/');
     }
 
     public function testSendLeavesOtherTransportErrorsToTheCaller(): void
@@ -241,11 +249,57 @@ final class BoundedResponseReaderTest extends TestCase
         $refused = new ConnectException('cURL error 7: Connection refused', $request, null, ['errno' => 7]);
 
         try {
-            BoundedResponseReader::send($this->failingClient($refused), $request, 100, 5.0, 'https://example.com/');
+            BoundedResponseReader::send($this->failingClient($refused), $this->guarded($request), 100, 5.0, 'https://example.com/');
             self::fail('A refused connection must reach the caller');
         } catch (ConnectException $e) {
             self::assertSame($refused, $e);
         }
+    }
+
+    public function testSendConnectsOnlyToTheCheckedAddresses(): void
+    {
+        $http = QueuedHttpClient::answering(200, 'body');
+
+        BoundedResponseReader::send(
+            $http->client,
+            new GuardedRequest(new Request('GET', 'https://example.com:8443/report'), ['93.184.215.14', '2606:2800:21f:cb07:6820:80da:af6b:8b2c']),
+            100,
+            5.0,
+            'https://example.com:8443/report',
+        );
+
+        self::assertSame(
+            [CURLOPT_RESOLVE => ['example.com:8443:93.184.215.14,[2606:2800:21f:cb07:6820:80da:af6b:8b2c]']],
+            $http->handler->getLastOptions()['curl'] ?? null,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function defaultPorts(): iterable
+    {
+        yield 'http' => ['http://example.com/', 'example.com:80:93.184.215.14'];
+        yield 'https' => ['https://example.com/', 'example.com:443:93.184.215.14'];
+    }
+
+    #[DataProvider('defaultPorts')]
+    public function testThePinnedAddressUsesTheDefaultPortOfTheScheme(string $url, string $entry): void
+    {
+        $http = QueuedHttpClient::answering(200, 'body');
+
+        BoundedResponseReader::send($http->client, $this->guarded(new Request('GET', $url)), 100, 5.0, $url);
+
+        self::assertSame([CURLOPT_RESOLVE => [$entry]], $http->handler->getLastOptions()['curl'] ?? null);
+    }
+
+    public function testAnIpLiteralNeedsNoPinnedAddress(): void
+    {
+        $http = QueuedHttpClient::answering(200, 'body');
+
+        BoundedResponseReader::send($http->client, new GuardedRequest(new Request('GET', 'https://93.184.215.14/'), ['93.184.215.14']), 100, 5.0, 'https://93.184.215.14/');
+
+        self::assertSame([], $http->handler->getLastOptions()['curl'] ?? null);
     }
 
     public function testInflatesAGzipBody(): void

@@ -11,6 +11,8 @@ namespace Netresearch\NrRepurpose\Rendering;
 
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * Renders an HTML string to a PNG file, or to a PDF (renderPdf()), by driving
@@ -19,6 +21,11 @@ use Psr\Log\LoggerInterface;
  * (render.cjs reads it from env, not argv). $height=null renders auto-height (fullPage);
  * a fixed $height clips the screenshot to the viewport. $transparent uses omitBackground —
  * the supplied CSS must set html,body{background:transparent} for it to take effect.
+ *
+ * With the extension setting `chromiumSandbox` on, render.cjs starts Chromium with its
+ * sandbox (`--sandbox`); off, the default, without it. The sandbox needs user namespaces
+ * or the setuid sandbox helper on the worker host, which a container started with the
+ * default seccomp profile does not provide: there Chromium refuses to start.
  *
  * Failure messages are fixed texts: they reach the artifact's error_message, which every
  * module user sees, while stderr and paths go to the server log only.
@@ -33,6 +40,7 @@ final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendere
         private string $outputDir = '',
         private string $chromiumPath = '/usr/bin/chromium',
         private float $timeoutSeconds = 60.0,
+        private ?ExtensionConfiguration $extensionConfiguration = null,
     ) {}
 
     public function render(
@@ -84,6 +92,10 @@ final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendere
             ? $this->scriptPath
             : dirname(__DIR__, 2) . '/Resources/Private/NodeRenderer/render.cjs';
 
+        if ($this->sandboxEnabled()) {
+            $flags[] = '--sandbox';
+        }
+
         $command = [$this->nodeBinary, $script, ...$arguments, '--out', $out, ...$flags];
 
         // render.cjs reads CHROMIUM_PATH from its environment. It is handed to the runner
@@ -104,6 +116,16 @@ final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendere
         }
 
         return $out;
+    }
+
+    private function sandboxEnabled(): bool
+    {
+        try {
+            return (bool) $this->extensionConfiguration?->get('nr_repurpose', 'chromiumSandbox');
+        } catch (Throwable) {
+            // Not configured at all (an installation from before the setting existed).
+            return false;
+        }
     }
 
     /** Render a float scale without a trailing ".0" so argv matches the integer-looking common case. */

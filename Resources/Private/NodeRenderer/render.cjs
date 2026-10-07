@@ -3,7 +3,7 @@
 
 // CommonJS so it runs without ESM config. Reads HTML from stdin, writes a PNG,
 // or with --pdf a PDF whose page size and breaks come from the HTML's CSS (@page).
-// argv: --width <int> --height <int|auto> --scale <float> --out <path> (--transparent|--opaque) [--pdf]
+// argv: --width <int> --height <int|auto> --scale <float> --out <path> (--transparent|--opaque) [--pdf] [--sandbox]
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright-core');
@@ -64,6 +64,9 @@ function arg(name, def) {
     const out = arg('out');
     const transparent = process.argv.includes('--transparent');
     const pdf = process.argv.includes('--pdf');
+    // With --sandbox Chromium runs with its sandbox, which needs user namespaces or the
+    // setuid helper on the host; without it (the default) Playwright passes --no-sandbox.
+    const sandbox = process.argv.includes('--sandbox');
 
     if (!out) {
         console.error('render.cjs: missing --out');
@@ -78,7 +81,10 @@ function arg(name, def) {
 
     const browser = await chromium.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--force-color-profile=srgb'],
+        chromiumSandbox: sandbox,
+        args: sandbox
+            ? ['--force-color-profile=srgb']
+            : ['--no-sandbox', '--disable-setuid-sandbox', '--force-color-profile=srgb'],
         executablePath: process.env.CHROMIUM_PATH || undefined, // apt chromium
         // The route below does not see every request: Chromium sends <link rel=prefetch>
         // itself, and follows a redirect without asking the route again. So every request

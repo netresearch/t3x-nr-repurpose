@@ -19,6 +19,7 @@ use Netresearch\NrRepurpose\Ingestion\PdfTextExtractor;
 use Netresearch\NrRepurpose\Ingestion\PdfVisionExtractor;
 use Netresearch\NrRepurpose\Ingestion\Poppler\SymfonyProcessPopplerRunner;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
+use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
@@ -26,6 +27,8 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use Psr\Log\NullLogger;
+use ReflectionProperty;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Resource\FileRepository;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -72,6 +75,15 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
             $this->get(CapabilityGrantResolverInterface::class),
             new NullLogger(),
         );
+    }
+
+    /** The page limit is read from the extension settings in the service the container builds. */
+    public function testTheContainerHandsTheServiceTheExtensionSettings(): void
+    {
+        $service = $this->get(SourceIngestionServiceInterface::class);
+        self::assertInstanceOf(SourceIngestionService::class, $service);
+
+        self::assertInstanceOf(ExtensionConfiguration::class, (new ReflectionProperty($service, 'extensionConfiguration'))->getValue($service));
     }
 
     public function testIngestsStaticHtmlIntoSourceDocument(): void
