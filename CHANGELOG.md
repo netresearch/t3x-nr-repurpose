@@ -12,7 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Upgrade notes
 
-- **Installations that sign their social posts must move the signing secret to nr-vault before updating.** 0.10.0 no longer reads the extension setting `socialWebhookSecret`; while it still holds a value, no post is sent and every due post fails. Steps: 1. store the secret in nr-vault (`vendor/bin/typo3 vault:store`); 2. enter its identifier in the new extension setting `socialWebhookSecretIdentifier`; 3. give the backend user in `technicalBeUserUid` read access to that secret, if one is set; 4. clear `socialWebhookSecret`. Installations without a webhook secret need no change.
+- **Installations that sign their social posts must move the signing secret to nr-vault before updating.** 0.10.0 no longer reads the extension setting `socialWebhookSecret`; while it still holds a value, no post is sent and every due post fails. Steps: 1. store the secret in nr-vault (`vendor/bin/typo3 vault:store`); 2. enter its identifier in the new extension setting `socialWebhookSecretIdentifier`; 3. set `technicalBeUserUid` to a backend user with read access to that secret, since nr-vault refuses a read from the command line without one unless its CLI access is switched on; 4. clear `socialWebhookSecret`. Installations without a webhook secret need no change.
 - **The social webhook URL must point to a host on the public internet.** A `socialWebhookUrl` whose host resolves to a private, loopback or other non-public address is now refused, and the post fails.
 - 0.10.0 contains the fixes of 0.9.1.
 

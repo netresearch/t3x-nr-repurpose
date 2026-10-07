@@ -30,8 +30,9 @@ Upgrade notes
     setting ``socialWebhookSecret``, and while it still holds a value no post
     is sent. Store the secret in nr-vault (``vendor/bin/typo3 vault:store``),
     enter its identifier in the new setting ``socialWebhookSecretIdentifier``,
-    give the backend user in ``technicalBeUserUid`` read access to it if one is
-    set, and clear ``socialWebhookSecret``.
+    set ``technicalBeUserUid`` to a backend user with read access to it (nr-vault
+    refuses a command-line read without one unless its CLI access is switched
+    on), and clear ``socialWebhookSecret``.
 -   The ``socialWebhookUrl`` must point to a host on the public internet; a
     host that resolves to a non-public address is refused.
 
