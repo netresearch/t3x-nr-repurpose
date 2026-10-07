@@ -11,7 +11,6 @@ namespace Netresearch\NrRepurpose\Ingestion;
 
 use InvalidArgumentException;
 use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -35,8 +34,9 @@ use Psr\Log\NullLogger;
  * allowed_hosts middleware is never attached, and that middleware is a host
  * allow-list, not a private-range block.
  *
- * The check runs before the request; the client resolves the name again when it
- * connects (see the residual DNS-rebinding risk in the PR that added this).
+ * createRequest() returns the request together with the addresses it judged
+ * (GuardedRequest), and BoundedResponseReader::send() connects to exactly those
+ * addresses (unless an HTTP proxy is configured, see GuardedRequest).
  */
 final readonly class RemoteSourceGuard
 {
@@ -71,7 +71,7 @@ final readonly class RemoteSourceGuard
      *
      * @throws IngestionException when the URL cannot be parsed or must not be fetched
      */
-    public function createRequest(RequestFactoryInterface $requestFactory, string $method, string $url): RequestInterface
+    public function createRequest(RequestFactoryInterface $requestFactory, string $method, string $url): GuardedRequest
     {
         try {
             $request = $requestFactory->createRequest($method, $url);
@@ -85,15 +85,15 @@ final readonly class RemoteSourceGuard
             throw new IngestionException('Source URL cannot be parsed: ' . SourceUrlRedactor::redact($url), 1749379468);
         }
 
-        $this->assertAllowed($request->getUri());
-
-        return $request;
+        return new GuardedRequest($request, $this->assertAllowed($request->getUri()));
     }
 
     /**
+     * @return non-empty-list<string> the addresses the host resolved to, all of them allowed
+     *
      * @throws IngestionException when the URL must not be fetched
      */
-    public function assertAllowed(UriInterface $uri): void
+    public function assertAllowed(UriInterface $uri): array
     {
         $scheme = strtolower($uri->getScheme());
         if ($scheme !== 'http' && $scheme !== 'https') {
@@ -140,6 +140,8 @@ final readonly class RemoteSourceGuard
                 );
             }
         }
+
+        return $addresses;
     }
 
     /**

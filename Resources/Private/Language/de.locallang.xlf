@@ -114,6 +114,7 @@
       <trans-unit id="review.action.reject"><source>Reject</source><target>Ablehnen</target></trans-unit>
       <trans-unit id="review.done.approved"><source>The artifact is approved.</source><target>Das Artefakt ist freigegeben.</target></trans-unit>
       <trans-unit id="review.done.rejected"><source>The artifact is rejected.</source><target>Das Artefakt ist abgelehnt.</target></trans-unit>
+      <trans-unit id="job.refused.access"><source>This job is not available to you: you see the jobs you created; administrators and users who may approve artifacts see all jobs.</source><target>Dieser Auftrag steht Ihnen nicht zur Verfügung: Sie sehen die Aufträge, die Sie angelegt haben; Administratoren und Benutzer, die Artefakte freigeben dürfen, sehen alle Aufträge.</target></trans-unit>
       <trans-unit id="review.refused.permission"><source>You may not approve artifacts. An administrator grants "Approve artifacts" in the backend group.</source><target>Sie dürfen keine Artefakte freigeben. Ein Administrator vergibt „Artefakte freigeben“ in der Backend-Gruppe.</target></trans-unit>
       <trans-unit id="review.refused.notDone"><source>Only a finished artifact can be reviewed.</source><target>Nur ein fertiges Artefakt kann geprüft werden.</target></trans-unit>
       <trans-unit id="review.refused.published"><source>The post is published or being published; its review can no longer change.</source><target>Der Post ist veröffentlicht oder wird gerade veröffentlicht; seine Prüfung lässt sich nicht mehr ändern.</target></trans-unit>

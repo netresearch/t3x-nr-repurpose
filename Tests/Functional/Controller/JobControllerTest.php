@@ -599,11 +599,89 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     public function showingTheResultViewToAUserWithoutThePermissionLogsNoRefusal(): void
     {
         // showAction asks the same permission for canReview; not being offered the buttons is no refusal.
-        $job = $this->insertJob('https://example.com/report', 'done');
+        $job = $this->insertJob('https://example.com/report', 'done', self::EDITOR);
         $this->insertArtifact($job, ['type' => 'podcast']);
 
         self::assertSame(200, $this->dispatch('show', ['job' => $job], self::EDITOR)->getStatusCode());
         self::assertSame([], RecordingLogWriter::$records);
+    }
+
+    #[Test]
+    public function listActionShowsAUserWithoutTheApprovePermissionOnlyTheJobsTheyCreated(): void
+    {
+        $this->insertJob('https://example.com/own-job-r7Q', 'done', self::EDITOR);
+        $this->insertJob('https://example.com/other-job-k2W', 'done', self::REVIEWER);
+        $this->insertJob('https://example.com/cli-job-m5Z', 'done');
+
+        $body = (string) $this->dispatch('list', [], self::EDITOR)->getBody();
+
+        self::assertStringContainsString('own-job-r7Q', $body);
+        self::assertStringNotContainsString('other-job-k2W', $body);
+        self::assertStringNotContainsString('cli-job-m5Z', $body);
+    }
+
+    /** @return array<string, array{int}> */
+    public static function usersSeeingAllJobs(): array
+    {
+        return ['admin' => [self::ADMIN], 'reviewer' => [self::REVIEWER]];
+    }
+
+    #[Test]
+    #[DataProvider('usersSeeingAllJobs')]
+    public function listActionShowsAdministratorsAndReviewersEveryJob(int $user): void
+    {
+        $this->insertJob('https://example.com/editor-job-r7Q', 'done', self::EDITOR);
+        $this->insertJob('https://example.com/cli-job-m5Z', 'done');
+
+        $body = (string) $this->dispatch('list', [], $user)->getBody();
+
+        self::assertStringContainsString('editor-job-r7Q', $body);
+        self::assertStringContainsString('cli-job-m5Z', $body);
+    }
+
+    #[Test]
+    public function showActionRefusesAJobTheUserDidNotCreateAndMayNotSee(): void
+    {
+        $job = $this->insertJob('https://example.com/other-job-k2W', 'done', self::REVIEWER);
+
+        $response = $this->dispatch('show', ['job' => $job], self::EDITOR);
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertStringEndsWith('/module/web/nr-repurpose/Job/list', (string) parse_url($response->getHeaderLine('Location'), PHP_URL_PATH));
+        self::assertStringNotContainsString('other-job-k2W', (string) $response->getBody());
+        self::assertSame(ContextualFeedbackSeverity::ERROR, $this->flashMessages()[0][1] ?? null);
+        self::assertCount(1, RecordingLogWriter::$records);
+        self::assertSame(['backendUser' => self::EDITOR, 'job' => $job], RecordingLogWriter::$records[0]->getData());
+    }
+
+    #[Test]
+    #[DataProvider('usersSeeingAllJobs')]
+    public function showActionShowsAdministratorsAndReviewersAJobOfAnotherUser(int $user): void
+    {
+        $job = $this->insertJob('https://example.com/editor-job-r7Q', 'done', self::EDITOR);
+
+        $response = $this->dispatch('show', ['job' => $job], $user);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertStringContainsString('editor-job-r7Q', (string) $response->getBody());
+    }
+
+    #[Test]
+    public function planActionShowsAUserWithoutTheApprovePermissionOnlyThePostsOfTheirJobs(): void
+    {
+        foreach (['own-job-r7Q' => self::EDITOR, 'other-job-k2W' => self::REVIEWER] as $path => $owner) {
+            $this->insertArtifact($this->insertJob('https://example.com/' . $path, 'done', $owner), [
+                'type' => 'social_post', 'variant' => 'linkedin', 'script_text' => 'Post', 'review_status' => 'approved', 'publish_status' => 'scheduled', 'publish_at' => 1790000000,
+            ]);
+        }
+
+        $editor   = (string) $this->dispatch('plan', [], self::EDITOR)->getBody();
+        $reviewer = (string) $this->dispatch('plan', [], self::REVIEWER)->getBody();
+
+        self::assertStringContainsString('own-job-r7Q', $editor);
+        self::assertStringNotContainsString('other-job-k2W', $editor);
+        self::assertStringContainsString('own-job-r7Q', $reviewer);
+        self::assertStringContainsString('other-job-k2W', $reviewer);
     }
 
     /** @return array<string, array{string}> */
@@ -637,10 +715,10 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         }
     }
 
-    private function insertJob(string $url, string $status): int
+    private function insertJob(string $url, string $status, int $owner = 0): int
     {
         $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job');
-        $connection->insert('tx_nrrepurpose_domain_model_job', ['pid' => 0, 'source_type' => 'url', 'source_value' => $url, 'status' => $status]);
+        $connection->insert('tx_nrrepurpose_domain_model_job', ['pid' => 0, 'source_type' => 'url', 'source_value' => $url, 'status' => $status, 'be_user' => $owner]);
 
         return (int) $connection->lastInsertId();
     }

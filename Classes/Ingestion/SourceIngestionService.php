@@ -17,6 +17,7 @@ use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * Single ingestion entry point. URL sources go through WebPageFetcher; PDF sources are
@@ -30,11 +31,18 @@ use Throwable;
  * grant, like the AI imagery of the generators. Without it a page that would go to tier 2
  * keeps its embedded text (tier 1): a denied capability fails only the part that needs
  * it. When no page has text left, the ingestion fails naming the missing option.
+ *
+ * A PDF with more pages than the extension setting `maxPdfPages` (default 200) fails
+ * after parsing and before any page's text is extracted or read with OCR or the layout
+ * tier, so one job cannot run an unbounded number of text, poppler and Vision calls.
  */
 final readonly class SourceIngestionService implements SourceIngestionServiceInterface
 {
     /** Internal tier label: tier 2 was wanted but not granted, the page kept its text. */
     private const TIER_VISION_DENIED = 'vision-denied';
+
+    /** Pages of one PDF when the extension setting `maxPdfPages` is unset or not a positive number. */
+    public const DEFAULT_MAX_PDF_PAGES = 200;
 
     public function __construct(
         private WebPageFetcher $webPageFetcher,
@@ -44,6 +52,7 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         private PdfLayoutExtractor $layoutExtractor,
         private CapabilityGrantResolverInterface $grantResolver,
         private LoggerInterface $logger,
+        private ?ExtensionConfiguration $extensionConfiguration = null,
     ) {}
 
     public function ingest(JobSnapshot $job): SourceDocument
@@ -87,7 +96,13 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
 
     private function readPdf(string $absPath, PdfMode $mode, int $beUser): SourceDocument
     {
-        $pages = $this->textExtractor->extract($absPath);
+        // The extractor refuses an oversized PDF before reading any page's text; the check
+        // here holds for an extractor that does not apply the limit.
+        $maxPages = $this->maxPdfPages();
+        $pages    = $this->textExtractor->extract($absPath, $maxPages);
+        if (count($pages) > $maxPages) {
+            throw PdfTextExtractor::tooManyPages(count($pages), $maxPages);
+        }
 
         // Only the modes that can reach tier 2 look the grant up. Resolved from the
         // job owner like the orchestrator does for the generators (0 grants nothing).
@@ -185,6 +200,20 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         }
 
         return [$page['text'], 'text'];
+    }
+
+    private function maxPdfPages(): int
+    {
+        try {
+            $value = $this->extensionConfiguration?->get('nr_repurpose', 'maxPdfPages');
+        } catch (Throwable) {
+            // Not configured at all (an installation from before the setting existed).
+            $value = null;
+        }
+
+        $pages = is_numeric($value) ? (int) $value : 0;
+
+        return $pages > 0 ? $pages : self::DEFAULT_MAX_PDF_PAGES;
     }
 
     /** Cheap table heuristic: 3+ lines with a run of 2+ spaces between non-space chars (column gutters). */
