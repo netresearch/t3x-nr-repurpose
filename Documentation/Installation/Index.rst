@@ -29,10 +29,10 @@ Requirements
        technical-actor API lets the worker read them (see
        :ref:`configuration-extension-settings`).
    * - PHP extension ``curl``
-     - Fetching ``url`` and ``pdf_url`` sources and sending the social
-       webhook. The worker connects to the addresses the host was checked
-       with, and the time limit covers the whole transfer including the
-       response headers. Without it these requests are refused.
+     - Fetching ``url`` and ``pdf_url`` sources. The worker connects to the
+       addresses the host was checked with, and the time limit covers the
+       whole transfer including the response headers. Without it a source
+       fetch is refused.
    * - ``poppler-utils``
      - ``pdftoppm`` / ``pdftotext`` for PDF ingestion (Vision OCR and layout
        tiers).
