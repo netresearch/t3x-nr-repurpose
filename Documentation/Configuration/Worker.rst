@@ -84,3 +84,25 @@ For a Chromium binary at another path, set the argument in your site's
    Netresearch\NrRepurpose\Rendering\PlaywrightHtmlToImageRenderer:
      arguments:
        $chromiumPath: '/usr/lib/chromium/chromium'
+
+.. _configuration-chromium-sandbox:
+
+Chromium sandbox
+----------------
+
+The rendered HTML carries text the language model wrote from the source.
+``render.cjs`` disables JavaScript and blocks every network request, and the
+diagram body is reduced to static markup before it is rendered. With the
+extension setting ``chromiumSandbox`` on, Chromium also runs with its sandbox,
+so a fault in its HTML or CSS handling stays confined to a process without
+access to the worker's files and credentials.
+
+The sandbox needs unprivileged user namespaces or Chromium's setuid sandbox
+helper on the host that runs the worker. A container started with Docker's
+default seccomp profile does not provide them, and Chromium refuses to start
+as root with its sandbox; every render then fails with ``HTML render failed``
+and the cause (``No usable sandbox!`` or ``Running as root without
+--no-sandbox is not supported``) is in the TYPO3 log. The setting is therefore
+off by default. Turn it on where the worker runs as an unprivileged user on a
+host or in a container that allows user namespaces, and check one Schaubild
+after the change.

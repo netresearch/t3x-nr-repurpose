@@ -47,6 +47,8 @@ Configuration > nr_repurpose`:
      - :confval:`technicalBeUserUid <technicalbeuseruid>` below
    * - ``maxPdfPages``
      - :confval:`maxPdfPages <maxpdfpages>` below
+   * - ``chromiumSandbox``
+     - :ref:`configuration-chromium-sandbox`
    * - ``aiLabelImages``, ``aiLabelTexts``
      - :ref:`configuration-ai-label`
    * - ``socialWebhookUrl``, ``socialWebhookSecretIdentifier``,

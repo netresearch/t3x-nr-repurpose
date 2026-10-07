@@ -45,7 +45,7 @@ final class LabelReferencesTest extends TestCase
     public function testEveryExtensionSettingLabelIsALanguageReference(): void
     {
         $template = (string) file_get_contents(self::ROOT . '/ext_conf_template.txt');
-        self::assertSame(7, preg_match_all('/label=(\S+)$/m', $template, $matches));
+        self::assertSame(8, preg_match_all('/label=(\S+)$/m', $template, $matches));
         foreach ($matches[1] as $label) {
             self::assertMatchesRegularExpression(self::LLL, $label);
         }
