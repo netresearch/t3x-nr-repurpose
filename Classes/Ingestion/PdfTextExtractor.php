@@ -23,13 +23,17 @@ class PdfTextExtractor
     private const MIN_CHARS_PER_PAGE = 80;
 
     /**
+     * With $maxPages, a PDF with more pages fails after parsing and before any page's text
+     * is extracted.
+     *
      * @return list<array{page:int, text:string, isSparse:bool}>
      *
-     * @throws IngestionException on a missing, encrypted or unparseable PDF. The message
+     * @throws IngestionException on a missing, encrypted or unparseable PDF, or one above
+     *                            $maxPages. The message
      *                            never names the path: it becomes the job's error message,
      *                            which every module user sees; SourceIngestionService logs it.
      */
-    public function extract(string $absPath): array
+    public function extract(string $absPath, ?int $maxPages = null): array
     {
         if (!is_file($absPath)) {
             throw new IngestionException('PDF file not found', 1749379420);
@@ -50,6 +54,10 @@ class PdfTextExtractor
             throw new IngestionException('PDF could not be parsed (possibly encrypted or damaged)', 1749379421, $e);
         }
 
+        if ($maxPages !== null && count($pageObjects) > $maxPages) {
+            throw self::tooManyPages(count($pageObjects), $maxPages);
+        }
+
         $pages = [];
         foreach ($pageObjects as $i => $page) {
             $text    = trim($page->getText());
@@ -66,5 +74,13 @@ class PdfTextExtractor
         }
 
         return $pages;
+    }
+
+    public static function tooManyPages(int $pages, int $maxPages): IngestionException
+    {
+        return new IngestionException(
+            sprintf('The PDF has %d pages; at most %d pages are read (extension setting maxPdfPages)', $pages, $maxPages),
+            1749379454,
+        );
     }
 }

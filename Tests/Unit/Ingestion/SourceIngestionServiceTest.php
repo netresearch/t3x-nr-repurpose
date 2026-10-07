@@ -31,6 +31,9 @@ final class SourceIngestionServiceTest extends TestCase
 {
     private PdfVisionExtractor $vision;
 
+    /** @var PdfTextExtractor&object{limits: list<int|null>} */
+    private PdfTextExtractor $textExtractor;
+
     private CapabilityGrantResolverInterface $grantResolver;
 
     /** @var AbstractLogger&object{records: list<array{level: mixed, message: string, context: array<mixed>}>} */
@@ -45,14 +48,21 @@ final class SourceIngestionServiceTest extends TestCase
     private function service(array $textPages, string $resolvedPath = '/abs/doc.pdf', ?CapabilityGrants $grants = null, ?ExtensionConfiguration $extensionConfiguration = null): SourceIngestionService
     {
         $text = new class ($textPages) extends PdfTextExtractor {
+            /** @var list<int|null> the limit of every extract() call */
+            public array $limits = [];
+
             /** @param list<array{page:int,text:string,isSparse:bool}> $pages */
             public function __construct(private readonly array $pages) {}
 
-            public function extract(string $absPath): array
+            public function extract(string $absPath, ?int $maxPages = null): array
             {
+                $this->limits[] = $maxPages;
+
+                // Like a fake extractor that ignores the limit: the service checks again.
                 return $this->pages;
             }
         };
+        $this->textExtractor = $text;
 
         $runner = new class implements PopplerRunnerInterface {
             public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
@@ -154,6 +164,7 @@ final class SourceIngestionServiceTest extends TestCase
 
         self::assertSame(3, $doc->pageCount);
         self::assertSame(3, $this->vision->calls);
+        self::assertSame([3], $this->textExtractor->limits, 'the extractor gets the limit');
     }
 
     public function testRefusesAPdfWithMorePagesThanConfiguredBeforeAnyPageIsRead(): void
@@ -414,7 +425,7 @@ final class SourceIngestionServiceTest extends TestCase
         $text    = new class ($failure) extends PdfTextExtractor {
             public function __construct(private readonly IngestionException $failure) {}
 
-            public function extract(string $absPath): array
+            public function extract(string $absPath, ?int $maxPages = null): array
             {
                 throw $this->failure;
             }
