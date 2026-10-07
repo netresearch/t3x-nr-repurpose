@@ -17,6 +17,28 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-11-0:
+
+Version 0.11.0 (2026-10-07)
+===========================
+
+Upgrade notes
+-------------
+
+-   Installations need no change. Code that subclasses a generator or
+    :php:`DocumentAnalyzer`, or calls :php:`ConfiguredCompletionService`
+    directly, has to follow the interface change below.
+
+Changed
+-------
+
+-   nr-llm 0.39 is supported next to 0.38. Text completions go through the
+    extension's own :php:`TextCompletionInterface`; the generators and
+    :php:`DocumentAnalyzer` take it in their constructors instead of nr-llm's
+    :php:`CompletionServiceInterface`.
+-   TER, TYPO3 and docs.typo3.org show one title, "Content Repurpose", and one
+    description.
+
 .. _version-0-10-0:
 
 Version 0.10.0 (2026-10-07)
