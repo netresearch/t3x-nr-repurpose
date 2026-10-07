@@ -61,6 +61,14 @@ Two extension settings:
     post published; anything else marks it failed with the status. Empty: no
     post is sent.
 
+    The URL passes the same check as a source URL: its host must resolve only
+    to public addresses, and the request connects to the addresses that were
+    checked. A host in the local or internal network fails the post with
+    ``Webhook URL refused: only http and https to a host on the public internet
+    are allowed``. The request follows no redirect (a 3xx answer is a failure
+    with its status) and has 15 seconds to complete, after which the post fails
+    with ``Webhook not reachable``.
+
 ``socialWebhookSecret`` (default: empty)
     With a secret, each request carries
     ``X-Nr-Repurpose-Signature: sha256=<hex HMAC-SHA256 of the body>``, so the

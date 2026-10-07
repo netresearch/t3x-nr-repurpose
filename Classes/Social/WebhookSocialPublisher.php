@@ -9,8 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Social;
 
-use Psr\Http\Client\ClientExceptionInterface;
-use Psr\Http\Client\ClientInterface;
+use GuzzleHttp\ClientInterface;
+use JsonException;
+use Netresearch\NrRepurpose\Ingestion\BoundedResponseReader;
+use Netresearch\NrRepurpose\Ingestion\IngestionException;
+use Netresearch\NrRepurpose\Ingestion\RemoteSourceGuard;
+use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
@@ -22,10 +26,22 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * `socialWebhookUrl`. With `socialWebhookSecret` set, the body is signed:
  * header `X-Nr-Repurpose-Signature: sha256=<hex HMAC-SHA256 of the body>`.
  * A 2xx answer counts as accepted.
+ *
+ * The URL passes the same check as a source URL (RemoteSourceGuard: http or https,
+ * a host whose every address is public), the request connects to the checked
+ * addresses, follows no redirect and is limited in time (BoundedResponseReader).
+ * Every refusal is a SocialPublishException with a fixed text: the reason is stored
+ * and shown in the module, and a webhook URL can carry a token.
  */
 final readonly class WebhookSocialPublisher implements SocialPublisherInterface
 {
     public const SIGNATURE_HEADER = 'X-Nr-Repurpose-Signature';
+
+    /** Total seconds for connecting, sending the post and receiving the answer. */
+    public const TIMEOUT_SECONDS = 15.0;
+
+    /** Largest answer accepted; only its status is used. */
+    private const MAX_ANSWER_BYTES = 64 * 1024;
 
     public function __construct(
         private ClientInterface $httpClient,
@@ -33,6 +49,7 @@ final readonly class WebhookSocialPublisher implements SocialPublisherInterface
         private StreamFactoryInterface $streamFactory,
         private ExtensionConfiguration $extensionConfiguration,
         private LoggerInterface $logger,
+        private RemoteSourceGuard $guard,
     ) {}
 
     public function isConfigured(): bool
@@ -47,8 +64,24 @@ final readonly class WebhookSocialPublisher implements SocialPublisherInterface
             throw new SocialPublishException('No publishing channel configured (socialWebhookUrl)', 1790410001);
         }
 
-        $body    = json_encode($post->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $request = $this->requestFactory->createRequest('POST', $url)
+        try {
+            $body = json_encode($post->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } catch (JsonException $e) {
+            $this->logger->error('Social post could not be encoded as JSON', ['artifact' => $post->artifactUid, 'exception' => $e]);
+
+            throw new SocialPublishException('The post could not be encoded as JSON', 1790410005, $e);
+        }
+
+        try {
+            $guarded = $this->guard->createRequest($this->requestFactory, 'POST', $url);
+        } catch (IngestionException $e) {
+            // The guard's message names the host; the log gets the URL without credentials and query.
+            $this->logger->error('Social webhook URL refused', ['url' => SourceUrlRedactor::redact($url), 'exception' => $e]);
+
+            throw new SocialPublishException('Webhook URL refused: only http and https to a host on the public internet are allowed', 1790410004, $e);
+        }
+
+        $request = $guarded
             ->withHeader('Content-Type', 'application/json')
             ->withBody($this->streamFactory->createStream($body));
 
@@ -58,10 +91,10 @@ final readonly class WebhookSocialPublisher implements SocialPublisherInterface
         }
 
         try {
-            $response = $this->httpClient->sendRequest($request);
-        } catch (ClientExceptionInterface $e) {
-            // The client's message names the request URI, and a webhook URL can carry a
-            // token; the refusal reason is stored and shown in the module, so it stays fixed.
+            $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_ANSWER_BYTES, self::TIMEOUT_SECONDS, $url);
+        } catch (Throwable $e) {
+            // The client's and the reader's messages name the request URI, and a webhook URL
+            // can carry a token; the refusal reason is stored and shown in the module.
             $this->logger->error('Social webhook not reachable', ['exception' => $e]);
 
             throw new SocialPublishException('Webhook not reachable', 1790410002, $e);

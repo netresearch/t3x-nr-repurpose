@@ -9,42 +9,38 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Social;
 
+use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Psr7\HttpFactory;
+use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use GuzzleHttp\RequestOptions;
+use Netresearch\NrRepurpose\Ingestion\RemoteSourceGuard;
 use Netresearch\NrRepurpose\Social\SocialPost;
 use Netresearch\NrRepurpose\Social\SocialPublishException;
 use Netresearch\NrRepurpose\Social\WebhookSocialPublisher;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Psr\Http\Client\ClientExceptionInterface;
-use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LogLevel;
-use RuntimeException;
+use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 #[CoversClass(WebhookSocialPublisher::class)]
 final class WebhookSocialPublisherTest extends TestCase
 {
-    /** @var list<RequestInterface> */
-    private array $requests = [];
+    private QueuedHttpClient $http;
 
     private RecordingLogger $logger;
 
-    private function publisher(array $settings, ResponseInterface|ClientExceptionInterface $answer = new Response(204)): WebhookSocialPublisher
+    /** @param array<string, string> $settings */
+    private function publisher(array $settings, ResponseInterface|Throwable $answer = new Response(204), ?RemoteSourceGuard $guard = null): WebhookSocialPublisher
     {
-        $client = $this->createStub(ClientInterface::class);
-        $client->method('sendRequest')->willReturnCallback(function (RequestInterface $request) use ($answer): ResponseInterface {
-            $this->requests[] = $request;
-            if ($answer instanceof ClientExceptionInterface) {
-                throw $answer;
-            }
-
-            return $answer;
-        });
+        $this->http = new QueuedHttpClient($answer);
 
         $configuration = $this->createStub(ExtensionConfiguration::class);
         $configuration->method('get')->willReturnCallback(static fn (string $extension, string $key): mixed => $settings[$key] ?? '');
@@ -53,7 +49,16 @@ final class WebhookSocialPublisherTest extends TestCase
 
         $this->logger = new RecordingLogger();
 
-        return new WebhookSocialPublisher($client, $factory, $factory, $configuration, $this->logger);
+        return new WebhookSocialPublisher($this->http->client, $factory, $factory, $configuration, $this->logger, $guard ?? StaticHostResolver::publicGuard());
+    }
+
+    private function sentRequest(): RequestInterface
+    {
+        self::assertSame(0, $this->http->unconsumed(), 'one request was sent');
+        $request = $this->http->handler->getLastRequest();
+        self::assertInstanceOf(RequestInterface::class, $request);
+
+        return $request;
     }
 
     private function post(): SocialPost
@@ -65,8 +70,7 @@ final class WebhookSocialPublisherTest extends TestCase
     {
         $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/social', 'socialWebhookSecret' => 's3cret'])->publish($this->post());
 
-        self::assertCount(1, $this->requests);
-        $request = $this->requests[0];
+        $request = $this->sentRequest();
         $body    = (string) $request->getBody();
         self::assertSame('POST', $request->getMethod());
         self::assertSame('https://hooks.example.com/social', (string) $request->getUri());
@@ -88,7 +92,7 @@ final class WebhookSocialPublisherTest extends TestCase
     {
         $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/social'])->publish($this->post());
 
-        self::assertFalse($this->requests[0]->hasHeader(WebhookSocialPublisher::SIGNATURE_HEADER));
+        self::assertFalse($this->sentRequest()->hasHeader(WebhookSocialPublisher::SIGNATURE_HEADER));
     }
 
     /** @return iterable<string, array{string, bool}> */
@@ -122,7 +126,10 @@ final class WebhookSocialPublisherTest extends TestCase
     public function testAnUnreachableWebhookIsARefusalWithoutTheClientMessage(): void
     {
         // Guzzle's ConnectException message, verbatim shape.
-        $unreachable = new class ('cURL error 7: Failed to connect to hooks.example.com port 443 (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://hooks.example.com/x?token=s3cr3t-t0ken') extends RuntimeException implements ClientExceptionInterface {};
+        $unreachable = new ConnectException(
+            'cURL error 7: Failed to connect to hooks.example.com port 443 (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://hooks.example.com/x?token=s3cr3t-t0ken',
+            new Request('POST', 'https://hooks.example.com/x?token=s3cr3t-t0ken'),
+        );
 
         try {
             $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/x?token=s3cr3t-t0ken'], $unreachable)->publish($this->post());
@@ -147,6 +154,71 @@ final class WebhookSocialPublisherTest extends TestCase
         } catch (SocialPublishException) {
         }
 
-        self::assertSame([], $this->requests);
+        self::assertSame(1, $this->http->unconsumed());
+    }
+
+    /** DuePostPublisher catches only SocialPublishException; anything else would leave the post claimed. */
+    public function testAPostThatIsNotValidUtf8IsARefusalWithoutSending(): void
+    {
+        $post = new SocialPost(12, 3, 'linkedin', "Revenue \xB1 grew", 1_790_000_000, 'https://example.com/report', []);
+
+        try {
+            $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/x'])->publish($post);
+            self::fail('Expected a refusal');
+        } catch (SocialPublishException $e) {
+            self::assertSame(1790410005, $e->getCode());
+            self::assertSame('The post could not be encoded as JSON', $e->getMessage());
+        }
+
+        self::assertSame(1, $this->http->unconsumed());
+    }
+
+    public function testThePostIsSentToTheCheckedAddressWithATimeoutAndWithoutFollowingRedirects(): void
+    {
+        $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/social'])->publish($this->post());
+
+        $options = $this->http->handler->getLastOptions();
+        self::assertSame(WebhookSocialPublisher::TIMEOUT_SECONDS, $options[RequestOptions::TIMEOUT]);
+        self::assertGreaterThan(0, $options[RequestOptions::CONNECT_TIMEOUT]);
+        self::assertFalse($options[RequestOptions::ALLOW_REDIRECTS]);
+        self::assertSame([CURLOPT_RESOLVE => ['hooks.example.com:443:93.184.215.14']], $options[RequestOptions::CURL] ?? null);
+    }
+
+    public function testARedirectIsNotFollowedAndCountsAsARefusal(): void
+    {
+        $this->expectException(SocialPublishException::class);
+        $this->expectExceptionMessage('Webhook answered HTTP 302');
+
+        $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/x'], new Response(302, ['Location' => 'http://169.254.169.254/']))->publish($this->post());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function refusedUrls(): iterable
+    {
+        yield 'loopback name'       => ['http://localhost:8080/x?token=s3cr3t-t0ken'];
+        yield 'metadata address'    => ['http://169.254.169.254/latest/?token=s3cr3t-t0ken'];
+        yield 'private network'     => ['https://10.0.0.5/hook?token=s3cr3t-t0ken'];
+        yield 'host does not resolve' => ['https://unknown.example/hook?token=s3cr3t-t0ken'];
+    }
+
+    /**
+     * Only a host on the public internet receives the post; the refusal is a fixed text
+     * without the URL, and nothing is sent.
+     */
+    #[DataProvider('refusedUrls')]
+    public function testAWebhookOutsideThePublicInternetIsRefusedBeforeSending(string $url): void
+    {
+        $guard = new RemoteSourceGuard(new StaticHostResolver(['localhost' => ['127.0.0.1']]));
+
+        try {
+            $this->publisher(['socialWebhookUrl' => $url], guard: $guard)->publish($this->post());
+            self::fail('Expected a refusal');
+        } catch (SocialPublishException $e) {
+            self::assertSame(1790410004, $e->getCode());
+            self::assertSame('Webhook URL refused: only http and https to a host on the public internet are allowed', $e->getMessage());
+        }
+
+        self::assertSame(1, $this->http->unconsumed());
+        self::assertStringNotContainsString('s3cr3t-t0ken', (string) json_encode($this->logger->records[0]['context']['url'] ?? ''));
     }
 }

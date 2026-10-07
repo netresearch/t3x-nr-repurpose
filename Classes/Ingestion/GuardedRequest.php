@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Ingestion;
 
 use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\StreamInterface;
 
 /**
  * A request RemoteSourceGuard allowed, together with the addresses its host resolved
@@ -30,6 +31,11 @@ final readonly class GuardedRequest
     public function withHeader(string $name, string $value): self
     {
         return new self($this->request->withHeader($name, $value), $this->addresses);
+    }
+
+    public function withBody(StreamInterface $body): self
+    {
+        return new self($this->request->withBody($body), $this->addresses);
     }
 
     /**
