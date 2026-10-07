@@ -24,7 +24,8 @@ use Psr\Log\LoggerInterface;
  * - Source language is detected by the LLM (returned in the JSON `language` field); the document
  *   languageHint is used as a fallback only.
  * - Large documents use Map-Reduce: chunk -> per-chunk summary (map) -> single synthesis (reduce),
- *   to respect provider token limits. The chunk threshold/size are configurable.
+ *   to respect provider token limits. The chunk threshold/size are configurable. A text that
+ *   splits into more than $maxChunks chunks (default 100) fails before the first map call.
  * - Every completion call carries a beUserUid on ChatOptions, opting it into nr-llm's
  *   BudgetMiddleware; an over-budget run throws BudgetExceededException.
  * - Every completion call names this extension and its step (CallerSource), so nr-llm
@@ -57,6 +58,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
         private LoggerInterface $logger,
         private int $chunkThreshold = 24000,
         private int $chunkSize = 12000,
+        private int $maxChunks = 100,
     ) {}
 
     public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
@@ -139,6 +141,13 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
     {
         $chunks = $this->splitIntoChunks($text);
         $this->logger->info('DocumentAnalyzer map-reduce', ['chunks' => count($chunks)]);
+        // One completion per chunk: a cap keeps one job from running an unbounded number of calls.
+        if (count($chunks) > $this->maxChunks) {
+            throw new AnalysisException(
+                sprintf('The source text is too long to analyse: %d sections of about %d characters, at most %d are analysed', count($chunks), $this->chunkSize, $this->maxChunks),
+                1749384001,
+            );
+        }
 
         $summaries = [];
         foreach ($chunks as $index => $chunk) {

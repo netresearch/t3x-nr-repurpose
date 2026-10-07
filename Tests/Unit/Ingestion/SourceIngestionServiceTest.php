@@ -21,9 +21,11 @@ use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Stringable;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 final class SourceIngestionServiceTest extends TestCase
 {
@@ -40,7 +42,7 @@ final class SourceIngestionServiceTest extends TestCase
      *
      * @param list<array{page:int,text:string,isSparse:bool}> $textPages
      */
-    private function service(array $textPages, string $resolvedPath = '/abs/doc.pdf', ?CapabilityGrants $grants = null): SourceIngestionService
+    private function service(array $textPages, string $resolvedPath = '/abs/doc.pdf', ?CapabilityGrants $grants = null, ?ExtensionConfiguration $extensionConfiguration = null): SourceIngestionService
     {
         $text = new class ($textPages) extends PdfTextExtractor {
             /** @param list<array{page:int,text:string,isSparse:bool}> $pages */
@@ -120,7 +122,85 @@ final class SourceIngestionServiceTest extends TestCase
             }
         };
 
-        return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout, $grantResolver, $this->logger);
+        return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout, $grantResolver, $this->logger, $extensionConfiguration);
+    }
+
+    /** @return list<array{page:int,text:string,isSparse:bool}> */
+    private static function sparsePages(int $count): array
+    {
+        $pages = [];
+        for ($page = 1; $page <= $count; ++$page) {
+            // Sparse, so vision mode OCRs every page; text mode keeps this text.
+            $pages[] = ['page' => $page, 'text' => 'Text of page ' . $page, 'isSparse' => true];
+        }
+
+        return $pages;
+    }
+
+    private function maxPdfPagesSetting(mixed $value): ExtensionConfiguration
+    {
+        $configuration = $this->createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturnCallback(
+            static fn (string $extension, string $path = ''): mixed => $path === 'maxPdfPages' ? $value : null,
+        );
+
+        return $configuration;
+    }
+
+    public function testReadsAPdfOfExactlyTheConfiguredPageCount(): void
+    {
+        $doc = $this->service(self::sparsePages(3), extensionConfiguration: $this->maxPdfPagesSetting('3'))
+            ->ingest(JobSnapshots::of(['uid' => 30, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'vision', 'be_user' => 0]));
+
+        self::assertSame(3, $doc->pageCount);
+        self::assertSame(3, $this->vision->calls);
+    }
+
+    public function testRefusesAPdfWithMorePagesThanConfiguredBeforeAnyPageIsRead(): void
+    {
+        $service = $this->service(self::sparsePages(4), extensionConfiguration: $this->maxPdfPagesSetting('3'));
+
+        try {
+            $service->ingest(JobSnapshots::of(['uid' => 31, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'vision', 'be_user' => 0]));
+            self::fail('A PDF above the page limit must fail');
+        } catch (IngestionException $e) {
+            self::assertSame(1749379454, $e->getCode());
+            self::assertSame('The PDF has 4 pages; at most 3 pages are read (extension setting maxPdfPages)', $e->getMessage());
+        }
+
+        self::assertSame(0, $this->vision->calls);
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function unusablePageSettings(): iterable
+    {
+        yield 'not configured' => [null];
+        yield 'empty'          => [''];
+        yield 'zero'           => ['0'];
+        yield 'negative'       => ['-5'];
+        yield 'not a number'   => ['many'];
+    }
+
+    #[DataProvider('unusablePageSettings')]
+    public function testAnUnusablePageSettingFallsBackToTheDefaultLimit(mixed $value): void
+    {
+        $limit = SourceIngestionService::DEFAULT_MAX_PDF_PAGES;
+        $job   = JobSnapshots::of(['uid' => 32, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]);
+
+        self::assertSame($limit, $this->service(self::sparsePages($limit), extensionConfiguration: $this->maxPdfPagesSetting($value))->ingest($job)->pageCount);
+
+        $this->expectException(IngestionException::class);
+        $this->expectExceptionCode(1749379454);
+        $this->service(self::sparsePages($limit + 1), extensionConfiguration: $this->maxPdfPagesSetting($value))->ingest($job);
+    }
+
+    public function testWithoutExtensionConfigurationTheDefaultLimitApplies(): void
+    {
+        $job = JobSnapshots::of(['uid' => 33, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'text', 'be_user' => 0]);
+
+        $this->expectException(IngestionException::class);
+        $this->expectExceptionCode(1749379454);
+        $this->service(self::sparsePages(SourceIngestionService::DEFAULT_MAX_PDF_PAGES + 1))->ingest($job);
     }
 
     public function testAutoModeRoutesEachPageByDensityAndTabularity(): void

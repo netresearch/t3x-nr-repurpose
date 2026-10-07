@@ -1,6 +1,9 @@
 # cat=basic; type=int+; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:technicalBeUserUid
 technicalBeUserUid = 0
 
+# cat=basic; type=int+; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:maxPdfPages
+maxPdfPages = 200
+
 # cat=basic; type=boolean; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:aiLabelImages
 aiLabelImages = 1
 
