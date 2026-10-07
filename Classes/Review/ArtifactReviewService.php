@@ -14,6 +14,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\PublishStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
 use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
@@ -109,21 +110,27 @@ final readonly class ArtifactReviewService
     /**
      * The social posts on the schedule or past it, oldest publishing time first, with
      * their job's source as the publishing plan shows it: without user name, password,
-     * query and fragment (SourceUrlRedactor), empty for a job without a URL.
+     * query and fragment (SourceUrlRedactor), empty for a job without a URL. With
+     * $ownerUid only the posts of the jobs that backend user created.
      *
      * @return list<array{uid: int, job: int, variant: string, script_text: string, publish_at: int, publish_status: string, published_at: int, publish_error: string, source_value: string}>
      */
-    public function planned(): array
+    public function planned(?int $ownerUid = null): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $rows         = $queryBuilder
+        $queryBuilder
             ->select('a.uid', 'a.job', 'a.variant', 'a.script_text', 'a.publish_at', 'a.publish_status', 'a.published_at', 'a.publish_error', 'j.source_value')
             ->from(self::TABLE, 'a')
             ->join('a', 'tx_nrrepurpose_domain_model_job', 'j', $queryBuilder->expr()->eq('j.uid', $queryBuilder->quoteIdentifier('a.job')))
             ->where(
                 $queryBuilder->expr()->eq('a.type', $queryBuilder->createNamedParameter(ArtifactType::SocialPost->value)),
                 $queryBuilder->expr()->neq('a.publish_status', $queryBuilder->createNamedParameter(PublishStatus::None->value)),
-            )
+            );
+        if ($ownerUid !== null) {
+            $queryBuilder->andWhere($queryBuilder->expr()->eq('j.be_user', $queryBuilder->createNamedParameter($ownerUid, Connection::PARAM_INT)));
+        }
+
+        $rows = $queryBuilder
             ->orderBy('a.publish_at')
             ->addOrderBy('a.uid')
             ->executeQuery()

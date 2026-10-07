@@ -18,6 +18,7 @@ use Netresearch\NrRepurpose\Domain\Repository\ArtifactRepository;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Review\ArtifactReviewService;
+use Netresearch\NrRepurpose\Review\JobVisibility;
 use Netresearch\NrRepurpose\Review\ReviewPermission;
 use Netresearch\NrRepurpose\Review\ReviewRefusedException;
 use Netresearch\NrRepurpose\Service\JobSubmissionService;
@@ -54,6 +55,7 @@ class JobController extends ActionController
         protected readonly SocialPublisherInterface $socialPublisher,
         protected readonly PageRenderer $pageRenderer,
         protected readonly LoggerInterface $logger,
+        protected readonly JobVisibility $jobVisibility,
     ) {}
 
     protected function initializeAction(): void
@@ -73,7 +75,9 @@ class JobController extends ActionController
         // The upper bound keeps the paginator's offset (page size × page) an integer; it clamps to
         // the last page itself.
         $currentPage = min(max(1, $currentPage), intdiv(PHP_INT_MAX, self::JOBS_PER_PAGE));
-        $paginator   = new QueryResultPaginator($this->jobRepository->findAll(), $currentPage, self::JOBS_PER_PAGE);
+        $user        = $this->backendUser();
+        $jobs        = $this->jobRepository->findVisibleTo($this->jobVisibility->ownerUid($user), $this->jobVisibility->seesAllJobs($user));
+        $paginator   = new QueryResultPaginator($jobs, $currentPage, self::JOBS_PER_PAGE);
         $jobs        = [];
         foreach ($paginator->getPaginatedItems() as $job) {
             $jobs[] = $job;
@@ -151,6 +155,16 @@ class JobController extends ActionController
 
     public function showAction(Job $job): ResponseInterface
     {
+        if (!$this->jobVisibility->maySee($this->backendUser(), $job)) {
+            $this->logger->warning('Refused showing job {job}: backend user {backendUser} did not create it and may not see all jobs', [
+                'backendUser' => $this->backendUser()?->getUserId() ?? 0,
+                'job'         => (int) $job->getUid(),
+            ]);
+            $this->addFlashMessage($this->label('job.refused.access'), '', ContextualFeedbackSeverity::ERROR);
+
+            return $this->redirect('list');
+        }
+
         $this->moduleTemplate->setTitle(
             $this->moduleTitle(),
             LocalizationUtility::translate('show.title', 'nr_repurpose', [$job->getUid()])
@@ -201,15 +215,18 @@ class JobController extends ActionController
         });
     }
 
-    /** The social posts on the schedule and their publishing state, across all jobs. */
+    /** The social posts on the schedule and their publishing state, of the jobs the user sees. */
     public function planAction(): ResponseInterface
     {
         $this->moduleTemplate->setTitle(
             $this->moduleTitle(),
             LocalizationUtility::translate('plan.title', 'nr_repurpose') ?? 'Social planning',
         );
+        $user = $this->backendUser();
         $this->moduleTemplate->assignMultiple([
-            'posts'             => $this->reviewService->planned(),
+            'posts'             => $this->reviewService->planned(
+                $this->jobVisibility->seesAllJobs($user) ? null : $this->jobVisibility->ownerUid($user),
+            ),
             'channelConfigured' => $this->socialPublisher->isConfigured(),
             'now'               => time(),
         ]);
