@@ -5,9 +5,9 @@
 
 .. _start:
 
-=============
-nr_repurpose
-=============
+=================
+Content Repurpose
+=================
 
 :Extension key:
    nr_repurpose

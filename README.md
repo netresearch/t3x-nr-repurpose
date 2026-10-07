@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
-# nr_repurpose — Content Repurpose for TYPO3
+# Content Repurpose for TYPO3
 
 [![CI](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-repurpose/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/netresearch/t3x-nr-repurpose/graph/badge.svg)](https://codecov.io/gh/netresearch/t3x-nr-repurpose)
