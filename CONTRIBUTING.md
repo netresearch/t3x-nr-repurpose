@@ -94,8 +94,9 @@ without the fix.
    them with Cosign, creates the GitHub release, and then, independently of
    each other, publishes to TER, waits until Packagist lists the version and
    checks that Intercept accepted the docs.typo3.org render (a render run
-   exists; it does not wait for the result and never gates). The release body
-   ends with a publication-status block that names the result of each.
+   exists; it does not wait for the result and never gates). A
+   publication-status block in the release body, between the installation and
+   security sections, names the result of each.
 
 The TER upload comment is the version's section in `CHANGELOG.md`, cut at
 1,900 characters, so put upgrade notes first. A filter in front of the TER
