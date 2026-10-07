@@ -45,9 +45,9 @@ HTTP timeouts
 ============
 
 The generator worker makes outbound calls to the configured AI providers
-(script, TTS, image) and fetches source URLs. TYPO3's shared Guzzle client
-defaults to ``timeout = 0`` (no read timeout), so a stalled provider response
-would hang the worker. Bound it:
+(script, TTS, image). TYPO3's shared Guzzle client defaults to
+``timeout = 0`` (no read timeout), so a stalled provider response would hang
+the worker. Bound it:
 
 .. code-block:: php
    :caption: config/system/additional.php — bound outbound HTTP
@@ -58,7 +58,9 @@ would hang the worker. Bound it:
 Since nr-llm ``0.12.0`` the specialized image/TTS calls carry their own
 per-request timeout (image default 300 s), so a long-running image generation
 is not cut off by a shorter global value; the global timeout still governs the
-chat calls and source-URL fetches.
+chat calls. Source-URL fetches and the social webhook set their own limits per
+request (30 seconds for a web page, 120 for a PDF, 15 for the webhook) and do
+not depend on this value (see :ref:`troubleshooting-source-limits`).
 
 .. _configuration-rendering:
 
