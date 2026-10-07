@@ -28,7 +28,9 @@ Upgrade notes
 -   **Installations that sign their social posts** must move the signing
     secret to nr-vault before updating: 0.10.0 no longer reads the extension
     setting ``socialWebhookSecret``, and while it still holds a value no post
-    is sent. Store the secret in nr-vault (``vendor/bin/typo3 vault:store``),
+    is sent. Store the secret in nr-vault through its backend module (on the
+    command line, ``vault:store`` works only with ``--as-provisioner`` and
+    nr-vault's ``provisioningBeUserUid`` set, or with its CLI access on),
     enter its identifier in the new setting ``socialWebhookSecretIdentifier``,
     set ``technicalBeUserUid`` to a backend user with read access to it (nr-vault
     refuses a command-line read without one unless its CLI access is switched
