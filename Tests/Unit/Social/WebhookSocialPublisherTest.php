@@ -9,7 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Social;
 
+use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Promise\Create;
+use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Psr7\HttpFactory;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
@@ -51,6 +55,11 @@ final class WebhookSocialPublisherTest extends TestCase
     private function publisher(array $settings, ResponseInterface|Throwable $answer = new Response(204), ?RemoteSourceGuard $guard = null, array $vault = []): WebhookSocialPublisher
     {
         $this->http = new QueuedHttpClient($answer);
+        // A transport failure goes through a handler that rejects the way the curl handler
+        // does; Guzzle 7's MockHandler would also hand the exception to on_headers.
+        $client = $answer instanceof Throwable
+            ? new Client(['handler' => HandlerStack::create(static fn (): PromiseInterface => Create::rejectionFor($answer))])
+            : $this->http->client;
 
         $configuration = $this->createStub(ExtensionConfiguration::class);
         $configuration->method('get')->willReturnCallback(static fn (string $extension, string $key): mixed => $settings[$key] ?? '');
@@ -77,7 +86,7 @@ final class WebhookSocialPublisherTest extends TestCase
         $this->logger = new RecordingLogger();
 
         return new WebhookSocialPublisher(
-            $this->http->client,
+            $client,
             $factory,
             $factory,
             $configuration,
