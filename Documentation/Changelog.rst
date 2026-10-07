@@ -17,6 +17,41 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-10-0:
+
+Version 0.10.0 (2026-10-07)
+===========================
+
+Upgrade notes
+-------------
+
+-   **Installations that sign their social posts** must move the signing
+    secret to nr-vault before updating: 0.10.0 no longer reads the extension
+    setting ``socialWebhookSecret``, and while it still holds a value no post
+    is sent. Store the secret in nr-vault (``vendor/bin/typo3 vault:store``),
+    enter its identifier in the new setting ``socialWebhookSecretIdentifier``,
+    give the backend user in ``technicalBeUserUid`` read access to it if one is
+    set, and clear ``socialWebhookSecret``.
+-   The ``socialWebhookUrl`` must point to a host on the public internet; a
+    host that resolves to a non-public address is refused.
+
+Security
+--------
+
+-   The social webhook is sent only to a checked public host, without
+    redirects and with a 15-second limit.
+-   The Schaubild body the text model writes is reduced to static markup
+    before it is rendered.
+
+Added
+-----
+
+-   The backend chat can start a repurpose job through the tool
+    ``start_repurpose_job`` (off by default, every call needs approval), see
+    :ref:`usage-chat-tool`.
+-   Extension setting ``chromiumSandbox`` (default off) starts Chromium with
+    its sandbox.
+
 .. _version-0-9-2:
 
 Version 0.9.2 (2026-10-07)

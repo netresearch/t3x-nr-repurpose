@@ -8,17 +8,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-07
+
+### Upgrade notes
+
+- **Installations that sign their social posts must move the signing secret to nr-vault before updating.** 0.10.0 no longer reads the extension setting `socialWebhookSecret`; while it still holds a value, no post is sent and every due post fails. Steps: 1. store the secret in nr-vault (`vendor/bin/typo3 vault:store`); 2. enter its identifier in the new extension setting `socialWebhookSecretIdentifier`; 3. give the backend user in `technicalBeUserUid` read access to that secret, if one is set; 4. clear `socialWebhookSecret`. Installations without a webhook secret need no change.
+- **The social webhook URL must point to a host on the public internet.** A `socialWebhookUrl` whose host resolves to a private, loopback or other non-public address is now refused, and the post fails.
+- 0.10.0 contains the fixes of 0.9.1.
+
 ### Security
 
 - **The social webhook is sent only to a host on the public internet.** The `socialWebhookUrl` passes the same address check as a source URL, the request connects to the checked addresses, follows no redirect and has 15 seconds to complete. A refused URL fails the post with `Webhook URL refused: only http and https to a host on the public internet are allowed`; a post that cannot be encoded as JSON fails with a fixed message instead of staying in the `publishing` state.
-- **The Schaubild body is reduced to static markup before it is rendered.** The diagram body the text model writes keeps text, block, list and table elements with `class`, `style` and a few layout attributes; scripts, style elements, links, images, media, frames, forms, SVG and event-handler attributes are removed with their content (`Classes/Generator/Support/DiagramBodySanitizer.php`, built on `typo3/html-sanitizer`, which TYPO3 core already requires and `composer.json` now names).
+- **The Schaubild body is reduced to static markup before it is rendered.** The diagram body the text model writes keeps text, block, list and table elements with `class`, `style` and a few layout attributes; scripts, style elements, links, images, media, frames, forms, SVG and event-handler attributes are removed with their content. The sanitizer is `Classes/Generator/Support/DiagramBodySanitizer.php`, built on `typo3/html-sanitizer`, which TYPO3 core already requires and `composer.json` now names.
 
 ### Changed
 
-- **The webhook signing secret is read from nr-vault (breaking for installations that sign their posts).** The new extension setting `socialWebhookSecretIdentifier` names the nr-vault secret the body is signed with; `nr_repurpose:publish-due` reads it as the backend user in `technicalBeUserUid` when one is set. The setting `socialWebhookSecret`, which held the secret itself in the system configuration, is no longer read: while it still holds a value no post is sent and each due post fails with `socialWebhookSecret is no longer read: …`, so a receiver that checks the signature never gets unsigned posts. To migrate, store the secret in nr-vault (`vendor/bin/typo3 vault:store`), enter its identifier in `socialWebhookSecretIdentifier`, give the technical backend user read access, and clear `socialWebhookSecret`.
+- **The webhook signing secret is read from nr-vault (breaking for installations that sign their posts).** The new extension setting `socialWebhookSecretIdentifier` names the nr-vault secret the body is signed with; `nr_repurpose:publish-due` reads it as the backend user in `technicalBeUserUid` when one is set. The setting `socialWebhookSecret`, which held the secret itself in the system configuration, is no longer read: while it still holds a value no post is sent and each due post fails with `socialWebhookSecret is no longer read: …`, so a receiver that checks the signature never gets unsigned posts. The upgrade notes above list the migration steps.
+- **TYPO3 and TER show the extension as "Content Repurpose".** The composer.json `description` now starts with the title that `ext_emconf.php` already carries; the text after the title is unchanged.
 
 ### Added
 
+- **A repurpose job can be started from the backend chat.** With nr-llm's tool runtime, the nr_mcp_agent chat offers the tool `start_repurpose_job` in the tool group `nr_repurpose`. It is off by default, because a job spends provider money: an administrator switches it on in the nr-llm *Tools* module and permits the group in the chat configuration. Every call waits for the user's approval; the user needs access to the Repurpose module and owns the job, as for a job created in the module.
 - **Extension setting `chromiumSandbox`** (default off): with it on, the renderer starts Chromium with its sandbox. The sandbox needs unprivileged user namespaces or Chromium's setuid helper on the worker host; in a container with Docker's default seccomp profile, or as root, Chromium does not start and every render fails, which is why it is off by default. `render.cjs` takes the new flag `--sandbox`.
 - **`docs/SECURITY-ASSURANCE.md`** states what users can and cannot expect in terms of security, the threat model, trust boundaries, the design principles applied and how common weaknesses are countered, each tied to the file that implements it. README and CONTRIBUTING link it.
 - **SPDX notices in the source files.** The configuration, script, SQL, XLIFF, Fluid, Markdown and RST files carry `SPDX-License-Identifier` and `SPDX-FileCopyrightText`; the PHP classes already carried `SPDX-License-Identifier` next to their copyright line; the RST manual is `CC-BY-4.0`, the workflow and labeler files synced from the organisation's typo3-extension template `MIT`, everything else `GPL-2.0-or-later`.
@@ -467,7 +477,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.2...v0.9.0
