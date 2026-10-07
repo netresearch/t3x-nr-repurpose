@@ -16,7 +16,9 @@ use Psr\Http\Message\StreamInterface;
  * A request RemoteSourceGuard allowed, together with the addresses its host resolved
  * to when the guard checked it. BoundedResponseReader::send() connects to exactly
  * these addresses, so the transfer reaches the host the guard judged and the HTTP
- * client never asks DNS again.
+ * client never asks DNS again. With an HTTP proxy configured
+ * ($GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']) curl connects to the proxy, and the
+ * proxy resolves the name itself; restricting its targets is then the proxy's task.
  */
 final readonly class GuardedRequest
 {

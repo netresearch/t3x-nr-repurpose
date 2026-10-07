@@ -87,11 +87,6 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
         self::assertStringEndsWith('.pdf', $out);
     }
 
-    /**
-     * Symfony Process forwards only getenv() keys that are also in $_SERVER, so a putenv()
-     * in this process never reaches render.cjs and Playwright falls back to its own browser.
-     * The configured path has to travel in the process environment passed to the runner.
-     */
     public function testChromiumRunsWithItsSandboxWhenTheSettingIsOn(): void
     {
         $runner = new RecordingProcessRunner();
@@ -129,6 +124,11 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
         return new PlaywrightHtmlToImageRenderer($runner, $this->logger, self::NODE, self::SCRIPT, self::OUT_DIR, self::CHROMIUM, extensionConfiguration: $configuration);
     }
 
+    /**
+     * Symfony Process forwards only getenv() keys that are also in $_SERVER, so a putenv()
+     * in this process never reaches render.cjs and Playwright falls back to its own browser.
+     * The configured path has to travel in the process environment passed to the runner.
+     */
     public function testChromiumPathIsPassedInTheProcessEnvironment(): void
     {
         $runner = new RecordingProcessRunner();
