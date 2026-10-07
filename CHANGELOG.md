@@ -10,9 +10,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
-- **A remote source is fetched from the addresses its host was checked with.** The worker resolves the host of a `url` or `pdf_url` source once, checks every address, and the transfer then connects to exactly those addresses (curl `CURLOPT_RESOLVE`); the request keeps the host name, so the `Host` header, TLS SNI and certificate verification are unchanged. With an HTTP proxy configured in `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']` the proxy resolves the name instead. Fetching therefore needs the PHP extension `curl`, which `composer.json` now requires; without it the fetch fails with `Fetching a remote source needs the PHP extension curl`.
-- **The module shows a user the jobs they created.** The job list, the result view and the social planning showed every job to every user with access to the module. Administrators and users whose backend group grants *Approve artifacts* still see every job, since approving and scheduling the posts of all editors is their task; any other user sees only the jobs they created, and opening the result view of another user's job returns to the list with an error message. Jobs created without a backend user (`be_user` 0) are visible to administrators and reviewers only.
-- **A PDF source and the analysis have an upper bound.** A PDF with more pages than the new extension setting `maxPdfPages` (default 200) fails before any page is read with Vision OCR or the layout reader. The analysis fails before its first completion call when the source text splits into more than 100 sections of about 12,000 characters. Both failures name the limit in the job's error.
 - **The social webhook is sent only to a host on the public internet.** The `socialWebhookUrl` passes the same address check as a source URL, the request connects to the checked addresses, follows no redirect and has 15 seconds to complete. A refused URL fails the post with `Webhook URL refused: only http and https to a host on the public internet are allowed`; a post that cannot be encoded as JSON fails with a fixed message instead of staying in the `publishing` state.
 - **The Schaubild body is reduced to static markup before it is rendered.** The diagram body the text model writes keeps text, block, list and table elements with `class`, `style` and a few layout attributes; scripts, style elements, links, images, media, frames, forms, SVG and event-handler attributes are removed with their content (`Classes/Generator/Support/DiagramBodySanitizer.php`, built on `typo3/html-sanitizer`, which TYPO3 core already requires and `composer.json` now names).
 
@@ -26,6 +23,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`docs/SECURITY-ASSURANCE.md`** states what users can and cannot expect in terms of security, the threat model, trust boundaries, the design principles applied and how common weaknesses are countered, each tied to the file that implements it. README and CONTRIBUTING link it.
 - **SPDX notices in the source files.** The configuration, script, SQL, XLIFF, Fluid, Markdown and RST files carry `SPDX-License-Identifier` and `SPDX-FileCopyrightText`; the PHP classes already carried `SPDX-License-Identifier` next to their copyright line; the RST manual is `CC-BY-4.0`, the workflow and labeler files synced from the organisation's typo3-extension template `MIT`, everything else `GPL-2.0-or-later`.
 - **CONTRIBUTING links the organisation's governance, roadmap, finding-handling and secret-management policies and the access roster**, and names the checks every pull request runs.
+
+## [0.9.2] - 2026-10-07
+
+0.9.2 contains the same code as 0.9.1 and publishes its fixes to TER, where 0.9.1 could not be uploaded.
+
+### Security
+
+- **A remote source is fetched from the addresses its host was checked with.** The worker resolves the host of a `url` or `pdf_url` source once, checks every address, and the transfer then connects to exactly those addresses; the request keeps the host name, so the `Host` header, TLS SNI and certificate verification are unchanged. With an HTTP proxy configured in TYPO3, the proxy resolves the name instead. Fetching needs the PHP extension `curl`, which `composer.json` requires.
+- **The module shows a user the jobs they created.** Administrators and users whose backend group grants *Approve artifacts* still see every job; any other user sees only the jobs they created, and opening the result view of another user's job returns to the list with an error message. Jobs that were created without a backend user are visible to administrators and reviewers only.
+- **A PDF source and the analysis have an upper bound.** A PDF with more pages than the extension setting `maxPdfPages` (default 200) fails right after parsing, before any page's text is read. The analysis fails before its first completion call when the source text splits into more than 100 sections of about 12,000 characters. Both failures name the limit in the job's error.
+
+## [0.9.1] - 2026-10-07
+
+### Security
+
+- **A remote source is fetched from the addresses its host was checked with.** The worker resolves the host of a `url` or `pdf_url` source once, checks every address, and the transfer then connects to exactly those addresses (curl `CURLOPT_RESOLVE`); the request keeps the host name, so the `Host` header, TLS SNI and certificate verification are unchanged. With an HTTP proxy configured in `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']` the proxy resolves the name instead. Fetching therefore needs the PHP extension `curl`, which `composer.json` now requires; without it the fetch fails with `Fetching a remote source needs the PHP extension curl`.
+- **The module shows a user the jobs they created.** The job list, the result view and the social planning showed every job to every user with access to the module. Administrators and users whose backend group grants *Approve artifacts* still see every job, since approving and scheduling the posts of all editors is their task; any other user sees only the jobs they created, and opening the result view of another user's job returns to the list with an error message. Jobs created without a backend user (`be_user` 0) are visible to administrators and reviewers only.
+- **A PDF source and the analysis have an upper bound.** A PDF with more pages than the new extension setting `maxPdfPages` (default 200) fails right after parsing, before any page's text is read or a page goes to Vision OCR or the layout reader. The analysis fails before its first completion call when the source text splits into more than 100 sections of about 12,000 characters. Both failures name the limit in the job's error.
 
 ## [0.9.0] - 2026-09-30
 
@@ -452,7 +467,9 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.0...v0.8.1
