@@ -9,7 +9,7 @@
 AI labelling and publishing
 ===========================
 
-Four extension settings control the visible AI labels and the webhook
+Five extension settings control the visible AI labels and the webhook
 that publishes approved social posts.
 
 .. _configuration-ai-label:
