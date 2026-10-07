@@ -8,9 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-07
+
+### Upgrade notes
+
+- Installations need no change. Code that subclasses a generator or `DocumentAnalyzer`, or calls `ConfiguredCompletionService` directly, has to follow the interface change described under Changed.
+
 ### Changed
 
 - **nr-llm 0.39 is supported, next to 0.38 (breaking for code that subclasses a generator or `DocumentAnalyzer`, or calls `ConfiguredCompletionService` directly).** nr-llm 0.39 returns a `StructuredCompletionResponse` from `completeStructured()` instead of the decoded array (nr-llm ADR-211). Under 0.39, 0.10.0 stops at class load: `ConfiguredCompletionService` implemented nr-llm's `CompletionServiceInterface` with the 0.38 return types, and no class can declare that method for both versions. The extension now has its own `TextCompletionInterface` (`completeJson()`, `completeStructured()`, `completeMarkdown()`), which `ConfiguredCompletionService` implements while calling nr-llm's interface; it returns the decoded answer of a structured completion on both versions. The generators and `DocumentAnalyzer` take `TextCompletionInterface` in their constructors instead of nr-llm's interface, and `ConfiguredCompletionService` drops the nine methods only nr-llm's interface required. Code that subclasses a generator or `DocumentAnalyzer` and passes nr-llm's completion service to its constructor has to pass a `TextCompletionInterface` instead; code that calls `complete()`, `completeFactual()`, `completeCreative()` or a `*ForConfiguration()` method on `ConfiguredCompletionService` has to call nr-llm's `CompletionServiceInterface` instead. The composer constraint is `^0.35 || ^0.36 || ^0.37 || ^0.38 || ^0.39`; `ext_emconf.php` allows `0.35.0-0.39.99`.
+- **TER, TYPO3 and docs.typo3.org show one title, "Content Repurpose", and one description.** The `ext_emconf.php` title, the `composer.json` description, the manual's title and the `guides.xml` project title carry the same name; the description no longer ends in "by Netresearch".
 
 ## [0.10.0] - 2026-10-07
 
@@ -481,7 +488,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.0...v0.9.1
