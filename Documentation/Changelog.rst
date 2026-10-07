@@ -25,16 +25,18 @@ Version 0.10.0 (2026-10-07)
 Upgrade notes
 -------------
 
--   **Installations that sign their social posts** must move the signing
-    secret to nr-vault before updating: 0.10.0 no longer reads the extension
-    setting ``socialWebhookSecret``, and while it still holds a value no post
-    is sent. Store the secret in nr-vault through its backend module (on the
-    command line, ``vault:store`` works only with ``--as-provisioner`` and
-    nr-vault's ``provisioningBeUserUid`` set, or with its CLI access on),
-    enter its identifier in the new setting ``socialWebhookSecretIdentifier``,
-    set ``technicalBeUserUid`` to a backend user with read access to it (nr-vault
-    refuses a command-line read without one unless its CLI access is switched
-    on), and clear ``socialWebhookSecret``.
+-   **Installations that sign their social posts** move the signing secret
+    to nr-vault: 0.10.0 no longer reads the extension setting
+    ``socialWebhookSecret``, and while it still holds a value no post is sent.
+    Before updating, store the secret in nr-vault through its backend module
+    (on the command line, ``vault:store`` works only with ``--as-provisioner``
+    and nr-vault's ``provisioningBeUserUid`` set, or with its CLI access on),
+    and make sure ``nr_repurpose:publish-due`` can read it: with
+    ``technicalBeUserUid`` set it reads as that backend user, who needs read
+    access to the secret; with ``technicalBeUserUid`` at 0 it reads as the
+    ``_cli_`` administrator under ``scheduler:run`` and needs nr-vault's CLI
+    access when started from cron. After updating, enter the identifier in the new setting
+    ``socialWebhookSecretIdentifier`` and then clear ``socialWebhookSecret``.
 -   The ``socialWebhookUrl`` must point to a host on the public internet; a
     host that resolves to a non-public address is refused.
 
