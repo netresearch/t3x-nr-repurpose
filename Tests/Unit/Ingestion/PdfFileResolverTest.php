@@ -83,6 +83,8 @@ final class PdfFileResolverTest extends TestCase
         self::assertFalse($options[RequestOptions::ALLOW_REDIRECTS]);
         self::assertFalse($options[RequestOptions::DECODE_CONTENT]);
         self::assertIsCallable($options[RequestOptions::PROGRESS]);
+        // Connected to the address the guard checked (StaticHostResolver::publicGuard()'s).
+        self::assertSame([CURLOPT_RESOLVE => ['example.com:443:93.184.215.14']], $options[RequestOptions::CURL] ?? null);
     }
 
     public function testRefusesAPdfLargerThanTheLimit(): void

@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **A remote source is fetched from the addresses its host was checked with.** The worker resolves the host of a `url` or `pdf_url` source once, checks every address, and the transfer then connects to exactly those addresses (curl `CURLOPT_RESOLVE`); the request keeps the host name, so the `Host` header, TLS SNI and certificate verification are unchanged. Fetching therefore needs the PHP extension `curl`, which `composer.json` now requires; without it the fetch fails with `Fetching a remote source needs the PHP extension curl`.
+
 ### Added
 
 - **`docs/SECURITY-ASSURANCE.md`** states what users can and cannot expect in terms of security, the threat model, trust boundaries, the design principles applied and how common weaknesses are countered, each tied to the file that implements it. README and CONTRIBUTING link it.

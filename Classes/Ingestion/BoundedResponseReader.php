@@ -18,7 +18,6 @@ use GuzzleHttp\Exception\TransferException;
 use GuzzleHttp\Psr7\Exception\TimeoutException as Psr7TimeoutException;
 use GuzzleHttp\Psr7\InflateStream;
 use GuzzleHttp\RequestOptions;
-use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 use Throwable;
@@ -33,14 +32,12 @@ use Throwable;
  * redirects. PSR-18 sendRequest() cannot take per-request options, so the
  * fetchers go through send() here with limits of their own.
  *
- * The transfer is not streamed, so Guzzle picks its curl handler when ext-curl
- * is loaded. There `timeout` is one limit for the whole transfer, headers
- * included, `connect_timeout` applies, and curl refuses response headers above
- * its size cap. The progress callback stops the download above the size limit
- * or after the timeout on every handler. Without ext-curl Guzzle falls back to
- * its stream handler, which bounds the body the same way but applies `timeout`
- * to each read only and has no header size cap: there a server that sends its
- * headers slowly or endlessly can still hold the worker or exhaust memory_limit.
+ * The transfer is not streamed, so Guzzle picks its curl handler, which send()
+ * requires: curl connects to the addresses RemoteSourceGuard checked
+ * (CURLOPT_RESOLVE, see GuardedRequest), `timeout` is one limit for the whole
+ * transfer, headers included, `connect_timeout` applies, and curl refuses
+ * response headers above its size cap. The progress callback stops the download
+ * above the size limit or after the timeout.
  */
 final class BoundedResponseReader
 {
@@ -96,17 +93,26 @@ final class BoundedResponseReader
     }
 
     /**
-     * send() with requestOptions(). A limit the handler hit surfaces as the
-     * IngestionException that names it; every other transport error reaches the
-     * caller unchanged.
+     * send() with requestOptions(), connecting to the addresses the guard checked. A
+     * limit the handler hit surfaces as the IngestionException that names it; every
+     * other transport error reaches the caller unchanged.
      *
-     * @throws IngestionException when the source is too large or too slow
+     * @throws IngestionException when curl is missing, or the source is too large or too slow
      * @throws GuzzleException    when the source cannot be reached
      */
-    public static function send(ClientInterface $client, RequestInterface $request, int $maxBytes, float $timeoutSeconds, string $url): ResponseInterface
+    public static function send(ClientInterface $client, GuardedRequest $request, int $maxBytes, float $timeoutSeconds, string $url): ResponseInterface
     {
+        // Only the curl handler can be told which address to connect to; Guzzle's stream
+        // handler would look the name up again.
+        if (!self::curlAvailable()) {
+            throw new IngestionException('Fetching a remote source needs the PHP extension curl', 1749379469);
+        }
+
+        $options                       = self::requestOptions($maxBytes, $timeoutSeconds, $url);
+        $options[RequestOptions::CURL] = $request->curlOptions();
+
         try {
-            return $client->send($request, self::requestOptions($maxBytes, $timeoutSeconds, $url));
+            return $client->send($request->request, $options);
         } catch (TransferException $e) {
             // Every handler wraps an exception thrown by on_headers; progress is wrapped
             // by stream and mock on Guzzle 7 and by all handlers on Guzzle 8. An expired
@@ -188,6 +194,12 @@ final class BoundedResponseReader
         }
 
         return $buffer;
+    }
+
+    /** Whether Guzzle can choose its curl handler (the functions its choice depends on). */
+    private static function curlAvailable(): bool
+    {
+        return function_exists('curl_exec') && function_exists('curl_multi_exec');
     }
 
     private static function declaresMoreThan(ResponseInterface $response, int $maxBytes): bool
