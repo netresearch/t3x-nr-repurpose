@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-07
+
+### Security
+
+- **A remote source is fetched from the addresses its host was checked with.** The worker resolves the host of a `url` or `pdf_url` source once, checks every address, and the transfer then connects to exactly those addresses (curl `CURLOPT_RESOLVE`); the request keeps the host name, so the `Host` header, TLS SNI and certificate verification are unchanged. With an HTTP proxy configured in `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']` the proxy resolves the name instead. Fetching therefore needs the PHP extension `curl`, which `composer.json` now requires; without it the fetch fails with `Fetching a remote source needs the PHP extension curl`.
+- **The module shows a user the jobs they created.** The job list, the result view and the social planning showed every job to every user with access to the module. Administrators and users whose backend group grants *Approve artifacts* still see every job, since approving and scheduling the posts of all editors is their task; any other user sees only the jobs they created, and opening the result view of another user's job returns to the list with an error message. Jobs created without a backend user (`be_user` 0) are visible to administrators and reviewers only.
+- **A PDF source and the analysis have an upper bound.** A PDF with more pages than the new extension setting `maxPdfPages` (default 200) fails right after parsing, before any page's text is read or a page goes to Vision OCR or the layout reader. The analysis fails before its first completion call when the source text splits into more than 100 sections of about 12,000 characters. Both failures name the limit in the job's error.
+
 ## [0.9.0] - 2026-09-30
 
 ### Added
@@ -431,7 +439,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.8.0...v0.8.1

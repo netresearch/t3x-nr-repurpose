@@ -14,6 +14,24 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-9-1:
+
+Version 0.9.1 (2026-10-07)
+==========================
+
+Security
+--------
+
+-   A ``url`` or ``pdf_url`` source is fetched from exactly the addresses its
+    host was checked with; the PHP extension ``curl`` is now required for
+    fetching. With an HTTP proxy configured, the proxy resolves the name.
+-   The backend module shows a user the jobs they created. Administrators and
+    users who may approve artifacts see every job.
+-   A PDF with more pages than the new extension setting ``maxPdfPages``
+    (default 200) is refused before its pages are read, and the analysis
+    refuses a source text of more than 100 sections before the first
+    completion call.
+
 .. _version-0-9-0:
 
 Version 0.9.0 (2026-09-30)
