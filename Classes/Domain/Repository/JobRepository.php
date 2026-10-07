@@ -13,6 +13,7 @@ use Netresearch\NrRepurpose\Domain\Model\Job;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Persistence\Generic\Typo3QuerySettings;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 use TYPO3\CMS\Extbase\Persistence\Repository;
 
 /**
@@ -32,5 +33,20 @@ class JobRepository extends Repository
         $querySettings = GeneralUtility::makeInstance(Typo3QuerySettings::class);
         $querySettings->setRespectStoragePage(false);
         $this->setDefaultQuerySettings($querySettings);
+    }
+
+    /**
+     * Every job when $all is true, otherwise the jobs the backend user $ownerUid created.
+     *
+     * @return QueryResultInterface<int, Job>
+     */
+    public function findVisibleTo(int $ownerUid, bool $all): QueryResultInterface
+    {
+        $query = $this->createQuery();
+        if (!$all) {
+            $query->matching($query->equals('beUser', $ownerUid));
+        }
+
+        return $query->execute();
     }
 }

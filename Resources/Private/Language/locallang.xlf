@@ -116,6 +116,7 @@
       <trans-unit id="review.action.reject"><source>Reject</source></trans-unit>
       <trans-unit id="review.done.approved"><source>The artifact is approved.</source></trans-unit>
       <trans-unit id="review.done.rejected"><source>The artifact is rejected.</source></trans-unit>
+      <trans-unit id="job.refused.access"><source>This job is not available to you: you see the jobs you created; administrators and users who may approve artifacts see all jobs.</source></trans-unit>
       <trans-unit id="review.refused.permission"><source>You may not approve artifacts. An administrator grants "Approve artifacts" in the backend group.</source></trans-unit>
       <trans-unit id="review.refused.notDone"><source>Only a finished artifact can be reviewed.</source></trans-unit>
       <trans-unit id="review.refused.published"><source>The post is published or being published; its review can no longer change.</source></trans-unit>
