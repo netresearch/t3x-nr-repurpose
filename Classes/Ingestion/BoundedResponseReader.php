@@ -97,10 +97,15 @@ final class BoundedResponseReader
      * limit the handler hit surfaces as the IngestionException that names it; every
      * other transport error reaches the caller unchanged.
      *
+     * $extraOptions are further Guzzle request options, applied last (the webhook passes a
+     * sink that discards the answer body).
+     *
+     * @param array<string, mixed> $extraOptions
+     *
      * @throws IngestionException when curl is missing, or the source is too large or too slow
      * @throws GuzzleException    when the source cannot be reached
      */
-    public static function send(ClientInterface $client, GuardedRequest $request, int $maxBytes, float $timeoutSeconds, string $url): ResponseInterface
+    public static function send(ClientInterface $client, GuardedRequest $request, int $maxBytes, float $timeoutSeconds, string $url, array $extraOptions = []): ResponseInterface
     {
         // Only the curl handler can be told which address to connect to; Guzzle's stream
         // handler would look the name up again.
@@ -114,7 +119,7 @@ final class BoundedResponseReader
         $options['curl'] = $request->curlOptions();
 
         try {
-            return $client->send($request->request, $options);
+            return $client->send($request->request, array_replace($options, $extraOptions));
         } catch (TransferException $e) {
             // Every handler wraps an exception thrown by on_headers; progress is wrapped
             // by stream and mock on Guzzle 7 and by all handlers on Guzzle 8. An expired

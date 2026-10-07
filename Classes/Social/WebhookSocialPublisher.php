@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Social;
 
 use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Psr7\FnStream;
+use GuzzleHttp\Psr7\Utils;
+use GuzzleHttp\RequestOptions;
 use JsonException;
 use Netresearch\NrRepurpose\Ingestion\BoundedResponseReader;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
@@ -32,7 +35,9 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  *
  * The URL passes the same check as a source URL (RemoteSourceGuard: http or https,
  * a host whose every address is public), the request connects to the checked
- * addresses, follows no redirect and is limited in time (BoundedResponseReader).
+ * addresses, follows no redirect and is limited in time (BoundedResponseReader). Only
+ * the answer's status is used: its body is discarded as it arrives, whatever its size,
+ * so a large answer neither fills the memory nor turns an accepted post into a failure.
  * Every refusal is a SocialPublishException with a fixed text: the reason is stored
  * and shown in the module, and a webhook URL can carry a token.
  */
@@ -42,9 +47,6 @@ final readonly class WebhookSocialPublisher implements SocialPublisherInterface
 
     /** Total seconds for connecting, sending the post and receiving the answer. */
     public const TIMEOUT_SECONDS = 15.0;
-
-    /** Largest answer accepted; only its status is used. */
-    private const MAX_ANSWER_BYTES = 64 * 1024;
 
     public function __construct(
         private ClientInterface $httpClient,
@@ -104,7 +106,14 @@ final readonly class WebhookSocialPublisher implements SocialPublisherInterface
         }
 
         try {
-            $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_ANSWER_BYTES, self::TIMEOUT_SECONDS, $url);
+            $response = BoundedResponseReader::send(
+                $this->httpClient,
+                $request,
+                PHP_INT_MAX,
+                self::TIMEOUT_SECONDS,
+                $url,
+                [RequestOptions::SINK => FnStream::decorate(Utils::streamFor(''), ['write' => strlen(...)])],
+            );
         } catch (Throwable $e) {
             // The client's and the reader's messages name the request URI, and a webhook URL
             // can carry a token; the refusal reason is stored and shown in the module.

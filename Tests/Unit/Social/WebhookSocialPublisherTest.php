@@ -284,6 +284,20 @@ final class WebhookSocialPublisherTest extends TestCase
         self::assertSame([CURLOPT_RESOLVE => ['hooks.example.com:443:93.184.215.14']], $options['curl'] ?? null);
     }
 
+    /** Only the status counts: an accepted post with a large answer is published, not failed. */
+    public function testALargeAnswerToAnAcceptedPostIsIgnored(): void
+    {
+        $answer = str_repeat('x', 5 * 1024 * 1024);
+
+        $this->publisher(
+            ['socialWebhookUrl' => 'https://hooks.example.com/social'],
+            new Response(200, ['Content-Length' => (string) strlen($answer)], $answer),
+        )->publish($this->post());
+
+        self::assertSame(0, $this->http->unconsumed());
+        self::assertSame([], $this->logger->records);
+    }
+
     public function testARedirectIsNotFollowedAndCountsAsARefusal(): void
     {
         $this->expectException(SocialPublishException::class);
