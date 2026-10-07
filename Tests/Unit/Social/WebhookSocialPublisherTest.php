@@ -17,10 +17,14 @@ use GuzzleHttp\RequestOptions;
 use Netresearch\NrRepurpose\Ingestion\RemoteSourceGuard;
 use Netresearch\NrRepurpose\Social\SocialPost;
 use Netresearch\NrRepurpose\Social\SocialPublishException;
+use Netresearch\NrRepurpose\Social\WebhookSecretResolver;
 use Netresearch\NrRepurpose\Social\WebhookSocialPublisher;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
+use Netresearch\NrVault\Exception\AccessDeniedException;
+use Netresearch\NrVault\Security\TechnicalActorContextInterface;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -37,19 +41,50 @@ final class WebhookSocialPublisherTest extends TestCase
 
     private RecordingLogger $logger;
 
-    /** @param array<string, string> $settings */
-    private function publisher(array $settings, ResponseInterface|Throwable $answer = new Response(204), ?RemoteSourceGuard $guard = null): WebhookSocialPublisher
+    /** @var list<int> backend user uids the vault read ran as */
+    private array $actors = [];
+
+    /**
+     * @param array<string, string>                 $settings
+     * @param array<string, string|Throwable|null> $vault    identifier => secret, or what retrieve() throws
+     */
+    private function publisher(array $settings, ResponseInterface|Throwable $answer = new Response(204), ?RemoteSourceGuard $guard = null, array $vault = []): WebhookSocialPublisher
     {
         $this->http = new QueuedHttpClient($answer);
 
         $configuration = $this->createStub(ExtensionConfiguration::class);
         $configuration->method('get')->willReturnCallback(static fn (string $extension, string $key): mixed => $settings[$key] ?? '');
 
+        $vaultService = $this->createStub(VaultServiceInterface::class);
+        $vaultService->method('retrieve')->willReturnCallback(static function (string $identifier) use ($vault): ?string {
+            $secret = $vault[$identifier] ?? null;
+            if ($secret instanceof Throwable) {
+                throw $secret;
+            }
+
+            return $secret;
+        });
+
+        $technicalActor = $this->createStub(TechnicalActorContextInterface::class);
+        $technicalActor->method('runAs')->willReturnCallback(function (int $uid, callable $fn): mixed {
+            $this->actors[] = $uid;
+
+            return $fn();
+        });
+
         $factory = new HttpFactory();
 
         $this->logger = new RecordingLogger();
 
-        return new WebhookSocialPublisher($this->http->client, $factory, $factory, $configuration, $this->logger, $guard ?? StaticHostResolver::publicGuard());
+        return new WebhookSocialPublisher(
+            $this->http->client,
+            $factory,
+            $factory,
+            $configuration,
+            $this->logger,
+            $guard ?? StaticHostResolver::publicGuard(),
+            new WebhookSecretResolver($vaultService, $technicalActor, $configuration, $this->logger),
+        );
     }
 
     private function sentRequest(): RequestInterface
@@ -68,7 +103,10 @@ final class WebhookSocialPublisherTest extends TestCase
 
     public function testThePostIsSentAsSignedJson(): void
     {
-        $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/social', 'socialWebhookSecret' => 's3cret'])->publish($this->post());
+        $this->publisher(
+            ['socialWebhookUrl' => 'https://hooks.example.com/social', 'socialWebhookSecretIdentifier' => 'nr_repurpose_webhook'],
+            vault: ['nr_repurpose_webhook' => 's3cret'],
+        )->publish($this->post());
 
         $request = $this->sentRequest();
         $body    = (string) $request->getBody();
@@ -86,6 +124,68 @@ final class WebhookSocialPublisherTest extends TestCase
             'aiGenerated' => true,
             'aiLabel'     => ['aiGenerated' => true],
         ], json_decode($body, true));
+    }
+
+    public function testTheSecretIsReadAsTheTechnicalBackendUser(): void
+    {
+        $this->publisher(
+            ['socialWebhookUrl' => 'https://hooks.example.com/social', 'socialWebhookSecretIdentifier' => 'nr_repurpose_webhook', 'technicalBeUserUid' => '9'],
+            vault: ['nr_repurpose_webhook' => 's3cret'],
+        )->publish($this->post());
+
+        self::assertSame([9], $this->actors);
+        $request = $this->sentRequest();
+        self::assertSame('sha256=' . hash_hmac('sha256', (string) $request->getBody(), 's3cret'), $request->getHeaderLine(WebhookSocialPublisher::SIGNATURE_HEADER));
+    }
+
+    public function testWithoutATechnicalBackendUserTheSecretIsReadDirectly(): void
+    {
+        $this->publisher(
+            ['socialWebhookUrl' => 'https://hooks.example.com/social', 'socialWebhookSecretIdentifier' => 'nr_repurpose_webhook'],
+            vault: ['nr_repurpose_webhook' => 's3cret'],
+        )->publish($this->post());
+
+        self::assertSame([], $this->actors);
+        self::assertTrue($this->sentRequest()->hasHeader(WebhookSocialPublisher::SIGNATURE_HEADER));
+    }
+
+    /** @return iterable<string, array{string|Throwable|null, int, string}> */
+    public static function unreadableSecrets(): iterable
+    {
+        yield 'access denied' => [new AccessDeniedException('Access denied to secret "nr_repurpose_webhook": insufficient permissions'), 1790410007, 'The webhook signing secret could not be read from nr-vault'];
+        yield 'not found'     => [null, 1790410008, 'The webhook signing secret was not found in nr-vault'];
+        yield 'empty'         => ['', 1790410008, 'The webhook signing secret was not found in nr-vault'];
+    }
+
+    #[DataProvider('unreadableSecrets')]
+    public function testAnUnreadableSecretIsARefusalWithoutSending(string|Throwable|null $secret, int $code, string $message): void
+    {
+        try {
+            $this->publisher(
+                ['socialWebhookUrl' => 'https://hooks.example.com/social', 'socialWebhookSecretIdentifier' => 'nr_repurpose_webhook'],
+                vault: ['nr_repurpose_webhook' => $secret],
+            )->publish($this->post());
+            self::fail('Expected a refusal');
+        } catch (SocialPublishException $e) {
+            self::assertSame($code, $e->getCode());
+            self::assertSame($message, $e->getMessage());
+        }
+
+        self::assertSame(1, $this->http->unconsumed());
+    }
+
+    /** The secret no longer lives in the system configuration; a value left there stops publishing. */
+    public function testASecretLeftInTheExtensionConfigurationStopsPublishing(): void
+    {
+        try {
+            $this->publisher(['socialWebhookUrl' => 'https://hooks.example.com/social', 'socialWebhookSecret' => 's3cret'])->publish($this->post());
+            self::fail('Expected a refusal');
+        } catch (SocialPublishException $e) {
+            self::assertSame(1790410006, $e->getCode());
+            self::assertStringNotContainsString('s3cret', $e->getMessage());
+        }
+
+        self::assertSame(1, $this->http->unconsumed());
     }
 
     public function testWithoutASecretNoSignatureIsSent(): void

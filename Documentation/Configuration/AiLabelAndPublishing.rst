@@ -50,7 +50,7 @@ Publishing social posts
 =======================
 
 Approved, scheduled social posts leave through a webhook (see :ref:`adr-007`).
-Two extension settings:
+Three extension settings:
 
 ``socialWebhookUrl`` (default: empty)
     The ``http`` or ``https`` URL that receives each due post by POST as JSON:
@@ -69,10 +69,26 @@ Two extension settings:
     with its status) and has 15 seconds to complete, after which the post fails
     with ``Webhook not reachable``.
 
-``socialWebhookSecret`` (default: empty)
-    With a secret, each request carries
+``socialWebhookSecretIdentifier`` (default: empty)
+    The nr-vault identifier of the signing secret. With an identifier, each
+    request carries
     ``X-Nr-Repurpose-Signature: sha256=<hex HMAC-SHA256 of the body>``, so the
-    receiver can check that it comes from this installation.
+    receiver can check that it comes from this installation. Store the secret
+    in nr-vault (its backend module, or ``vendor/bin/typo3 vault:store``) and
+    enter the identifier here. ``nr_repurpose:publish-due`` runs on the
+    command line, where nr-vault refuses every read without an actor: set
+    :confval:`technicalBeUserUid <technicalbeuseruid>` to a backend user with
+    read access to the secret. A secret that cannot be read fails the post
+    with ``The webhook signing secret could not be read from nr-vault`` (the
+    reason is in the TYPO3 log); an unknown identifier with ``The webhook
+    signing secret was not found in nr-vault``.
+
+``socialWebhookSecret`` (no longer used, leave empty)
+    Held the signing secret itself in the system configuration. While it
+    holds a value, no post is sent; the post fails with
+    ``socialWebhookSecret is no longer read: …``. Move the secret into
+    nr-vault, enter its identifier in ``socialWebhookSecretIdentifier`` and
+    clear this field.
 
 The command ``nr_repurpose:publish-due`` sends the posts whose time has come.
 Add it as a task in the scheduler (it is schedulable) or run it from cron every

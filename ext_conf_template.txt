@@ -16,5 +16,8 @@ aiLabelTexts = 0
 # cat=social; type=string; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:socialWebhookUrl
 socialWebhookUrl =
 
+# cat=social; type=string; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:socialWebhookSecretIdentifier
+socialWebhookSecretIdentifier =
+
 # cat=social; type=string; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:socialWebhookSecret
 socialWebhookSecret =

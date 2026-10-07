@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The social webhook is sent only to a host on the public internet.** The `socialWebhookUrl` passes the same address check as a source URL, the request connects to the checked addresses, follows no redirect and has 15 seconds to complete. A refused URL fails the post with `Webhook URL refused: only http and https to a host on the public internet are allowed`; a post that cannot be encoded as JSON fails with a fixed message instead of staying in the `publishing` state.
 - **The Schaubild body is reduced to static markup before it is rendered.** The diagram body the text model writes keeps text, block, list and table elements with `class`, `style` and a few layout attributes; scripts, style elements, links, images, media, frames, forms, SVG and event-handler attributes are removed with their content (`Classes/Generator/Support/DiagramBodySanitizer.php`, built on `typo3/html-sanitizer`, which TYPO3 core already requires and `composer.json` now names).
 
+### Changed
+
+- **The webhook signing secret is read from nr-vault (breaking for installations that sign their posts).** The new extension setting `socialWebhookSecretIdentifier` names the nr-vault secret the body is signed with; `nr_repurpose:publish-due` reads it as the backend user in `technicalBeUserUid` when one is set. The setting `socialWebhookSecret`, which held the secret itself in the system configuration, is no longer read: while it still holds a value no post is sent and each due post fails with `socialWebhookSecret is no longer read: …`, so a receiver that checks the signature never gets unsigned posts. To migrate, store the secret in nr-vault (`vendor/bin/typo3 vault:store`), enter its identifier in `socialWebhookSecretIdentifier`, give the technical backend user read access, and clear `socialWebhookSecret`.
+
 ### Added
 
 - **`docs/SECURITY-ASSURANCE.md`** states what users can and cannot expect in terms of security, the threat model, trust boundaries, the design principles applied and how common weaknesses are countered, each tied to the file that implements it. README and CONTRIBUTING link it.

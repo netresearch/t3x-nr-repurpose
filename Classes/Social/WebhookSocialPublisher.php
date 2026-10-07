@@ -23,8 +23,11 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * Sends a due post as JSON by HTTP POST to the URL in the extension setting
- * `socialWebhookUrl`. With `socialWebhookSecret` set, the body is signed:
- * header `X-Nr-Repurpose-Signature: sha256=<hex HMAC-SHA256 of the body>`.
+ * `socialWebhookUrl`. With `socialWebhookSecretIdentifier` set, the body is signed
+ * with the secret nr-vault holds under that identifier (WebhookSecretResolver):
+ * header `X-Nr-Repurpose-Signature: sha256=<hex HMAC-SHA256 of the body>`. The
+ * former setting `socialWebhookSecret` held the secret in the system configuration;
+ * while it still holds a value, no post is sent.
  * A 2xx answer counts as accepted.
  *
  * The URL passes the same check as a source URL (RemoteSourceGuard: http or https,
@@ -50,6 +53,7 @@ final readonly class WebhookSocialPublisher implements SocialPublisherInterface
         private ExtensionConfiguration $extensionConfiguration,
         private LoggerInterface $logger,
         private RemoteSourceGuard $guard,
+        private WebhookSecretResolver $secretResolver,
     ) {}
 
     public function isConfigured(): bool
@@ -62,6 +66,15 @@ final readonly class WebhookSocialPublisher implements SocialPublisherInterface
         $url = $this->url();
         if ($url === '') {
             throw new SocialPublishException('No publishing channel configured (socialWebhookUrl)', 1790410001);
+        }
+
+        if ($this->setting('socialWebhookSecret') !== '') {
+            // Sending unsigned would let a receiver that checks the signature refuse every
+            // post without a reason the module could show; refusing here names the step.
+            throw new SocialPublishException(
+                'socialWebhookSecret is no longer read: store the secret in nr-vault, enter its identifier in socialWebhookSecretIdentifier and clear socialWebhookSecret',
+                1790410006,
+            );
         }
 
         try {
@@ -85,9 +98,9 @@ final readonly class WebhookSocialPublisher implements SocialPublisherInterface
             ->withHeader('Content-Type', 'application/json')
             ->withBody($this->streamFactory->createStream($body));
 
-        $secret = $this->setting('socialWebhookSecret');
-        if ($secret !== '') {
-            $request = $request->withHeader(self::SIGNATURE_HEADER, 'sha256=' . hash_hmac('sha256', $body, $secret));
+        $secretIdentifier = $this->setting('socialWebhookSecretIdentifier');
+        if ($secretIdentifier !== '') {
+            $request = $request->withHeader(self::SIGNATURE_HEADER, 'sha256=' . hash_hmac('sha256', $body, $this->secretResolver->resolve($secretIdentifier)));
         }
 
         try {

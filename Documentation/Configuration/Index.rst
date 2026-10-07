@@ -49,7 +49,8 @@ Configuration > nr_repurpose`:
      - :confval:`maxPdfPages <maxpdfpages>` below
    * - ``aiLabelImages``, ``aiLabelTexts``
      - :ref:`configuration-ai-label`
-   * - ``socialWebhookUrl``, ``socialWebhookSecret``
+   * - ``socialWebhookUrl``, ``socialWebhookSecretIdentifier``,
+       ``socialWebhookSecret``
      - :ref:`configuration-social`
 
 .. confval:: technicalBeUserUid
