@@ -31,15 +31,15 @@ final class DiagramBodySanitizerTest extends TestCase
     /** @return iterable<string, array{string, string}> */
     public static function removedMarkup(): iterable
     {
-        yield 'script'           => ['<script>document.title = 1</script><p>kept</p>', '<p>kept</p>'];
-        yield 'style element'    => ['<style>p { background: url(https://example.com/x) }</style><p>kept</p>', '<p>kept</p>'];
-        yield 'link'             => ['<p>See <a href="https://example.com/">example</a> now</p>', '<p>See  now</p>'];
-        yield 'image'            => ['<img src="https://example.com/x.png" alt="x"><p>kept</p>', '<p>kept</p>'];
-        yield 'frame'            => ['<iframe src="https://example.com/"></iframe><p>kept</p>', '<p>kept</p>'];
-        yield 'svg'              => ['<svg><image href="https://example.com/x.png"/></svg><p>kept</p>', '<p>kept</p>'];
-        yield 'form'             => ['<form action="https://example.com/"><input name="q"></form><p>kept</p>', '<p>kept</p>'];
-        yield 'meta refresh'     => ['<meta http-equiv="refresh" content="0;url=https://example.com/"><p>kept</p>', '<p>kept</p>'];
-        yield 'event handler'    => ['<p onclick="go()" onmouseover="go()">kept</p>', '<p>kept</p>'];
+        yield 'script' => ['<script>document.title = 1</script><p>kept</p>', '<p>kept</p>'];
+        yield 'style element' => ['<style>p { background: url(https://example.com/x) }</style><p>kept</p>', '<p>kept</p>'];
+        yield 'link' => ['<p>See <a href="https://example.com/">example</a> now</p>', '<p>See  now</p>'];
+        yield 'image' => ['<img src="https://example.com/x.png" alt="x"><p>kept</p>', '<p>kept</p>'];
+        yield 'frame' => ['<iframe src="https://example.com/"></iframe><p>kept</p>', '<p>kept</p>'];
+        yield 'svg' => ['<svg><image href="https://example.com/x.png"/></svg><p>kept</p>', '<p>kept</p>'];
+        yield 'form' => ['<form action="https://example.com/"><input name="q"></form><p>kept</p>', '<p>kept</p>'];
+        yield 'meta refresh' => ['<meta http-equiv="refresh" content="0;url=https://example.com/"><p>kept</p>', '<p>kept</p>'];
+        yield 'event handler' => ['<p onclick="go()" onmouseover="go()">kept</p>', '<p>kept</p>'];
         yield 'unknown attribute' => ['<div data-src="https://example.com/x" srcset="x.png 1x">kept</div>', '<div>kept</div>'];
     }
 

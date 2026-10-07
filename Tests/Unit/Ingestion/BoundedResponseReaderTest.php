@@ -44,7 +44,7 @@ final class BoundedResponseReaderTest extends TestCase
     }
 
     /** A request as RemoteSourceGuard hands it over: with the address it checked. */
-    private static function guarded(Request $request): GuardedRequest
+    private function guarded(Request $request): GuardedRequest
     {
         return new GuardedRequest($request, ['93.184.215.14']);
     }
@@ -186,7 +186,7 @@ final class BoundedResponseReaderTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379464);
 
-        BoundedResponseReader::send($http->client, self::guarded(new Request('GET', 'https://example.com/')), 100, 5.0, 'https://example.com/');
+        BoundedResponseReader::send($http->client, $this->guarded(new Request('GET', 'https://example.com/')), 100, 5.0, 'https://example.com/');
     }
 
     public function testSendTurnsACurlTimeoutIntoTheTimeoutCode(): void
@@ -203,7 +203,7 @@ final class BoundedResponseReaderTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379465);
 
-        BoundedResponseReader::send($client, self::guarded($request), 100, 5.0, 'https://example.com/');
+        BoundedResponseReader::send($client, $this->guarded($request), 100, 5.0, 'https://example.com/');
     }
 
     /**
@@ -222,7 +222,7 @@ final class BoundedResponseReaderTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379465);
 
-        BoundedResponseReader::send($this->failingClient($timeout), self::guarded($request), 100, 5.0, 'https://example.com/');
+        BoundedResponseReader::send($this->failingClient($timeout), $this->guarded($request), 100, 5.0, 'https://example.com/');
     }
 
     /**
@@ -240,7 +240,7 @@ final class BoundedResponseReaderTest extends TestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379465);
 
-        BoundedResponseReader::send($this->failingClient($timeout), self::guarded($request), 100, 5.0, 'https://example.com/');
+        BoundedResponseReader::send($this->failingClient($timeout), $this->guarded($request), 100, 5.0, 'https://example.com/');
     }
 
     public function testSendLeavesOtherTransportErrorsToTheCaller(): void
@@ -249,7 +249,7 @@ final class BoundedResponseReaderTest extends TestCase
         $refused = new ConnectException('cURL error 7: Connection refused', $request, null, ['errno' => 7]);
 
         try {
-            BoundedResponseReader::send($this->failingClient($refused), self::guarded($request), 100, 5.0, 'https://example.com/');
+            BoundedResponseReader::send($this->failingClient($refused), $this->guarded($request), 100, 5.0, 'https://example.com/');
             self::fail('A refused connection must reach the caller');
         } catch (ConnectException $e) {
             self::assertSame($refused, $e);
@@ -279,7 +279,7 @@ final class BoundedResponseReaderTest extends TestCase
      */
     public static function defaultPorts(): iterable
     {
-        yield 'http'  => ['http://example.com/', 'example.com:80:93.184.215.14'];
+        yield 'http' => ['http://example.com/', 'example.com:80:93.184.215.14'];
         yield 'https' => ['https://example.com/', 'example.com:443:93.184.215.14'];
     }
 
@@ -288,7 +288,7 @@ final class BoundedResponseReaderTest extends TestCase
     {
         $http = QueuedHttpClient::answering(200, 'body');
 
-        BoundedResponseReader::send($http->client, self::guarded(new Request('GET', $url)), 100, 5.0, $url);
+        BoundedResponseReader::send($http->client, $this->guarded(new Request('GET', $url)), 100, 5.0, $url);
 
         self::assertSame([CURLOPT_RESOLVE => [$entry]], $http->handler->getLastOptions()[RequestOptions::CURL] ?? null);
     }

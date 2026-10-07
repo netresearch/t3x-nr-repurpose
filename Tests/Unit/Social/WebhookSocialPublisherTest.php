@@ -45,7 +45,7 @@ final class WebhookSocialPublisherTest extends TestCase
     private array $actors = [];
 
     /**
-     * @param array<string, string>                 $settings
+     * @param array<string, string>                $settings
      * @param array<string, string|Throwable|null> $vault    identifier => secret, or what retrieve() throws
      */
     private function publisher(array $settings, ResponseInterface|Throwable $answer = new Response(204), ?RemoteSourceGuard $guard = null, array $vault = []): WebhookSocialPublisher
@@ -153,8 +153,8 @@ final class WebhookSocialPublisherTest extends TestCase
     public static function unreadableSecrets(): iterable
     {
         yield 'access denied' => [new AccessDeniedException('Access denied to secret "nr_repurpose_webhook": insufficient permissions'), 1790410007, 'The webhook signing secret could not be read from nr-vault'];
-        yield 'not found'     => [null, 1790410008, 'The webhook signing secret was not found in nr-vault'];
-        yield 'empty'         => ['', 1790410008, 'The webhook signing secret was not found in nr-vault'];
+        yield 'not found' => [null, 1790410008, 'The webhook signing secret was not found in nr-vault'];
+        yield 'empty' => ['', 1790410008, 'The webhook signing secret was not found in nr-vault'];
     }
 
     #[DataProvider('unreadableSecrets')]
@@ -295,9 +295,9 @@ final class WebhookSocialPublisherTest extends TestCase
     /** @return iterable<string, array{string}> */
     public static function refusedUrls(): iterable
     {
-        yield 'loopback name'       => ['http://localhost:8080/x?token=s3cr3t-t0ken'];
-        yield 'metadata address'    => ['http://169.254.169.254/latest/?token=s3cr3t-t0ken'];
-        yield 'private network'     => ['https://10.0.0.5/hook?token=s3cr3t-t0ken'];
+        yield 'loopback name' => ['http://localhost:8080/x?token=s3cr3t-t0ken'];
+        yield 'metadata address' => ['http://169.254.169.254/latest/?token=s3cr3t-t0ken'];
+        yield 'private network' => ['https://10.0.0.5/hook?token=s3cr3t-t0ken'];
         yield 'host does not resolve' => ['https://unknown.example/hook?token=s3cr3t-t0ken'];
     }
 

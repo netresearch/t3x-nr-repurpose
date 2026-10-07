@@ -105,7 +105,7 @@ final class PlaywrightHtmlToImageRendererTest extends TestCase
     /** @return iterable<string, array{mixed}> */
     public static function sandboxOff(): iterable
     {
-        yield 'off'            => ['0'];
+        yield 'off' => ['0'];
         yield 'not configured' => [null];
     }
 

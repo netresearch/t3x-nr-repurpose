@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Generator\Support;
 
 use TYPO3\HtmlSanitizer\Behavior;
+use TYPO3\HtmlSanitizer\Behavior\Attr;
+use TYPO3\HtmlSanitizer\Behavior\Tag;
 use TYPO3\HtmlSanitizer\Sanitizer;
 use TYPO3\HtmlSanitizer\Visitor\CommonVisitor;
 
@@ -28,7 +30,7 @@ use TYPO3\HtmlSanitizer\Visitor\CommonVisitor;
 final class DiagramBodySanitizer
 {
     /** @var list<string> */
-    private const TAGS = [
+    private const array TAGS = [
         'div', 'span', 'p', 'section', 'article', 'header', 'footer', 'figure', 'figcaption', 'blockquote',
         'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
         'ul', 'ol', 'li', 'dl', 'dt', 'dd',
@@ -37,13 +39,13 @@ final class DiagramBodySanitizer
     ];
 
     /** @var list<string> elements without content */
-    private const VOID_TAGS = ['br', 'hr', 'col'];
+    private const array VOID_TAGS = ['br', 'hr', 'col'];
 
     /** @var list<string> */
-    private const GLOBAL_ATTRS = ['class', 'style', 'id', 'title', 'lang', 'dir', 'role'];
+    private const array GLOBAL_ATTRS = ['class', 'style', 'id', 'title', 'lang', 'dir', 'role'];
 
     /** @var array<string, list<string>> */
-    private const TAG_ATTRS = [
+    private const array TAG_ATTRS = [
         'td'       => ['colspan', 'rowspan'],
         'th'       => ['colspan', 'rowspan', 'scope'],
         'col'      => ['span'],
@@ -64,16 +66,16 @@ final class DiagramBodySanitizer
             return self::$sanitizer;
         }
 
-        $globalAttrs   = array_map(static fn (string $name): Behavior\Attr => new Behavior\Attr($name), self::GLOBAL_ATTRS);
-        $globalAttrs[] = new Behavior\Attr('aria-', Behavior\Attr::NAME_PREFIX);
+        $globalAttrs   = array_map(static fn (string $name): Attr => new Attr($name), self::GLOBAL_ATTRS);
+        $globalAttrs[] = new Attr('aria-', Attr::NAME_PREFIX);
 
         $tags = [];
         foreach (self::TAGS as $name) {
-            $tags[] = self::tag(new Behavior\Tag($name, Behavior\Tag::ALLOW_CHILDREN), $globalAttrs);
+            $tags[] = self::tag(new Tag($name, Tag::ALLOW_CHILDREN), $globalAttrs);
         }
 
         foreach (self::VOID_TAGS as $name) {
-            $tags[] = self::tag(new Behavior\Tag($name), $globalAttrs);
+            $tags[] = self::tag(new Tag($name), $globalAttrs);
         }
 
         $behavior = (new Behavior())
@@ -84,12 +86,12 @@ final class DiagramBodySanitizer
         return self::$sanitizer = new Sanitizer($behavior, new CommonVisitor($behavior));
     }
 
-    /** @param list<Behavior\Attr> $globalAttrs */
-    private static function tag(Behavior\Tag $tag, array $globalAttrs): Behavior\Tag
+    /** @param list<Attr> $globalAttrs */
+    private static function tag(Tag $tag, array $globalAttrs): Tag
     {
         $attrs = $globalAttrs;
         foreach (self::TAG_ATTRS[$tag->getName()] ?? [] as $name) {
-            $attrs[] = new Behavior\Attr($name);
+            $attrs[] = new Attr($name);
         }
 
         return $tag->addAttrs(...$attrs);
