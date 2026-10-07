@@ -132,9 +132,9 @@ up to 50 MiB within 120 seconds. The limits are fixed.
 -   ``Reading the source failed: …`` — the transfer broke off while the body
     was read.
 
-Without the PHP extension ``curl`` the time limit applies to each read only,
-not to the whole transfer, so a server that sends its response headers very
-slowly can still hold the worker. Install ``curl`` on the host that runs the
+``Fetching a remote source needs the PHP extension curl`` — the worker
+fetches a source only through curl, which connects to the addresses the host
+was checked with. Install the PHP extension ``curl`` on the host that runs the
 worker (see :ref:`installation-requirements`).
 
 .. _troubleshooting-poppler:

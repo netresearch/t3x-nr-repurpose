@@ -13,6 +13,7 @@ use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Psr7\HttpFactory;
 use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\RequestOptions;
+use Netresearch\NrRepurpose\Ingestion\HostResolverInterface;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\RemoteSourceGuard;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
@@ -100,6 +101,31 @@ final class WebPageFetcherTest extends TestCase
         }
 
         self::assertSame(1, $http->unconsumed());
+    }
+
+    /**
+     * The host is looked up once, by the guard; the transfer connects to the address
+     * that lookup returned, whatever the name resolves to afterwards.
+     */
+    public function testConnectsToTheAddressTheGuardChecked(): void
+    {
+        $resolver = new class implements HostResolverInterface {
+            public int $lookups = 0;
+
+            public function resolve(string $host): array
+            {
+                return ++$this->lookups === 1 ? ['93.184.215.14'] : ['127.0.0.1'];
+            }
+        };
+        $http = QueuedHttpClient::answering(200, '<html><body><p>Text</p></body></html>');
+
+        (new WebPageFetcher($http->client, new HttpFactory(), new RemoteSourceGuard($resolver)))->fetch('https://example.com/page');
+
+        self::assertSame(1, $resolver->lookups);
+        self::assertSame(
+            [CURLOPT_RESOLVE => ['example.com:443:93.184.215.14']],
+            $http->handler->getLastOptions()[RequestOptions::CURL] ?? null,
+        );
     }
 
     public function testThrowsIngestionExceptionOnEmptyBody(): void

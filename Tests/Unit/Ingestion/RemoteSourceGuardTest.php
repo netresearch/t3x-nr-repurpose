@@ -124,10 +124,19 @@ final class RemoteSourceGuardTest extends TestCase
     {
         $guard = new RemoteSourceGuard(new StaticHostResolver(['example.com' => ['93.184.215.14']]));
 
-        $request = $guard->createRequest(new HttpFactory(), 'GET', 'https://example.com/report.pdf');
+        $guarded = $guard->createRequest(new HttpFactory(), 'GET', 'https://example.com/report.pdf');
 
-        self::assertSame('GET', $request->getMethod());
-        self::assertSame('https://example.com/report.pdf', (string) $request->getUri());
+        self::assertSame('GET', $guarded->request->getMethod());
+        self::assertSame('https://example.com/report.pdf', (string) $guarded->request->getUri());
+    }
+
+    public function testTheRequestCarriesEveryAddressTheHostWasCheckedWith(): void
+    {
+        $guard = new RemoteSourceGuard(new StaticHostResolver(['example.com' => ['93.184.215.14', '2606:2800:21f:cb07:6820:80da:af6b:8b2c']]));
+
+        $guarded = $guard->createRequest(new HttpFactory(), 'GET', 'https://example.com/report.pdf');
+
+        self::assertSame(['93.184.215.14', '2606:2800:21f:cb07:6820:80da:af6b:8b2c'], $guarded->addresses);
     }
 
     public function testRefusesAUrlTheRequestFactoryCannotParse(): void

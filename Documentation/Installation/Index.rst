@@ -28,10 +28,11 @@ Requirements
      - ``^1.1`` — holds the provider keys nr-llm reads; its
        technical-actor API lets the worker read them (see
        :ref:`configuration-extension-settings`).
-   * - PHP extension ``curl`` (recommended)
-     - Fetching ``url`` and ``pdf_url`` sources. With it the time limit covers
-       the whole transfer including the response headers; without it a server
-       that sends its headers very slowly can hold the worker.
+   * - PHP extension ``curl``
+     - Fetching ``url`` and ``pdf_url`` sources and sending the social
+       webhook. The worker connects to the addresses the host was checked
+       with, and the time limit covers the whole transfer including the
+       response headers. Without it these requests are refused.
    * - ``poppler-utils``
      - ``pdftoppm`` / ``pdftotext`` for PDF ingestion (Vision OCR and layout
        tiers).
