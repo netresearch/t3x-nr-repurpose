@@ -224,7 +224,7 @@ class JobController extends ActionController
         );
         $user = $this->backendUser();
         $this->moduleTemplate->assignMultiple([
-            'posts'             => $this->reviewService->planned(
+            'posts' => $this->reviewService->planned(
                 $this->jobVisibility->seesAllJobs($user) ? null : $this->jobVisibility->ownerUid($user),
             ),
             'channelConfigured' => $this->socialPublisher->isConfigured(),
