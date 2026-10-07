@@ -14,6 +14,14 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-9-2:
+
+Version 0.9.2 (2026-10-07)
+==========================
+
+The same code as 0.9.1. This version publishes the fixes of 0.9.1 to TER,
+where 0.9.1 could not be uploaded.
+
 .. _version-0-9-1:
 
 Version 0.9.1 (2026-10-07)
