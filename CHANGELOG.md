@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-10-08
+
+### Fixed
+
+- **The chat names the menu path of the Repurpose module as the backend shows it.** The result of the chat tool `start_repurpose_job` hard-coded `Web > Repurpose`, while TYPO3 14 labels the main module "Content", so the chat pointed to a menu entry that does not exist. The result now takes the path from the module registration and translates it into the acting user's backend language, for example "Content > Repurpose" or "Inhalt > Repurpose"; if the module or a label cannot be resolved, it names "Repurpose". The tool description, which the model receives for every user and language, no longer names a menu path. (#175)
+
 ## [0.11.1] - 2026-10-08
 
 ### Fixed
@@ -494,7 +500,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.2...HEAD
+[0.11.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.2...v0.10.0
