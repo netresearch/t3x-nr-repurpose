@@ -13,12 +13,12 @@ $EM_CONF[$_EXTKEY] = [
     'author_email' => 'typo3@netresearch.de',
     'author_company' => 'Netresearch DTT GmbH',
     'state' => 'alpha',
-    'version' => '0.11.2',
+    'version' => '0.11.3',
     'constraints' => [
         'depends' => [
             'php' => '8.3.0-8.99.99',
             'typo3' => '14.3.0-14.99.99',
-            'nr_llm' => '0.35.0-0.39.99',
+            'nr_llm' => '0.35.0-0.40.99',
             'nr_vault' => '1.1.0-1.99.99',
         ],
         'conflicts' => [],
