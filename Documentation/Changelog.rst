@@ -17,6 +17,20 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-11-2:
+
+Version 0.11.2 (2026-10-08)
+===========================
+
+Fixed
+-----
+
+-   The result of the chat tool ``start_repurpose_job`` names the menu path
+    of the Repurpose module from the module registration, in the acting
+    user's backend language, for example "Content > Repurpose" or
+    "Inhalt > Repurpose", instead of the hard-coded ``Web > Repurpose``.
+    The tool description no longer names a menu path.
+
 .. _version-0-11-1:
 
 Version 0.11.1 (2026-10-08)
