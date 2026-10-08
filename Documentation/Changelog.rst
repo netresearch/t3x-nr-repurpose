@@ -17,6 +17,19 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-11-3:
+
+Version 0.11.3 (2026-10-08)
+===========================
+
+Changed
+-------
+
+-   nr-llm 0.40 is supported: ``composer.json`` requires
+    ``^0.35 || ^0.36 || ^0.37 || ^0.38 || ^0.39 || ^0.40``.
+-   ``composer.json`` accepts three ``enshrined/svg-sanitize`` advisories
+    that only a ``typo3/cms-core`` release can fix.
+
 .. _version-0-11-2:
 
 Version 0.11.2 (2026-10-08)

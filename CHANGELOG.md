@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-10-08
+
+### Changed
+
+- **nr-llm 0.40 is supported.** `composer.json` requires `netresearch/nr-llm` `^0.35 || ^0.36 || ^0.37 || ^0.38 || ^0.39 || ^0.40`, `ext_emconf.php` declares `0.35.0-0.40.99`. On a 0.x version `^0.39` does not admit 0.40.0. nr-llm 0.40 changes no signature of a class this extension calls or implements.
+
+### Security
+
+- **`composer.json` accepts three `enshrined/svg-sanitize` advisories** (GHSA-9rjx-3jch-6vjf, GHSA-m9xh-6747-9r6f, GHSA-v383-3rw5-q8rf) in `config.policy.advisories.ignore-id`. They are fixed only in 1.0.0, and `typo3/cms-core` 13.4 and 14.3 require `~0.22`; each ignore says to remove it once core allows the fix.
+
 ## [0.11.2] - 2026-10-08
 
 ### Fixed
@@ -500,7 +510,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.2...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.3...HEAD
+[0.11.3]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.10.0...v0.11.0
