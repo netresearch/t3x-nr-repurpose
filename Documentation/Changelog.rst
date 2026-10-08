@@ -17,6 +17,19 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-11-1:
+
+Version 0.11.1 (2026-10-08)
+===========================
+
+Fixed
+-----
+
+-   The chat tool ``start_repurpose_job`` declares the data class
+    ``editorContent``. nr-llm's trust-zone gate ranked it as secret-adjacent
+    and, with ``tools.dataClassEnforcement = enforce``, never offered it to a
+    run against a provider without a trust zone. See :ref:`adr-009`.
+
 .. _version-0-11-0:
 
 Version 0.11.0 (2026-10-07)

@@ -8,6 +8,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-08
+
 ### Fixed
 
 - **The chat tool `start_repurpose_job` is offered to runs against external providers.** nr-llm's trust-zone gate ranked it as secret-adjacent, because it declared no data class and nr-llm has no default for its group `nr_repurpose`; with `tools.dataClassEnforcement = enforce`, the shipped setting, a provider without a trust zone (externalGlobal, ceiling editorContent) therefore never got the tool, even with the tool and its group switched on. The tool now declares `editorContent`: its result is the uid of the job it created, the source URL without query and fragment, and the artifact names (ADR-009). Every call still needs a person's approval. (#172)
@@ -492,7 +494,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.9.1...v0.9.2
