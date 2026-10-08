@@ -141,7 +141,7 @@ final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
     {
         // TYPO3 14 registers the main module "content" (alias "web"), labelled
         // "Content"; the result named it "Web" before.
-        $result = $this->tool()->execute(['source_url' => 'https://example.com/', 'artifacts' => ['faq']], $this->contextOf(11));
+        $result = $this->tool()->execute(['source_url' => 'https://example.com/menu-path', 'artifacts' => ['faq']], $this->contextOf(11));
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringEndsWith('progress and results are in the backend module Content > Repurpose.', $result->content);
@@ -149,7 +149,7 @@ final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
 
     public function testTheMenuPathIsInTheActingUsersBackendLanguage(): void
     {
-        $result = $this->tool()->execute(['source_url' => 'https://example.com/', 'artifacts' => ['faq']], $this->contextOf(13));
+        $result = $this->tool()->execute(['source_url' => 'https://example.com/menu-path', 'artifacts' => ['faq']], $this->contextOf(13));
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringEndsWith('progress and results are in the backend module Inhalt > Repurpose.', $result->content);
