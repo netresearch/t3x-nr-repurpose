@@ -89,6 +89,14 @@ Decision records
       .. card-footer:: :ref:`Read <adr-008>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-009: Data class of the chat tool
+
+      Why ``start_repurpose_job`` declares ``editorContent``, so that
+      nr-llm's trust-zone gate offers it to runs against external providers.
+
+      .. card-footer:: :ref:`Read <adr-009>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -100,3 +108,4 @@ Decision records
    Adr006DocumentFormatsAsPrintedHtml
    Adr007ApprovalAndWebhookPublishing
    Adr008CapabilityPermissionGate
+   Adr009ChatToolDataClass

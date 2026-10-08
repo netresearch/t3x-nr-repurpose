@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -44,8 +46,10 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  *
  * Effect: {@see ToolEffect::NON_IDEMPOTENT_WRITE}. A second call creates a
  * second job, so a reaped run must not be retried automatically.
+ *
+ * Data class: {@see ToolDataClass::EDITOR_CONTENT} (ADR-009).
  */
-final readonly class StartRepurposeJobTool implements ToolInterface, ToolEffectInterface
+final readonly class StartRepurposeJobTool implements ToolInterface, ToolEffectInterface, ToolDataClassInterface
 {
     public const string NAME = 'start_repurpose_job';
 
@@ -177,6 +181,19 @@ final readonly class StartRepurposeJobTool implements ToolInterface, ToolEffectI
     public function getEffect(): ToolEffect
     {
         return ToolEffect::NON_IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * What the result returns into the run: the uid of the job row the call
+     * created, the caller's own URL without query and fragment, and the
+     * artifact names; refusals are fixed messages. An unpublished backend
+     * record, as a writer in nr-llm's `editing` group echoes back the text it
+     * set. The group `nr_repurpose` has no default in nr-llm, so without this
+     * declaration the tool ranks as secret-adjacent.
+     */
+    public function getDataClass(): ToolDataClass
+    {
+        return ToolDataClass::EDITOR_CONTENT;
     }
 
     private function isFetchableUrl(string $url): bool

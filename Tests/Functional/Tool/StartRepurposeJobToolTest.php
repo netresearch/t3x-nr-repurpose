@@ -9,9 +9,18 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
+use Netresearch\NrLlm\Domain\Enum\TrustZone;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Service\Tool\ToolApprovalRule;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
@@ -46,6 +55,38 @@ final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
         self::assertFalse($tool->requiresAdmin());
         self::assertFalse($tool->isEnabledByDefault(), 'a job spends provider money: an administrator switches the tool on');
         self::assertSame('nr_repurpose', $tool->getGroup());
+    }
+
+    public function testTheToolDeclaresEditorContentAsItsDataClass(): void
+    {
+        // What the result carries back into the run is the uid of the job row it
+        // just created, the caller's own URL without query and fragment, and the
+        // artifact names: an unpublished backend record, nothing world-readable
+        // and nothing from the installation's configuration or internals.
+        self::assertSame(ToolDataClass::EDITOR_CONTENT, $this->get(ToolDataClassResolver::class)->classFor('start_repurpose_job'));
+    }
+
+    public function testTheTrustZoneGateOffersTheToolToARunAgainstAnExternalGlobalProvider(): void
+    {
+        $this->get(ToolStateRepository::class)->setEnabled('start_repurpose_job', true);
+
+        // A provider without a trust zone, as the demo's: it resolves to the
+        // strictest zone, externalGlobal, whose ceiling is editorContent.
+        $provider = new Provider();
+        $provider->setTrustZone('');
+
+        $model = new Model();
+        $model->setProvider($provider);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setLlmModel($model);
+
+        $decision = $this->get(ToolCallPolicyInterface::class)->decide('start_repurpose_job', $configuration, $this->userOf(11));
+
+        self::assertSame(
+            ['allowed' => true, 'reason' => ToolDenialReason::NONE, 'observedOnly' => false, 'dataClass' => ToolDataClass::EDITOR_CONTENT, 'zone' => TrustZone::EXTERNAL_GLOBAL, 'ceiling' => ToolDataClass::EDITOR_CONTENT],
+            ['allowed' => $decision->allowed, 'reason' => $decision->reason, 'observedOnly' => $decision->observedOnly, 'dataClass' => $decision->dataClass, 'zone' => $decision->zone, 'ceiling' => $decision->ceiling],
+        );
     }
 
     public function testAnEditorWithModuleAccessStartsAJobOwnedByThemselves(): void
@@ -185,11 +226,16 @@ final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
 
     private function contextOf(int $beUserUid): ToolExecutionContext
     {
+        return ToolExecutionContext::fromBackendUser($this->userOf($beUserUid));
+    }
+
+    private function userOf(int $beUserUid): BackendUserAuthentication
+    {
         $user = GeneralUtility::makeInstance(BackendUserAuthentication::class);
         $user->setBeUserByUid($beUserUid);
         $user->fetchGroupData();
 
-        return ToolExecutionContext::fromBackendUser($user);
+        return $user;
     }
 
     private function jobCount(): int

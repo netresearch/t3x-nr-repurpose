@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The chat tool `start_repurpose_job` is offered to runs against external providers.** nr-llm's trust-zone gate ranked it as secret-adjacent, because it declared no data class and nr-llm has no default for its group `nr_repurpose`; with `tools.dataClassEnforcement = enforce`, the shipped setting, a provider without a trust zone (externalGlobal, ceiling editorContent) therefore never got the tool, even with the tool and its group switched on. The tool now declares `editorContent`: its result is the uid of the job it created, the source URL without query and fragment, and the artifact names (ADR-009). Every call still needs a person's approval. (#172)
+
 ## [0.11.0] - 2026-10-07
 
 ### Upgrade notes

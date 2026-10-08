@@ -422,7 +422,9 @@ With nr-llm's tool runtime, the backend chat (nr_mcp_agent) can start a job for
 you. nr_repurpose registers the tool ``start_repurpose_job`` in the tool group
 ``nr_repurpose``. It is **off by default**, because a job spends provider
 money: an administrator switches it on in the nr-llm *Tools* module and permits
-the group ``nr_repurpose`` in the chat configuration.
+the group ``nr_repurpose`` in the chat configuration. The tool declares the data
+class ``editorContent``, so nr-llm's trust-zone gate offers it to a run against
+a provider in any trust zone (see :ref:`adr-009`).
 
 .. list-table::
    :header-rows: 1
