@@ -30,12 +30,25 @@ use Netresearch\NrRepurpose\Tool\StartRepurposeJobTool;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
+use TYPO3\CMS\Backend\Module\ModuleProvider;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
 {
+    /** German label of the main module "content"; the test instance has no language pack. */
+    protected array $configurationToUseInTestInstance = [
+        'LANG' => [
+            'resourceOverrides' => [
+                'de' => [
+                    'EXT:core/Resources/Private/Language/Modules/content.xlf' => ['EXT:nr_repurpose/Tests/Functional/Tool/Fixtures/de.content.xlf'],
+                ],
+            ],
+        ],
+    ];
+
     /** @var list<object> */
     private array $dispatched = [];
 
@@ -122,6 +135,34 @@ final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
 
         self::assertCount(1, $this->dispatched);
         self::assertInstanceOf(GenerateArtifactsMessage::class, $this->dispatched[0]);
+    }
+
+    public function testTheResultNamesTheModuleUnderItsParentInTheBackendMenu(): void
+    {
+        // TYPO3 14 registers the main module "content" (alias "web"), labelled
+        // "Content"; the result named it "Web" before.
+        $result = $this->tool()->execute(['source_url' => 'https://example.com/', 'artifacts' => ['faq']], $this->contextOf(11));
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringEndsWith('progress and results are in the backend module Content > Repurpose.', $result->content);
+    }
+
+    public function testTheMenuPathIsInTheActingUsersBackendLanguage(): void
+    {
+        $result = $this->tool()->execute(['source_url' => 'https://example.com/', 'artifacts' => ['faq']], $this->contextOf(13));
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringEndsWith('progress and results are in the backend module Inhalt > Repurpose.', $result->content);
+    }
+
+    public function testTheToolDescriptionNamesNoMenuPath(): void
+    {
+        // The description is the same for every user and language, so it names
+        // the module only; the result carries the resolved path.
+        $description = $this->tool()->getSpec()->description;
+
+        self::assertStringContainsString('Repurpose backend module', $description);
+        self::assertStringNotContainsString('Web >', $description);
     }
 
     public function testTheResultDoesNotRepeatQueryStringOrFragmentOfTheSourceUrl(): void
@@ -217,11 +258,15 @@ final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
             }
         };
 
-        return new StartRepurposeJobTool(new JobSubmissionService(
-            $this->get(JobRepository::class),
-            $this->get(PersistenceManagerInterface::class),
-            $bus,
-        ));
+        return new StartRepurposeJobTool(
+            new JobSubmissionService(
+                $this->get(JobRepository::class),
+                $this->get(PersistenceManagerInterface::class),
+                $bus,
+            ),
+            $this->get(ModuleProvider::class),
+            $this->get(LanguageServiceFactory::class),
+        );
     }
 
     private function contextOf(int $beUserUid): ToolExecutionContext

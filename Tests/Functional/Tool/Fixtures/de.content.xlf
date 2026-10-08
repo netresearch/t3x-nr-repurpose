@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<!-- Stands in for the German language pack: the test instance has none. -->
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en" target-language="de" datatype="plaintext" original="EXT:core/Resources/Private/Language/Modules/content.xlf" date="2026-10-08T00:00:00Z" product-name="nr_repurpose">
+    <body>
+      <trans-unit id="title"><source>Content</source><target>Inhalt</target></trans-unit>
+    </body>
+  </file>
+</xliff>

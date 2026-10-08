@@ -20,7 +20,10 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Service\JobSubmissionService;
+use TYPO3\CMS\Backend\Module\ModuleInterface;
+use TYPO3\CMS\Backend\Module\ModuleProvider;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
 /**
  * Starts one repurpose job from the backend chat: the same job the "Repurpose"
@@ -72,14 +75,18 @@ final readonly class StartRepurposeJobTool implements ToolInterface, ToolEffectI
         'handout',
     ];
 
-    public function __construct(private JobSubmissionService $submission) {}
+    public function __construct(
+        private JobSubmissionService $submission,
+        private ModuleProvider $moduleProvider,
+        private LanguageServiceFactory $languageServiceFactory,
+    ) {}
 
     public function getSpec(): ToolSpec
     {
         return ToolSpec::function(
             self::NAME,
             'Start ONE repurpose job: turn a web page or a PDF (given by URL) into the chosen formats. The job is queued '
-            . 'and runs in the background; it creates the same job as the Repurpose module (Web > Repurpose), where '
+            . 'and runs in the background; it creates the same job as the Repurpose backend module, where '
             . 'progress and results appear. The source is sent to the AI provider and generation costs money, so every '
             . 'call is shown to a person for approval. Choose only the artifacts the user asked for. The video is not '
             . 'available here.',
@@ -156,11 +163,39 @@ final readonly class StartRepurposeJobTool implements ToolInterface, ToolEffectI
         $jobUid = $this->submission->submit($job, $uid);
 
         return ToolResult::text(sprintf(
-            'Started repurpose job #%d for %s (%s). It runs in the background; progress and results are in the Repurpose module (Web > Repurpose).',
+            'Started repurpose job #%d for %s (%s). It runs in the background; progress and results are in the backend module %s.',
             $jobUid,
             $job->getSourceValueForDisplay(),
             implode(', ', array_values(array_unique($artifacts))),
+            $this->modulePath($user),
         ));
+    }
+
+    /**
+     * The module's place in the backend menu as the acting user sees it, for
+     * example "Content > Repurpose" or, in German, "Inhalt > Repurpose". The
+     * parent comes from the module registration, so a TYPO3 version that names
+     * the main module differently needs no change here. Falls back to the
+     * module name alone; it runs after the job was created and must not fail.
+     */
+    private function modulePath(BackendUserAuthentication $user): string
+    {
+        $fallback = 'Repurpose';
+        $module   = $this->moduleProvider->getModule(self::MODULE);
+        if (!$module instanceof ModuleInterface) {
+            return $fallback;
+        }
+
+        $language    = $this->languageServiceFactory->createFromUserPreferences($user);
+        $title       = $language->sL($module->getTitle());
+        $parent      = $module->getParentModule();
+        $parentTitle = $parent instanceof ModuleInterface ? $language->sL($parent->getTitle()) : '';
+
+        if ($title === '') {
+            return $fallback;
+        }
+
+        return $parentTitle === '' ? $title : $parentTitle . ' > ' . $title;
     }
 
     public function isEnabledByDefault(): bool

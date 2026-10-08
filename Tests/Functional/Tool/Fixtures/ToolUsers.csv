@@ -3,7 +3,8 @@
 ,1,0,"Repurpose editors","web_nrrepurpose",0,0
 ,2,0,"Other module only","web_info",0,0
 "be_users"
-,"uid","pid","username","admin","usergroup","deleted","disable"
-,10,0,"admin",1,"",0,0
-,11,0,"editor",0,"1",0,0
-,12,0,"no-module",0,"2",0,0
+,"uid","pid","username","admin","usergroup","deleted","disable","lang"
+,10,0,"admin",1,"",0,0,""
+,11,0,"editor",0,"1",0,0,""
+,12,0,"no-module",0,"2",0,0,""
+,13,0,"editor-de",0,"1",0,0,"de"
