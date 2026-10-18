@@ -9,12 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\ViewHelpers;
 
-use function is_string;
-
 use Throwable;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Utility\PathUtility;
 use TYPO3Fluid\Fluid\Core\ViewHelper\AbstractViewHelper;
+
+use function is_string;
 
 /**
  * Resolves a sys_file uid to a site-absolute web path (leading slash) so the backend result

@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Rendering;
 
-use function extension_loaded;
-
 use Netresearch\NrRepurpose\Rendering\GdImageCompositor;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
@@ -18,6 +16,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
 use Psr\Log\NullLogger;
+
+use function extension_loaded;
 
 final class GdImageCompositorTest extends TestCase
 {

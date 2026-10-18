@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Controller;
 
-use function assert;
-
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
@@ -27,6 +25,8 @@ use Sabberworm\CSS\Settings;
 use SimpleXMLElement;
 use SplFileInfo;
 use TYPO3Fluid\Fluid\Core\Parser\TemplateProcessor\RemoveCommentsTemplateProcessor;
+
+use function assert;
 
 /**
  * The backend module's markup follows the core backend: tables use the core table and
