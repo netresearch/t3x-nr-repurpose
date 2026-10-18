@@ -14,6 +14,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\PublishStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
 use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
+use Netresearch\NrRepurpose\Utility\ScalarCast;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -45,20 +46,20 @@ final readonly class DuePostPublisher
         $published = 0;
         $failed    = 0;
         foreach ($due as $row) {
-            if (!$this->claim((int) $row['uid'])) {
+            if (!$this->claim(ScalarCast::int($row['uid']))) {
                 continue;
             }
 
-            $metadata = json_decode((string) $row['metadata'], true);
+            $metadata = json_decode(ScalarCast::string($row['metadata']), true);
             $post     = new SocialPost(
-                (int) $row['uid'],
-                (int) $row['job'],
-                (string) $row['variant'],
-                (string) $row['script_text'],
-                (int) $row['publish_at'],
+                ScalarCast::int($row['uid']),
+                ScalarCast::int($row['job']),
+                ScalarCast::string($row['variant']),
+                ScalarCast::string($row['script_text']),
+                ScalarCast::int($row['publish_at']),
                 // Published with the post: the job keeps the user name and password for
                 // the fetch, the channel gets the page's address without them.
-                SourceUrlRedactor::withoutCredentials((string) $row['source_value']),
+                SourceUrlRedactor::withoutCredentials(ScalarCast::string($row['source_value'])),
                 is_array($metadata) && is_array($metadata['aiLabel'] ?? null) ? $metadata['aiLabel'] : [],
             );
 

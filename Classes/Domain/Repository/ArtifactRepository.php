@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Domain\Repository;
 use Netresearch\NrRepurpose\Domain\Model\Artifact;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
+use Netresearch\NrRepurpose\Utility\ScalarCast;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\Repository;
@@ -60,7 +61,7 @@ class ArtifactRepository extends Repository
 
         $pairsByJob = [];
         foreach ($rows as $row) {
-            $pairsByJob[(int) $row['job']][] = [(string) $row['type'], (string) $row['status']];
+            $pairsByJob[ScalarCast::int($row['job'])][] = [ScalarCast::string($row['type']), ScalarCast::string($row['status'])];
         }
 
         foreach ($pairsByJob as $job => $pairs) {

@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Ingestion\Poppler;
 use Netresearch\NrRepurpose\Exception\PopplerEmptyOutputException;
 use Netresearch\NrRepurpose\Exception\PopplerProcessFailedException;
 use Psr\Log\LoggerInterface;
+use Random\Randomizer;
 use Symfony\Component\Process\Exception\ExceptionInterface;
 use Symfony\Component\Process\Process;
 
@@ -30,7 +31,7 @@ final readonly class SymfonyProcessPopplerRunner implements PopplerRunnerInterfa
 
     public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
     {
-        $tmpPrefix = sys_get_temp_dir() . '/nrrepurpose_' . bin2hex(random_bytes(6));
+        $tmpPrefix = sys_get_temp_dir() . '/nrrepurpose_' . bin2hex((new Randomizer())->getBytes(6));
         // -singlefile => output is exactly <prefix>.png (no -NN page suffix).
         $process = new Process([
             $this->pdftoppmBinary, '-png',

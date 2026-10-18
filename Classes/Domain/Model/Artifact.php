@@ -164,9 +164,9 @@ class Artifact extends AbstractEntity
 
     /**
      * The decoded metadata JSON for Fluid (e.g. slide role/index/total on story slides).
-     * Empty or invalid metadata decodes to an empty array.
+     * Empty or invalid metadata decodes to an empty array; a JSON list keeps its int keys.
      *
-     * @return array<string, mixed>
+     * @return array<mixed>
      */
     public function getMetadataArray(): array
     {

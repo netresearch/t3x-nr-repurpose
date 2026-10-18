@@ -66,5 +66,5 @@ Attackers considered: a backend user trying to reach internal hosts through the 
 | Hard-coded credentials (CWE-798), cleartext storage (CWE-312) | None in the code; the webhook signing secret is read from nr-vault by identifier; Betterleaks scans every pull request (`.github/workflows/checks.yml`) |
 | Vulnerable components (A06:2021) | Composer Audit and Dependency Review on every pull request (`checks.yml`) |
 
-Static checks on every pull request (Opengrep, CodeQL, PHPStan level 8 on `Classes/`) and the unit and functional suites (`Tests/`) back these claims; see "Governance and policies" in `CONTRIBUTING.md`.
+Static checks on every pull request (Opengrep, CodeQL, PHPStan level 10 on `Classes/`) and the unit and functional suites (`Tests/`) back these claims; see "Governance and policies" in `CONTRIBUTING.md`.
 

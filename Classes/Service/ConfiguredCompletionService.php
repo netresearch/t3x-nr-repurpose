@@ -113,12 +113,12 @@ final class ConfiguredCompletionService implements TextCompletionInterface
      */
     private function structuredData(mixed $result): array
     {
-        if ($result instanceof StructuredCompletionResponse) {
-            return $result->data;
-        }
+        // One assignment for both versions: with nr-llm 0.38 the class is unknown, so
+        // `data` reads as mixed and needs the same declared shape as the bare array.
+        $data = $result instanceof StructuredCompletionResponse ? $result->data : $result;
 
-        /** @var array<string, mixed> $result nr-llm < 0.39 declares this shape */
-        return $result;
+        /** @var array<string, mixed> $data nr-llm < 0.39 declares this shape, 0.39 types `data` so */
+        return $data;
     }
 
     /**

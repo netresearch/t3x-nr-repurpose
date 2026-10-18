@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Ingestion;
 
+use Closure;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectTimeoutException;
 use GuzzleHttp\Exception\GuzzleException;
@@ -19,6 +20,7 @@ use GuzzleHttp\Psr7\Exception\TimeoutException as Psr7TimeoutException;
 use GuzzleHttp\Psr7\InflateStream;
 use GuzzleHttp\RequestOptions;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 use RuntimeException;
 use Throwable;
 
@@ -62,7 +64,7 @@ final class BoundedResponseReader
      * report it themselves) and no decoding by the handler (the progress callback
      * counts bytes on the wire; read() inflates within the limit).
      *
-     * @return array<string, mixed>
+     * @return array{timeout: float, connect_timeout: float, read_timeout: float, allow_redirects: false, http_errors: false, decode_content: false, on_headers: Closure(ResponseInterface): void, progress: Closure(int, int): void}
      */
     public static function requestOptions(int $maxBytes, float $timeoutSeconds, string $url): array
     {
@@ -100,7 +102,7 @@ final class BoundedResponseReader
      * $extraOptions are further Guzzle request options, applied last (the webhook passes a
      * sink that discards the answer body).
      *
-     * @param array<string, mixed> $extraOptions
+     * @param array{sink?: StreamInterface} $extraOptions
      *
      * @throws IngestionException when curl is missing, or the source is too large or too slow
      * @throws GuzzleException    when the source cannot be reached

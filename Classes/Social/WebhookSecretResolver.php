@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Social;
 
+use Netresearch\NrRepurpose\Utility\ScalarCast;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Log\LoggerInterface;
@@ -63,7 +64,7 @@ final readonly class WebhookSecretResolver
     private function technicalActorUid(): int
     {
         try {
-            return (int) $this->extensionConfiguration->get('nr_repurpose', 'technicalBeUserUid');
+            return ScalarCast::int($this->extensionConfiguration->get('nr_repurpose', 'technicalBeUserUid'));
         } catch (Throwable) {
             return 0;
         }

@@ -14,6 +14,7 @@ use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Random\Randomizer;
 use TYPO3\CMS\Core\Resource\FileRepository;
 
 /**
@@ -135,7 +136,7 @@ class PdfFileResolver
     /** Write the PDF to a temp file release() deletes; a partial file is removed at once. */
     private function writeDownload(string $bytes): string
     {
-        $tmp = sys_get_temp_dir() . '/' . self::DOWNLOAD_PREFIX . bin2hex(random_bytes(6)) . '.pdf';
+        $tmp = sys_get_temp_dir() . '/' . self::DOWNLOAD_PREFIX . bin2hex((new Randomizer())->getBytes(6)) . '.pdf';
         if (!$this->writeFile($tmp, $bytes)) {
             if (is_file($tmp)) {
                 // $tmp is the path generated one line above, never user input.

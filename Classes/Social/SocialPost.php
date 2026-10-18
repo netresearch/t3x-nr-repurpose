@@ -15,7 +15,7 @@ namespace Netresearch\NrRepurpose\Social;
 final readonly class SocialPost
 {
     /**
-     * @param array<string, mixed> $aiLabel the artifact's aiLabel block (ADR-005)
+     * @param array<mixed> $aiLabel the artifact's aiLabel block (ADR-005), as decoded from its metadata JSON
      */
     public function __construct(
         public int $artifactUid,

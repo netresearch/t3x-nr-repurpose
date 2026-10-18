@@ -50,6 +50,7 @@ Hand-maintained (outside the generated blocks). Reuse these before writing a hel
 | Source URL that is published (no user info; query and fragment kept) | `SourceUrlRedactor::withoutCredentials()` | `Classes/Ingestion/SourceUrlRedactor.php` |
 | Store bytes in FAL (+ AI marker) | `JobFileStorage::store()` | `Classes/Resource/JobFileStorage.php` |
 | Embed AI marker in PNG/MP3/VTT/PDF | `AiContentMarker::mark()` | `Classes/Provenance/AiContentMarker.php` |
+| `(int)`/`(string)` on an untyped value (DB row, setting, argument, JSON) | `ScalarCast::int()`, `ScalarCast::string()` | `Classes/Utility/ScalarCast.php` |
 
 <!-- AGENTS-GENERATED:START setup -->
 ## Setup & environment

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Command;
 
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
+use Netresearch\NrRepurpose\Utility\ScalarCast;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -36,7 +37,7 @@ final class GenerateCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $jobUid = (int) $input->getArgument('jobUid');
+        $jobUid = ScalarCast::int($input->getArgument('jobUid'));
         $output->writeln(sprintf('<info>Processing job #%d …</info>', $jobUid));
         $this->orchestrator->process($jobUid);
         $output->writeln('<info>Done.</info>');
