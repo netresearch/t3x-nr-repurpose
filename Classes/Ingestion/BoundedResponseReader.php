@@ -41,15 +41,15 @@ use Throwable;
  */
 final class BoundedResponseReader
 {
-    private const CHUNK_BYTES = 8192;
+    private const int CHUNK_BYTES = 8192;
 
-    private const CONNECT_TIMEOUT_SECONDS = 10.0;
+    private const float CONNECT_TIMEOUT_SECONDS = 10.0;
 
     /** CURLE_OPERATION_TIMEDOUT: curl's `timeout` expired. */
-    private const CURL_TIMED_OUT = 28;
+    private const int CURL_TIMED_OUT = 28;
 
     /** Guzzle 8's transport timeout exceptions, one per phase. */
-    private const GUZZLE8_TIMEOUTS = [
+    private const array GUZZLE8_TIMEOUTS = [
         ConnectTimeoutException::class,
         NetworkTimeoutException::class,
         ResponseTimeoutException::class,

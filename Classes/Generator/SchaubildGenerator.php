@@ -43,15 +43,15 @@ class SchaubildGenerator extends AbstractGenerator
 {
     use RendersThemeTemplates;
 
-    private const WIDTH = 1200;
+    private const int WIDTH = 1200;
 
     // Default gpt-image landscape size; a layout snippet may override it via its
     // metadata {"imageSize":"WxH"} (see AbstractGenerator::resolveImageSize()).
-    private const IMAGE_SIZE = '1536x1024';
+    private const string IMAGE_SIZE = '1536x1024';
 
-    private const IMAGE_COST = 0.05;
+    private const float IMAGE_COST = 0.05;
 
-    private const HTML_SYSTEM_PROMPT = 'You are an information designer. Output a raw HTML fragment only — '
+    private const string HTML_SYSTEM_PROMPT = 'You are an information designer. Output a raw HTML fragment only — '
         . 'no Markdown, no code fences.';
 
     public function __construct(

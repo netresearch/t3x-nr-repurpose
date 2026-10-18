@@ -20,7 +20,7 @@ use Throwable;
 class PdfTextExtractor
 {
     /** Minimum non-whitespace chars before a page counts as "has text". */
-    private const MIN_CHARS_PER_PAGE = 80;
+    private const int MIN_CHARS_PER_PAGE = 80;
 
     /**
      * With $maxPages, a PDF with more pages fails after parsing and before any page's text

@@ -25,7 +25,7 @@ use Psr\Http\Message\RequestFactoryInterface;
 class WebPageFetcher
 {
     /** Node names removed wholesale before text extraction. */
-    private const BOILERPLATE_TAGS = ['script', 'style', 'nav', 'header', 'footer', 'aside', 'form', 'noscript', 'svg'];
+    private const array BOILERPLATE_TAGS = ['script', 'style', 'nav', 'header', 'footer', 'aside', 'form', 'noscript', 'svg'];
 
     /** Largest page accepted: 5 MiB is far above any article's HTML. */
     public const MAX_BYTES = 5 * 1024 * 1024;

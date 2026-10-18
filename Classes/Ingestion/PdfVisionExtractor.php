@@ -26,10 +26,10 @@ use Netresearch\NrRepurpose\Service\CallerSource;
  */
 class PdfVisionExtractor
 {
-    private const OCR_PROMPT = 'Transcribe ALL text in this page image verbatim, '
+    private const string OCR_PROMPT = 'Transcribe ALL text in this page image verbatim, '
         . 'preserving reading order and line breaks. Output plain text only, no commentary.';
 
-    private const OCR_MAX_TOKENS = 2000;
+    private const int OCR_MAX_TOKENS = 2000;
 
     public function __construct(
         private readonly PopplerRunnerInterface $poppler,

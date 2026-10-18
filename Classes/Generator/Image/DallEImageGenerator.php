@@ -30,10 +30,10 @@ use Throwable;
 final class DallEImageGenerator implements ImageGeneratorInterface
 {
     /** The nr-llm Configuration record (identifier) steering image generation. */
-    public const CONFIGURATION = 'nr_repurpose_image';
+    public const string CONFIGURATION = 'nr_repurpose_image';
 
     /** Documented fallback when neither the Configuration nor the Model registry resolves. */
-    public const MODEL = 'gpt-image-2';
+    public const string MODEL = 'gpt-image-2';
 
     /** Effective model, resolved lazily once per instance by getModel(). */
     private ?string $model = null;

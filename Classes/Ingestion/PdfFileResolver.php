@@ -25,12 +25,12 @@ use TYPO3\CMS\Core\Resource\FileRepository;
  */
 class PdfFileResolver
 {
-    private const DOWNLOAD_PREFIX = 'nrrepurpose_dl_';
+    private const string DOWNLOAD_PREFIX = 'nrrepurpose_dl_';
 
-    private const JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
+    private const string JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
 
     /** Driver key of TYPO3's local file system driver (sys_file_storage.driver). */
-    private const LOCAL_DRIVER = 'Local';
+    private const string LOCAL_DRIVER = 'Local';
 
     /** Largest PDF downloaded: 50 MiB covers long illustrated reports. */
     public const MAX_BYTES = 50 * 1024 * 1024;

@@ -8,7 +8,6 @@
 declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
-use Rector\Php83\Rector\ClassConst\AddTypeToConstRector;
 use Rector\Privatization\Rector\Property\PrivatizeFinalClassPropertyRector;
 
 $configure = require_once __DIR__ . '/../.Build/vendor/netresearch/typo3-ci-workflows/config/rector/rector.php';
@@ -33,19 +32,6 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         // their `protected` properties even once the classes become final.
         PrivatizeFinalClassPropertyRector::class => [
             __DIR__ . '/../Classes/Domain/Model',
-        ],
-        // TEMPORARY: typed class constants (PHP 8.3) are applied everywhere
-        // except in files that open pull requests are changing at the time
-        // this set was raised, to keep those branches free of conflicts.
-        // Remove this entry once they are merged and apply the rule there.
-        // Classes/Ingestion is skipped as a directory because a pull request
-        // adds new files with constants there.
-        AddTypeToConstRector::class => [
-            __DIR__ . '/../Classes/Generator/Image/DallEImageGenerator.php',
-            __DIR__ . '/../Classes/Generator/SchaubildGenerator.php',
-            __DIR__ . '/../Classes/Generator/Speech/OpenAiSpeechSynthesizer.php',
-            __DIR__ . '/../Classes/Ingestion',
-            __DIR__ . '/../Classes/Social/WebhookSocialPublisher.php',
         ],
     ]);
 };

@@ -43,10 +43,10 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  */
 final readonly class WebhookSocialPublisher implements SocialPublisherInterface
 {
-    public const SIGNATURE_HEADER = 'X-Nr-Repurpose-Signature';
+    public const string SIGNATURE_HEADER = 'X-Nr-Repurpose-Signature';
 
     /** Total seconds for connecting, sending the post and receiving the answer. */
-    public const TIMEOUT_SECONDS = 15.0;
+    public const float TIMEOUT_SECONDS = 15.0;
 
     public function __construct(
         private ClientInterface $httpClient,
