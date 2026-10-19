@@ -23,6 +23,7 @@ use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
+use Netresearch\NrRepurpose\Utility\ScalarCast;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -95,7 +96,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
     private function technicalActorUid(): int
     {
         try {
-            return (int) $this->extensionConfiguration->get('nr_repurpose', 'technicalBeUserUid');
+            return ScalarCast::int($this->extensionConfiguration->get('nr_repurpose', 'technicalBeUserUid'));
         } catch (Throwable) {
             // Not configured at all - the extension shipped without an
             // ext_conf_template until this was added.

@@ -45,5 +45,5 @@ Derived from `Configuration/Services.yaml` (no phpat architecture test suite exi
 ## Key decisions
 
 - Provider keys and model selection belong to nr-llm Configuration records (`nr_repurpose_text`, `nr_repurpose_image`, `nr_repurpose_tts`) — see the root `AGENTS.md` Heuristics table.
-- PHPStan gate scope (level 8, `Classes` only) is explained in `phpstan.neon` comments.
+- PHPStan gate scope (level 10 from the shared config, `Classes` only) is explained in `phpstan.neon` comments.
 - CI gate layout (per-repo `ci.yml` matrix vs drift-enforced `checks.yml`) is documented in the comments of those workflow files.

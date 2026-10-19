@@ -18,6 +18,7 @@ use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Psr\Log\LoggerInterface;
+use Random\Randomizer;
 use Throwable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -68,7 +69,7 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
      */
     protected function makeTempDir(): string
     {
-        $dir = sys_get_temp_dir() . '/' . self::TEMP_DIR_PREFIX . bin2hex(random_bytes(8));
+        $dir = sys_get_temp_dir() . '/' . self::TEMP_DIR_PREFIX . bin2hex((new Randomizer())->getBytes(8));
         GeneralUtility::mkdir_deep($dir);
         $this->tempDirs[$dir] = true;
 

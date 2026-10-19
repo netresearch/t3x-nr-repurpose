@@ -41,7 +41,7 @@ use Psr\Log\NullLogger;
 final readonly class RemoteSourceGuard
 {
     /** @var list<string> CIDR blocks a source URL must not reach */
-    private const BLOCKED_RANGES = [
+    private const array BLOCKED_RANGES = [
         '0.0.0.0/8',       // "this network", includes the unspecified 0.0.0.0
         '10.0.0.0/8',      // RFC 1918
         '100.64.0.0/10',   // RFC 6598 carrier-grade NAT

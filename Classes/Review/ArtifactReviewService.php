@@ -14,6 +14,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\PublishStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
 use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
+use Netresearch\NrRepurpose\Utility\ScalarCast;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -137,15 +138,15 @@ final readonly class ArtifactReviewService
             ->fetchAllAssociative();
 
         return array_map(static fn (array $row): array => [
-            'uid'            => (int) $row['uid'],
-            'job'            => (int) $row['job'],
-            'variant'        => (string) $row['variant'],
-            'script_text'    => (string) $row['script_text'],
-            'publish_at'     => (int) $row['publish_at'],
-            'publish_status' => (string) $row['publish_status'],
-            'published_at'   => (int) $row['published_at'],
-            'publish_error'  => (string) $row['publish_error'],
-            'source_value'   => (string) $row['source_value'] === '' ? '' : SourceUrlRedactor::redact((string) $row['source_value']),
+            'uid'            => ScalarCast::int($row['uid']),
+            'job'            => ScalarCast::int($row['job']),
+            'variant'        => ScalarCast::string($row['variant']),
+            'script_text'    => ScalarCast::string($row['script_text']),
+            'publish_at'     => ScalarCast::int($row['publish_at']),
+            'publish_status' => ScalarCast::string($row['publish_status']),
+            'published_at'   => ScalarCast::int($row['published_at']),
+            'publish_error'  => ScalarCast::string($row['publish_error']),
+            'source_value'   => ScalarCast::string($row['source_value']) === '' ? '' : SourceUrlRedactor::redact(ScalarCast::string($row['source_value'])),
         ], $rows);
     }
 
@@ -162,11 +163,11 @@ final readonly class ArtifactReviewService
         }
 
         return [
-            'job'            => (int) $row['job'],
-            'type'           => (string) $row['type'],
-            'status'         => (string) $row['status'],
-            'review_status'  => (string) $row['review_status'],
-            'publish_status' => (string) $row['publish_status'],
+            'job'            => ScalarCast::int($row['job']),
+            'type'           => ScalarCast::string($row['type']),
+            'status'         => ScalarCast::string($row['status']),
+            'review_status'  => ScalarCast::string($row['review_status']),
+            'publish_status' => ScalarCast::string($row['publish_status']),
         ];
     }
 

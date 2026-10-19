@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Rendering;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
 use Psr\Log\LoggerInterface;
+use Random\Randomizer;
 use Throwable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -54,7 +55,7 @@ final readonly class FfmpegSlideshowRenderer implements SlideshowRendererInterfa
             GeneralUtility::mkdir_deep($dir);
         }
 
-        $out     = $dir . '/slideshow-' . bin2hex(random_bytes(8)) . '.mp4';
+        $out     = $dir . '/slideshow-' . bin2hex((new Randomizer())->getBytes(8)) . '.mp4';
         $command = [$this->ffmpegBinary, '-loglevel', 'error', '-y'];
         foreach ($imagePaths as $path) {
             $command[] = '-i';

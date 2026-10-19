@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
-use function function_exists;
-
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -18,6 +16,8 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Stringable;
+
+use function function_exists;
 
 /**
  * Pins the lenient imageSize-hint resolution shared by all image-calling generators:

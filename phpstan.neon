@@ -16,13 +16,10 @@ includes:
     # ahead of this file in that case.
 
 parameters:
-    # Level 8 on Classes, not 10, and Tests are not analysed yet. Measured on
-    # the tree this was introduced against: level 8 costs 25 findings, level 10
-    # costs 57, and adding Tests takes the total past 280. Starting where the
-    # findings can be fixed rather than baselined keeps the gate honest — a
-    # baseline of that size would make every future finding invisible among the
-    # old ones.
-    level: 8
+    # The shared config sets level 10. Tests are not analysed yet: adding them
+    # took the total past 280 findings when the gate was introduced, and fixing
+    # them rather than baselining keeps the gate honest — a baseline of that size
+    # would make every future finding invisible among the old ones.
     paths:
         - Classes
 

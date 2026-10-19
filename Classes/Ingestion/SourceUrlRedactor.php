@@ -18,7 +18,7 @@ namespace Netresearch\NrRepurpose\Ingestion;
 final class SourceUrlRedactor
 {
     /** Stands in for a string that is not an absolute URL with a host. */
-    public const PLACEHOLDER = '(URL not shown)';
+    public const string PLACEHOLDER = '(URL not shown)';
 
     /**
      * scheme://host[:port]/path, rebuilt from the parsed parts: user name, password,

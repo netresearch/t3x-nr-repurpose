@@ -26,10 +26,10 @@ use Throwable;
 final class OpenAiSpeechSynthesizer implements SpeechSynthesizerInterface
 {
     /** The nr-llm Configuration record (identifier) steering speech synthesis. */
-    public const CONFIGURATION = 'nr_repurpose_tts';
+    public const string CONFIGURATION = 'nr_repurpose_tts';
 
     /** Documented fallback when neither the Configuration nor the Model registry resolves. */
-    public const MODEL = 'tts-1';
+    public const string MODEL = 'tts-1';
 
     /** Effective model, resolved lazily once per instance by getModel(). */
     private ?string $model = null;

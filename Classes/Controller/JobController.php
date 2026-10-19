@@ -80,7 +80,10 @@ class JobController extends ActionController
         $paginator   = new QueryResultPaginator($jobs, $currentPage, self::JOBS_PER_PAGE);
         $jobs        = [];
         foreach ($paginator->getPaginatedItems() as $job) {
-            $jobs[] = $job;
+            // The query result holds Job objects only; the check gives them their type.
+            if ($job instanceof Job) {
+                $jobs[] = $job;
+            }
         }
 
         $this->moduleTemplate->assignMultiple([

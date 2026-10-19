@@ -8,7 +8,7 @@
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/netresearch/t3x-nr-repurpose/badge)](https://securityscorecards.dev/viewer/?uri=github.com/netresearch/t3x-nr-repurpose)
 
-[![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg)](https://phpstan.org/)
+[![PHPStan](https://img.shields.io/badge/PHPStan-level%2010-brightgreen.svg)](https://phpstan.org/)
 [![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-blue.svg)](https://www.php.net/)
 [![TYPO3 v14.3](https://img.shields.io/badge/TYPO3-v14.3-orange.svg)](https://typo3.org/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](LICENSE)

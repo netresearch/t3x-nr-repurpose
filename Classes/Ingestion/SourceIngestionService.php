@@ -39,10 +39,10 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 final readonly class SourceIngestionService implements SourceIngestionServiceInterface
 {
     /** Internal tier label: tier 2 was wanted but not granted, the page kept its text. */
-    private const TIER_VISION_DENIED = 'vision-denied';
+    private const string TIER_VISION_DENIED = 'vision-denied';
 
     /** Pages of one PDF when the extension setting `maxPdfPages` is unset or not a positive number. */
-    public const DEFAULT_MAX_PDF_PAGES = 200;
+    public const int DEFAULT_MAX_PDF_PAGES = 200;
 
     public function __construct(
         private WebPageFetcher $webPageFetcher,

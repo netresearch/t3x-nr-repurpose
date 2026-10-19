@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Rendering;
 
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
 use Psr\Log\LoggerInterface;
+use Random\Randomizer;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -84,7 +85,7 @@ final readonly class PlaywrightHtmlToImageRenderer implements HtmlToImageRendere
             throw RenderingException::because('Render output dir not writable', 1749400100);
         }
 
-        $out = $dir . '/' . bin2hex(random_bytes(8)) . '.' . $extension;
+        $out = $dir . '/' . bin2hex((new Randomizer())->getBytes(8)) . '.' . $extension;
 
         // Default the renderer script to the extension's bundled render.cjs (root-package layout:
         // Classes/Rendering -> extension root -> Resources/Private/NodeRenderer/render.cjs).

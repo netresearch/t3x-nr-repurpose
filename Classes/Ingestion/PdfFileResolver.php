@@ -14,6 +14,7 @@ use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Random\Randomizer;
 use TYPO3\CMS\Core\Resource\FileRepository;
 
 /**
@@ -25,12 +26,12 @@ use TYPO3\CMS\Core\Resource\FileRepository;
  */
 class PdfFileResolver
 {
-    private const DOWNLOAD_PREFIX = 'nrrepurpose_dl_';
+    private const string DOWNLOAD_PREFIX = 'nrrepurpose_dl_';
 
-    private const JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
+    private const string JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
 
     /** Driver key of TYPO3's local file system driver (sys_file_storage.driver). */
-    private const LOCAL_DRIVER = 'Local';
+    private const string LOCAL_DRIVER = 'Local';
 
     /** Largest PDF downloaded: 50 MiB covers long illustrated reports. */
     public const MAX_BYTES = 50 * 1024 * 1024;
@@ -135,7 +136,7 @@ class PdfFileResolver
     /** Write the PDF to a temp file release() deletes; a partial file is removed at once. */
     private function writeDownload(string $bytes): string
     {
-        $tmp = sys_get_temp_dir() . '/' . self::DOWNLOAD_PREFIX . bin2hex(random_bytes(6)) . '.pdf';
+        $tmp = sys_get_temp_dir() . '/' . self::DOWNLOAD_PREFIX . bin2hex((new Randomizer())->getBytes(6)) . '.pdf';
         if (!$this->writeFile($tmp, $bytes)) {
             if (is_file($tmp)) {
                 // $tmp is the path generated one line above, never user input.

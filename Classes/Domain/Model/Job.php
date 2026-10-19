@@ -17,6 +17,7 @@ use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
+use Netresearch\NrRepurpose\Utility\ScalarCast;
 use TYPO3\CMS\Extbase\Attribute\ORM\Lazy;
 use TYPO3\CMS\Extbase\Domain\Model\FileReference;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
@@ -408,7 +409,7 @@ class Job extends AbstractEntity
         }
 
         usort($slides, static function (Artifact $a, Artifact $b): int {
-            $bySlideIndex = (int) ($a->getMetadataArray()['slideIndex'] ?? 0) <=> (int) ($b->getMetadataArray()['slideIndex'] ?? 0);
+            $bySlideIndex = ScalarCast::int($a->getMetadataArray()['slideIndex'] ?? 0) <=> ScalarCast::int($b->getMetadataArray()['slideIndex'] ?? 0);
 
             return $bySlideIndex !== 0 ? $bySlideIndex : ($a->getUid() ?? 0) <=> ($b->getUid() ?? 0);
         });

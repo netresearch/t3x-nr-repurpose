@@ -9,10 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Rendering;
 
-use function dirname;
-
 use GdImage;
 use Psr\Log\LoggerInterface;
+
+use function dirname;
 
 /**
  * Overlays a transparent foreground PNG (the exact HTML-rendered text/label layer) onto a

@@ -13,6 +13,7 @@ use Netresearch\NrRepurpose\Exception\DefaultStorageUnavailableException;
 use Netresearch\NrRepurpose\Exception\EmptyArtifactContentException;
 use Netresearch\NrRepurpose\Provenance\AiContentMarker;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
+use Random\Randomizer;
 use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
@@ -84,7 +85,7 @@ class JobFileStorage
             // Unique target name to avoid collisions across runs.
             $extension = pathinfo($fileName, PATHINFO_EXTENSION);
             $unique    = pathinfo($fileName, PATHINFO_FILENAME)
-                . '-' . bin2hex(random_bytes(4))
+                . '-' . bin2hex((new Randomizer())->getBytes(4))
                 . ($extension !== '' ? '.' . $extension : '');
 
             $file = $this->addWithContent($storage, $folder, $unique, $content);

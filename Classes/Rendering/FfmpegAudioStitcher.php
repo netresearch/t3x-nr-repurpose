@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Rendering;
 
 use Netresearch\NrRepurpose\Rendering\Process\ProcessRunnerInterface;
 use Psr\Log\LoggerInterface;
+use Random\Randomizer;
 
 /**
  * Concatenates ordered mp3 segments into one mp3 using the ffmpeg concat DEMUXER (stream copy,
@@ -50,7 +51,7 @@ final readonly class FfmpegAudioStitcher implements AudioStitcherInterface
             throw RenderingException::because('Audio work dir not writable', 1749400302);
         }
 
-        $listPath = $dir . '/concat-' . bin2hex(random_bytes(8)) . '.txt';
+        $listPath = $dir . '/concat-' . bin2hex((new Randomizer())->getBytes(8)) . '.txt';
         $lines    = [];
         foreach ($mp3Paths as $path) {
             // ffmpeg concat-list syntax escapes a single quote as: '\''
