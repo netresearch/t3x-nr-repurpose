@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-10-20
+
+### Changed
+
+- **nr-llm 0.41 is supported.** `composer.json` requires `netresearch/nr-llm` `^0.35 || ^0.36 || ^0.37 || ^0.38 || ^0.39 || ^0.40 || ^0.41`, `ext_emconf.php` declares `0.35.0-0.41.99`. On a 0.x version `^0.40` does not admit 0.41.0. nr-llm 0.41 adds members to three interfaces this extension does not implement; every other changed signature adds an optional parameter.
+- **The code passes PHPStan at the shared level 10** of `netresearch/typo3-ci-workflows` 2.0.3 (#182). Values read from database rows, settings and arguments are converted through `ScalarCast`, where an array or object becomes `0` as an integer and, unless it is `Stringable`, `''` as a string; scalar values and `null` convert as before.
+
 ## [0.11.3] - 2026-10-08
 
 ### Changed
@@ -510,7 +517,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.3...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.4...HEAD
+[0.11.4]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.3...v0.11.4
 [0.11.3]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.0...v0.11.1
