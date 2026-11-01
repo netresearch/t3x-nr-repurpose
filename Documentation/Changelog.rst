@@ -17,6 +17,18 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-11-5:
+
+Version 0.11.5 (2026-11-01)
+===========================
+
+Changed
+-------
+
+-   nr-llm 0.42 is supported: ``composer.json`` requires
+    ``^0.35 || ^0.36 || ^0.37 || ^0.38 || ^0.39 || ^0.40 || ^0.41 || ^0.42``,
+    ``ext_emconf.php`` declares ``0.35.0-0.42.99``.
+
 .. _version-0-11-4:
 
 Version 0.11.4 (2026-10-20)

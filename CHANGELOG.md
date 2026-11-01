@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.5] - 2026-11-01
+
+### Changed
+
+- `netresearch/nr-llm` is accepted at `^0.35 || ^0.36 || ^0.37 || ^0.38 || ^0.39 || ^0.40 || ^0.41 || ^0.42` (`ext_emconf.php`: `0.35.0-0.42.99`). On a 0.x version a caret does not admit the next minor, so an installation could not move to nr-llm 0.42.0. nr-llm 0.42 adds `defer()` to `AgentRuntimeInterface`, which this extension does not implement.
+
 ## [0.11.4] - 2026-10-20
 
 ### Changed
@@ -517,7 +523,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.4...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.5...HEAD
+[0.11.5]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.4...v0.11.5
 [0.11.4]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.3...v0.11.4
 [0.11.3]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.1...v0.11.2
