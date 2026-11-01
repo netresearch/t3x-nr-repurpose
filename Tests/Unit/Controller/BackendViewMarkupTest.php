@@ -55,6 +55,8 @@ final class BackendViewMarkupTest extends TestCase
             'ai label partial'      => ['Private/Partials/Job/AiLabel.html'],
             'artifacts partial'     => ['Private/Partials/Job/ArtifactSummaries.html'],
             'pagination partial'    => ['Private/Partials/Job/Pagination.html'],
+            'failure notice'        => ['Private/Partials/Job/FailureNotice.html'],
+            'artifact failure'      => ['Private/Partials/Job/ArtifactFailure.html'],
         ];
     }
 
@@ -128,7 +130,7 @@ final class BackendViewMarkupTest extends TestCase
         // Core v14 has no .progress/.progress-bar CSS, and <typo3-backend-progress-bar> is @internal with an
         // unnameable shadow-DOM progressbar: the module uses a native <progress>, which carries role, value,
         // range and name itself, with the percentage beside it for sight only.
-        $bars = $xpath->query('//td[@class="col-progress"]/div[@class="nrrepurpose-progress"]/progress[@class="nrrepurpose-progress-track"]');
+        $bars = $xpath->query('//td[@class="col-progress"]//div[@class="nrrepurpose-progress"]/progress[@class="nrrepurpose-progress-track"]');
         self::assertSame(1, $bars?->length, 'progress column');
         $bar = $bars->item(0);
         assert($bar instanceof DOMElement);
@@ -190,8 +192,8 @@ final class BackendViewMarkupTest extends TestCase
     {
         return [
             'source'         => ['Private/Templates/Job/Show.html', '//dd[contains(., "{job.sourceValueForDisplay}")]'],
-            'job error'      => ['Private/Templates/Job/Show.html', '//dd[contains(., "{job.errorMessage}")]'],
-            'artifact cards' => ['Private/Templates/Job/Show.html', '//div[contains(@class, "card-body")][.//*[contains(., "{artifact.errorMessage}")]]'],
+            'job error'      => ['Private/Partials/Job/FailureNotice.html', '//p[contains(., "{job.errorMessage}")]'],
+            'artifact error' => ['Private/Partials/Job/ArtifactFailure.html', '//span[contains(., "{artifact.errorMessage}")]'],
             'post text'      => ['Private/Templates/Job/Plan.html', '//td[contains(., "{post.script_text}")]'],
             'publish error'  => ['Private/Templates/Job/Plan.html', '//span[contains(., "{post.publish_error}")]'],
         ];
@@ -420,6 +422,8 @@ final class BackendViewMarkupTest extends TestCase
             ['.nrrepurpose-pre', 'overflow-wrap', 'anywhere'],
             ['.nrrepurpose-pre-text', 'font-family', 'inherit'],
             ['.nrrepurpose-pre-text', 'font-size', 'inherit'],
+            ['.nrrepurpose-reference', 'overflow-wrap', 'anywhere'],
+            ['.nrrepurpose-reference', 'user-select', 'all'],
         ];
 
         $expected = array_map(fn (array $d): string => $d[0] . ' { ' . $d[1] . ': ' . $this->normalised($d[2]) . ' }', $pinned);

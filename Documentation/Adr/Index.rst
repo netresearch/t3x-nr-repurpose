@@ -105,6 +105,14 @@ Decision records
       .. card-footer:: :ref:`Read <adr-010>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-011: What a failed job tells the editor
+
+      Why a failure stores a reason, which texts an editor reads, and when a
+      failed job may run again.
+
+      .. card-footer:: :ref:`Read <adr-011>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -118,3 +126,4 @@ Decision records
    Adr008CapabilityPermissionGate
    Adr009ChatToolDataClass
    Adr010PageAndFileSources
+   Adr011FailureReasons

@@ -1,0 +1,34 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<html data-namespace-typo3-fluid="true"
+      xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
+<f:comment><!--
+    Why one format failed.
+    Core error box: the danger text colour on the card background is 4.49:1 in the dark scheme
+    (below AA). Arguments: artifact.
+--></f:comment>
+<f:variable name="lll" value="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf" />
+<f:if condition="{artifact.failure}">
+    <f:be.infobox state="2">
+            <span class="d-block text-break fw-bold"><f:translate key="{lll}:failure.{artifact.failure.value}.short" /></span>
+            <span class="d-block text-break"><f:translate key="{lll}:failure.{artifact.failure.value}.what" /></span>
+            <f:if condition="{artifact.failure.storedMessageShown} && {artifact.errorMessage}">
+                <span class="d-block text-break">{artifact.errorMessage}</span>
+            </f:if>
+            <f:if condition="{artifact.failure.formatLevel}">
+                <f:then>
+                    <span class="d-block text-break"><f:translate key="{lll}:failure.{artifact.failure.value}.result" /></span>
+                    <span class="d-block text-break"><f:translate key="{lll}:failure.{artifact.failure.value}.action" /></span>
+                </f:then>
+                <f:else>
+                    <span class="d-block text-break"><f:translate key="{lll}:failure.format.result" /></span>
+                    <span class="d-block text-break"><f:translate key="{lll}:failure.format.action" /></span>
+                </f:else>
+            </f:if>
+            <span class="d-block text-break"><f:translate key="{lll}:failure.{artifact.failure.value}.admin" /></span>
+            <code class="nrrepurpose-reference">{artifact.failure.value}</code>
+    </f:be.infobox>
+</f:if>
+</html>

@@ -1,0 +1,54 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<html data-namespace-typo3-fluid="true"
+      xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
+<f:comment><!--
+    What happened to a job, what is left, what the editor can do and whom to ask. Every text is
+    fixed (FailureReason); the stored message appears only for the cases written for the editor.
+    Arguments: job.
+--></f:comment>
+<f:variable name="lll" value="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf" />
+<f:variable name="reason" value="{job.failure}" />
+<div class="callout callout-{job.statusEnum.severity}" id="nrrepurpose-failure">
+    <div class="callout-title"><f:translate key="{lll}:{job.failureTitleKey}" /></div>
+    <div class="callout-body">
+        <p><f:translate key="{lll}:failure.{reason.value}.what" /></p>
+        <f:if condition="{reason.storedMessageShown} && {job.errorMessage}">
+            <h3 class="h6 fw-bold mb-1"><f:translate key="{lll}:failure.heading.detail" /></h3>
+            <p class="text-break">{job.errorMessage}</p>
+        </f:if>
+
+        <h3 class="h6 fw-bold mb-1"><f:translate key="{lll}:failure.heading.result" /></h3>
+        <p>
+            <f:translate key="{lll}:failure.{reason.value}.result" />
+            <f:if condition="{job.sourceSummary.pagesUsed}"><f:translate key="{lll}:failure.facts.pages" arguments="{0: job.sourceSummary.pagesUsed}" /></f:if>
+            <f:if condition="{job.doneArtifactCount}"><f:translate key="{lll}:failure.facts.done" arguments="{0: job.doneArtifactCount}" /></f:if>
+        </p>
+
+        <h3 class="h6 fw-bold mb-1"><f:translate key="{lll}:failure.heading.action" /></h3>
+        <p><f:translate key="{lll}:failure.{reason.value}.action" /></p>
+        <f:if condition="{job.retryable}">
+            <f:then>
+                <f:form action="retry" arguments="{job: job.uid}" method="post" class="mb-3">
+                    <button type="submit" class="btn btn-default">
+                        <f:translate key="{lll}:failure.retry.action" />
+                    </button>
+                    <span class="d-block form-text"><f:translate key="{lll}:failure.retry.note" /></span>
+                </f:form>
+            </f:then>
+            <f:else if="{job.failed} && {reason.retryable}">
+                <p><f:translate key="{lll}:failure.retry.blocked" /></p>
+            </f:else>
+        </f:if>
+
+        <h3 class="h6 fw-bold mb-1"><f:translate key="{lll}:failure.heading.admin" /></h3>
+        <p><f:translate key="{lll}:failure.{reason.value}.admin" /></p>
+        <p class="mb-0">
+            <f:translate key="{lll}:failure.reference.label" /><br />
+            <code class="nrrepurpose-reference"><f:translate key="{lll}:failure.reference.job" arguments="{0: job.uid}" />, <f:format.date format="Y-m-d H:i">{job.tstamp}</f:format.date>, {reason.value}</code>
+        </p>
+    </div>
+</div>
+</html>

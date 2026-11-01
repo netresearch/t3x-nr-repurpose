@@ -9,10 +9,32 @@
 Troubleshooting
 ===============
 
-A job that fails as a whole shows its error in the job's detail view. An
-artifact that fails on its own shows its error on the artifact card; the other
-artifacts of the run are still produced. The worker also writes each failure to
-the TYPO3 log.
+A job that fails as a whole explains itself in the job's detail view: what
+happened, what is left, what the editor can do and whom to ask. The job list
+shows the reason in one line. An artifact that fails on its own explains itself
+on the artifact card; the other artifacts of the run are still produced.
+
+The explanation ends with a line to pass on, for example
+``Job 13, 2026-11-01 22:38, answer_unusable``. The job number and the time find
+the full exception in the TYPO3 log under :file:`var/log/`; the last value is the
+stored reason. See :ref:`adr-011` for the reasons and why the page shows no
+exception text.
+
+.. _troubleshooting-answer-unusable:
+
+A job fails with "The AI answer could not be used"
+==================================================
+
+The reason is ``answer_unusable``, and the log holds
+``Failed to decode JSON response: Syntax error``. The text model gave an answer
+that is no JSON object, twice: the extension asks once more with twice the room.
+An empty answer reads as this syntax error too. A reasoning model counts its
+thinking against the token limit, and at a limit near the length of the answer
+it can return nothing at all, with finish reason ``length``.
+
+Check the ``Max tokens`` field of the ``nr_repurpose_text`` configuration
+(see :ref:`configuration-nr-llm`). A value below 16,000 is raised per call, and
+``0`` leaves the choice to the model.
 
 .. _troubleshooting-queued:
 
@@ -195,11 +217,10 @@ no embedded text at all fails the whole job with this error:
 
 .. _troubleshooting-budget:
 
-An artifact fails with "AI budget exhausted or … unavailable"
-=============================================================
+An artifact fails with "AI budget used up, or the service is not available"
+===========================================================================
 
-The error reads ``AI budget exhausted or speech synthesis unavailable`` or
-``AI budget exhausted or image service unavailable``. Either the job creator's
+The stored reason is ``budget_or_service``. Either the job creator's
 nr-llm budget does not cover the planned cost, or nr-llm's speech or image
 service is not available, for example because the ``nr_repurpose_tts`` or
 ``nr_repurpose_image`` configuration or its provider is missing (see

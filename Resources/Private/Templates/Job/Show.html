@@ -23,17 +23,15 @@
             <span class="badge badge-{job.statusEnum.severity}">
                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{job.statusEnum.labelKey}" />
             </span>
-            <span class="text-muted">({job.progress}%)<f:if condition="{job.currentStep}"> — {job.currentStep}</f:if></span>
+            <f:comment><!-- A finished job needs neither; a failed one stopped at some percentage, which says nothing. --></f:comment>
+            <f:if condition="!{job.statusEnum.terminal}">
+                <span class="text-muted">({job.progress}%)<f:if condition="{job.stepDetail}"> — {job.stepDetail}</f:if></span>
+            </f:if>
         </dd>
 
         <f:if condition="{job.languageDetected}">
             <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.field.language" /></dt>
             <dd class="col-sm-10">{job.languageDetected}</dd>
-        </f:if>
-
-        <f:if condition="{job.errorMessage}">
-            <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.field.error" /></dt>
-            <dd class="col-sm-10 text-danger text-break">{job.errorMessage}</dd>
         </f:if>
 
         <f:variable name="sourceReport" value="{job.sourceSummary}" />
@@ -42,6 +40,10 @@
             <dd class="col-sm-10">{sourceReport.pagesUsed}</dd>
         </f:if>
     </dl>
+
+    <f:if condition="{job.failure}">
+        <f:render partial="Job/FailureNotice" arguments="{job: job}" />
+    </f:if>
 
     <f:if condition="{sourceReport.omissions}">
         <div class="callout callout-warning" id="nrrepurpose-source-report">
@@ -129,10 +131,7 @@
                     </div>
                     <f:comment><!-- LLM text can carry long unbroken tokens (URLs): break them inside the card. --></f:comment>
                     <div class="card-body text-break">
-                        <f:if condition="{artifact.errorMessage}">
-                            <f:comment><!-- Core error box: the danger text colour on the card background is 4.49:1 in the dark scheme (below AA). --></f:comment>
-                            <f:be.infobox state="2"><span class="text-break">{artifact.errorMessage}</span></f:be.infobox>
-                        </f:if>
+                        <f:render partial="Job/ArtifactFailure" arguments="{artifact: artifact}" />
 
                         <f:if condition="{artifact.status} == 'done'">
                             <f:comment><!-- Podcast: audio player + subtitles + transcript --></f:comment>
@@ -270,9 +269,7 @@
                                                     <f:else>{slide.variant}</f:else>
                                                 </f:if>
                                             </p>
-                                            <f:if condition="{slide.errorMessage}">
-                                                <f:be.infobox state="2"><span class="text-break">{slide.errorMessage}</span></f:be.infobox>
-                                            </f:if>
+                                            <f:render partial="Job/ArtifactFailure" arguments="{artifact: slide}" />
                                         </f:else>
                                     </f:if>
                                     <div class="nrrepurpose-story-slide-meta">

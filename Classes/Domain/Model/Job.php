@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Domain\Model;
 
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
@@ -27,6 +28,12 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 class Job extends AbstractEntity
 {
     private const int DEEPEST_NAMED_LEVEL = 4;
+
+    /**
+     * Two hours without a write, in seconds. Every step writes the job, and the doctrine transport
+     * hands an unfinished message to a worker again after one hour, so this is a stopped worker.
+     */
+    private const int STALLED_AFTER = 7200;
 
     protected string $sourceType = 'url';
 
@@ -82,6 +89,10 @@ class Job extends AbstractEntity
     protected string $currentStep = '';
 
     protected string $errorMessage = '';
+
+    protected string $failureReason = '';
+
+    protected int $tstamp = 0;
 
     protected string $languageDetected = '';
 
@@ -392,6 +403,72 @@ class Job extends AbstractEntity
     public function getErrorMessage(): string
     {
         return $this->errorMessage;
+    }
+
+    /**
+     * What the result view explains: a failure, a partial result, or a job that stands still.
+     * Null while a job runs normally and when it finished clean.
+     */
+    public function getFailure(): ?FailureReason
+    {
+        $status = $this->getStatusEnum();
+        if ($status === JobStatus::PartiallyDone) {
+            return FailureReason::SomeFormatsFailed;
+        }
+
+        if ($status === JobStatus::Failed) {
+            return FailureReason::fromStored($this->failureReason, $this->errorMessage);
+        }
+
+        return !$status->isTerminal() && $this->tstamp > 0 && time() - $this->tstamp > self::STALLED_AFTER
+            ? FailureReason::WorkerStalled
+            : null;
+    }
+
+    /** The heading of the explanation: where the run stopped, in the editor's words. */
+    public function getFailureTitleKey(): string
+    {
+        return 'failure.title.' . match (true) {
+            $this->getFailure() === FailureReason::WorkerStalled           => 'stalled',
+            $this->getStatusEnum() === JobStatus::PartiallyDone            => 'partial',
+            in_array($this->currentStep, ['', 'queued'], true)             => 'queued',
+            in_array($this->currentStep, ['ingesting', 'analyzing'], true) => $this->currentStep,
+            default                                                        => 'generating',
+        };
+    }
+
+    /** A generator's own detail for a running job; the status already says what a slug says. */
+    public function getStepDetail(): string
+    {
+        return JobStatus::tryFrom($this->currentStep) instanceof JobStatus ? '' : $this->currentStep;
+    }
+
+    public function isFailed(): bool
+    {
+        return $this->getStatusEnum() === JobStatus::Failed;
+    }
+
+    /** A new run removes every artifact of the job, so a finished result rules it out. */
+    public function isRetryable(): bool
+    {
+        return $this->isFailed()
+            && $this->getFailure()?->isRetryable() === true
+            && $this->getDoneArtifactCount() === 0;
+    }
+
+    public function getDoneArtifactCount(): int
+    {
+        $done = 0;
+        foreach ($this->artifacts as $artifact) {
+            $done += $artifact->getStatus() === ArtifactStatus::Done->value ? 1 : 0;
+        }
+
+        return $done;
+    }
+
+    public function getTstamp(): int
+    {
+        return $this->tstamp;
     }
 
     public function getLanguageDetected(): string

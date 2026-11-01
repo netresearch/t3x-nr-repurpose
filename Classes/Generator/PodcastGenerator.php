@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
 use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
 use Netresearch\NrRepurpose\Generator\Support\DialogueScript;
@@ -28,6 +29,7 @@ use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -86,7 +88,7 @@ final class PodcastGenerator extends AbstractGenerator
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Podcast, 'default', 0, ArtifactStatus::Pending);
 
         if (!$ctx->grants->audio) {
-            $this->failArtifact($artifactUid, $jobUid, self::DENIED_AUDIO);
+            $this->failArtifact($artifactUid, $jobUid, self::DENIED_AUDIO, FailureReason::NotPermitted);
 
             return false;
         }
@@ -95,7 +97,7 @@ final class PodcastGenerator extends AbstractGenerator
         $turnCount      = max(1, count($ctx->brief->keyPoints) + count($ctx->brief->sections) + 2);
         $plannedTtsCost = self::TTS_COST_PER_TURN * $turnCount;
         if (!$this->specializedAllowed($ctx, $plannedTtsCost, $this->speech->isAvailable())) {
-            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or speech synthesis unavailable');
+            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or speech synthesis unavailable', FailureReason::BudgetOrService);
 
             return false;
         }
@@ -106,7 +108,7 @@ final class PodcastGenerator extends AbstractGenerator
             $dialogue      = $this->buildDialogue($ctx, $personaVoices);
             $turns         = $dialogue->turns;
             if ($turns === []) {
-                $this->failArtifact($artifactUid, $jobUid, 'LLM produced no dialogue turns');
+                $this->failArtifact($artifactUid, $jobUid, 'LLM produced no dialogue turns', FailureReason::AnswerUnusable);
 
                 return false;
             }
@@ -115,6 +117,7 @@ final class PodcastGenerator extends AbstractGenerator
             $segmentPaths    = [];
             $vttSegments     = [];
             $transcriptLines = [];
+            $lastFailure     = null;
 
             $totalTurns = count($turns);
             foreach ($turns as $i => $turn) {
@@ -123,7 +126,10 @@ final class PodcastGenerator extends AbstractGenerator
                     0.1 + 0.8 * $i / $totalTurns,
                 );
                 $segmentPath = sprintf('%s/turn-%d.mp3', $tmpDir, $i);
-                if (!$this->synthesizeWithRetry($turn->text, $turn->voice, $segmentPath, $jobUid, $i)) {
+                $failure     = $this->synthesizeWithRetry($turn->text, $turn->voice, $segmentPath, $jobUid, $i);
+                if ($failure instanceof Throwable) {
+                    $lastFailure = $failure;
+
                     continue;
                 }
 
@@ -137,7 +143,9 @@ final class PodcastGenerator extends AbstractGenerator
             }
 
             if ($segmentPaths === []) {
-                $this->failArtifact($artifactUid, $jobUid, 'All podcast TTS turns failed');
+                // The last failure decides what the editor reads: a wrong key, a used-up quota and
+                // a guardrail are different things to do next.
+                $this->failArtifactFrom($artifactUid, $jobUid, 'Podcast audio', $lastFailure ?? new RuntimeException('No turn was voiced', 1749410001));
 
                 return false;
             }
@@ -173,17 +181,20 @@ final class PodcastGenerator extends AbstractGenerator
     }
 
     /**
-     * Synthesize one turn, retrying a transient TTS failure once. Returns false when every
-     * attempt failed so the caller can skip the turn and keep the rest of the episode.
+     * Synthesize one turn, retrying a transient TTS failure once. Returns the last failure when
+     * every attempt failed, so the caller can skip the turn and keep the rest of the episode,
+     * and null when the turn is voiced.
      */
-    private function synthesizeWithRetry(string $text, string $voice, string $segmentPath, int $jobUid, int $turnIndex): bool
+    private function synthesizeWithRetry(string $text, string $voice, string $segmentPath, int $jobUid, int $turnIndex): ?Throwable
     {
+        $failure = null;
         for ($attempt = 1; $attempt <= self::TTS_MAX_ATTEMPTS; ++$attempt) {
             try {
                 $this->speech->synthesizeToFile($text, $voice, $segmentPath);
 
-                return true;
+                return null;
             } catch (Throwable $e) {
+                $failure = $e;
                 $this->logger->warning('Podcast TTS turn failed', [
                     'job'     => $jobUid,
                     'turn'    => $turnIndex,
@@ -193,7 +204,7 @@ final class PodcastGenerator extends AbstractGenerator
             }
         }
 
-        return false;
+        return $failure;
     }
 
     /**

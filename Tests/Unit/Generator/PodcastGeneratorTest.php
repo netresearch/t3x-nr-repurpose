@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -30,6 +31,7 @@ use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
+use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
@@ -347,6 +349,34 @@ final class PodcastGeneratorTest extends TestCase
         self::assertSame('failed', $jobs->updates[100]['status']);
         self::assertSame('Podcast generation failed', $jobs->updates[100]['error_message']);
         self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
+    }
+
+    /** The last failure of a voice decides what the editor reads, not a fixed "unavailable". */
+    public function testWhenNoTurnGetsAVoiceTheFailureNamesWhy(): void
+    {
+        $speech = new class implements SpeechSynthesizerInterface {
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function getModel(): string
+            {
+                return 'stub-tts-model';
+            }
+
+            public function synthesizeToFile(string $text, string $voice, string $outputPath): void
+            {
+                throw RenderingException::because('TTS synthesis failed', 1749410000, new ProviderConnectionException('timed out'));
+            }
+        };
+        $jobs      = $this->jobs();
+        $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new NullLogger(), $this->completion(), $speech, $this->stitcher(), $this->storage(), new WebVttBuilder());
+
+        self::assertFalse($generator->generate($this->context()));
+        self::assertSame('failed', $jobs->updates[100]['status']);
+        self::assertSame('provider_timeout', $jobs->updates[100]['failure_reason']);
+        self::assertSame('Podcast audio error: TTS synthesis failed', $jobs->updates[100]['error_message']);
     }
 
     /**

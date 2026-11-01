@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Domain\Model;
 
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\PublishStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
@@ -34,6 +35,8 @@ class Artifact extends AbstractEntity
     protected string $status = 'pending';
 
     protected string $errorMessage = '';
+
+    protected string $failureReason = '';
 
     protected string $metadata = '';
 
@@ -104,6 +107,17 @@ class Artifact extends AbstractEntity
     public function getErrorMessage(): string
     {
         return $this->errorMessage;
+    }
+
+    /**
+     * A row written before reasons were stored reads as Unknown: rows of older versions can hold
+     * a provider's words in their message.
+     */
+    public function getFailure(): ?FailureReason
+    {
+        return $this->getStatusEnum() === ArtifactStatus::Failed
+            ? FailureReason::tryFrom($this->failureReason) ?? FailureReason::Unknown
+            : null;
     }
 
     public function getReviewStatusEnum(): ReviewStatus

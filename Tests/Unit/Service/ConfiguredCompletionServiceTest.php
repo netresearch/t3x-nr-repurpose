@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Service\ConfiguredCompletionService;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -54,6 +56,56 @@ final class ConfiguredCompletionServiceTest extends TestCase
         self::assertCount(1, $inner->completeJsonForConfigurationCalls);
         self::assertSame($configuration, $inner->completeJsonForConfigurationCalls[0]['configuration']);
         self::assertSame([], $inner->completeJsonCalls);
+    }
+
+    /** @return array<string, array{0: int, 1: ?int}> limit on the record, limit of the call */
+    public static function recordLimits(): array
+    {
+        return [
+            'the default of a record'   => [1000, ConfiguredCompletionService::MIN_OUTPUT_TOKENS],
+            'just below the least room' => [15999, ConfiguredCompletionService::MIN_OUTPUT_TOKENS],
+            'at the least room'         => [16000, null],
+            'more than that'            => [32000, null],
+            'unset: the model decides'  => [0, null],
+        ];
+    }
+
+    #[DataProvider('recordLimits')]
+    public function testEveryCompletionGetsTheRoomOfATextThatLong(int $recordLimit, ?int $expected): void
+    {
+        $configuration = $this->activeConfigurationStub();
+        self::assertInstanceOf(Stub::class, $configuration);
+        $configuration->method('getMaxTokens')->willReturn($recordLimit);
+        $inner            = new FakeCompletionService();
+        $inner->responses = [];
+
+        $subject = $this->subject($inner, $configuration);
+
+        $subject->completeJson('json');
+        $subject->completeStructured('structured', ['type' => 'object']);
+        $subject->completeMarkdown('markdown');
+
+        self::assertSame($expected, $inner->completeJsonForConfigurationCalls[0]['options']?->getMaxTokens());
+        self::assertSame($expected, $inner->completeStructuredForConfigurationCalls[0]['options']?->getMaxTokens());
+        self::assertSame($expected, $inner->completeMarkdownForConfigurationCalls[0]['options']?->getMaxTokens());
+    }
+
+    public function testACallThatNamesItsLimitKeepsIt(): void
+    {
+        $inner = new FakeCompletionService();
+
+        $this->subject($inner, $this->activeConfigurationStub())->completeJson('prompt', (new ChatOptions())->withMaxTokens(500));
+
+        self::assertSame(500, $inner->completeJsonForConfigurationCalls[0]['options']?->getMaxTokens());
+    }
+
+    public function testTheInstanceDefaultGetsTheRoomToo(): void
+    {
+        $inner = new FakeCompletionService();
+
+        $this->subject($inner, null)->completeJson('prompt');
+
+        self::assertSame(ConfiguredCompletionService::MIN_OUTPUT_TOKENS, $inner->completeJsonCalls[0]['options']?->getMaxTokens());
     }
 
     public function testFallsBackToInstanceDefaultWhenConfigurationIsMissing(): void

@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Queue\Handler;
 
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
+use Netresearch\NrRepurpose\Service\FailureClassifier;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -40,7 +41,7 @@ final readonly class GenerateArtifactsHandler
             $this->orchestrator->process($message->jobUid);
         } catch (Throwable $e) {
             $this->logger->error('Generation job crashed', ['job' => $message->jobUid, 'exception' => $e]);
-            $this->jobs->markFailed($message->jobUid, 'Generation failed');
+            $this->jobs->markFailed($message->jobUid, 'Generation failed', FailureClassifier::reasonFor($e));
         }
     }
 }

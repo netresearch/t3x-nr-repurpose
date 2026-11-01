@@ -17,6 +17,7 @@ use DOMXPath;
 use Masterminds\HTML5;
 use Netresearch\NrRepurpose\Controller\JobController;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
+use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Functional\Controller\Fixtures\QueryCountingMiddleware;
 use Netresearch\NrRepurpose\Tests\Functional\Controller\Fixtures\RecordingLogWriter;
@@ -57,6 +58,8 @@ use TYPO3\CMS\Extbase\Service\ExtensionService;
 final class JobControllerTest extends AbstractFunctionalTestCase
 {
     private const string MODULE_SPECIFIER = '@netresearch/nr-repurpose/job-new.js';
+
+    private const string RETRY_BUTTON = 'Start this job again';
 
     private const int ADMIN = 1;
 
@@ -339,18 +342,183 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         $job        = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10']);
         $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact');
         $connection->insert('tx_nrrepurpose_domain_model_artifact', [
-            'pid'           => 0,
-            'job'           => $job,
-            'type'          => 'story',
-            'variant'       => 'slide-1',
-            'status'        => 'failed',
-            'error_message' => 'The text contains "Rabatt".',
+            'pid'            => 0,
+            'job'            => $job,
+            'type'           => 'story',
+            'variant'        => 'slide-1',
+            'status'         => 'failed',
+            'failure_reason' => 'guardrail',
+            'error_message'  => 'The text contains "Rabatt".',
         ]);
 
         $strip = $this->parse($this->renderAction('show', ['job' => $job]))->saveHTML();
 
         self::assertIsString($strip);
-        self::assertMatchesRegularExpression('#<span class="text-break">[^<]*Rabatt[^<]*</span>#', $strip);
+        self::assertMatchesRegularExpression('#<span class="d-block text-break">[^<]*Rabatt[^<]*</span>#', $strip);
+    }
+
+    /**
+     * The state of the job that started this: an older failure with only the fixed text and the
+     * raw step, 17 pages read. Nothing of the raw row reaches the editor, and the page says what
+     * happened, what is left, what to do and whom to ask.
+     */
+    #[Test]
+    public function aFailureFromAnOlderVersionStillExplainsItself(): void
+    {
+        $job = $this->insertSourceJob([
+            'source_type'   => 'page',
+            'source_value'  => '101',
+            'status'        => 'failed',
+            'progress'      => 20,
+            'current_step'  => 'analyzing',
+            'error_message' => 'Analysis failed',
+            'tstamp'        => 1793569110,
+            'source_report' => (new SourceReport(pagesUsed: 17))->toJson(),
+        ]);
+
+        $body = $this->renderAction('show', ['job' => $job]);
+        $text = $this->element($this->parse($body), 'nrrepurpose-failure')->textContent;
+
+        self::assertStringContainsString('Stopped while analysing the content', $text);
+        self::assertStringContainsString('did not save the reason', $text);
+        self::assertStringContainsString('17 pages were read.', $text);
+        self::assertStringContainsString(self::RETRY_BUTTON, $text);
+        self::assertStringContainsString('TYPO3 log (var/log)', $text);
+        self::assertMatchesRegularExpression('/Job ' . $job . ', \d{4}-\d\d-\d\d \d\d:\d\d, unknown/', $text);
+        self::assertStringNotContainsString('Analysis failed', $body);
+        self::assertStringNotContainsString('(20%)', $body);
+        self::assertStringNotContainsString('— analyzing', $body);
+    }
+
+    /** @return array<string, array{0: array<string, int|string>, 1: string}> */
+    public static function failedJobs(): array
+    {
+        $words = 'Provider answered 401 for https://api.example.test with key sk-secret; /var/www/html/x.pdf';
+
+        return [
+            'a stored reason'       => [['failure_reason' => 'answer_unusable', 'error_message' => $words], 'neither answer could be used'],
+            'a stored crash'        => [['failure_reason' => 'internal', 'error_message' => $words], 'Your source and your settings are not the cause'],
+            'an older provider row' => [['failure_reason' => '', 'error_message' => $words], 'did not save the reason'],
+        ];
+    }
+
+    /**
+     * @param array<string, int|string> $fields
+     */
+    #[Test]
+    #[DataProvider('failedJobs')]
+    public function noProviderWordsReachTheEditorOfAFailedJob(array $fields, string $expected): void
+    {
+        $job = $this->insertSourceJob($fields + ['source_type' => 'page', 'source_value' => '10', 'status' => 'failed']);
+
+        foreach (['show' => ['job' => $job], 'list' => []] as $action => $arguments) {
+            $body = $this->renderAction($action, $arguments);
+            self::assertStringNotContainsString('sk-secret', $body, $action);
+            self::assertStringNotContainsString('/var/www/html', $body, $action);
+        }
+
+        self::assertStringContainsString($expected, $this->renderAction('show', ['job' => $job]));
+    }
+
+    #[Test]
+    public function theReasonAStoredMessageWasWrittenForStaysReadable(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'url', 'source_value' => 'https://example.com/', 'status' => 'failed', 'failure_reason' => 'source_unreadable', 'error_message' => 'URL returned HTTP 404: https://example.com/']);
+
+        self::assertStringContainsString('URL returned HTTP 404', $this->renderAction('show', ['job' => $job]));
+    }
+
+    #[Test]
+    public function theJobListNamesTheReasonAndHidesThePercentage(): void
+    {
+        $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'failed', 'progress' => 20, 'failure_reason' => 'answer_unusable']);
+
+        $body = $this->renderAction('list');
+
+        self::assertStringContainsString('The AI answer could not be used', $body);
+        self::assertStringNotContainsString('20%', $body);
+    }
+
+    #[Test]
+    public function aFailedFormatExplainsItselfAndAnOlderOneKeepsItsText(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'partially_done', 'failure_reason' => 'some_formats_failed']);
+        $this->insertArtifact($job, ['type' => 'faq', 'variant' => 'default']);
+        $this->insertArtifact($job, ['type' => 'podcast', 'variant' => 'default', 'status' => 'failed', 'failure_reason' => 'not_permitted', 'error_message' => 'Not permitted']);
+        $this->insertArtifact($job, ['type' => 'newsletter', 'variant' => 'default', 'status' => 'failed', 'error_message' => 'Newsletter generation failed']);
+
+        $body = $this->renderAction('show', ['job' => $job]);
+
+        self::assertStringContainsString('Only some of the results are finished', $body);
+        self::assertStringContainsString('Finished results: 1', $body);
+        self::assertStringContainsString('Your user group may not create this format', $body);
+        self::assertStringNotContainsString('Newsletter generation failed', $body, 'An older row holds no text to trust');
+        self::assertStringContainsString('Failed, the reason was not saved', $body);
+        self::assertStringNotContainsString(self::RETRY_BUTTON, $body, 'A new run would remove the finished format');
+    }
+
+    #[Test]
+    public function aPartialJobFromAnOlderVersionIsNoFailure(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'partially_done']);
+
+        $body = $this->renderAction('show', ['job' => $job]);
+
+        self::assertStringContainsString('Only some of the results are finished', $body);
+        self::assertStringContainsString('some_formats_failed', $body, 'Not the texts of an unknown failure');
+    }
+
+    /** A job-wide text promises a button and says "no results", which a format card must not. */
+    #[Test]
+    public function aFormatCardDoesNotSpeakForTheWholeJob(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'partially_done', 'failure_reason' => 'some_formats_failed']);
+        $this->insertArtifact($job, ['type' => 'faq', 'variant' => 'default']);
+        $this->insertArtifact($job, ['type' => 'podcast', 'variant' => 'default', 'status' => 'failed', 'failure_reason' => 'answer_unusable']);
+
+        $body = $this->renderAction('show', ['job' => $job]);
+
+        self::assertStringContainsString('To make this format, create a new job with only this format.', $body);
+        self::assertStringNotContainsString('the button below', $body);
+        self::assertStringNotContainsString('No results were created', $body);
+    }
+
+    #[Test]
+    public function aFailedJobWithAFinishedResultOffersNoNewRunAndSaysWhy(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'failed', 'failure_reason' => 'internal']);
+        $this->insertArtifact($job, ['type' => 'faq', 'variant' => 'default']);
+
+        $body = $this->renderAction('show', ['job' => $job]);
+
+        self::assertStringNotContainsString(self::RETRY_BUTTON, $body);
+        self::assertStringContainsString('To keep them, create a new job', $body);
+
+        $this->dispatch('retry', ['job' => $job], self::ADMIN, 'POST');
+
+        self::assertSame('failed', $this->get(JobProcessingRepository::class)->findRow($job)['status'] ?? null);
+    }
+
+    #[Test]
+    public function aJobThatStandsStillSaysSo(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'analyzing', 'current_step' => 'analyzing', 'tstamp' => time() - 7300]);
+        $now = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'analyzing', 'current_step' => 'analyzing', 'tstamp' => time()]);
+
+        self::assertStringContainsString('This job is not moving', $this->renderAction('show', ['job' => $job]));
+        $running = $this->renderAction('show', ['job' => $now]);
+        self::assertStringNotContainsString('This job is not moving', $running);
+        self::assertStringNotContainsString('— analyzing', $running, 'The status already says it');
+    }
+
+    #[Test]
+    public function aUserWhoMayNotSeeTheJobCannotRunItAgain(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'failed', 'failure_reason' => 'answer_unusable', 'be_user' => self::ADMIN]);
+
+        $this->dispatch('retry', ['job' => $job], self::EDITOR, 'POST');
+
+        self::assertSame('failed', $this->get(JobProcessingRepository::class)->findRow($job)['status'] ?? null);
     }
 
     #[Test]
@@ -563,14 +731,14 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         $url = 'https://www.example.com/' . str_repeat('Cj0KCQjw', 45);
         $job = $this->insertJob($url, 'partially_done');
         GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
-            ->insert('tx_nrrepurpose_domain_model_artifact', ['pid' => 0, 'job' => $job, 'type' => 'podcast', 'status' => 'failed', 'error_message' => 'TTS refused ' . $url]);
+            ->insert('tx_nrrepurpose_domain_model_artifact', ['pid' => 0, 'job' => $job, 'type' => 'podcast', 'status' => 'failed', 'failure_reason' => 'guardrail', 'error_message' => 'TTS refused ' . $url]);
 
         $body    = $this->renderAction('show', ['job' => $job]);
         $escaped = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5);
 
         self::assertStringContainsString('<dd class="col-sm-10 text-break">' . $escaped . '</dd>', $body);
         self::assertStringContainsString('<div class="card-body text-break">', $body);
-        self::assertMatchesRegularExpression('#class="[^"]*\bcallout-danger\b.*?<span class="text-break">TTS refused ' . preg_quote($escaped, '#') . '</span>#s', $body);
+        self::assertMatchesRegularExpression('#class="[^"]*\bcallout-danger\b.*?<span class="d-block text-break">TTS refused ' . preg_quote($escaped, '#') . '</span>#s', $body);
     }
 
     #[Test]

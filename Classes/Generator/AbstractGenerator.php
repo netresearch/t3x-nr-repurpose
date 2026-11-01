@@ -12,12 +12,14 @@ namespace Netresearch\NrRepurpose\Generator;
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Service\FailureClassifier;
 use Psr\Log\LoggerInterface;
 use Random\Randomizer;
 use Throwable;
@@ -207,7 +209,7 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     }
 
     /** Record a previously-inserted artifact row as failed and log the reason. */
-    protected function failArtifact(int $artifactUid, int $jobUid, string $reason): void
+    protected function failArtifact(int $artifactUid, int $jobUid, string $reason, FailureReason $failure): void
     {
         $this->logger->warning('Artifact generation failed', [
             'job'      => $jobUid,
@@ -215,8 +217,9 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
             'reason'   => $reason,
         ]);
         $this->jobs->updateArtifact($artifactUid, [
-            'status'        => ArtifactStatus::Failed->value,
-            'error_message' => $reason,
+            'status'         => ArtifactStatus::Failed->value,
+            'error_message'  => $reason,
+            'failure_reason' => $failure->value,
         ]);
     }
 
@@ -232,21 +235,24 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
      */
     protected function failArtifactFrom(int $artifactUid, int $jobUid, string $step, Throwable $e): void
     {
-        if ($e instanceof InvalidLlmOutputException || $e instanceof RenderingException) {
-            $this->failArtifact($artifactUid, $jobUid, $step . ' error: ' . $e->getMessage());
+        // A guardrail's message is written for the person who started the job. An image or speech
+        // call wraps every failure, so the guardrail can sit below a RenderingException.
+        for ($cause = $e; $cause instanceof Throwable; $cause = $cause->getPrevious()) {
+            if ($cause instanceof GuardrailPolicyException) {
+                $this->logger->warning($step . ' stopped by a guardrail', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
+                $this->failArtifact($artifactUid, $jobUid, $cause->getMessage(), FailureReason::Guardrail);
 
-            return;
+                return;
+            }
         }
 
-        // A guardrail's message is written for the person who started the job.
-        if ($e instanceof GuardrailPolicyException) {
-            $this->logger->warning($step . ' stopped by a guardrail', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
-            $this->failArtifact($artifactUid, $jobUid, $e->getMessage());
+        if ($e instanceof InvalidLlmOutputException || $e instanceof RenderingException) {
+            $this->failArtifact($artifactUid, $jobUid, $step . ' error: ' . $e->getMessage(), FailureClassifier::reasonFor($e));
 
             return;
         }
 
         $this->logger->error($step . ' failed', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
-        $this->failArtifact($artifactUid, $jobUid, $step . ' failed');
+        $this->failArtifact($artifactUid, $jobUid, $step . ' failed', FailureClassifier::reasonFor($e));
     }
 }

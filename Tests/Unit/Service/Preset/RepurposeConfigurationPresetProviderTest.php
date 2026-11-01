@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
 use Netresearch\NrLlm\Service\UseCase\UseCasePack;
 use Netresearch\NrRepurpose\Generator\Image\DallEImageGenerator;
 use Netresearch\NrRepurpose\Generator\Speech\OpenAiSpeechSynthesizer;
+use Netresearch\NrRepurpose\Service\ConfiguredCompletionService;
 use Netresearch\NrRepurpose\Service\Preset\RepurposeConfigurationPresetProvider;
 use Netresearch\NrRepurpose\Service\UseCase\RepurposeStarterPackProvider;
 use PHPUnit\Framework\TestCase;
@@ -111,6 +112,12 @@ final class RepurposeConfigurationPresetProviderTest extends TestCase
             [ModelCapability::CHAT->value],
             $preset->criteria->capabilities,
         );
+    }
+
+    /** Without a value the imported record holds nr-llm's 1000 tokens (ConfiguredCompletionService). */
+    public function testAnImportedTextConfigurationHasTheRoomThePipelineNeeds(): void
+    {
+        self::assertSame(ConfiguredCompletionService::MIN_OUTPUT_TOKENS, RepurposeConfigurationPresetProvider::textPreset()->maxTokens);
     }
 
     public function testEveryPresetCarriesAName(): void
