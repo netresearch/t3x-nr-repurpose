@@ -59,6 +59,8 @@ final class JobControllerTest extends AbstractFunctionalTestCase
 {
     private const string MODULE_SPECIFIER = '@netresearch/nr-repurpose/job-new.js';
 
+    private const string RETRY_BUTTON = 'Start this job again';
+
     private const int ADMIN = 1;
 
     private const int JOBS_PER_PAGE = 25;
@@ -379,7 +381,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('Stopped while analysing the content', $text);
         self::assertStringContainsString('did not save the reason', $text);
         self::assertStringContainsString('17 pages were read.', $text);
-        self::assertStringContainsString('Start this job again', $text);
+        self::assertStringContainsString(self::RETRY_BUTTON, $text);
         self::assertStringContainsString('TYPO3 log (var/log)', $text);
         self::assertMatchesRegularExpression('/Job ' . $job . ', \d{4}-\d\d-\d\d \d\d:\d\d, unknown/', $text);
         self::assertStringNotContainsString('Analysis failed', $body);
@@ -450,7 +452,22 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('Finished results: 1', $body);
         self::assertStringContainsString('Your user group may not create this format', $body);
         self::assertStringContainsString('Newsletter generation failed', $body);
-        self::assertStringNotContainsString('Start this job again', $body, 'A new run would remove the finished format');
+        self::assertStringNotContainsString(self::RETRY_BUTTON, $body, 'A new run would remove the finished format');
+    }
+
+    /** A job-wide text promises a button and says "no results", which a format card must not. */
+    #[Test]
+    public function aFormatCardDoesNotSpeakForTheWholeJob(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'partially_done', 'failure_reason' => 'some_formats_failed']);
+        $this->insertArtifact($job, ['type' => 'faq', 'variant' => 'default']);
+        $this->insertArtifact($job, ['type' => 'podcast', 'variant' => 'default', 'status' => 'failed', 'failure_reason' => 'answer_unusable']);
+
+        $body = $this->renderAction('show', ['job' => $job]);
+
+        self::assertStringContainsString('To make this format, create a new job with only this format.', $body);
+        self::assertStringNotContainsString('the button below', $body);
+        self::assertStringNotContainsString('No results were created', $body);
     }
 
     #[Test]
@@ -461,7 +478,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
 
         $body = $this->renderAction('show', ['job' => $job]);
 
-        self::assertStringNotContainsString('Start this job again', $body);
+        self::assertStringNotContainsString(self::RETRY_BUTTON, $body);
         self::assertStringContainsString('To keep them, create a new job', $body);
 
         $this->dispatch('retry', ['job' => $job], self::ADMIN, 'POST');

@@ -18,8 +18,16 @@
             <f:if condition="{artifact.failure.storedMessageShown} && {artifact.errorMessage}">
                 <span class="d-block text-break">{artifact.errorMessage}</span>
             </f:if>
-            <span class="d-block text-break"><f:translate key="{lll}:failure.{artifact.failure.value}.result" /></span>
-            <span class="d-block text-break"><f:translate key="{lll}:failure.{artifact.failure.value}.action" /></span>
+            <f:if condition="{artifact.failure.formatLevel}">
+                <f:then>
+                    <span class="d-block text-break"><f:translate key="{lll}:failure.{artifact.failure.value}.result" /></span>
+                    <span class="d-block text-break"><f:translate key="{lll}:failure.{artifact.failure.value}.action" /></span>
+                </f:then>
+                <f:else>
+                    <span class="d-block text-break"><f:translate key="{lll}:failure.format.result" /></span>
+                    <span class="d-block text-break"><f:translate key="{lll}:failure.format.action" /></span>
+                </f:else>
+            </f:if>
             <span class="d-block text-break"><f:translate key="{lll}:failure.{artifact.failure.value}.admin" /></span>
             <code class="nrrepurpose-reference">{artifact.failure.value}</code>
         </f:be.infobox>

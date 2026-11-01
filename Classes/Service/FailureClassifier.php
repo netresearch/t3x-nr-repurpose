@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use Netresearch\NrLlm\Exception\StructuredResponseMismatchException;
 use Netresearch\NrLlm\Provider\Exception\ProviderAuthenticationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -44,8 +43,8 @@ final class FailureClassifier
 
     private const int ANALYSIS_TOO_LONG = 1749384001;
 
-    /** nr-llm: no JSON (…333), no object (…334), structured answer mismatch (1784500001). */
-    private const array UNUSABLE_ANSWER_CODES = [2805117333, 2805117334, 1784500001];
+    /** nr-llm: no JSON (…333), no object (…334), a structured answer off its schema (…001, …002). */
+    private const array UNUSABLE_ANSWER_CODES = [2805117333, 2805117334, 1784500001, 1784500002];
 
     public static function reasonFor(Throwable $failure): FailureReason
     {
@@ -70,8 +69,7 @@ final class FailureClassifier
                 default                     => FailureReason::AnswerUnusable,
             },
             $e instanceof UnusableAnswerException,
-            $e instanceof InvalidLlmOutputException,
-            $e instanceof StructuredResponseMismatchException                                                    => FailureReason::AnswerUnusable,
+            $e instanceof InvalidLlmOutputException                                                              => FailureReason::AnswerUnusable,
             $e instanceof InvalidArgumentException && in_array($e->getCode(), self::UNUSABLE_ANSWER_CODES, true) => FailureReason::AnswerUnusable,
             $e instanceof IngestionException,
             $e instanceof PopplerEmptyOutputException,

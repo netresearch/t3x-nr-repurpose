@@ -71,6 +71,18 @@ enum FailureReason: string
     }
 
     /**
+     * These cases only ever concern one format, and their texts say so. The texts of the others
+     * speak of a whole job, so a format card uses the failure.format texts in their place.
+     */
+    public function isFormatLevel(): bool
+    {
+        return match ($this) {
+            self::BudgetOrService, self::NotPermitted, self::Rendering => true,
+            default                                                    => false,
+        };
+    }
+
+    /**
      * These stored messages are written for the editor: a fixed text naming their own source URL
      * without credentials, or the guardrail's reason. No other case shows its stored text.
      */

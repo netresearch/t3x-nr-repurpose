@@ -51,6 +51,7 @@ final class FailureClassifierTest extends TestCase
             'no JSON, the record of the failed job' => [new InvalidArgumentException('Failed to decode JSON response: Syntax error', 2805117333), FailureReason::AnswerUnusable],
             'JSON that is no object'                => [new InvalidArgumentException('JSON response must be an object, got string', 2805117334), FailureReason::AnswerUnusable],
             'a structured answer off its schema'    => [new InvalidArgumentException('x', 1784500001), FailureReason::AnswerUnusable],
+            'the same on a named configuration'     => [new InvalidArgumentException('x', 1784500002), FailureReason::AnswerUnusable],
             'an argument nr-llm refused'            => [new InvalidArgumentException('temperature', 1), FailureReason::Internal],
             'two unusable answers'                  => [new UnusableAnswerException('x'), FailureReason::AnswerUnusable],
             'a generator refused the answer'        => [new InvalidLlmOutputException('x'), FailureReason::AnswerUnusable],

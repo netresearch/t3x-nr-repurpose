@@ -245,6 +245,8 @@
       <trans-unit id="failure.facts.done"><source>Finished results: %d, shown further down.</source></trans-unit>
       <trans-unit id="failure.reference.label"><source>Your administrator finds the full error in the TYPO3 log (var/log) by this job number and time. Copy this line and send it along:</source></trans-unit>
       <trans-unit id="failure.reference.job"><source>Job %1$d</source></trans-unit>
+      <trans-unit id="failure.format.result"><source>Only this format is affected. Other formats of the job are not.</source></trans-unit>
+      <trans-unit id="failure.format.action"><source>To make this format, create a new job with only this format.</source></trans-unit>
       <trans-unit id="failure.retry.action"><source>Start this job again</source></trans-unit>
       <trans-unit id="failure.retry.note"><source>The job runs from the beginning, and its AI calls are billed again.</source></trans-unit>
       <trans-unit id="failure.retry.blocked"><source>This job holds finished results. To keep them, create a new job for another try.</source></trans-unit>
@@ -279,7 +281,7 @@
       <trans-unit id="failure.provider_rate_limited.short"><source>The AI service refused for now: too many requests</source></trans-unit>
       <trans-unit id="failure.provider_rate_limited.what"><source>The AI service limits how many requests it takes at a time, and this job went over that limit.</source></trans-unit>
       <trans-unit id="failure.provider_rate_limited.result"><source>The source was read. No results were created, and nothing was published.</source></trans-unit>
-      <trans-unit id="failure.provider_rate_limited.action"><source>Wait about an hour. Start the job again with the button below.</source></trans-unit>
+      <trans-unit id="failure.provider_rate_limited.action"><source>Wait a while. Start the job again with the button below.</source></trans-unit>
       <trans-unit id="failure.provider_rate_limited.admin"><source>If it keeps failing, ask your administrator to check the rate limit of the provider account.</source></trans-unit>
       <trans-unit id="failure.provider_unavailable.short"><source>The AI service is not available</source></trans-unit>
       <trans-unit id="failure.provider_unavailable.what"><source>The AI service answered with an error. This job cannot do anything about that.</source></trans-unit>
