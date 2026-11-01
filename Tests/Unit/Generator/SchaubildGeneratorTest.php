@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
@@ -165,6 +166,20 @@ final class SchaubildGeneratorTest extends TestCase
 
         self::assertSame(1, $compositor->overlayCalls);     // html_bg composited
         self::assertSame(2, $imageGenerator->calls);        // bg (html_bg) + full (ki_image)
+    }
+
+    public function testAGuardrailStopFailsTheArtifactWithItsReasonAndLeavesTheJobGoing(): void
+    {
+        $jobs       = $this->jobs();
+        $completion = $this->completion();
+
+        $completion->throwable = new GuardrailViolationException('Guardrail', 'Es enthält Rabatt.');
+
+        $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $jobs, $this->allowingBudget(), $completion);
+
+        self::assertFalse($generator->generate($this->context()));
+        self::assertSame('failed', $jobs->updates[$jobs->uidForVariant('html')]['status']);
+        self::assertSame('Es enthält Rabatt.', $jobs->updates[$jobs->uidForVariant('html')]['error_message']);
     }
 
     public function testOverBudgetFailsImageVariantsButHtmlSucceeds(): void

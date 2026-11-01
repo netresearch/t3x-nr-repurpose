@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -83,10 +84,19 @@ class SchaubildGenerator extends AbstractGenerator
         $jobUid = $ctx->jobUid();
 
         $ctx->progress?->step('Schaubild: building HTML', 0.05);
-        $htmlOpaque = $this->renderDiagramHtml($ctx, false);
-        // The transparent render only feeds the html_bg variant, which a missing
-        // generate_vision grant refuses anyway: skip its completion call then.
-        $htmlTransparent = $ctx->grants->vision ? $this->renderDiagramHtml($ctx, true) : '';
+
+        try {
+            $htmlOpaque = $this->renderDiagramHtml($ctx, false);
+            // The transparent render only feeds the html_bg variant, which a missing
+            // generate_vision grant refuses anyway: skip its completion call then.
+            $htmlTransparent = $ctx->grants->vision ? $this->renderDiagramHtml($ctx, true) : '';
+        } catch (GuardrailPolicyException $stop) {
+            // Every variant is built from this text, so none can follow. The
+            // reason belongs on an artifact: the job's other formats go on.
+            $this->failArtifactFrom($this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html', 0, ArtifactStatus::Pending), $jobUid, 'Schaubild', $stop);
+
+            return false;
+        }
 
         // The exact diagram-body LLM prompts, recorded in every variant's metadata
         // (transparency: the result view shows what was actually sent).
