@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
-use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -87,15 +86,24 @@ class SchaubildGenerator extends AbstractGenerator
 
         try {
             $htmlOpaque = $this->renderDiagramHtml($ctx, false);
+        } catch (Throwable $e) {
+            // The html and ki_image variants are built from this text, so none can
+            // follow. The reason belongs on an artifact: the job's other formats go on.
+            $this->failArtifactFrom($this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html', 0, ArtifactStatus::Pending), $jobUid, 'Schaubild', $e);
+
+            return false;
+        }
+
+        // A second completion, with a text of its own: a stop on it costs the
+        // html_bg variant alone.
+        $htmlTransparent   = '';
+        $transparentFailed = null;
+        try {
             // The transparent render only feeds the html_bg variant, which a missing
             // generate_vision grant refuses anyway: skip its completion call then.
             $htmlTransparent = $ctx->grants->vision ? $this->renderDiagramHtml($ctx, true) : '';
-        } catch (GuardrailPolicyException $stop) {
-            // Every variant is built from this text, so none can follow. The
-            // reason belongs on an artifact: the job's other formats go on.
-            $this->failArtifactFrom($this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html', 0, ArtifactStatus::Pending), $jobUid, 'Schaubild', $stop);
-
-            return false;
+        } catch (Throwable $e) {
+            $transparentFailed = $e;
         }
 
         // The exact diagram-body LLM prompts, recorded in every variant's metadata
@@ -108,7 +116,12 @@ class SchaubildGenerator extends AbstractGenerator
         $ctx->progress?->step('Schaubild: variant html (1/3)', 0.4);
         $ok = $this->generateHtmlVariant($ctx, $jobUid, $htmlOpaque, $llmPrompts);
         $ctx->progress?->step('Schaubild: variant html_bg (2/3)', 0.6);
-        $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent, $llmPrompts, $imageSize) || $ok;
+        if ($transparentFailed instanceof Throwable) {
+            $this->failArtifactFrom($this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html_bg', 0, ArtifactStatus::Pending), $jobUid, 'Schaubild', $transparentFailed);
+        } else {
+            $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent, $llmPrompts, $imageSize) || $ok;
+        }
+
         $ctx->progress?->step('Schaubild: variant ki_image (3/3)', 0.8);
         if ($this->generateKiImageVariant($ctx, $jobUid, $htmlOpaque, $imageSize)) {
             return true;
