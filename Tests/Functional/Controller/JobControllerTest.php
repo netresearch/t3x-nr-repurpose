@@ -462,7 +462,10 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     {
         $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'partially_done']);
 
-        self::assertStringContainsString('Only some of the results are finished', $this->renderAction('show', ['job' => $job]));
+        $body = $this->renderAction('show', ['job' => $job]);
+
+        self::assertStringContainsString('Only some of the results are finished', $body);
+        self::assertStringContainsString('some_formats_failed', $body, 'Not the texts of an unknown failure');
     }
 
     /** A job-wide text promises a button and says "no results", which a format card must not. */
