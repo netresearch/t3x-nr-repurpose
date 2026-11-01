@@ -97,6 +97,14 @@ Decision records
       .. card-footer:: :ref:`Read <adr-009>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-010: Page and file job sources
+
+      Why the form uses the core element browser, why a page is read
+      through its public URL, and which pages a tree selects.
+
+      .. card-footer:: :ref:`Read <adr-010>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -109,3 +117,4 @@ Decision records
    Adr007ApprovalAndWebhookPublishing
    Adr008CapabilityPermissionGate
    Adr009ChatToolDataClass
+   Adr010PageAndFileSources
