@@ -259,7 +259,7 @@
                                             </f:if>
                                         </f:then>
                                         <f:else>
-                                            <div title="{slide.errorMessage}" class="nrrepurpose-story-slide-placeholder">
+                                            <div class="nrrepurpose-story-slide-placeholder">
                                                 <span class="badge badge-{slide.statusEnum.severity}">
                                                     <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{slide.statusEnum.labelKey}" />
                                                 </span>
@@ -270,6 +270,9 @@
                                                     <f:else>{slide.variant}</f:else>
                                                 </f:if>
                                             </p>
+                                            <f:if condition="{slide.errorMessage}">
+                                                <f:be.infobox state="2"><span class="text-break">{slide.errorMessage}</span></f:be.infobox>
+                                            </f:if>
                                         </f:else>
                                     </f:if>
                                     <div class="nrrepurpose-story-slide-meta">

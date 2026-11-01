@@ -31,6 +31,9 @@ final class FakeTextCompletion implements TextCompletionInterface
 
     public ?Throwable $throwable = null;
 
+    /** Spare this many completeMarkdown() calls before throwing. */
+    public int $markdownCallsBeforeThrow = 0;
+
     /** @var list<array{prompt: string, options: ?ChatOptions}> */
     public array $completeJsonCalls = [];
 
@@ -66,7 +69,7 @@ final class FakeTextCompletion implements TextCompletionInterface
 
     private function guardThrow(): void
     {
-        if ($this->throwable instanceof Throwable) {
+        if ($this->throwable instanceof Throwable && ($this->markdownCallsBeforeThrow === 0 || count($this->completeMarkdownCalls) > $this->markdownCallsBeforeThrow)) {
             $throwable       = $this->throwable;
             $this->throwable = null;
 

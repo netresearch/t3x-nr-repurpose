@@ -182,6 +182,36 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertSame('Es enthält Rabatt.', $jobs->updates[$jobs->uidForVariant('html')]['error_message']);
     }
 
+    public function testAStopOnTheTransparentTextCostsOnlyThatVariant(): void
+    {
+        $jobs       = $this->jobs();
+        $completion = $this->completion();
+
+        $completion->throwable                = new GuardrailViolationException('Guardrail', 'Es enthält Rabatt.');
+        $completion->markdownCallsBeforeThrow = 1;
+
+        $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $jobs, $this->allowingBudget(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+        self::assertSame('done', $jobs->updates[$jobs->uidForVariant('html')]['status']);
+        self::assertSame('Es enthält Rabatt.', $jobs->updates[$jobs->uidForVariant('html_bg')]['error_message']);
+        self::assertSame('done', $jobs->updates[$jobs->uidForVariant('ki_image')]['status']);
+    }
+
+    public function testAProviderFailureOnTheTextFailsTheArtifactNotTheJob(): void
+    {
+        $jobs       = $this->jobs();
+        $completion = $this->completion();
+
+        $completion->throwable = new RuntimeException('provider timeout');
+
+        $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $jobs, $this->allowingBudget(), $completion);
+
+        self::assertFalse($generator->generate($this->context()));
+        self::assertSame('failed', $jobs->updates[$jobs->uidForVariant('html')]['status']);
+        self::assertStringNotContainsString('provider timeout', (string) $jobs->updates[$jobs->uidForVariant('html')]['error_message']);
+    }
+
     public function testOverBudgetFailsImageVariantsButHtmlSucceeds(): void
     {
         $jobs           = $this->jobs();

@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- A failed story slide shows its reason in the text. It stood in a tooltip that a keyboard, a touch screen and a screen reader never reach.
+- A diagram loses only the variant whose text failed. The two texts are separate completions, so a stop on the transparent one no longer takes the opaque one with it, and a provider failure fails the artifact instead of ending the job.
+
 ## [0.12.0] - 2026-11-01
 
 Upgrade: run the extension setup, the job table gets four columns. `typo3/cms-filelist` is now required; a composer installation gets it with the update. Stored jobs keep working.

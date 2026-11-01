@@ -329,6 +329,30 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         }
     }
 
+    /**
+     * The error box of a card is not rendered for a story: a tooltip alone reaches
+     * neither a keyboard nor a screen reader nor a touch screen.
+     */
+    #[Test]
+    public function aFailedStorySlideShowsItsReasonInTheText(): void
+    {
+        $job        = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10']);
+        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact');
+        $connection->insert('tx_nrrepurpose_domain_model_artifact', [
+            'pid'           => 0,
+            'job'           => $job,
+            'type'          => 'story',
+            'variant'       => 'slide-1',
+            'status'        => 'failed',
+            'error_message' => 'The text contains "Rabatt".',
+        ]);
+
+        $strip = $this->parse($this->renderAction('show', ['job' => $job]))->saveHTML();
+
+        self::assertIsString($strip);
+        self::assertMatchesRegularExpression('#<span class="text-break">[^<]*Rabatt[^<]*</span>#', $strip);
+    }
+
     #[Test]
     public function theResultViewStaysQuietWhenEveryPageWasRead(): void
     {
