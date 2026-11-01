@@ -51,7 +51,8 @@ this extension wrote them.
 **An image or speech failure is read through its wrapper.** The generators wrap
 every failure of those services in ``RenderingException``, so the classifier
 looks at what the wrapper holds and reads ``rendering`` only when nothing below
-it says more. A format card uses its own result and action texts, unless the
+it says more. A guardrail below the wrapper keeps its own message, and a podcast
+whose turns all failed is classified by the last failure. A format card uses its own result and action texts, unless the
 reason only ever concerns one format; the others speak of a whole job.
 
 **The line to pass on names job, time and reason.** The full exception stays in

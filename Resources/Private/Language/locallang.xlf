@@ -264,7 +264,7 @@
       <trans-unit id="failure.source_empty.action"><source>Create a new job with a source that holds text. A PDF that only holds images needs the mode that reads images.</source></trans-unit>
       <trans-unit id="failure.source_empty.admin"><source>If a PDF of images stays unreadable, ask your administrator for the permission to read images.</source></trans-unit>
       <trans-unit id="failure.source_too_long.short"><source>The source is too long</source></trans-unit>
-      <trans-unit id="failure.source_too_long.what"><source>The source holds more text than one job can analyse.</source></trans-unit>
+      <trans-unit id="failure.source_too_long.what"><source>The source is longer than one job can analyse.</source></trans-unit>
       <trans-unit id="failure.source_too_long.result"><source>No results were created, and nothing was published.</source></trans-unit>
       <trans-unit id="failure.source_too_long.action"><source>Create a new job with fewer subpages, a smaller part of the page tree, or a shorter PDF.</source></trans-unit>
       <trans-unit id="failure.source_too_long.admin"><source>A source of this size needs a change to the installation. Ask your administrator if you need one.</source></trans-unit>
@@ -292,7 +292,7 @@
       <trans-unit id="failure.provider_setup.what"><source>The AI service could not be used with the configured access: a key, a configuration or a permission is missing or wrong.</source></trans-unit>
       <trans-unit id="failure.provider_setup.result"><source>No results were created, and nothing was published.</source></trans-unit>
       <trans-unit id="failure.provider_setup.action"><source>You cannot solve this yourself. Once your administrator has corrected it, start the job again with the button below.</source></trans-unit>
-      <trans-unit id="failure.provider_setup.admin"><source>Ask your administrator to check the AI provider, its API key and the AI configuration "Content Repurpose: Text".</source></trans-unit>
+      <trans-unit id="failure.provider_setup.admin"><source>Ask your administrator to check the AI provider, its API key and the AI configurations "Content Repurpose".</source></trans-unit>
       <trans-unit id="failure.budget_exhausted.short"><source>The AI budget is used up</source></trans-unit>
       <trans-unit id="failure.budget_exhausted.what"><source>The AI budget of the user who created this job is used up, so the AI service was not called any more.</source></trans-unit>
       <trans-unit id="failure.budget_exhausted.result"><source>No results were created, and nothing was published.</source></trans-unit>

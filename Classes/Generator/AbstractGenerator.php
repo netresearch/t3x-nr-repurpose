@@ -235,16 +235,19 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
      */
     protected function failArtifactFrom(int $artifactUid, int $jobUid, string $step, Throwable $e): void
     {
-        if ($e instanceof InvalidLlmOutputException || $e instanceof RenderingException) {
-            $this->failArtifact($artifactUid, $jobUid, $step . ' error: ' . $e->getMessage(), FailureClassifier::reasonFor($e));
+        // A guardrail's message is written for the person who started the job. An image or speech
+        // call wraps every failure, so the guardrail can sit below a RenderingException.
+        for ($cause = $e; $cause instanceof Throwable; $cause = $cause->getPrevious()) {
+            if ($cause instanceof GuardrailPolicyException) {
+                $this->logger->warning($step . ' stopped by a guardrail', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
+                $this->failArtifact($artifactUid, $jobUid, $cause->getMessage(), FailureReason::Guardrail);
 
-            return;
+                return;
+            }
         }
 
-        // A guardrail's message is written for the person who started the job.
-        if ($e instanceof GuardrailPolicyException) {
-            $this->logger->warning($step . ' stopped by a guardrail', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
-            $this->failArtifact($artifactUid, $jobUid, $e->getMessage(), FailureReason::Guardrail);
+        if ($e instanceof InvalidLlmOutputException || $e instanceof RenderingException) {
+            $this->failArtifact($artifactUid, $jobUid, $step . ' error: ' . $e->getMessage(), FailureClassifier::reasonFor($e));
 
             return;
         }

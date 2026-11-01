@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
@@ -20,6 +21,7 @@ use Netresearch\NrRepurpose\Generator\AbstractTextGenerator;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
+use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\ArtifactRecordingJobRepository;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
@@ -275,6 +277,18 @@ abstract class TextGeneratorTestCase extends TestCase
             self::assertStringNotContainsString('mit KI erstellt', (string) $update['script_text']);
             self::assertArrayNotHasKey('closingLine', json_decode((string) $update['metadata'], true)['content']);
         }
+    }
+
+    /** A generator wraps an image or speech failure; the guardrail below it keeps its words. */
+    public function testAGuardrailBelowAWrapperKeepsItsReason(): void
+    {
+        $this->completion->throwable = new RenderingException('wrapped', 1, new GuardrailViolationException('Guardrail', 'The text contains "Rabatt".'));
+
+        self::assertFalse($this->generatorWithAnswer()->generate($this->context()));
+
+        $row = $this->jobs->updates[array_key_last($this->jobs->updates)];
+        self::assertSame('The text contains "Rabatt".', $row['error_message']);
+        self::assertSame('guardrail', $row['failure_reason']);
     }
 
     /**
