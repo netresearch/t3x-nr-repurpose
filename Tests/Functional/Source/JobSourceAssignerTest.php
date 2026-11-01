@@ -86,6 +86,12 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
         self::assertSame(self::ORIGIN . '/about', $job->getSourceUrl());
     }
 
+    #[Test]
+    public function aLabelFitsItsColumnWhateverTheTitle(): void
+    {
+        self::assertSame(str_repeat('ä', 240) . ' [10]', JobSourceAssigner::label(str_repeat('ä', 255), 10));
+    }
+
     /** @return array<string, array{int, int}> */
     public static function tamperedDepths(): array
     {

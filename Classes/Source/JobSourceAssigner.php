@@ -41,6 +41,9 @@ final readonly class JobSourceAssigner
 
     private const string PDF_EXTENSION = 'pdf';
 
+    /** Leaves the id room in the 255 characters of source_label. */
+    private const int MAX_LABEL_TITLE = 240;
+
     /** "All levels" in the form; the page limit bounds the walk. */
     public const int MAX_DEPTH = 99;
 
@@ -70,7 +73,7 @@ final readonly class JobSourceAssigner
     /** "Title [uid]", as the form shows a picked item and the module shows the job's source. */
     public static function label(string $title, int $uid): string
     {
-        return sprintf('%s [%d]', $title, $uid);
+        return sprintf('%s [%d]', mb_substr($title, 0, self::MAX_LABEL_TITLE), $uid);
     }
 
     private function assignPage(Job $job, ?BackendUserAuthentication $user, int $pageUid, int $depth, string $origin): AssignedSource

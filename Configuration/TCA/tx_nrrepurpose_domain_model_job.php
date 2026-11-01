@@ -34,9 +34,11 @@ return [
         ],
         // No link attributes: the stored value is fetched as-is, and a target
         // or title from the link browser would be appended to it.
+        // Hidden for a page job: its value is a page uid, and this field would save it empty.
         'source_value' => [
-            'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_value',
-            'config' => ['type' => 'link', 'allowedTypes' => ['url'], 'appearance' => ['allowedOptions' => []], 'size' => 60],
+            'label'       => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_value',
+            'displayCond' => 'FIELD:source_type:!=:page',
+            'config'      => ['type' => 'link', 'allowedTypes' => ['url'], 'appearance' => ['allowedOptions' => []], 'size' => 60],
         ],
         // Written by the module form and the worker only, hence not editable in the record view.
         'source_url'    => ['config' => ['type' => 'passthrough']],
