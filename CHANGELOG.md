@@ -8,6 +8,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-02
+
+### Fixed
+
+- A page tree finishes its analysis. The configuration `nr_repurpose_text` held 1000 output tokens, and a reasoning model counts its thinking against that limit: the brief of 17 pages came back empty, which read as "Failed to decode JSON response: Syntax error". Every text completion now gets at least 16,000 tokens per call, capped at the model's output limit. A record at `0` stays with the model.
+- An answer that is no JSON object gets one more try with twice the room, so one bad section no longer ends a tree.
+- A podcast whose turns all failed names the last failure instead of a fixed "unavailable".
+
+### Added
+
+- A failed job says what happened, what is left, what the editor can do and whom to ask, in English and German. The job list shows the reason in one line, and each failed format explains itself. A line with job number, time and reason finds the full error in the TYPO3 log. See ADR-011.
+- A failed job without a finished result can run again. Two clicks start one run, and the run pays for its AI calls again.
+- A job without a write for two hours says that the worker is probably stopped.
+
+### Changed
+
+- The job view no longer shows the worker's step names, nor the percentage of a finished job. Provider words stay in the log; a failure stored by an older version gets a generic text.
+- The new columns `failure_reason` on job and artifact need a schema update.
+
 ## [0.12.2] - 2026-11-01
 
 - `netresearch/nr-llm` is accepted up to `^0.43`.
@@ -555,7 +574,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.2...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.5...v0.12.0
