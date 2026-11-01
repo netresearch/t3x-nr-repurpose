@@ -158,7 +158,7 @@ class WebPageFetcher
         $bestLength = 0;
         foreach ($tagNames as $tag) {
             foreach ($dom->getElementsByTagName($tag) as $node) {
-                $length = strlen(trim((string) $node->textContent));
+                $length = strlen(trim($node->textContent));
                 if ($length > $bestLength) {
                     $bestLength = $length;
                     $best       = $node;
