@@ -17,6 +17,16 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-12-2:
+
+Version 0.12.2 (2026-11-01)
+===========================
+
+Changed
+-------
+
+-   ``netresearch/nr-llm`` is accepted up to ``^0.43``.
+
 .. _version-0-12-1:
 
 Version 0.12.1 (2026-11-01)
