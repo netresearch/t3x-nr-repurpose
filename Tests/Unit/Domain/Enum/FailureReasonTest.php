@@ -68,7 +68,7 @@ final class FailureReasonTest extends TestCase
     {
         $key = sprintf('failure.%s.%s', $reason, $part);
         foreach ([$this->units('locallang.xlf')[$key]['source'] ?? '', $this->units('de.locallang.xlf')[$key]['target'] ?? ''] as $text) {
-            self::assertDoesNotMatchRegularExpression('/\b(analyzing|ingesting|generating|Exception|\d+ ?%)\b/', $text, $key);
+            self::assertDoesNotMatchRegularExpression('/\b(analyzing|ingesting|generating|Exception)\b|\d+ ?%/', $text, $key);
         }
     }
 
