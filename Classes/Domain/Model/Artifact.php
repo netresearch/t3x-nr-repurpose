@@ -109,10 +109,15 @@ class Artifact extends AbstractEntity
         return $this->errorMessage;
     }
 
-    /** Null for a row written before failure reasons were stored; it shows its fixed text. */
+    /**
+     * A row written before reasons were stored reads as Unknown: rows of older versions can hold
+     * a provider's words in their message.
+     */
     public function getFailure(): ?FailureReason
     {
-        return FailureReason::tryFrom($this->failureReason);
+        return $this->getStatusEnum() === ArtifactStatus::Failed
+            ? FailureReason::tryFrom($this->failureReason) ?? FailureReason::Unknown
+            : null;
     }
 
     public function getReviewStatusEnum(): ReviewStatus

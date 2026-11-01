@@ -83,11 +83,14 @@ enum FailureReason: string
     }
 
     /**
-     * These stored messages are written for the editor: a fixed text naming their own source URL
-     * without credentials, or the guardrail's reason. No other case shows its stored text.
+     * These stored messages are written for the editor: this extension's fixed texts about the
+     * source, or the guardrail's reason. No other case shows its stored text.
      */
     public function isStoredMessageShown(): bool
     {
-        return $this === self::SourceUnreadable || $this === self::Guardrail;
+        return match ($this) {
+            self::SourceUnreadable, self::SourceEmpty, self::SourceTooLong, self::Guardrail => true,
+            default                                                                         => false,
+        };
     }
 }

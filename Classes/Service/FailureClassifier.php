@@ -21,6 +21,9 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
+use Netresearch\NrLlm\Specialized\Exception\SpecializedServiceException;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Exception\PopplerEmptyOutputException;
 use Netresearch\NrRepurpose\Exception\PopplerProcessFailedException;
@@ -34,7 +37,8 @@ use Throwable;
 /**
  * Turns an exception into the reason the editor reads (ADR-011). The class says it, or a code of
  * this extension and of nr-llm does; the message is never read, because it can be anybody's words.
- * A wrapper with no meaning of its own is classified by the exception it wraps.
+ * A wrapper is classified by the exception it wraps: an image or speech call ends as a
+ * RenderingException, which means a render failure only when nothing below it says otherwise.
  */
 final class FailureClassifier
 {
@@ -43,19 +47,29 @@ final class FailureClassifier
 
     private const int ANALYSIS_TOO_LONG = 1749384001;
 
+    /** IngestionException codes: a PDF without text, with image reading refused, with too many pages. */
+    private const int INGESTION_NO_TEXT = 1749379452;
+
+    private const int INGESTION_IMAGES_REFUSED = 1749379453;
+
+    private const int INGESTION_TOO_MANY_PAGES = 1749379454;
+
     /** nr-llm: no JSON (…333), no object (…334), a structured answer off its schema (…001, …002). */
     private const array UNUSABLE_ANSWER_CODES = [2805117333, 2805117334, 1784500001, 1784500002];
 
     public static function reasonFor(Throwable $failure): FailureReason
     {
+        $found = null;
         for ($e = $failure; $e instanceof Throwable; $e = $e->getPrevious()) {
             $reason = self::reasonOf($e);
-            if ($reason instanceof FailureReason) {
+            if ($reason instanceof FailureReason && $reason !== FailureReason::Rendering) {
                 return $reason;
             }
+
+            $found ??= $reason;
         }
 
-        return FailureReason::Internal;
+        return $found ?? FailureReason::Internal;
     }
 
     private static function reasonOf(Throwable $e): ?FailureReason
@@ -71,7 +85,11 @@ final class FailureClassifier
             $e instanceof UnusableAnswerException,
             $e instanceof InvalidLlmOutputException                                                              => FailureReason::AnswerUnusable,
             $e instanceof InvalidArgumentException && in_array($e->getCode(), self::UNUSABLE_ANSWER_CODES, true) => FailureReason::AnswerUnusable,
-            $e instanceof IngestionException,
+            $e instanceof IngestionException                                                                     => match ($e->getCode()) {
+                self::INGESTION_NO_TEXT, self::INGESTION_IMAGES_REFUSED => FailureReason::SourceEmpty,
+                self::INGESTION_TOO_MANY_PAGES                          => FailureReason::SourceTooLong,
+                default                                                 => FailureReason::SourceUnreadable,
+            },
             $e instanceof PopplerEmptyOutputException,
             $e instanceof PopplerProcessFailedException => FailureReason::SourceUnreadable,
             $e instanceof RenderingException            => FailureReason::Rendering,
@@ -83,10 +101,13 @@ final class FailureClassifier
             $e instanceof ConfigurationNotFoundException,
             $e instanceof ConfigurationInactiveException,
             $e instanceof AccessDeniedException,
-            $e instanceof VaultException => FailureReason::ProviderSetup,
+            $e instanceof ServiceConfigurationException,
+            $e instanceof VaultException                => FailureReason::ProviderSetup,
+            $e instanceof ServiceQuotaExceededException => FailureReason::ProviderRateLimited,
             // Last among the provider classes: the ones above extend it.
-            $e instanceof ProviderException => FailureReason::ProviderUnavailable,
-            default                         => null,
+            $e instanceof ProviderException,
+            $e instanceof SpecializedServiceException => FailureReason::ProviderUnavailable,
+            default                                   => null,
         };
     }
 }

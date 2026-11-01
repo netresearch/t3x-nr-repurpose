@@ -21,6 +21,9 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Exception\PopplerEmptyOutputException;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
@@ -58,6 +61,13 @@ final class FailureClassifierTest extends TestCase
             'a brief without title'                 => [new AnalysisException('x', 1749384100), FailureReason::AnswerUnusable],
             'an empty document'                     => [new AnalysisException('x', 1749384000), FailureReason::SourceEmpty],
             'too many sections'                     => [new AnalysisException('x', 1749384001), FailureReason::SourceTooLong],
+            'a scanned PDF in text mode'            => [new IngestionException('x', 1749379452), FailureReason::SourceEmpty],
+            'a PDF with image reading refused'      => [new IngestionException('x', 1749379453), FailureReason::SourceEmpty],
+            'a PDF with too many pages'             => [new IngestionException('x', 1749379454), FailureReason::SourceTooLong],
+            'an image service outage'               => [new RenderingException('x', 1749411001, self::without(ServiceUnavailableException::class)), FailureReason::ProviderUnavailable],
+            'an image quota'                        => [new RenderingException('x', 1749411001, self::without(ServiceQuotaExceededException::class)), FailureReason::ProviderRateLimited],
+            'an image service without a key'        => [new RenderingException('x', 1749411001, self::without(ServiceConfigurationException::class)), FailureReason::ProviderSetup],
+            'a render failure with an other cause'  => [new RenderingException('x', 1, new RuntimeException('y')), FailureReason::Rendering],
             'a source that cannot be read'          => [new IngestionException('x'), FailureReason::SourceUnreadable],
             'a PDF without text output'             => [new PopplerEmptyOutputException('x'), FailureReason::SourceUnreadable],
             'a render failure'                      => [new RenderingException('x'), FailureReason::Rendering],

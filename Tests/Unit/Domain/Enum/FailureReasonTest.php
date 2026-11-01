@@ -95,7 +95,7 @@ final class FailureReasonTest extends TestCase
     {
         $shown = array_filter(FailureReason::cases(), static fn (FailureReason $reason): bool => $reason->isStoredMessageShown());
 
-        self::assertSame([FailureReason::SourceUnreadable, FailureReason::Guardrail], array_values($shown));
+        self::assertSame([FailureReason::SourceUnreadable, FailureReason::SourceEmpty, FailureReason::SourceTooLong, FailureReason::Guardrail], array_values($shown));
     }
 
     /** Both directions: a run that cannot end differently is refused, a passing fault is offered. */

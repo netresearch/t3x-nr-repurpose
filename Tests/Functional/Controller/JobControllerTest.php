@@ -342,18 +342,19 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         $job        = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10']);
         $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact');
         $connection->insert('tx_nrrepurpose_domain_model_artifact', [
-            'pid'           => 0,
-            'job'           => $job,
-            'type'          => 'story',
-            'variant'       => 'slide-1',
-            'status'        => 'failed',
-            'error_message' => 'The text contains "Rabatt".',
+            'pid'            => 0,
+            'job'            => $job,
+            'type'           => 'story',
+            'variant'        => 'slide-1',
+            'status'         => 'failed',
+            'failure_reason' => 'guardrail',
+            'error_message'  => 'The text contains "Rabatt".',
         ]);
 
         $strip = $this->parse($this->renderAction('show', ['job' => $job]))->saveHTML();
 
         self::assertIsString($strip);
-        self::assertMatchesRegularExpression('#<span class="text-break">[^<]*Rabatt[^<]*</span>#', $strip);
+        self::assertMatchesRegularExpression('#<span class="d-block text-break">[^<]*Rabatt[^<]*</span>#', $strip);
     }
 
     /**
@@ -451,8 +452,17 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('Only some of the results are finished', $body);
         self::assertStringContainsString('Finished results: 1', $body);
         self::assertStringContainsString('Your user group may not create this format', $body);
-        self::assertStringContainsString('Newsletter generation failed', $body);
+        self::assertStringNotContainsString('Newsletter generation failed', $body, 'An older row holds no text to trust');
+        self::assertStringContainsString('Failed, the reason was not saved', $body);
         self::assertStringNotContainsString(self::RETRY_BUTTON, $body, 'A new run would remove the finished format');
+    }
+
+    #[Test]
+    public function aPartialJobFromAnOlderVersionIsNoFailure(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'status' => 'partially_done']);
+
+        self::assertStringContainsString('Only some of the results are finished', $this->renderAction('show', ['job' => $job]));
     }
 
     /** A job-wide text promises a button and says "no results", which a format card must not. */
@@ -718,14 +728,14 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         $url = 'https://www.example.com/' . str_repeat('Cj0KCQjw', 45);
         $job = $this->insertJob($url, 'partially_done');
         GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
-            ->insert('tx_nrrepurpose_domain_model_artifact', ['pid' => 0, 'job' => $job, 'type' => 'podcast', 'status' => 'failed', 'error_message' => 'TTS refused ' . $url]);
+            ->insert('tx_nrrepurpose_domain_model_artifact', ['pid' => 0, 'job' => $job, 'type' => 'podcast', 'status' => 'failed', 'failure_reason' => 'guardrail', 'error_message' => 'TTS refused ' . $url]);
 
         $body    = $this->renderAction('show', ['job' => $job]);
         $escaped = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5);
 
         self::assertStringContainsString('<dd class="col-sm-10 text-break">' . $escaped . '</dd>', $body);
         self::assertStringContainsString('<div class="card-body text-break">', $body);
-        self::assertMatchesRegularExpression('#class="[^"]*\bcallout-danger\b.*?<span class="text-break">TTS refused ' . preg_quote($escaped, '#') . '</span>#s', $body);
+        self::assertMatchesRegularExpression('#class="[^"]*\bcallout-danger\b.*?<span class="d-block text-break">TTS refused ' . preg_quote($escaped, '#') . '</span>#s', $body);
     }
 
     #[Test]

@@ -108,7 +108,7 @@ class JobProcessingRepository
     {
         return $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
             self::JOB_TABLE,
-            ['status' => JobStatus::Queued->value, 'current_step' => '', 'progress' => 0, 'error_message' => '', 'failure_reason' => '', 'tstamp' => time()],
+            ['status' => JobStatus::Queued->value, 'current_step' => '', 'progress' => 0, 'error_message' => '', 'failure_reason' => '', 'source_report' => '', 'language_detected' => '', 'tstamp' => time()],
             ['uid' => $jobUid, 'status' => JobStatus::Failed->value],
         ) === 1;
     }

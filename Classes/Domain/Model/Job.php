@@ -412,7 +412,11 @@ class Job extends AbstractEntity
     public function getFailure(): ?FailureReason
     {
         $status = $this->getStatusEnum();
-        if ($status === JobStatus::Failed || $status === JobStatus::PartiallyDone) {
+        if ($status === JobStatus::PartiallyDone) {
+            return FailureReason::SomeFormatsFailed;
+        }
+
+        if ($status === JobStatus::Failed) {
             return FailureReason::fromStored($this->failureReason, $this->errorMessage);
         }
 
