@@ -12,9 +12,11 @@ namespace Netresearch\NrRepurpose\Ingestion;
 use GuzzleHttp\ClientInterface;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
+use Netresearch\NrRepurpose\Source\SourceAccess;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Random\Randomizer;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Resource\FileRepository;
 
 /**
@@ -44,14 +46,15 @@ class PdfFileResolver
         private readonly ClientInterface $httpClient,
         private readonly RequestFactoryInterface $requestFactory,
         private readonly RemoteSourceGuard $guard,
+        private readonly SourceAccess $sourceAccess = new SourceAccess(),
     ) {}
 
     public function resolve(JobSnapshot $job): string
     {
         return match ($job->sourceType) {
-            SourceType::PdfFal => $this->resolveFalFile($job->uid),
-            SourceType::PdfUrl => $this->downloadUrl($job->sourceValue),
-            SourceType::Url    => throw new IngestionException('PdfFileResolver does not handle source_type: url', 1749379440),
+            SourceType::PdfFal                => $this->resolveFalFile($job),
+            SourceType::PdfUrl                => $this->downloadUrl($job->sourceValue),
+            SourceType::Url, SourceType::Page => throw new IngestionException('PdfFileResolver does not handle source_type: ' . $job->sourceType->value, 1749379440),
         };
     }
 
@@ -76,9 +79,15 @@ class PdfFileResolver
     /**
      * source_pdf is a TCA type=file field: its column holds the number of attached
      * files, the file itself hangs off a sys_file_reference row of the job.
+     *
+     * A job with an owner runs on that owner's file access, checked again here: the form checked
+     * it when the job was made, and mounts, permissions and the file's folder can change until
+     * the worker gets to it. A job without an owner comes from the record view, where DataHandler
+     * and the file field did the checking, and has no one to check against.
      */
-    private function resolveFalFile(int $jobUid): string
+    private function resolveFalFile(JobSnapshot $job): string
     {
+        $jobUid     = $job->uid;
         $references = $jobUid > 0 ? $this->fileRepository->findByRelation(self::JOB_TABLE, 'source_pdf', $jobUid) : [];
         // findByRelation() leaves out a reference whose sys_file no longer exists.
         if ($references === []) {
@@ -87,6 +96,13 @@ class PdfFileResolver
 
         $file    = $references[0]->getOriginalFile();
         $fileUid = $file->getUid();
+
+        if ($job->beUser > 0) {
+            $owner = $this->sourceAccess->owner($job->beUser);
+            if (!$owner instanceof BackendUserAuthentication || !$this->sourceAccess->mayReadFile($owner, $file)) {
+                throw new IngestionException('The job owner may not read the attached PDF: ' . $fileUid, 1749379449);
+            }
+        }
 
         if ($file->getStorage()->getDriverType() !== self::LOCAL_DRIVER) {
             // Any other driver would copy the file into var/transient for local

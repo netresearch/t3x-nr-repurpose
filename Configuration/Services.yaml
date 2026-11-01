@@ -118,6 +118,14 @@ services:
   Netresearch\NrRepurpose\Ingestion\PdfFileResolver:
     public: true
 
+  # Public so functional tests can fetch them via $this->get().
+  Netresearch\NrRepurpose\Source\JobSourceAssigner:
+    public: true
+  Netresearch\NrRepurpose\Source\PageTreeWalker:
+    public: true
+  Netresearch\NrRepurpose\Source\SourceAccess:
+    public: true
+
   Netresearch\NrRepurpose\Ingestion\HostResolverInterface:
     alias: Netresearch\NrRepurpose\Ingestion\DnsHostResolver
 

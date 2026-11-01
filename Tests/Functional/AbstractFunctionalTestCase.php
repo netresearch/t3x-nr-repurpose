@@ -20,6 +20,9 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  */
 abstract class AbstractFunctionalTestCase extends FunctionalTestCase
 {
+    /** The file element browser of the new-job form comes from EXT:filelist. */
+    protected array $coreExtensionsToLoad = ['filelist'];
+
     protected array $testExtensionsToLoad = [
         'netresearch/nr-vault',
         'netresearch/nr-llm',

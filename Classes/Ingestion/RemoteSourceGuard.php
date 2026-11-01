@@ -89,24 +89,41 @@ final readonly class RemoteSourceGuard
     }
 
     /**
+     * Builds the request for a page of this installation. The URL comes from the site
+     * configuration and the page's slug, never from the editor, and the site may well live on a
+     * private address (an intranet, a container network), so the blocked ranges do not apply.
+     * Scheme and host are checked, and the transfer connects to the resolved addresses as usual.
+     * Everything an editor types goes through createRequest().
+     *
+     * @throws IngestionException when the URL has no http(s) scheme or host, or does not resolve
+     */
+    public function createOwnSiteRequest(RequestFactoryInterface $requestFactory, string $method, string $url): GuardedRequest
+    {
+        try {
+            $request = $requestFactory->createRequest($method, $url);
+        } catch (InvalidArgumentException) {
+            throw new IngestionException('Source URL cannot be parsed: ' . SourceUrlRedactor::redact($url), 1749379470);
+        }
+
+        $uri  = $request->getUri();
+        $host = $this->assertSchemeAndHost($uri);
+
+        $addresses = filter_var($host, FILTER_VALIDATE_IP) !== false ? [$host] : $this->resolver->resolve($host);
+        if ($addresses === []) {
+            throw new IngestionException('Source URL host does not resolve: ' . $host, 1749379462);
+        }
+
+        return new GuardedRequest($request, $addresses);
+    }
+
+    /**
      * @return non-empty-list<string> the addresses the host resolved to, all of them allowed
      *
      * @throws IngestionException when the URL must not be fetched
      */
     public function assertAllowed(UriInterface $uri): array
     {
-        $scheme = strtolower($uri->getScheme());
-        if ($scheme !== 'http' && $scheme !== 'https') {
-            throw new IngestionException(
-                sprintf('Source URL scheme "%s" is not allowed, only http and https: %s', $scheme, SourceUrlRedactor::redact((string) $uri)),
-                1749379460,
-            );
-        }
-
-        $host = trim($uri->getHost(), '[]');
-        if ($host === '') {
-            throw new IngestionException('Source URL has no host: ' . SourceUrlRedactor::redact((string) $uri), 1749379461);
-        }
+        $host = $this->assertSchemeAndHost($uri);
 
         $isIpLiteral = filter_var($host, FILTER_VALIDATE_IP) !== false;
         if (!$isIpLiteral && $this->isNumericIpv4Spelling($host)) {
@@ -142,6 +159,25 @@ final readonly class RemoteSourceGuard
         }
 
         return $addresses;
+    }
+
+    /** @return non-empty-string the host without the brackets of an IPv6 literal */
+    private function assertSchemeAndHost(UriInterface $uri): string
+    {
+        $scheme = strtolower($uri->getScheme());
+        if ($scheme !== 'http' && $scheme !== 'https') {
+            throw new IngestionException(
+                sprintf('Source URL scheme "%s" is not allowed, only http and https: %s', $scheme, SourceUrlRedactor::redact((string) $uri)),
+                1749379460,
+            );
+        }
+
+        $host = trim($uri->getHost(), '[]');
+        if ($host === '') {
+            throw new IngestionException('Source URL has no host: ' . SourceUrlRedactor::redact((string) $uri), 1749379461);
+        }
+
+        return $host;
     }
 
     /**

@@ -13,6 +13,11 @@
         <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.field.source" /></dt>
         <dd class="col-sm-10 text-break">{job.sourceValueForDisplay}</dd>
 
+        <f:if condition="{job.pageSource}">
+            <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.field.sourceDepth" /></dt>
+            <dd class="col-sm-10"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceDepth.{job.sourceDepthLabelKey}" /></dd>
+        </f:if>
+
         <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.field.status" /></dt>
         <dd class="col-sm-10">
             <span class="badge badge-{job.statusEnum.severity}">
@@ -30,7 +35,39 @@
             <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.field.error" /></dt>
             <dd class="col-sm-10 text-danger text-break">{job.errorMessage}</dd>
         </f:if>
+
+        <f:variable name="sourceReport" value="{job.sourceSummary}" />
+        <f:if condition="{sourceReport.pagesUsed}">
+            <dt class="col-sm-2"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.field.sourcePages" /></dt>
+            <dd class="col-sm-10">{sourceReport.pagesUsed}</dd>
+        </f:if>
     </dl>
+
+    <f:if condition="{sourceReport.omissions}">
+        <div class="callout callout-warning" id="nrrepurpose-source-report">
+            <div class="callout-title"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.source.left.title" /></div>
+            <div class="callout-body">
+                <f:if condition="{sourceReport.cutByPageLimit}">
+                    <p><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.source.cut.pages" arguments="{0: sourceReport.maxPages}" /></p>
+                </f:if>
+                <f:if condition="{sourceReport.cutByTextLimit}">
+                    <p>
+                        <f:if condition="{sourceReport.pagesLeftOut}">
+                            <f:then><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.source.cut.text" arguments="{0: sourceReport.maxChars, 1: sourceReport.pagesLeftOut}" /></f:then>
+                            <f:else><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.source.cut.textSingle" arguments="{0: sourceReport.maxChars}" /></f:else>
+                        </f:if>
+                    </p>
+                </f:if>
+                <ul class="mb-0">
+                    <f:if condition="{sourceReport.skippedHidden}"><li><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.source.left.hidden" arguments="{0: sourceReport.skippedHidden}" /></li></f:if>
+                    <f:if condition="{sourceReport.skippedRestricted}"><li><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.source.left.restricted" arguments="{0: sourceReport.skippedRestricted}" /></li></f:if>
+                    <f:if condition="{sourceReport.skippedExcluded}"><li><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.source.left.excluded" arguments="{0: sourceReport.skippedExcluded}" /></li></f:if>
+                    <f:if condition="{sourceReport.skippedNoAccess}"><li><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.source.left.noAccess" arguments="{0: sourceReport.skippedNoAccess}" /></li></f:if>
+                    <f:if condition="{sourceReport.pagesFailed}"><li><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:show.source.left.failed" arguments="{0: sourceReport.pagesFailed}" /></li></f:if>
+                </ul>
+            </div>
+        </div>
+    </f:if>
 
     <f:if condition="!{job.statusEnum.terminal}">
         <div class="callout callout-info">

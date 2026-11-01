@@ -12,9 +12,12 @@ namespace Netresearch\NrRepurpose\Persistence;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
+use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Throwable;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\ReferenceIndex;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Plain DBAL persistence for the long-running Messenger worker.
@@ -25,6 +28,10 @@ class JobProcessingRepository
     private const string JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
 
     private const string ARTIFACT_TABLE = 'tx_nrrepurpose_domain_model_artifact';
+
+    private const string REFERENCE_TABLE = 'sys_file_reference';
+
+    private const string SOURCE_PDF_FIELD = 'source_pdf';
 
     public function __construct(
         private readonly ConnectionPool $connectionPool,
@@ -97,6 +104,50 @@ class JobProcessingRepository
             ['language_detected' => $language, 'tstamp' => time()],
             ['uid' => $jobUid],
         );
+    }
+
+    /** What a page source used, left out or was cut by; the result view shows it (ADR-010). */
+    public function setSourceReport(int $jobUid, SourceReport $report): void
+    {
+        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
+            self::JOB_TABLE,
+            ['source_report' => $report->toJson(), 'tstamp' => time()],
+            ['uid' => $jobUid],
+        );
+    }
+
+    /**
+     * Attach the file a backend user picked in the new-job form, stored as DataHandler stores a
+     * TCA type=file field: a sys_file_reference row of the job, the number of references in the
+     * job's column, and the reference index, so the Filelist module warns before deleting it.
+     */
+    public function attachSourcePdf(int $jobUid, int $fileUid): void
+    {
+        $now  = time();
+        $conn = $this->connectionPool->getConnectionForTable(self::REFERENCE_TABLE);
+        $conn->insert(self::REFERENCE_TABLE, [
+            'pid'             => 0,
+            'uid_local'       => $fileUid,
+            'uid_foreign'     => $jobUid,
+            'tablenames'      => self::JOB_TABLE,
+            'fieldname'       => self::SOURCE_PDF_FIELD,
+            'sorting_foreign' => 1,
+            'crdate'          => $now,
+            'tstamp'          => $now,
+        ]);
+
+        $referenceUid = (int) $conn->lastInsertId();
+
+        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)
+            ->update(self::JOB_TABLE, [self::SOURCE_PDF_FIELD => 1, 'tstamp' => $now], ['uid' => $jobUid]);
+        // Core offers no public API for this short of DataHandler, which an editor's table
+        // permissions would refuse here.
+        /** @phpstan-ignore classConstant.internalClass */
+        $referenceIndex = GeneralUtility::makeInstance(ReferenceIndex::class);
+        /** @phpstan-ignore method.internal */
+        $referenceIndex->updateRefIndexTable(self::JOB_TABLE, $jobUid);
+        /** @phpstan-ignore method.internal */
+        $referenceIndex->updateRefIndexTable(self::REFERENCE_TABLE, $referenceUid);
     }
 
     public function insertArtifact(

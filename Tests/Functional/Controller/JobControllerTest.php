@@ -11,9 +11,12 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Controller;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use DOMDocument;
 use DOMElement;
+use DOMXPath;
 use Masterminds\HTML5;
 use Netresearch\NrRepurpose\Controller\JobController;
+use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Functional\Controller\Fixtures\QueryCountingMiddleware;
 use Netresearch\NrRepurpose\Tests\Functional\Controller\Fixtures\RecordingLogWriter;
@@ -23,6 +26,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LogLevel;
 use TYPO3\CMS\Backend\Routing\Router;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
@@ -34,6 +38,7 @@ use TYPO3\CMS\Core\Security\ContentSecurityPolicy\ConsumableNonce;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
+use TYPO3\CMS\Extbase\Mvc\Controller\MvcPropertyMappingConfigurationService;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -136,6 +141,162 @@ final class JobControllerTest extends AbstractFunctionalTestCase
             'The new-job page must load ' . self::MODULE_SPECIFIER . ' as an ES module.',
         );
         self::assertFileExists(GeneralUtility::getFileAbsFileName('EXT:nr_repurpose/Resources/Public/JavaScript/job-new.js'));
+    }
+
+    #[Test]
+    public function newActionStartsOnThePageOfTheModule(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourcePages.csv');
+
+        $document = $this->parse($this->renderAction('new', [], ['id' => '10']));
+
+        self::assertSame('10', $this->element($document, 'nrrepurpose-sourcePage')->getAttribute('value'));
+        self::assertSame('About [10]', trim($this->element($document, 'nrrepurpose-sourcePage-item')->textContent));
+        $selected = $this->xpath($document, '//select[@id="nrrepurpose-sourceType"]/option[@selected]');
+        self::assertCount(1, $selected);
+        self::assertSame('page', $selected[0]->getAttribute('value'));
+        self::assertStringContainsString('expandPage=10', $this->element($document, 'nrrepurpose-sourcePage-browse')->getAttribute('data-browser-url'));
+    }
+
+    #[Test]
+    public function newActionIgnoresAPageTheUserMayNotRead(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourcePages.csv');
+
+        $document = $this->parse((string) $this->dispatch('new', [], self::EDITOR, 'GET', ['id' => '2'])->getBody());
+
+        self::assertSame('', $this->element($document, 'nrrepurpose-sourcePage')->getAttribute('value'));
+        self::assertSame('', trim($this->element($document, 'nrrepurpose-sourcePage-item')->textContent));
+        $selected = $this->xpath($document, '//select[@id="nrrepurpose-sourceType"]/option[@selected]');
+        self::assertSame('url', $selected === [] ? 'url' : $selected[0]->getAttribute('value'));
+    }
+
+    /** The core's element browser, each set up for what it may pick and for reporting by event. */
+    #[Test]
+    public function newActionPointsThePickersAtTheElementBrowser(): void
+    {
+        $document = $this->parse($this->renderNewAction());
+
+        $expected = [
+            'nrrepurpose-sourcePage-browse' => ['mode' => 'db', 'allowedTypes' => 'pages', 'fieldReference' => 'nrrepurpose-sourcePage'],
+            'nrrepurpose-sourceFile-browse' => ['mode' => 'file', 'allowedTypes' => 'pdf', 'fieldReference' => 'nrrepurpose-sourceFile'],
+        ];
+        foreach ($expected as $id => $parameters) {
+            $url = $this->element($document, $id)->getAttribute('data-browser-url');
+            self::assertStringContainsString('/wizard/record/browse', (string) parse_url($url, PHP_URL_PATH));
+            parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+            self::assertSame($parameters + ['useEvents' => '1'], array_intersect_key($query, $parameters + ['useEvents' => '']));
+        }
+    }
+
+    /** Every field a source type shows has a label pointing at it. */
+    #[Test]
+    public function newActionLabelsThePickersAndTheDepth(): void
+    {
+        $document = $this->parse($this->renderNewAction());
+
+        foreach (['nrrepurpose-sourcePage-browse', 'nrrepurpose-sourceFile-browse', 'nrrepurpose-sourceDepth'] as $id) {
+            self::assertCount(1, $this->xpath($document, sprintf('//label[@for="%s"]', $id)), $id);
+            $this->element($document, $id);
+        }
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function sourceBlocks(): array
+    {
+        return [
+            'source URL'  => ['nrrepurpose-sourceValue', 'url pdf_url'],
+            'page picker' => ['nrrepurpose-sourcePage-browse', 'page'],
+            'depth'       => ['nrrepurpose-sourceDepth', 'page'],
+            'file picker' => ['nrrepurpose-sourceFile-browse', 'pdf_fal'],
+            'PDF mode'    => ['nrrepurpose-pdfMode', 'pdf_url pdf_fal'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('sourceBlocks')]
+    public function newActionTiesEachSourceFieldToItsSourceTypes(string $id, string $types): void
+    {
+        $document = $this->parse($this->renderNewAction());
+
+        $blocks = $this->xpath($document, sprintf('//*[@id="%s"]/ancestor::*[@data-source-types][1]', $id));
+        self::assertCount(1, $blocks);
+        self::assertSame($types, $blocks[0]->getAttribute('data-source-types'));
+    }
+
+    #[Test]
+    public function createActionRefusesAPageTheUserMayNotReadAndCreatesNoJob(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourcePages.csv');
+
+        $response = $this->dispatch('create', $this->newJobArguments('page') + ['sourcePage' => 2], self::EDITOR, 'POST');
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertStringEndsWith('/module/web/nr-repurpose/Job/new', (string) parse_url($response->getHeaderLine('Location'), PHP_URL_PATH));
+        self::assertSame(0, $this->jobCount());
+        [[$message, $severity]] = $this->flashMessages();
+        self::assertStringContainsString('may not use this page', $message);
+        self::assertSame(ContextualFeedbackSeverity::ERROR, $severity);
+    }
+
+    #[Test]
+    public function createActionStoresThePickedPageAndItsDepth(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourcePages.csv');
+
+        $response = $this->dispatch('create', $this->newJobArguments('page') + ['sourcePage' => 10, 'sourceDepth' => 2], self::ADMIN, 'POST');
+
+        self::assertSame(303, $response->getStatusCode());
+        $row = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->select(['source_type', 'source_value', 'source_depth', 'source_label', 'be_user'], 'tx_nrrepurpose_domain_model_job')
+            ->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertSame(['page', '10', 2, 'About [10]', self::ADMIN], [$row['source_type'], $row['source_value'], (int) $row['source_depth'], $row['source_label'], (int) $row['be_user']]);
+    }
+
+    #[Test]
+    public function createActionWarnsWhenTheTreeIsOverThePageLimit(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourcePages.csv');
+        $this->get(ExtensionConfiguration::class)->set('nr_repurpose', ['maxSourcePages' => 1]);
+
+        $this->dispatch('create', $this->newJobArguments('page') + ['sourcePage' => 10, 'sourceDepth' => 2], 1, 'POST');
+
+        $severities = array_column($this->flashMessages(), 1);
+        self::assertContains(ContextualFeedbackSeverity::WARNING, $severities);
+    }
+
+    #[Test]
+    public function theJobListAndResultViewShowThePickedItemsTitleAndId(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'source_label' => 'About [10]', 'source_depth' => 2]);
+
+        self::assertStringContainsString('title="About [10]"', $this->renderAction('list'));
+        $show = $this->renderAction('show', ['job' => $job]);
+        self::assertStringContainsString('About [10]', $show);
+        self::assertStringContainsString('2 levels of subpages', $show);
+    }
+
+    #[Test]
+    public function theResultViewShowsWhatAPageSourceLeftOut(): void
+    {
+        $report = new SourceReport(pagesUsed: 3, pagesFailed: 1, skippedHidden: 2, pagesLeftOut: 4, cutByPageLimit: true, cutByTextLimit: true, maxPages: 25, maxChars: 1000);
+        $job    = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'source_label' => 'About [10]', 'source_report' => $report->toJson()]);
+
+        $document = $this->parse($this->renderAction('show', ['job' => $job]));
+        $callout  = $this->element($document, 'nrrepurpose-source-report')->textContent;
+
+        foreach (['limit of 25 pages', 'limit of 1000 characters', '4 selected pages', '2 hidden', '1 could not be read'] as $text) {
+            self::assertStringContainsString($text, $callout);
+        }
+    }
+
+    #[Test]
+    public function theResultViewStaysQuietWhenEveryPageWasRead(): void
+    {
+        $job = $this->insertSourceJob(['source_type' => 'page', 'source_value' => '10', 'source_report' => (new SourceReport(pagesUsed: 3))->toJson()]);
+
+        self::assertStringNotContainsString('nrrepurpose-source-report', $this->renderAction('show', ['job' => $job]));
     }
 
     #[Test]
@@ -723,27 +884,86 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         return (int) $connection->lastInsertId();
     }
 
+    /**
+     * The form's arguments as Extbase accepts them: $newJob carries the properties the form's
+     * trusted-properties token names, the pickers are plain request arguments.
+     *
+     * @return array<string, mixed>
+     */
+    private function newJobArguments(string $sourceType): array
+    {
+        return [
+            'newJob'              => ['sourceType' => $sourceType, 'sourceValue' => ''],
+            '__trustedProperties' => $this->get(MvcPropertyMappingConfigurationService::class)
+                ->generateTrustedPropertiesToken(['newJob[sourceType]', 'newJob[sourceValue]'], ''),
+        ];
+    }
+
+    /** @param array<string, int|string> $fields */
+    private function insertSourceJob(array $fields): int
+    {
+        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job');
+        $connection->insert('tx_nrrepurpose_domain_model_job', $fields + ['pid' => 0, 'status' => 'done']);
+
+        return (int) $connection->lastInsertId();
+    }
+
+    private function jobCount(): int
+    {
+        return GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->count('uid', 'tx_nrrepurpose_domain_model_job', []);
+    }
+
+    private function parse(string $body): DOMDocument
+    {
+        return (new HTML5(['disable_html_ns' => true]))->loadHTML($body);
+    }
+
+    private function element(DOMDocument $document, string $id): DOMElement
+    {
+        $elements = $this->xpath($document, sprintf('//*[@id="%s"]', $id));
+        self::assertCount(1, $elements, $id);
+
+        return $elements[0];
+    }
+
+    /** @return list<DOMElement> */
+    private function xpath(DOMDocument $document, string $query): array
+    {
+        $nodes = (new DOMXPath($document))->query($query);
+        self::assertNotFalse($nodes);
+
+        return array_values(array_filter(iterator_to_array($nodes), static fn (mixed $node): bool => $node instanceof DOMElement));
+    }
+
     private function renderNewAction(): string
     {
         return $this->renderAction('new');
     }
 
-    /** @param array<string, int|string> $arguments */
-    private function renderAction(string $action, array $arguments = []): string
+    /**
+     * @param array<string, mixed>  $arguments
+     * @param array<string, string> $queryParams
+     */
+    private function renderAction(string $action, array $arguments = [], array $queryParams = []): string
     {
-        $response = $this->dispatch($action, $arguments);
+        $response = $this->dispatch($action, $arguments, self::ADMIN, 'GET', $queryParams);
         self::assertSame(200, $response->getStatusCode());
 
         return (string) $response->getBody();
     }
 
-    /** @param array<string, int|string> $arguments */
-    private function dispatch(string $action, array $arguments = [], int $userUid = self::ADMIN, string $method = 'GET'): ResponseInterface
+    /**
+     * @param array<string, mixed>  $arguments
+     * @param array<string, string> $queryParams
+     */
+    private function dispatch(string $action, array $arguments = [], int $userUid = self::ADMIN, string $method = 'GET', array $queryParams = []): ResponseInterface
     {
         $backendUser     = $this->setUpBackendUser($userUid);
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
-        $request = $this->createBackendRequest($action, $arguments, $method);
+        $request = $this->createBackendRequest($action, $arguments, $method, $queryParams);
         // Extbase reads its configuration while the controller is built, so the
         // ConfigurationManager needs the request before the container hands it out.
         $this->get(ConfigurationManagerInterface::class)->setRequest($request);
@@ -805,8 +1025,11 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertSame((string) $job, $query['job'] ?? null);
     }
 
-    /** @param array<string, int|string> $arguments */
-    private function createBackendRequest(string $action, array $arguments = [], string $method = 'GET'): ExtbaseRequest
+    /**
+     * @param array<string, mixed>  $arguments
+     * @param array<string, string> $queryParams
+     */
+    private function createBackendRequest(string $action, array $arguments = [], string $method = 'GET', array $queryParams = []): ExtbaseRequest
     {
         $extbaseParameters = new ExtbaseRequestParameters(JobController::class);
         $extbaseParameters->setPluginName('web_nrrepurpose');
@@ -821,6 +1044,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         $route = $this->get(Router::class)->getRoute('web_nrrepurpose');
 
         $serverRequest = (new ServerRequest('https://typo3-testing.local/typo3/module/web/nr-repurpose', $method))
+            ->withQueryParams($queryParams)
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', $route)
             ->withAttribute('module', $route->getOption('module'))

@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
 
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
+use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\PdfLayoutExtractor;
@@ -20,10 +21,12 @@ use Netresearch\NrRepurpose\Ingestion\Poppler\PopplerRunnerInterface;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
+use Netresearch\NrRepurpose\Source\PageSourceReader;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Psr\Log\NullLogger;
 use Stringable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -132,7 +135,7 @@ final class SourceIngestionServiceTest extends TestCase
             }
         };
 
-        return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout, $grantResolver, $this->logger, $extensionConfiguration);
+        return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout, $grantResolver, $this->logger, $this->createStub(PageSourceReader::class), $extensionConfiguration);
     }
 
     /** @return list<array{page:int,text:string,isSparse:bool}> */
@@ -145,6 +148,29 @@ final class SourceIngestionServiceTest extends TestCase
         }
 
         return $pages;
+    }
+
+    public function testAPageSourceGoesToThePageReader(): void
+    {
+        $document = new SourceDocument('Title', 'Text', 'https://example.com/', 0, 'en');
+        $reader   = $this->createMock(PageSourceReader::class);
+        $job      = JobSnapshots::of(['source_type' => 'page', 'source_value' => '10', 'source_depth' => 2]);
+        $reader->expects(self::once())->method('read')->with($job)->willReturn($document);
+
+        $service = new SourceIngestionService(
+            new class extends WebPageFetcher {
+                public function __construct() {}
+            },
+            $this->createStub(PdfFileResolver::class),
+            $this->createStub(PdfTextExtractor::class),
+            $this->createStub(PdfVisionExtractor::class),
+            $this->createStub(PdfLayoutExtractor::class),
+            $this->createStub(CapabilityGrantResolverInterface::class),
+            new NullLogger(),
+            $reader,
+        );
+
+        self::assertSame($document, $service->ingest($job));
     }
 
     private function maxPdfPagesSetting(mixed $value): ExtensionConfiguration
@@ -469,6 +495,7 @@ final class SourceIngestionServiceTest extends TestCase
             }),
             $this->createStub(CapabilityGrantResolverInterface::class),
             $logger,
+            $this->createStub(PageSourceReader::class),
         );
 
         try {

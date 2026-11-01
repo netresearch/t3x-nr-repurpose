@@ -28,6 +28,7 @@ final class ExtensionDependencyRangeTest extends TestCase
     private const array EXTENSIONS = [
         'php'                  => 'php',
         'typo3/cms-core'       => 'typo3',
+        'typo3/cms-filelist'   => 'filelist',
         'netresearch/nr-llm'   => 'nr_llm',
         'netresearch/nr-vault' => 'nr_vault',
     ];

@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 return [
     'ctrl' => [
-        'title'            => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job',
-        'label'            => 'source_value',
+        'title' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job',
+        'label' => 'source_value',
+        // A picked page or file: the row title shows its title and id, not a bare uid.
+        'label_alt'        => 'source_label',
         'tstamp'           => 'tstamp',
         'crdate'           => 'crdate',
         'default_sortby'   => 'crdate DESC',
@@ -25,6 +27,7 @@ return [
                     ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.url', 'value' => 'url'],
                     ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.pdf_url', 'value' => 'pdf_url'],
                     ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.pdf_fal', 'value' => 'pdf_fal'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.page', 'value' => 'page'],
                 ],
                 'default' => 'url',
             ],
@@ -35,7 +38,11 @@ return [
             'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_value',
             'config' => ['type' => 'link', 'allowedTypes' => ['url'], 'appearance' => ['allowedOptions' => []], 'size' => 60],
         ],
-        'theme' => [
+        // Written by the module form and the worker only, hence not editable in the record view.
+        'source_label'  => ['config' => ['type' => 'passthrough']],
+        'source_depth'  => ['config' => ['type' => 'passthrough']],
+        'source_report' => ['config' => ['type' => 'passthrough']],
+        'theme'         => [
             'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.theme',
             'config' => [
                 'type'  => 'select', 'renderType' => 'selectSingle',

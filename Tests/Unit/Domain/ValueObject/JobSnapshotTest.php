@@ -75,6 +75,9 @@ final class JobSnapshotTest extends TestCase
         self::assertSame(42, $job->uid);
         self::assertSame(JobStatus::Generating, $job->status);
         self::assertSame(SourceType::PdfFal, $job->sourceType);
+        self::assertSame(0, $job->sourceDepth, 'A row from before the column reads as the page alone');
+        self::assertSame(3, JobSnapshot::fromRow(['uid' => 1, 'source_type' => 'page', 'source_depth' => '3'])->sourceDepth);
+        self::assertSame(SourceType::Page, JobSnapshot::fromRow(['uid' => 1, 'source_type' => 'page'])->sourceType);
         self::assertSame('https://example.com/report.pdf', $job->sourceValue);
         self::assertSame(PdfMode::Tables, $job->pdfMode);
         self::assertSame('neutral', $job->theme);

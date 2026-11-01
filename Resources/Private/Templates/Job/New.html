@@ -12,15 +12,17 @@
             <label class="form-label" for="nrrepurpose-sourceType">
                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceType" />
             </label>
-            <f:form.select property="sourceType" id="nrrepurpose-sourceType" class="form-select"
+            <f:form.select property="sourceType" id="nrrepurpose-sourceType" class="form-select" value="{sourceType}"
                 options="{
                     url: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceType.url\')}',
                     pdf_url: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceType.pdf_url\')}',
+                    page: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceType.page\')}',
                     pdf_fal: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceType.pdf_fal\')}'
                 }" />
         </div>
 
-        <div class="form-group">
+        <f:comment><!-- job-new.js shows the blocks whose data-source-types hold the selected type. --></f:comment>
+        <div class="form-group" data-source-types="url pdf_url">
             <label class="form-label" for="nrrepurpose-sourceValue">
                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceValue" />
             </label>
@@ -28,7 +30,58 @@
                 placeholder="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceValue.placeholder')}" />
         </div>
 
-        <div class="form-group">
+        <div class="form-group" data-source-types="page" data-source-picker data-required-message="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourcePage.required')}">
+            <label class="form-label" for="nrrepurpose-sourcePage-browse">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourcePage" />
+            </label>
+            <f:form.hidden name="sourcePage" id="nrrepurpose-sourcePage" value="{sourcePage.uid}" />
+            <div class="input-group">
+                <f:comment><!-- The picked item's title and id, or the text that nothing is picked. --></f:comment>
+                <output class="form-control text-truncate" id="nrrepurpose-sourcePage-item" for="nrrepurpose-sourcePage-browse"
+                        data-empty-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourcePage.empty')}">{sourcePage.label}</output>
+                <button type="button" class="btn btn-default" id="nrrepurpose-sourcePage-browse" data-picker-browse
+                        data-browser-url="{pageBrowserUrl}" aria-describedby="nrrepurpose-sourcePage-item">
+                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourcePage.browse" />
+                </button>
+                <button type="button" class="btn btn-default" data-picker-remove
+                        aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourcePage.remove')}">
+                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.remove" />
+                </button>
+            </div>
+            <div class="invalid-feedback text-danger" data-picker-error></div>
+        </div>
+
+        <div class="form-group" data-source-types="page">
+            <label class="form-label" for="nrrepurpose-sourceDepth">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceDepth" />
+            </label>
+            <f:form.select name="sourceDepth" id="nrrepurpose-sourceDepth" class="form-select" options="{depthOptions}" />
+            <p class="form-text">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.hint.sourcePage" arguments="{0: maxPages, 1: maxChars}" />
+            </p>
+        </div>
+
+        <div class="form-group" data-source-types="pdf_fal" data-source-picker data-required-message="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceFile.required')}">
+            <label class="form-label" for="nrrepurpose-sourceFile-browse">
+                <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceFile" />
+            </label>
+            <f:form.hidden name="sourceFile" id="nrrepurpose-sourceFile" />
+            <div class="input-group">
+                <output class="form-control text-truncate" id="nrrepurpose-sourceFile-item" for="nrrepurpose-sourceFile-browse"
+                        data-empty-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceFile.empty')}"></output>
+                <button type="button" class="btn btn-default" id="nrrepurpose-sourceFile-browse" data-picker-browse
+                        data-browser-url="{fileBrowserUrl}" aria-describedby="nrrepurpose-sourceFile-item">
+                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceFile.browse" />
+                </button>
+                <button type="button" class="btn btn-default" data-picker-remove
+                        aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.sourceFile.remove')}">
+                    <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.remove" />
+                </button>
+            </div>
+            <div class="invalid-feedback text-danger" data-picker-error></div>
+        </div>
+
+        <div class="form-group" data-source-types="pdf_url pdf_fal">
             <label class="form-label" for="nrrepurpose-pdfMode">
                 <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.field.pdfMode" />
             </label>
@@ -40,10 +93,6 @@
                     tables: '{f:translate(key: \'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:pdfMode.tables\')}'
                 }" />
         </div>
-
-        <p class="text-muted">
-            <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:new.hint.pdfFal" />
-        </p>
 
         <div class="form-group">
             <label class="form-label" for="nrrepurpose-theme">
