@@ -9,13 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Controller;
 
+use Netresearch\NrRepurpose\Domain\Model\Job;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
  * The New-job form's checkbox defaults: the media artifacts are pre-checked, the four
- * text formats are not. newAction() passes no Job object, so the `checked` attribute
- * alone decides what an editor who just clicks "Create" requests.
+ * text formats are not. newAction() passes a new Job, so its defaults decide what an editor
+ * who just clicks "Create" requests. A `checked` attribute in the template would override them,
+ * and with them what a refused submission gives back to the editor.
  */
 final class NewJobFormDefaultsTest extends TestCase
 {
@@ -47,12 +49,7 @@ final class NewJobFormDefaultsTest extends TestCase
     #[DataProvider('checkboxes')]
     public function testCheckboxDefault(string $property, bool $checked): void
     {
-        $tag = $this->checkboxTag($property);
-
-        if ($checked) {
-            self::assertStringContainsString('checked="true"', $tag);
-        } else {
-            self::assertStringNotContainsString('checked', $tag);
-        }
+        self::assertStringNotContainsString('checked', $this->checkboxTag($property));
+        self::assertSame($checked, (new Job())->{'is' . ucfirst($property)}());
     }
 }

@@ -36,6 +36,7 @@ use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Pagination\SimplePagination;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
@@ -118,29 +119,45 @@ class JobController extends ActionController
 
     public function newAction(): ResponseInterface
     {
+        $id = $this->request->getQueryParams()['id'] ?? 0;
+
+        return $this->renderNewForm(new Job(), is_numeric($id) ? (int) $id : 0);
+    }
+
+    /**
+     * The form, for a new job or again with what a refused submission held.
+     *
+     * @param int                $pageUid  the page the picker starts with, when the user may read it
+     * @param array<string, int> $selected the plain request arguments of the form
+     */
+    private function renderNewForm(Job $job, int $pageUid, array $selected = []): ResponseInterface
+    {
         $this->moduleTemplate->setTitle(
             $this->moduleTitle(),
             LocalizationUtility::translate('new.title', 'nr_repurpose') ?? '',
         );
+        $page = $this->pickablePage($pageUid);
+        // The page selected in the module's page tree starts the form on that page.
+        if ($page !== null && $selected === []) {
+            $job->setSourceTypeEnum(SourceType::Page);
+        }
+
         // One uid => name option map per snippet tag for the form's snippet selectors.
         // An unconfigured tag yields an empty map; the select then only offers "(none)".
         $this->moduleTemplate->assignMultiple([
+            'newJob'          => $job,
+            'selected'        => $selected,
             'audienceOptions' => $this->snippetOptions('audience'),
             'toneOptions'     => $this->snippetOptions('tone_of_voice'),
             'personaOptions'  => $this->snippetOptions('persona'),
             'layoutOptions'   => $this->snippetOptions('layout'),
             'styleOptions'    => $this->snippetOptions('style'),
-        ]);
-        // The page selected in the module's page tree starts the form on that page.
-        $page = $this->preselectedPage();
-        $this->moduleTemplate->assignMultiple([
-            'sourceType'     => $page === null ? SourceType::Url->value : SourceType::Page->value,
-            'sourcePage'     => $page,
-            'depthOptions'   => $this->depthOptions(),
-            'pageBrowserUrl' => $this->elementBrowserUrl('db', 'pages', self::PAGE_FIELD, $page === null ? [] : ['expandPage' => $page['uid']]),
-            'fileBrowserUrl' => $this->elementBrowserUrl('file', 'pdf', self::FILE_FIELD),
-            'maxPages'       => $this->pageSourceLimits->maxPages(),
-            'maxChars'       => $this->pageSourceLimits->maxChars(),
+            'sourcePage'      => $page,
+            'depthOptions'    => $this->depthOptions(),
+            'pageBrowserUrl'  => $this->elementBrowserUrl('db', 'pages', self::PAGE_FIELD, $page === null ? [] : ['expandPage' => $page['uid']]),
+            'fileBrowserUrl'  => $this->elementBrowserUrl('file', 'pdf', self::FILE_FIELD),
+            'maxPages'        => $this->pageSourceLimits->maxPages(),
+            'maxChars'        => $this->pageSourceLimits->maxChars(),
         ]);
         // Submit feedback (disable the button, show a spinner) and the source pickers as an ES module:
         // the backend Content Security Policy blocks an inline <script> without a nonce.
@@ -183,7 +200,7 @@ class JobController extends ActionController
         ));
 
         try {
-            $source = $this->sourceAssigner->assign($newJob, $this->backendUser(), $sourcePage, $sourceDepth, $sourceFile);
+            $source = $this->sourceAssigner->assign($newJob, $this->backendUser(), $sourcePage, $sourceDepth, $sourceFile, $this->requestOrigin());
         } catch (SourceRefusedException $e) {
             $this->logger->warning('Refused the source of a new job: {reason} (backend user {backendUser}, page {page}, file {file})', [
                 'reason'      => $e->getMessage(),
@@ -193,8 +210,19 @@ class JobController extends ActionController
             ]);
             $this->addFlashMessage($this->label($e->getMessage()), '', ContextualFeedbackSeverity::ERROR);
 
-            // Extbase builds the backend route of the fixed action "new"; $sourcePage is an int, not a URL.
-            return $this->redirect('new', null, null, $sourcePage > 0 ? ['id' => $sourcePage] : []); // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
+            // The form again with what the editor filled in: only the source has to change.
+            return $this->renderNewForm($newJob, $sourcePage, [
+                'sourceDepth'            => $sourceDepth,
+                'snippetAudience'        => $snippetAudience,
+                'snippetTone'            => $snippetTone,
+                'snippetPersona1'        => $snippetPersona1,
+                'snippetPersona2'        => $snippetPersona2,
+                'snippetPersona3'        => $snippetPersona3,
+                'snippetSchaubildLayout' => $snippetSchaubildLayout,
+                'snippetSchaubildStyle'  => $snippetSchaubildStyle,
+                'snippetStoryLayout'     => $snippetStoryLayout,
+                'snippetStoryStyle'      => $snippetStoryStyle,
+            ]);
         }
 
         $this->jobSubmissionService->submit($newJob, $this->backendUser()?->getUserId() ?? 0, $source->fileUid);
@@ -328,14 +356,12 @@ class JobController extends ActionController
     }
 
     /**
-     * The page the module was opened on, when the user may read it, as the form's picker shows it.
+     * A page the user may read, as the form's picker shows it.
      *
      * @return array{uid: int, label: string}|null
      */
-    private function preselectedPage(): ?array
+    private function pickablePage(int $uid): ?array
     {
-        $id   = $this->request->getQueryParams()['id'] ?? 0;
-        $uid  = is_numeric($id) ? (int) $id : 0;
         $user = $this->backendUser();
         $page = $this->pageTreeWalker->findPage($uid);
         if ($page === null || !$user instanceof BackendUserAuthentication || !$this->sourceAccess->mayReadPage($user, $page)) {
@@ -343,6 +369,14 @@ class JobController extends ActionController
         }
 
         return ['uid' => $uid, 'label' => JobSourceAssigner::label(is_string($page['title'] ?? null) ? $page['title'] : '', $uid)];
+    }
+
+    /** Scheme and host of this request; the worker has none, see PageUrlResolver. */
+    private function requestOrigin(): string
+    {
+        $parameters = $this->request->getAttribute('normalizedParams');
+
+        return $parameters instanceof NormalizedParams ? $parameters->getRequestHost() : '';
     }
 
     /** @return array<int, string> levels below the picked page => label */

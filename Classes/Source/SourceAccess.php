@@ -75,10 +75,11 @@ final readonly class SourceAccess
             return true;
         }
 
-        if (($user->getFilePermissions()['readFile'] ?? false) !== true) {
-            return false;
-        }
+        return ($user->getFilePermissions()['readFile'] ?? false) === true && $this->isInFileMount($user, $file);
+    }
 
+    private function isInFileMount(BackendUserAuthentication $user, File $file): bool
+    {
         $storage = $file->getStorage();
         /** @phpstan-ignore method.internal */
         foreach ($user->getFileMountRecords() as $mount) {

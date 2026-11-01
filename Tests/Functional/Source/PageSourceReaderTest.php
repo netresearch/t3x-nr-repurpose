@@ -16,6 +16,7 @@ use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Source\PageSourceLimits;
 use Netresearch\NrRepurpose\Source\PageSourceReader;
 use Netresearch\NrRepurpose\Source\PageTreeWalker;
+use Netresearch\NrRepurpose\Source\PageUrlResolver;
 use Netresearch\NrRepurpose\Source\SourceAccess;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
@@ -187,6 +188,34 @@ final class PageSourceReaderTest extends AbstractFunctionalTestCase
         self::assertSame([], $this->fetched);
     }
 
+    /** `base: /` as a demo or container setup has it: the worker has no request to take a host from. */
+    #[Test]
+    public function aSiteWithoutAHostIsReadUnderTheHostTheJobWasMadeOnThroughTheEditorGuard(): void
+    {
+        $this->useSiteWithoutHost();
+
+        $this->reader()->read(JobSnapshots::of(['source_type' => 'page', 'source_value' => '10', 'source_url' => 'https://demo.example.org/about', 'be_user' => self::ADMIN]));
+
+        self::assertSame(['guarded:https://demo.example.org/about'], $this->fetched);
+    }
+
+    #[Test]
+    public function aSiteWithoutAHostAndAJobWithoutAUrlSaySo(): void
+    {
+        $this->useSiteWithoutHost();
+
+        $this->expectException(IngestionException::class);
+        $this->expectExceptionMessage('its site base names no host');
+
+        $this->reader()->read(JobSnapshots::of(['source_type' => 'page', 'source_value' => '10', 'be_user' => self::ADMIN]));
+    }
+
+    private function useSiteWithoutHost(): void
+    {
+        $this->get(SiteWriter::class)->write('main', ['rootPageId' => 1, 'base' => '/', 'languages' => [['title' => 'English', 'enabled' => true, 'languageId' => 0, 'base' => '/', 'locale' => 'en_US.UTF-8', 'navigationTitle' => 'English', 'flag' => 'us']]]);
+        $this->get(SiteFinder::class)->getAllSites(false);
+    }
+
     private function report(SourceDocument $document): SourceReport
     {
         $report = $document->meta['sourceReport'] ?? null;
@@ -207,7 +236,7 @@ final class PageSourceReaderTest extends AbstractFunctionalTestCase
             $this->get(SourceAccess::class),
             new PageSourceLimits($configuration),
             $this->fetcher(),
-            $this->get(SiteFinder::class),
+            new PageUrlResolver($this->get(SiteFinder::class)),
             new NullLogger(),
         );
     }
@@ -225,6 +254,16 @@ final class PageSourceReaderTest extends AbstractFunctionalTestCase
             public function __construct(private array &$answers, private array &$fetched) {}
 
             public function fetchOwnPage(string $url): SourceDocument
+            {
+                return $this->answer($url);
+            }
+
+            public function fetch(string $url): SourceDocument
+            {
+                return $this->answer('guarded:' . $url);
+            }
+
+            private function answer(string $url): SourceDocument
             {
                 $this->fetched[] = $url;
                 $path            = (string) parse_url($url, PHP_URL_PATH);

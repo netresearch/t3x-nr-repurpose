@@ -120,6 +120,7 @@
       <trans-unit id="source.refused.page.none"><source>Choose a page for this job.</source></trans-unit>
       <trans-unit id="source.refused.page.access"><source>You may not use this page as a source, or it no longer exists.</source></trans-unit>
       <trans-unit id="source.refused.page.empty"><source>This selection holds no page a visitor can open: the page is hidden, access-restricted or has no content of its own, and so are its subpages in the chosen depth.</source></trans-unit>
+      <trans-unit id="source.refused.page.url"><source>This page has no public URL: it belongs to no site.</source></trans-unit>
       <trans-unit id="source.refused.file.none"><source>Choose a PDF file for this job.</source></trans-unit>
       <trans-unit id="source.refused.file.access"><source>You may not use this file as a source, or it no longer exists.</source></trans-unit>
       <trans-unit id="source.refused.file.type"><source>Only PDF files can be used as a source.</source></trans-unit>

@@ -147,7 +147,8 @@ Pages as a source
 The worker reads a page the way a visitor sees it: through its public URL, in
 the default language, with the same text extraction as a *Webpage URL* source
 (:ref:`ADR-010 <adr-010>`). So a page needs a site, and the worker must be able to
-reach that site's URL. With subpages, each page becomes one section of the source
+reach that site's URL. With a site base of ``/``, which names no host, the worker
+uses the host of the backend the job was created on. With subpages, each page becomes one section of the source
 text, under its title.
 
 .. list-table::

@@ -10,9 +10,9 @@ declare(strict_types=1);
 return [
     'ctrl' => [
         'title' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job',
-        'label' => 'source_value',
-        // A picked page or file: the row title shows its title and id, not a bare uid.
-        'label_alt'        => 'source_label',
+        // A picked page or file shows its title and id; a URL job has no label and shows the URL.
+        'label'            => 'source_label',
+        'label_alt'        => 'source_value',
         'tstamp'           => 'tstamp',
         'crdate'           => 'crdate',
         'default_sortby'   => 'crdate DESC',
@@ -39,6 +39,7 @@ return [
             'config' => ['type' => 'link', 'allowedTypes' => ['url'], 'appearance' => ['allowedOptions' => []], 'size' => 60],
         ],
         // Written by the module form and the worker only, hence not editable in the record view.
+        'source_url'    => ['config' => ['type' => 'passthrough']],
         'source_label'  => ['config' => ['type' => 'passthrough']],
         'source_depth'  => ['config' => ['type' => 'passthrough']],
         'source_report' => ['config' => ['type' => 'passthrough']],

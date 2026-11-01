@@ -25,8 +25,8 @@ const ELEMENT_ADDED = 'typo3:elementBrowser:elementAdded';
 
 /** The uid in a pick's value: "pages_12" from the page browser, "12" from the file browser. */
 function uidOf(value) {
-    const match = /(\d+)$/.exec(String(value));
-    return match ? match[1] : '';
+    const uid = String(value).split('_').pop();
+    return /^\d+$/.test(uid) ? uid : '';
 }
 
 /** One picker block: the hidden input, the shown item, browse and remove buttons, the error line. */

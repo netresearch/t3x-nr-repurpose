@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Domain\ValueObject;
 
-use JsonException;
-
 /**
  * What the worker did with a page source: how many pages went into the text, which were left
  * out for which reason, and whether a limit cut the selection. Stored as JSON on the job
@@ -39,16 +37,8 @@ final readonly class SourceReport
 
     public static function fromJson(string $json): self
     {
-        if ($json === '') {
-            return new self();
-        }
-
-        try {
-            $data = json_decode($json, true, 4, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return new self();
-        }
-
+        // A broken or empty column decodes to null: no report.
+        $data = json_decode($json, true, 4);
         if (!is_array($data)) {
             return new self();
         }

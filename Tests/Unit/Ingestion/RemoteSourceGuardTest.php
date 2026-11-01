@@ -199,7 +199,7 @@ final class RemoteSourceGuardTest extends TestCase
     public static function badOwnSiteUrls(): array
     {
         return [
-            'another scheme'  => ['ftp://typo3.internal/about', 1749379460],
+            'another scheme'  => ['ssh://typo3.internal/about', 1749379460],
             'a relative base' => ['/about', 1749379460],
             'no such host'    => ['https://gone.internal/about', 1749379462],
         ];

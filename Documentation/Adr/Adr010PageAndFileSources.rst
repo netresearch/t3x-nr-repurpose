@@ -61,9 +61,17 @@ the blocked address ranges, because a site on an intranet or a container network
 is a normal installation. Every URL an editor enters still goes through
 :php:`RemoteSourceGuard::createRequest()`.
 
+A site with ``base: /`` names no host: it answers on whatever host a request
+uses, and the worker has no request. The form stores the page's public URL with
+the job (``source_url``), built with the scheme and host of the request that
+created it, and the worker takes them from there. That host comes from a request,
+not from the site configuration, so these pages go through the guard for editor
+URLs, blocked ranges included. The same column gives a social post of a page job
+its source URL.
+
 **Which pages a tree selects** follows from reading as a visitor.
 :php:`PageTreeWalker` walks the default language of the live workspace level by
-level, in page tree order:
+level, each level in the order of the page tree:
 
 .. list-table::
    :header-rows: 1
@@ -86,8 +94,10 @@ level, in page tree order:
      - left out
      - stay
 
-A selection without any readable page is refused in the form and fails in the
-worker.
+A selection without any page a visitor can open, or a page without a site, is
+refused in the form. The form cannot see everything the worker meets, so a page
+can still fail to load; the job then reads the others and reports it, and fails
+only when no page gave text.
 
 **A page source has limits**, as extension settings: ``maxSourcePages`` (default
 25) and ``maxSourceChars`` (default 200,000, at most 1,000,000). Every 12,000
@@ -127,9 +137,14 @@ Consequences
    the other types run as before. A ``pdf_fal`` job without an owner (one created
    in the record view) has no one to check against and keeps resolving its file.
 
-◐  A page needs a public URL the worker can reach. A page outside any site, a
-   site behind HTTP authentication, or a page that redirects counts as not
-   readable; the job says how many.
+◐  A page needs a public URL the worker can reach. A site behind HTTP
+   authentication, or a page that redirects, counts as not readable; the job says
+   how many. With ``base: /`` the host of the backend must also serve the
+   frontend, and must not resolve to a private address.
+
+◐  The label and ``source_url`` are what they were when the job was made: a page
+   renamed or moved later keeps its old label and link on the job, while the worker
+   builds current URLs from the site.
 
 ◐  A draft cannot be repurposed: a hidden page and a workspace version are not
    read. Only the default language is read.

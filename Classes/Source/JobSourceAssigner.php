@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Source;
 
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\Model\Job;
+use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -27,6 +28,8 @@ final readonly class JobSourceAssigner
     public const string REFUSED_PAGE_ACCESS = 'source.refused.page.access';
 
     public const string REFUSED_PAGE_EMPTY = 'source.refused.page.empty';
+
+    public const string REFUSED_PAGE_URL = 'source.refused.page.url';
 
     public const string REFUSED_NO_FILE = 'source.refused.file.none';
 
@@ -46,14 +49,19 @@ final readonly class JobSourceAssigner
         private SourceAccess $sourceAccess,
         private PageSourceLimits $limits,
         private ResourceFactory $resourceFactory,
+        private PageUrlResolver $urls,
     ) {}
 
-    /** @throws SourceRefusedException with the label key of the reason */
-    public function assign(Job $job, ?BackendUserAuthentication $user, int $pageUid, int $depth, int $fileUid): AssignedSource
+    /**
+     * @param string $origin scheme and host of the request, for a site whose base names no host
+     *
+     * @throws SourceRefusedException with the label key of the reason
+     */
+    public function assign(Job $job, ?BackendUserAuthentication $user, int $pageUid, int $depth, int $fileUid, string $origin): AssignedSource
     {
         return match (SourceType::tryFrom($job->getSourceType())) {
             SourceType::Url, SourceType::PdfUrl => new AssignedSource(),
-            SourceType::Page                    => $this->assignPage($job, $user, $pageUid, $depth),
+            SourceType::Page                    => $this->assignPage($job, $user, $pageUid, $depth, $origin),
             SourceType::PdfFal                  => $this->assignFile($job, $user, $fileUid),
             null                                => throw new SourceRefusedException(self::REFUSED_TYPE, 1790600001),
         };
@@ -65,7 +73,7 @@ final readonly class JobSourceAssigner
         return sprintf('%s [%d]', $title, $uid);
     }
 
-    private function assignPage(Job $job, ?BackendUserAuthentication $user, int $pageUid, int $depth): AssignedSource
+    private function assignPage(Job $job, ?BackendUserAuthentication $user, int $pageUid, int $depth, string $origin): AssignedSource
     {
         if ($pageUid <= 0) {
             throw new SourceRefusedException(self::REFUSED_NO_PAGE, 1790600002);
@@ -82,8 +90,15 @@ final readonly class JobSourceAssigner
             throw new SourceRefusedException(self::REFUSED_PAGE_EMPTY, 1790600004);
         }
 
+        try {
+            $url = $this->urls->resolve($pageUid, $origin);
+        } catch (IngestionException) {
+            throw new SourceRefusedException(self::REFUSED_PAGE_URL, 1790600009);
+        }
+
         $title = $page['title'] ?? '';
         $job->setSourceValue((string) $pageUid);
+        $job->setSourceUrl($url->url);
         $job->setSourceDepth($depth);
         $job->setSourceLabel(self::label(is_string($title) ? $title : '', $pageUid));
 

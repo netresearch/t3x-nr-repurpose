@@ -32,6 +32,10 @@ class Job extends AbstractEntity
 
     protected string $sourceValue = '';
 
+    // The public URL of a picked page when the job was made. The social post links to it, and it
+    // gives the worker the host of a site whose base names none.
+    protected string $sourceUrl = '';
+
     // What the module shows for a picked page or file: title and id at the time of the pick.
     protected string $sourceLabel = '';
 
@@ -141,6 +145,16 @@ class Job extends AbstractEntity
     public function setSourceValue(string $sourceValue): void
     {
         $this->sourceValue = $sourceValue;
+    }
+
+    public function getSourceUrl(): string
+    {
+        return $this->sourceUrl;
+    }
+
+    public function setSourceUrl(string $sourceUrl): void
+    {
+        $this->sourceUrl = $sourceUrl;
     }
 
     public function getSourceLabel(): string

@@ -18,8 +18,10 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\StorageRepository;
+use TYPO3\CMS\Core\Site\SiteFinder;
 
 /** What the server makes of the form's picks, whatever the form sent. */
 #[CoversClass(JobSourceAssigner::class)]
@@ -29,11 +31,14 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
 
     private const int EDITOR = 2;
 
+    private const string ORIGIN = 'https://backend.example.org';
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/Fixtures/SourcePages.csv');
         $this->importCSVDataSet(__DIR__ . '/Fixtures/SourceUsers.csv');
+        $this->get(SiteWriter::class)->createNewBasicSite('main', 1, 'https://www.example.org/');
     }
 
     protected function tearDown(): void
@@ -47,7 +52,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
     {
         $job = $this->job('url', 'https://example.com/');
 
-        $source = $this->assigner()->assign($job, $this->user(self::ADMIN), 10, 2, 7);
+        $source = $this->assigner()->assign($job, $this->user(self::ADMIN), 10, 2, 7, self::ORIGIN);
 
         self::assertSame('https://example.com/', $job->getSourceValue());
         self::assertSame(0, $job->getSourceDepth());
@@ -60,11 +65,25 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
         // The text field of the hidden URL block still posts its value; it must not survive.
         $job = $this->job('page', 'https://leftover.example/');
 
-        $this->assigner()->assign($job, $this->user(self::EDITOR), 10, 2, 0);
+        $this->assigner()->assign($job, $this->user(self::EDITOR), 10, 2, 0, self::ORIGIN);
 
         self::assertSame('10', $job->getSourceValue());
         self::assertSame(2, $job->getSourceDepth());
         self::assertSame('About [10]', $job->getSourceLabel());
+        self::assertSame('https://www.example.org/about', $job->getSourceUrl());
+    }
+
+    /** A site with `base: /` answers on any host; only the request knows which one. */
+    #[Test]
+    public function aSiteWithoutAHostTakesTheHostOfTheRequest(): void
+    {
+        $this->get(SiteWriter::class)->write('main', ['rootPageId' => 1, 'base' => '/', 'languages' => [['title' => 'English', 'enabled' => true, 'languageId' => 0, 'base' => '/', 'locale' => 'en_US.UTF-8', 'navigationTitle' => 'English', 'flag' => 'us']]]);
+        $this->get(SiteFinder::class)->getAllSites(false);
+        $job = $this->job('page');
+
+        $this->assigner()->assign($job, $this->user(self::ADMIN), 10, 0, 0, self::ORIGIN);
+
+        self::assertSame(self::ORIGIN . '/about', $job->getSourceUrl());
     }
 
     /** @return array<string, array{int, int}> */
@@ -79,7 +98,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
     {
         $job = $this->job('page');
 
-        $this->assigner()->assign($job, $this->user(self::ADMIN), 10, $depth, 0);
+        $this->assigner()->assign($job, $this->user(self::ADMIN), 10, $depth, 0, self::ORIGIN);
 
         self::assertSame($expected, $job->getSourceDepth());
     }
@@ -93,6 +112,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
             'a translation record' => [self::ADMIN, 200, 0, JobSourceAssigner::REFUSED_PAGE_ACCESS],
             'outside the mount'    => [self::EDITOR, 2, 0, JobSourceAssigner::REFUSED_PAGE_ACCESS],
             'no show permission'   => [self::EDITOR, 101, 0, JobSourceAssigner::REFUSED_PAGE_ACCESS],
+            'outside any site'     => [self::ADMIN, 2, 0, JobSourceAssigner::REFUSED_PAGE_URL],
             'hidden, page alone'   => [self::ADMIN, 11, 0, JobSourceAssigner::REFUSED_PAGE_EMPTY],
             'folder, page alone'   => [self::ADMIN, 14, 0, JobSourceAssigner::REFUSED_PAGE_EMPTY],
         ];
@@ -110,7 +130,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
     {
         $job = $this->job('page');
 
-        $this->assigner()->assign($job, $this->user(self::ADMIN), 14, 1, 0);
+        $this->assigner()->assign($job, $this->user(self::ADMIN), 14, 1, 0, self::ORIGIN);
 
         self::assertSame('14', $job->getSourceValue());
     }
@@ -120,7 +140,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
     {
         $this->get(ExtensionConfiguration::class)->set('nr_repurpose', ['maxSourcePages' => 1]);
 
-        $source = $this->assigner()->assign($this->job('page'), $this->user(self::ADMIN), 10, 2, 0);
+        $source = $this->assigner()->assign($this->job('page'), $this->user(self::ADMIN), 10, 2, 0, self::ORIGIN);
 
         self::assertTrue($source->cutByPageLimit);
     }
@@ -131,7 +151,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
         $file = $this->file('allowed', 'report.pdf');
         $job  = $this->job('pdf_fal', 'https://leftover.example/');
 
-        $source = $this->assigner()->assign($job, $this->user(self::EDITOR), 0, 0, $file->getUid());
+        $source = $this->assigner()->assign($job, $this->user(self::EDITOR), 0, 0, $file->getUid(), self::ORIGIN);
 
         self::assertSame($file->getUid(), $source->fileUid);
         self::assertSame('', $job->getSourceValue());
@@ -172,7 +192,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
         $this->expectException(SourceRefusedException::class);
         $this->expectExceptionMessage(JobSourceAssigner::REFUSED_PAGE_ACCESS);
 
-        $this->assigner()->assign($this->job('page'), null, 10, 0, 0);
+        $this->assigner()->assign($this->job('page'), null, 10, 0, 0, self::ORIGIN);
     }
 
     #[Test]
@@ -184,7 +204,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
     private function assertRefused(string $reason, Job $job, int $user, int $page, int $depth, int $file): void
     {
         try {
-            $this->assigner()->assign($job, $this->user($user), $page, $depth, $file);
+            $this->assigner()->assign($job, $this->user($user), $page, $depth, $file, self::ORIGIN);
             self::fail('The source must be refused: ' . $reason);
         } catch (SourceRefusedException $e) {
             self::assertSame($reason, $e->getMessage());

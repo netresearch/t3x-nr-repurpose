@@ -120,7 +120,7 @@ final readonly class ArtifactReviewService
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder
-            ->select('a.uid', 'a.job', 'a.variant', 'a.script_text', 'a.publish_at', 'a.publish_status', 'a.published_at', 'a.publish_error', 'j.source_value')
+            ->select('a.uid', 'a.job', 'a.variant', 'a.script_text', 'a.publish_at', 'a.publish_status', 'a.published_at', 'a.publish_error', 'j.source_value', 'j.source_url')
             ->from(self::TABLE, 'a')
             ->join('a', 'tx_nrrepurpose_domain_model_job', 'j', $queryBuilder->expr()->eq('j.uid', $queryBuilder->quoteIdentifier('a.job')))
             ->where(
@@ -137,7 +137,7 @@ final readonly class ArtifactReviewService
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn (array $row): array => [
+        return array_map(fn (array $row): array => [
             'uid'            => ScalarCast::int($row['uid']),
             'job'            => ScalarCast::int($row['job']),
             'variant'        => ScalarCast::string($row['variant']),
@@ -146,8 +146,16 @@ final readonly class ArtifactReviewService
             'publish_status' => ScalarCast::string($row['publish_status']),
             'published_at'   => ScalarCast::int($row['published_at']),
             'publish_error'  => ScalarCast::string($row['publish_error']),
-            'source_value'   => ScalarCast::string($row['source_value']) === '' ? '' : SourceUrlRedactor::redact(ScalarCast::string($row['source_value'])),
+            'source_value'   => $this->shownSource(ScalarCast::string($row['source_url']), ScalarCast::string($row['source_value'])),
         ], $rows);
+    }
+
+    /** A page job's source is its public URL; a job with neither URL shows nothing. */
+    private function shownSource(string $publicUrl, string $sourceValue): string
+    {
+        $url = $publicUrl === '' ? $sourceValue : $publicUrl;
+
+        return $url === '' ? '' : SourceUrlRedactor::redact($url);
     }
 
     /**

@@ -22,7 +22,7 @@ use Netresearch\NrRepurpose\Exception\MalformedJobRowException;
  *
  * A missing column takes the value the pipeline assumed before this object existed:
  * status "queued", source_type "url", theme "nr", pdf_mode Auto, 0 for be_user and
- * source_depth, an empty string for source_value and no snippet selection, and false for
+ * source_depth, an empty string for source_value and source_url and no snippet selection, and false for
  * every want_* flag. A present value of the wrong type, an unknown status or
  * source_type, and a missing or non-positive uid are rejected.
  */
@@ -39,6 +39,8 @@ final readonly class JobSnapshot
         public int $beUser,
         public PromptSnippetSelection $promptSnippets,
         public int $sourceDepth = 0,
+        // The public URL of a page job's page; '' for any other job.
+        public string $sourceUrl = '',
         public bool $wantPodcast = false,
         public bool $wantSchaubild = false,
         public bool $wantStory = false,
@@ -83,6 +85,7 @@ final readonly class JobSnapshot
             beUser: self::unsignedInt($row, 'be_user', 0),
             promptSnippets: PromptSnippetSelection::fromJson(self::string($row, 'prompt_snippets', '')),
             sourceDepth: self::unsignedInt($row, 'source_depth', 0),
+            sourceUrl: self::string($row, 'source_url', ''),
             wantPodcast: self::flag($row, 'want_podcast'),
             wantSchaubild: self::flag($row, 'want_schaubild'),
             wantStory: self::flag($row, 'want_story'),

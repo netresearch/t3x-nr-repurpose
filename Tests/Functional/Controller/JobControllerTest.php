@@ -27,6 +27,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LogLevel;
 use TYPO3\CMS\Backend\Routing\Router;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
@@ -231,27 +232,54 @@ final class JobControllerTest extends AbstractFunctionalTestCase
 
         $response = $this->dispatch('create', $this->newJobArguments('page') + ['sourcePage' => 2], self::EDITOR, 'POST');
 
-        self::assertSame(303, $response->getStatusCode());
-        self::assertStringEndsWith('/module/web/nr-repurpose/Job/new', (string) parse_url($response->getHeaderLine('Location'), PHP_URL_PATH));
+        self::assertSame(200, $response->getStatusCode());
         self::assertSame(0, $this->jobCount());
-        [[$message, $severity]] = $this->flashMessages();
-        self::assertStringContainsString('may not use this page', $message);
-        self::assertSame(ContextualFeedbackSeverity::ERROR, $severity);
+        self::assertStringContainsString('may not use this page', (string) $response->getBody());
+    }
+
+    /** Only the source has to change; theme, formats and depth stay as the editor set them. */
+    #[Test]
+    public function aRefusedSourceKeepsWhatTheEditorFilledIn(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourcePages.csv');
+        $arguments = $this->newJobArguments('page', ['theme' => 'neutral', 'wantFaq' => '1']) + ['sourcePage' => 14, 'sourceDepth' => 0];
+        $arguments['newJob'] += ['wantPodcast' => '0'];
+
+        $response = $this->dispatch('create', $arguments, self::ADMIN, 'POST');
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(0, $this->jobCount());
+        $document = $this->parse((string) $response->getBody());
+        self::assertSame('neutral', $this->selectedValue($document, 'nrrepurpose-theme'));
+        self::assertSame('page', $this->selectedValue($document, 'nrrepurpose-sourceType'));
+        self::assertSame('14', $this->element($document, 'nrrepurpose-sourcePage')->getAttribute('value'));
+        self::assertTrue($this->element($document, 'nrrepurpose-wantFaq')->hasAttribute('checked'));
+        self::assertFalse($this->element($document, 'nrrepurpose-wantPodcast')->hasAttribute('checked'));
+    }
+
+    #[Test]
+    public function aNewFormHasTheFormatsOfANewJobTicked(): void
+    {
+        $document = $this->parse($this->renderNewAction());
+
+        self::assertTrue($this->element($document, 'nrrepurpose-wantPodcast')->hasAttribute('checked'));
+        self::assertFalse($this->element($document, 'nrrepurpose-wantFaq')->hasAttribute('checked'));
     }
 
     #[Test]
     public function createActionStoresThePickedPageAndItsDepth(): void
     {
         $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourcePages.csv');
+        $this->createSite();
 
         $response = $this->dispatch('create', $this->newJobArguments('page') + ['sourcePage' => 10, 'sourceDepth' => 2], self::ADMIN, 'POST');
 
         self::assertSame(303, $response->getStatusCode());
         $row = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job')
-            ->select(['source_type', 'source_value', 'source_depth', 'source_label', 'be_user'], 'tx_nrrepurpose_domain_model_job')
+            ->select(['source_type', 'source_value', 'source_depth', 'source_label', 'source_url', 'be_user'], 'tx_nrrepurpose_domain_model_job')
             ->fetchAssociative();
         self::assertIsArray($row);
-        self::assertSame(['page', '10', 2, 'About [10]', self::ADMIN], [$row['source_type'], $row['source_value'], (int) $row['source_depth'], $row['source_label'], (int) $row['be_user']]);
+        self::assertSame(['page', '10', 2, 'About [10]', 'https://www.example.org/about', self::ADMIN], [$row['source_type'], $row['source_value'], (int) $row['source_depth'], $row['source_label'], $row['source_url'], (int) $row['be_user']]);
     }
 
     #[Test]
@@ -259,6 +287,7 @@ final class JobControllerTest extends AbstractFunctionalTestCase
     {
         $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourcePages.csv');
         $this->get(ExtensionConfiguration::class)->set('nr_repurpose', ['maxSourcePages' => 1]);
+        $this->createSite();
 
         $this->dispatch('create', $this->newJobArguments('page') + ['sourcePage' => 10, 'sourceDepth' => 2], 1, 'POST');
 
@@ -888,15 +917,34 @@ final class JobControllerTest extends AbstractFunctionalTestCase
      * The form's arguments as Extbase accepts them: $newJob carries the properties the form's
      * trusted-properties token names, the pickers are plain request arguments.
      *
+     * @param array<string, string> $properties
+     *
      * @return array<string, mixed>
      */
-    private function newJobArguments(string $sourceType): array
+    private function newJobArguments(string $sourceType, array $properties = []): array
     {
+        $names = array_map(
+            static fn (string $name): string => sprintf('newJob[%s]', $name),
+            ['sourceType', 'sourceValue', 'theme', 'wantPodcast', 'wantFaq'],
+        );
+
         return [
-            'newJob'              => ['sourceType' => $sourceType, 'sourceValue' => ''],
-            '__trustedProperties' => $this->get(MvcPropertyMappingConfigurationService::class)
-                ->generateTrustedPropertiesToken(['newJob[sourceType]', 'newJob[sourceValue]'], ''),
+            'newJob'              => ['sourceType' => $sourceType, 'sourceValue' => ''] + $properties,
+            '__trustedProperties' => $this->get(MvcPropertyMappingConfigurationService::class)->generateTrustedPropertiesToken($names, ''),
         ];
+    }
+
+    private function createSite(): void
+    {
+        $this->get(SiteWriter::class)->createNewBasicSite('main', 1, 'https://www.example.org/');
+    }
+
+    private function selectedValue(DOMDocument $document, string $id): string
+    {
+        $options = $this->xpath($document, sprintf('//select[@id="%s"]/option[@selected]', $id));
+        self::assertCount(1, $options, $id);
+
+        return $options[0]->getAttribute('value');
     }
 
     /** @param array<string, int|string> $fields */

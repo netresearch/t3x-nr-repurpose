@@ -132,7 +132,10 @@ The result view lists what a page job left out. A failed job names the reason:
     load any page; the message names the first failure. A page must answer 200
     at its public URL without a redirect and without HTTP authentication, and the
     worker must reach the site's host. ``Page … has no public URL`` means the
-    page belongs to no site.
+    page belongs to no site, or its site base names no host and the job does not
+    know one. With ``base: /`` the job uses the host of the backend it was created
+    on, and a private address is refused as for a URL source: set an absolute
+    base in the site configuration.
 -   ``Page … and its subpages hold no page a visitor can open`` — the selection
     has become hidden, restricted or empty since the job was created.
 -   ``The job owner may not read page …`` or ``The job owner may not read the

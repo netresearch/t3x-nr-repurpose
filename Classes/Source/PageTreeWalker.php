@@ -88,8 +88,7 @@ class PageTreeWalker
     public function select(array $root, int $depth, BackendUserAuthentication $user, int $maxPages): PageSelection
     {
         $pages   = [];
-        $skipped = ['hidden' => 0, 'restricted' => 0, 'excluded' => 0, 'noAccess' => 0];
-        $cut     = false;
+        $skipped = [];
         $visited = 0;
         $level   = [$root];
 
@@ -98,21 +97,14 @@ class PageTreeWalker
             foreach ($level as $page) {
                 ++$visited;
                 $verdict = $this->verdict($page, $user);
+                if ($verdict === PageVerdict::Usable && count($pages) >= $maxPages) {
+                    return $this->selection($pages, $skipped, true);
+                }
+
                 if ($verdict === PageVerdict::Usable) {
-                    if (count($pages) >= $maxPages) {
-                        $cut = true;
-
-                        break 2;
-                    }
-
                     $pages[] = $page;
                 } else {
-                    ++$skipped[match ($verdict) {
-                        PageVerdict::Hidden     => 'hidden',
-                        PageVerdict::Restricted => 'restricted',
-                        PageVerdict::Excluded   => 'excluded',
-                        PageVerdict::NoAccess   => 'noAccess',
-                    }];
+                    $skipped[$verdict->name] = ($skipped[$verdict->name] ?? 0) + 1;
                 }
 
                 if ($this->subpagesStaySelected($page, $verdict)) {
@@ -125,20 +117,27 @@ class PageTreeWalker
             }
 
             if ($visited >= self::MAX_VISITED_PAGES) {
-                $cut = true;
-
-                break;
+                return $this->selection($pages, $skipped, true);
             }
 
             $level = $this->childrenOf($parents);
         }
 
+        return $this->selection($pages, $skipped, false);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $pages
+     * @param array<string, int>         $skipped verdict name => pages
+     */
+    private function selection(array $pages, array $skipped, bool $cut): PageSelection
+    {
         return new PageSelection(
             pages: $pages,
-            skippedHidden: $skipped['hidden'],
-            skippedRestricted: $skipped['restricted'],
-            skippedExcluded: $skipped['excluded'],
-            skippedNoAccess: $skipped['noAccess'],
+            skippedHidden: $skipped[PageVerdict::Hidden->name] ?? 0,
+            skippedRestricted: $skipped[PageVerdict::Restricted->name] ?? 0,
+            skippedExcluded: $skipped[PageVerdict::Excluded->name] ?? 0,
+            skippedNoAccess: $skipped[PageVerdict::NoAccess->name] ?? 0,
             cutByPageLimit: $cut,
         );
     }
@@ -200,6 +199,8 @@ class PageTreeWalker
     }
 
     /**
+     * The children in the order of their parents, which is the tree's, and by sorting within one.
+     *
      * @param non-empty-list<int> $parents
      *
      * @return list<array<string, mixed>>
@@ -208,19 +209,26 @@ class PageTreeWalker
     {
         $queryBuilder = $this->queryBuilder();
 
-        return $queryBuilder->select('*')
+        $children = $queryBuilder->select('*')
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->in('pid', $queryBuilder->createNamedParameter($parents, Connection::PARAM_INT_ARRAY)),
                 $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
             )
-            ->orderBy('pid')
-            ->addOrderBy('sorting')
+            ->orderBy('sorting')
             ->addOrderBy('uid')
             ->setMaxResults(self::MAX_VISITED_PAGES)
             ->executeQuery()
             ->fetchAllAssociative();
+
+        $position = array_flip($parents);
+        usort(
+            $children,
+            fn (array $a, array $b): int => ($position[$this->intColumn($a, 'pid')] ?? 0) <=> ($position[$this->intColumn($b, 'pid')] ?? 0),
+        );
+
+        return $children;
     }
 
     private function queryBuilder(): QueryBuilder

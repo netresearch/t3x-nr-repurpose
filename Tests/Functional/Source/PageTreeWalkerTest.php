@@ -67,6 +67,13 @@ final class PageTreeWalkerTest extends AbstractFunctionalTestCase
         self::assertSame([1, 10, 19], $this->uids($selection));
     }
 
+    /** A moved page has a sorting that disagrees with its uid; the level below follows the tree. */
+    #[Test]
+    public function aDeeperLevelFollowsTheOrderOfItsParents(): void
+    {
+        self::assertSame([30, 32, 31, 320, 310], $this->uids($this->select(30, 2)));
+    }
+
     #[Test]
     public function aHiddenPageIsLeftOutAndItsSubpagesStay(): void
     {

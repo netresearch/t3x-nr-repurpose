@@ -155,6 +155,21 @@ final class ReviewAndPublishingTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('user:', $payload);
     }
 
+    /** The source value of a page job is a uid; the channel and the plan get the page's address. */
+    public function testAPageJobPublishesThePublicUrlOfItsPage(): void
+    {
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->update('tx_nrrepurpose_domain_model_job', ['source_type' => 'page', 'source_value' => '12', 'source_url' => 'https://www.example.org/about'], ['uid' => $this->job]);
+        $this->artifact('social_post', review: 'approved', publishAt: self::NOW, publishStatus: 'scheduled');
+        $channel = $this->channel();
+
+        self::assertSame('https://www.example.org/about', $this->service()->planned()[0]['source_value']);
+
+        (new DuePostPublisher(GeneralUtility::makeInstance(ConnectionPool::class), $channel))->publishDue(self::NOW);
+
+        self::assertSame('https://www.example.org/about', $channel->sent[0]->sourceUrl);
+    }
+
     public function testAPostAnotherRunHasClaimedIsNotSentAgain(): void
     {
         $this->artifact('social_post', review: 'approved', publishAt: self::NOW, publishStatus: 'publishing');

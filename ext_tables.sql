@@ -6,6 +6,7 @@ CREATE TABLE tx_nrrepurpose_domain_model_job (
     pid int unsigned DEFAULT 0 NOT NULL,
     source_type varchar(16) DEFAULT 'url' NOT NULL,
     source_value text,
+    source_url text,
     source_label varchar(255) DEFAULT '' NOT NULL,
     source_depth smallint unsigned DEFAULT 0 NOT NULL,
     source_report text,
