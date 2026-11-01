@@ -41,8 +41,12 @@ return [
             'config'      => ['type' => 'link', 'allowedTypes' => ['url'], 'appearance' => ['allowedOptions' => []], 'size' => 60],
         ],
         // Written by the module form and the worker only, hence not editable in the record view.
-        'source_url'    => ['config' => ['type' => 'passthrough']],
-        'source_label'  => ['config' => ['type' => 'passthrough']],
+        'source_url'   => ['config' => ['type' => 'passthrough']],
+        'source_label' => [
+            // The record list heads its first column with this field's label.
+            'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_label',
+            'config' => ['type' => 'passthrough'],
+        ],
         'source_depth'  => ['config' => ['type' => 'passthrough']],
         'source_report' => ['config' => ['type' => 'passthrough']],
         'theme'         => [

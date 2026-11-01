@@ -13,6 +13,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
+use Netresearch\NrRepurpose\Utility\ScalarCast;
 use Throwable;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\ReferenceIndex;
@@ -126,7 +127,8 @@ class JobProcessingRepository
         $now  = time();
         $conn = $this->connectionPool->getConnectionForTable(self::REFERENCE_TABLE);
         $conn->insert(self::REFERENCE_TABLE, [
-            'pid'             => 0,
+            // A job lies on the page the form was opened on; its reference lies with it.
+            'pid'             => ScalarCast::int($this->findRow($jobUid)['pid'] ?? 0),
             'uid_local'       => $fileUid,
             'uid_foreign'     => $jobUid,
             'tablenames'      => self::JOB_TABLE,

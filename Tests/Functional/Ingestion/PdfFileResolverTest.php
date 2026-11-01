@@ -140,7 +140,7 @@ final class PdfFileResolverTest extends AbstractFunctionalTestCase
         $file = $this->createFile('allowed', 'picked.pdf');
         GeneralUtility::makeInstance(ConnectionPool::class)
             ->getConnectionForTable('tx_nrrepurpose_domain_model_job')
-            ->insert('tx_nrrepurpose_domain_model_job', ['uid' => 10, 'pid' => 0, 'source_type' => 'pdf_fal']);
+            ->insert('tx_nrrepurpose_domain_model_job', ['uid' => 10, 'pid' => 101, 'source_type' => 'pdf_fal']);
 
         $this->get(JobProcessingRepository::class)->attachSourcePdf(10, $file);
 
@@ -150,6 +150,8 @@ final class PdfFileResolverTest extends AbstractFunctionalTestCase
         $pool = GeneralUtility::makeInstance(ConnectionPool::class);
         self::assertSame(1, (int) $pool->getConnectionForTable('tx_nrrepurpose_domain_model_job')
             ->select(['source_pdf'], 'tx_nrrepurpose_domain_model_job', ['uid' => 10])->fetchOne());
+        self::assertSame(101, (int) $pool->getConnectionForTable('sys_file_reference')
+            ->select(['pid'], 'sys_file_reference', ['uid_foreign' => 10])->fetchOne());
         // The reference index is what the Filelist module's deletion warning reads.
         self::assertSame(1, $pool->getConnectionForTable('sys_refindex')->count('hash', 'sys_refindex', [
             'tablename' => 'sys_file_reference', 'ref_table' => 'sys_file', 'ref_uid' => $file,
