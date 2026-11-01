@@ -188,6 +188,23 @@ final class PageSourceReaderTest extends AbstractFunctionalTestCase
         self::assertSame([], $this->fetched);
     }
 
+    /**
+     * The worker's PageRepository keeps the pages and the date of its process start. Read through
+     * it, a changed slug gives the old URL, and a page published since then the homepage.
+     */
+    #[Test]
+    public function thePageUrlComesFromTheRowOfTheWalkNotFromAStaleProcess(): void
+    {
+        // An earlier job in this process, as far as the router's cache goes.
+        $this->get(SiteFinder::class)->getSiteByPageId(10)->getRouter()->generateUri(10);
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('pages')
+            ->update('pages', ['slug' => '/renamed'], ['uid' => 10]);
+
+        $this->reader()->read(JobSnapshots::of(['source_type' => 'page', 'source_value' => '10', 'be_user' => self::ADMIN]));
+
+        self::assertSame(['https://www.example.org/renamed'], $this->fetched);
+    }
+
     /** `base: /` as a demo or container setup has it: the worker has no request to take a host from. */
     #[Test]
     public function aSiteWithoutAHostIsReadUnderTheHostTheJobWasMadeOnThroughTheEditorGuard(): void

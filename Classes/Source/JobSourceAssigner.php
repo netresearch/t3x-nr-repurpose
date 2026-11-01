@@ -90,8 +90,10 @@ final readonly class JobSourceAssigner
             throw new SourceRefusedException(self::REFUSED_PAGE_EMPTY, 1790600004);
         }
 
+        // The first page the job reads: the picked page may be a folder or hidden, and have no URL
+        // a visitor could open.
         try {
-            $url = $this->urls->resolve($pageUid, $origin);
+            $url = $this->urls->resolve($selection->pages[0], $origin);
         } catch (IngestionException) {
             throw new SourceRefusedException(self::REFUSED_PAGE_URL, 1790600009);
         }

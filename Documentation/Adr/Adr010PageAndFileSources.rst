@@ -94,10 +94,11 @@ level, each level in the order of the page tree:
      - left out
      - stay
 
-A selection without any page a visitor can open, or a page without a site, is
-refused in the form. The form cannot see everything the worker meets, so a page
-can still fail to load; the job then reads the others and reports it, and fails
-only when no page gave text.
+A selection without any page a visitor can open by these rules, or a page without
+a site, is refused in the form. The rules read a page's own row. A page below a
+hidden parent with *extend to subpages* passes them and fails when it is fetched.
+Like any page that fails to load, it counts as not read; the job reads the others
+and fails only when no page gave text.
 
 **A page source has limits**, as extension settings: ``maxSourcePages`` (default
 25) and ``maxSourceChars`` (default 200,000, at most 1,000,000). Every 12,000
@@ -116,7 +117,9 @@ job waits. A page needs a web mount and *show page*, a file a file mount and
 and does not configure the storage: :php:`ResourceStorage` objects are shared
 within the process, and a file mount added for one owner would stay for the next
 job. The form also calls :php:`File::checkActionPermission()`, which answers for
-the logged-in user.
+the logged-in user. Permissions and mounts are read fresh per owner; rootlines and
+file mount records stay in the process's runtime cache, so a page moved out of a
+mount can still pass until the worker is recycled.
 
 **One job takes one file.** ``source_pdf`` allows one item, the resolver reads
 the first reference, and pages, ``pdf_mode`` and the page limit all describe one
@@ -144,15 +147,14 @@ Consequences
 
 ◐  The label and ``source_url`` are what they were when the job was made: a page
    renamed or moved later keeps its old label and link on the job, while the worker
-   builds current URLs from the site.
+   builds current URLs from the page's row.
 
 ◐  A draft cannot be repurposed: a hidden page and a workspace version are not
    read. Only the default language is read.
 
 ◐  The worker's file check repeats the conditions of
    :php:`ResourceStorage::checkFileActionPermission()` that depend on the user. A
-   new condition in core has to be added here. The owner's file mounts stay in
-   the runtime cache of the worker process until it is recycled.
+   new condition in core has to be added here.
 
 ◐  A long tree takes up to 30 seconds per page in the worker, one page after
    the other. The limits bound the total.

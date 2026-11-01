@@ -111,11 +111,10 @@ class PageSourceReader
                 continue;
             }
 
-            $uid = ScalarCast::int($page['uid'] ?? 0);
             try {
-                $collected->add($this->fetch($uid, $origin), ScalarCast::string($page['title'] ?? ''));
+                $collected->add($this->fetch($page, $origin), ScalarCast::string($page['title'] ?? ''));
             } catch (IngestionException $e) {
-                $this->logger->warning('Page source: reading a page failed', ['job' => $job->uid, 'page' => $uid, 'exception' => $e]);
+                $this->logger->warning('Page source: reading a page failed', ['job' => $job->uid, 'page' => $page['uid'] ?? 0, 'exception' => $e]);
                 $collected->fail($e->getMessage());
             }
         }
@@ -123,9 +122,10 @@ class PageSourceReader
         return $collected;
     }
 
-    private function fetch(int $pageUid, string $origin): SourceDocument
+    /** @param array<string, mixed> $page */
+    private function fetch(array $page, string $origin): SourceDocument
     {
-        $url = $this->urls->resolve($pageUid, $origin);
+        $url = $this->urls->resolve($page, $origin);
 
         return $url->hostFromSite ? $this->fetcher->fetchOwnPage($url->url) : $this->fetcher->fetch($url->url);
     }

@@ -135,6 +135,27 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
         self::assertSame('14', $job->getSourceValue());
     }
 
+    /** @return array<string, array{int, string}> */
+    public static function rootsWithoutAnOpenableUrl(): array
+    {
+        return [
+            'a folder'      => [14, 'https://www.example.org/folder/in'],
+            'a hidden page' => [11, 'https://www.example.org/hidden/under'],
+        ];
+    }
+
+    /** The URL a social post links to is the first page the job reads, which a visitor can open. */
+    #[Test]
+    #[DataProvider('rootsWithoutAnOpenableUrl')]
+    public function theStoredUrlIsThatOfTheFirstPageRead(int $root, string $url): void
+    {
+        $job = $this->job('page');
+
+        $this->assigner()->assign($job, $this->user(self::ADMIN), $root, 1, 0, self::ORIGIN);
+
+        self::assertSame($url, $job->getSourceUrl());
+    }
+
     #[Test]
     public function aTreeOverThePageLimitIsAcceptedAndReported(): void
     {
