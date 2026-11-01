@@ -6,6 +6,7 @@
     <body>
       <!-- Job record -->
       <trans-unit id="tx_nrrepurpose_domain_model_job"><source>Repurpose Job</source><target>Repurpose-Auftrag</target></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.source_label"><source>Source</source><target>Quelle</target></trans-unit>
       <trans-unit id="tx_nrrepurpose_domain_model_job.source_type"><source>Source type</source><target>Quellentyp</target></trans-unit>
       <trans-unit id="tx_nrrepurpose_domain_model_job.source_type.url"><source>Webpage URL</source><target>Webseiten-URL</target></trans-unit>
       <trans-unit id="tx_nrrepurpose_domain_model_job.source_type.pdf_url"><source>PDF URL</source><target>PDF-URL</target></trans-unit>

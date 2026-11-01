@@ -295,6 +295,15 @@ final class JobControllerTest extends AbstractFunctionalTestCase
         self::assertContains(ContextualFeedbackSeverity::WARNING, $severities);
     }
 
+    /** The record list heads its first column with it; without one it shows "[source_label]". */
+    #[Test]
+    public function theColumnOfTheRecordTitleHasALabel(): void
+    {
+        $tca = $GLOBALS['TCA']['tx_nrrepurpose_domain_model_job'];
+
+        self::assertStringStartsWith('LLL:EXT:nr_repurpose/', $tca['columns'][$tca['ctrl']['label']]['label'] ?? '');
+    }
+
     #[Test]
     public function theJobListAndResultViewShowThePickedItemsTitleAndId(): void
     {
