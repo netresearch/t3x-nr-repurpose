@@ -17,6 +17,33 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-13-0:
+
+Version 0.13.0 (2026-11-02)
+===========================
+
+Fixed
+-----
+
+-   A page tree finishes its analysis: every text completion gets at least
+    16,000 output tokens per call, and an answer that is no JSON object gets
+    one more try with twice the room.
+-   A podcast whose turns all failed names the last failure.
+
+Added
+-----
+
+-   A failed job says what happened, what is left, what the editor can do and
+    whom to ask (see :ref:`adr-011`), and a failed job without a finished
+    result can run again.
+-   A job without a write for two hours says that the worker is probably
+    stopped.
+
+Changed
+-------
+
+-   The new columns ``failure_reason`` on job and artifact need a schema update.
+
 .. _version-0-12-2:
 
 Version 0.12.2 (2026-11-01)
