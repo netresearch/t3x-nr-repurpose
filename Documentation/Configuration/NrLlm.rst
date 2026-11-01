@@ -99,6 +99,15 @@ The records it creates are ordinary snippets — rename them, rewrite them,
 deactivate the ones you do not want. Installing again creates only what is
 missing and leaves your edits alone.
 
+The text pipeline needs room for its answers. nr-llm stores 1,000 output tokens
+on a configuration unless somebody changes the value, and a reasoning model
+counts its thinking against that limit, so the brief of a page tree can come back
+empty. The extension therefore asks for at least 16,000 tokens per call when the
+``nr_repurpose_text`` record holds a lower value, whichever configuration answers.
+nr-llm caps that at the model's output limit where the model states one. ``0`` on
+the record leaves the choice to the model. An instance whose model has a smaller
+limit and does not state it has to enter that limit on the model record.
+
 The pack's snippets are **not** linked to the ``nr_repurpose_text``
 configuration by tag, and that is deliberate. This extension resolves the five
 families per job, from the selection in the form. Linking them would make

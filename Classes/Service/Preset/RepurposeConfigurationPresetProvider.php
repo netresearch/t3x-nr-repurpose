@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetProviderInterface;
 use Netresearch\NrRepurpose\Generator\Image\DallEImageGenerator;
 use Netresearch\NrRepurpose\Generator\Speech\OpenAiSpeechSynthesizer;
+use Netresearch\NrRepurpose\Service\ConfiguredCompletionService;
 use Netresearch\NrRepurpose\Service\UseCase\RepurposeStarterPackProvider;
 
 /**
@@ -72,6 +73,7 @@ final class RepurposeConfigurationPresetProvider implements ConfigurationPresetP
             criteria: new ModelSelectionCriteria(
                 capabilities: [ModelCapability::CHAT->value],
             ),
+            maxTokens: ConfiguredCompletionService::MIN_OUTPUT_TOKENS,
         );
     }
 
