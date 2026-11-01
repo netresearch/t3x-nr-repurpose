@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
 use GuzzleHttp\Psr7\HttpFactory;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
@@ -435,6 +436,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             'ingestion, foreign exception'   => ['ingestion', new RuntimeException($foreign), 'Ingestion failed'],
             'analysis, own message'          => ['analysis', new AnalysisException('Cannot analyze an empty source document'), 'Cannot analyze an empty source document'],
             'analysis, text model exception' => ['analysis', new RuntimeException($foreign), 'Analysis failed'],
+            'analysis, guardrail stop'       => ['analysis', new GuardrailViolationException('Guardrail', 'Es enthält Rabatt.'), 'Es enthält Rabatt.'],
         ];
     }
 

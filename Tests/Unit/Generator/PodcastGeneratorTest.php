@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -346,6 +347,23 @@ final class PodcastGeneratorTest extends TestCase
         self::assertSame('failed', $jobs->updates[100]['status']);
         self::assertSame('Podcast generation failed', $jobs->updates[100]['error_message']);
         self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
+    }
+
+    /**
+     * A guardrail's message is written for the person who started the job.
+     */
+    public function testAGuardrailStopStoresItsReason(): void
+    {
+        $completion            = $this->completion();
+        $completion->throwable = new GuardrailViolationException('Guardrail', 'Es enthält Rabatt.');
+
+        $jobs = $this->jobs();
+
+        $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new RecordingLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder());
+
+        self::assertFalse($generator->generate($this->context()));
+        self::assertSame('failed', $jobs->updates[100]['status']);
+        self::assertSame('Es enthält Rabatt.', $jobs->updates[100]['error_message']);
     }
 
     public function testPersonaDialogueUsesPersonaNamesMetadataVoicesAndRoundRobinFallback(): void

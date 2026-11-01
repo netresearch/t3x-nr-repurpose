@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator;
 
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
@@ -233,6 +234,14 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     {
         if ($e instanceof InvalidLlmOutputException || $e instanceof RenderingException) {
             $this->failArtifact($artifactUid, $jobUid, $step . ' error: ' . $e->getMessage());
+
+            return;
+        }
+
+        // A guardrail's message is written for the person who started the job.
+        if ($e instanceof GuardrailPolicyException) {
+            $this->logger->warning($step . ' stopped by a guardrail', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
+            $this->failArtifact($artifactUid, $jobUid, $e->getMessage());
 
             return;
         }

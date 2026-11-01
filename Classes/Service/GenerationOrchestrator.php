@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Service;
 
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Exception\MalformedJobRowException;
@@ -239,7 +240,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         $this->logger->error($step . ' failed', ['job' => $jobUid, 'exception' => $e]);
         $this->jobs->markFailed(
             $jobUid,
-            $e instanceof IngestionException || $e instanceof AnalysisException ? $e->getMessage() : $step . ' failed',
+            $e instanceof IngestionException || $e instanceof AnalysisException || $e instanceof GuardrailPolicyException ? $e->getMessage() : $step . ' failed',
         );
     }
 }
