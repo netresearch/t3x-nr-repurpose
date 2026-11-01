@@ -16,7 +16,7 @@ nr_repurpose turns a webpage or PDF into derived artifacts (podcast audio, Schau
 | CLI | `Classes/Command/GenerateCommand.php` | `nr_repurpose:generate` console entry point |
 | Orchestrator | `Classes/Service/GenerationOrchestrator.php` | Pipeline driver: ingest → analyze → run generators, progress bands |
 | Text completion | `Classes/Service/ConfiguredCompletionService.php` (implements `TextCompletionInterface`) | Routes generator text completions through the `nr_repurpose_text` named nr-llm configuration |
-| Ingestion | `Classes/Ingestion/` | URL fetch (`SourceIngestionService`) and tiered PDF reading (`PdfFileResolver`, `Poppler/` runner) |
+| Ingestion | `Classes/Ingestion/` | URL and page fetch (`SourceIngestionService`) and tiered PDF reading (`PdfFileResolver`, `Poppler/` runner) |
 | Understanding | `Classes/Understanding/DocumentAnalyzer.php` | One `ContentBrief` via nr-llm completion; map-reduce above 24k chars |
 | Generators | `Classes/Generator/` | `PodcastGenerator`, `SchaubildGenerator`, `StoryGenerator` extend `AbstractGenerator`; the text formats (`ExecutiveSummaryGenerator`, `FaqGenerator`, `SocialPostGenerator`, `NewsletterGenerator`) extend `AbstractTextGenerator` (one schema-validated completion each, ADR-004); adapter seams in `Image/` and `Speech/` |
 | Rendering | `Classes/Rendering/` | Playwright HTML→PNG, GD compositor, ffmpeg audio stitcher behind interfaces |
@@ -37,7 +37,7 @@ Derived from `Configuration/Services.yaml` (no phpat architecture test suite exi
 
 ## Data flow
 
-1. **Ingest** — `Classes/Ingestion/`: URL fetch or tiered PDF reader (Poppler).
+1. **Ingest** — `Classes/Ingestion/`: URL fetch or tiered PDF reader (Poppler); `Classes/Source/`: a page of this installation, with its subpages, through its public URL.
 2. **Analyze** — `DocumentAnalyzer` produces one `ContentBrief` via nr-llm completion (map-reduce above 24k chars).
 3. **Generate** — tagged generators produce podcast (1–3 persona speakers), Schaubild (×3 variants), story (×N slides) and the four text formats; async via Symfony Messenger doctrine transport. The worker host needs `ffmpeg`, `chromium` and `poppler`.
 4. **Store** — media artifacts land in FAL under `repurpose/` via `JobFileStorage`; text formats stay on the artifact row.

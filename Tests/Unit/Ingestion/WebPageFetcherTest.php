@@ -87,6 +87,17 @@ final class WebPageFetcherTest extends TestCase
         self::assertSame(1, $http->unconsumed());
     }
 
+    public function testAPageOfThisInstallationIsFetchedFromAPrivateAddress(): void
+    {
+        $http    = QueuedHttpClient::answering(200, '<html><head><title>About</title></head><body><main>Own text</main></body></html>');
+        $fetcher = new WebPageFetcher($http->client, new HttpFactory(), new RemoteSourceGuard(new StaticHostResolver(['typo3.internal' => ['10.0.0.5']])));
+
+        $document = $fetcher->fetchOwnPage('https://typo3.internal/about');
+
+        self::assertSame('Own text', $document->text);
+        self::assertSame('https://typo3.internal/about', $document->sourceLabel);
+    }
+
     /** guzzlehttp/psr7 2.9.0 cannot parse this literal; a newer release parses it and the address check refuses it. */
     public function testRefusesAnIpv4MappedLiteralBeforeSendingAnyRequest(): void
     {

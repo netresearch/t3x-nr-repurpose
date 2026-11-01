@@ -16,6 +16,7 @@ use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
+use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
 use TYPO3\CMS\Extbase\Attribute\ORM\Lazy;
@@ -25,9 +26,24 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
 class Job extends AbstractEntity
 {
+    private const int DEEPEST_NAMED_LEVEL = 4;
+
     protected string $sourceType = 'url';
 
     protected string $sourceValue = '';
+
+    // The public URL of a picked page when the job was made. The social post links to it, and it
+    // gives the worker the host of a site whose base names none.
+    protected string $sourceUrl = '';
+
+    // What the module shows for a picked page or file: title and id at the time of the pick.
+    protected string $sourceLabel = '';
+
+    // Levels below the picked page; 0 is the page alone.
+    protected int $sourceDepth = 0;
+
+    // JSON of the SourceReport the worker writes for a page source.
+    protected string $sourceReport = '';
 
     protected string $theme = 'nr';
 
@@ -131,13 +147,70 @@ class Job extends AbstractEntity
         $this->sourceValue = $sourceValue;
     }
 
+    public function getSourceUrl(): string
+    {
+        return $this->sourceUrl;
+    }
+
+    public function setSourceUrl(string $sourceUrl): void
+    {
+        $this->sourceUrl = $sourceUrl;
+    }
+
+    public function getSourceLabel(): string
+    {
+        return $this->sourceLabel;
+    }
+
+    public function setSourceLabel(string $sourceLabel): void
+    {
+        $this->sourceLabel = $sourceLabel;
+    }
+
+    public function getSourceDepth(): int
+    {
+        return $this->sourceDepth;
+    }
+
+    public function setSourceDepth(int $sourceDepth): void
+    {
+        $this->sourceDepth = $sourceDepth;
+    }
+
+    public function getSourceReport(): string
+    {
+        return $this->sourceReport;
+    }
+
+    public function getSourceSummary(): SourceReport
+    {
+        return SourceReport::fromJson($this->sourceReport);
+    }
+
     /**
-     * The source URL as the module's pages show it to every module user: without user
-     * name, password, query and fragment. Empty for a job without one (an attached PDF).
+     * What the module's pages show for the source: the title and id of a picked page or file,
+     * otherwise the source URL without user name, password, query and fragment. Empty for a
+     * job without either (a PDF attached in the record view).
      */
     public function getSourceValueForDisplay(): string
     {
+        if ($this->sourceLabel !== '') {
+            return $this->sourceLabel;
+        }
+
         return $this->sourceValue === '' ? '' : SourceUrlRedactor::redact($this->sourceValue);
+    }
+
+    /** Whether the source is a page of this installation, for the result view's depth row. */
+    public function isPageSource(): bool
+    {
+        return $this->sourceType === SourceType::Page->value;
+    }
+
+    /** The last part of the form's label key for the depth: the number, or "all" above 4 levels. */
+    public function getSourceDepthLabelKey(): string
+    {
+        return $this->sourceDepth > self::DEEPEST_NAMED_LEVEL ? 'all' : (string) $this->sourceDepth;
     }
 
     public function getTheme(): string

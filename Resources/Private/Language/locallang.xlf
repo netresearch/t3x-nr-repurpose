@@ -31,10 +31,28 @@
       <trans-unit id="new.field.sourceType"><source>Source type</source></trans-unit>
       <trans-unit id="new.field.sourceValue"><source>Source URL (for Webpage URL / PDF URL)</source></trans-unit>
       <trans-unit id="new.field.sourceValue.placeholder"><source>https://…</source></trans-unit>
+      <trans-unit id="new.field.sourcePage"><source>Page</source></trans-unit>
+      <trans-unit id="new.field.sourcePage.empty"><source>No page chosen</source></trans-unit>
+      <trans-unit id="new.field.sourcePage.browse"><source>Choose page…</source></trans-unit>
+      <trans-unit id="new.field.sourcePage.remove"><source>Remove the chosen page</source></trans-unit>
+      <trans-unit id="new.field.sourcePage.required"><source>Choose a page.</source></trans-unit>
+      <trans-unit id="new.field.sourceDepth"><source>Subpages</source></trans-unit>
+      <trans-unit id="new.field.sourceDepth.0"><source>This page only</source></trans-unit>
+      <trans-unit id="new.field.sourceDepth.1"><source>This page and 1 level of subpages</source></trans-unit>
+      <trans-unit id="new.field.sourceDepth.2"><source>This page and 2 levels of subpages</source></trans-unit>
+      <trans-unit id="new.field.sourceDepth.3"><source>This page and 3 levels of subpages</source></trans-unit>
+      <trans-unit id="new.field.sourceDepth.4"><source>This page and 4 levels of subpages</source></trans-unit>
+      <trans-unit id="new.field.sourceDepth.all"><source>This page and all subpages</source></trans-unit>
+      <trans-unit id="new.field.sourceFile"><source>PDF file</source></trans-unit>
+      <trans-unit id="new.field.sourceFile.empty"><source>No file chosen</source></trans-unit>
+      <trans-unit id="new.field.sourceFile.browse"><source>Choose file…</source></trans-unit>
+      <trans-unit id="new.field.sourceFile.remove"><source>Remove the chosen file</source></trans-unit>
+      <trans-unit id="new.field.sourceFile.required"><source>Choose a PDF file.</source></trans-unit>
+      <trans-unit id="new.field.remove"><source>Remove</source></trans-unit>
+      <trans-unit id="new.hint.sourcePage"><source>Pages are read as a visitor sees them, in the default language. Hidden and access-restricted pages, folders, links and shortcuts are left out. One job reads at most %1$d pages and %2$d characters.</source></trans-unit>
       <trans-unit id="new.field.pdfMode"><source>PDF extraction mode</source></trans-unit>
       <trans-unit id="new.field.theme"><source>Theme</source></trans-unit>
       <trans-unit id="new.section.artifacts"><source>Artifacts to generate</source></trans-unit>
-      <trans-unit id="new.hint.pdfFal"><source>For "PDF file (FAL)" upload the PDF as a sys_file and attach it via the record edit view; the New form sets type, URL and extraction mode.</source></trans-unit>
       <trans-unit id="new.submit"><source>Create &amp; queue</source></trans-unit>
       <trans-unit id="new.submitting"><source>Queuing job …</source></trans-unit>
       <trans-unit id="new.cancel"><source>Cancel</source></trans-unit>
@@ -50,6 +68,7 @@
       <!-- Source types -->
       <trans-unit id="sourceType.url"><source>Webpage URL</source></trans-unit>
       <trans-unit id="sourceType.pdf_url"><source>PDF URL</source></trans-unit>
+      <trans-unit id="sourceType.page"><source>Page of this site</source></trans-unit>
       <trans-unit id="sourceType.pdf_fal"><source>PDF file (FAL)</source></trans-unit>
 
       <!-- PDF extraction modes -->
@@ -84,9 +103,29 @@
       <trans-unit id="show.field.status"><source>Status</source></trans-unit>
       <trans-unit id="show.field.language"><source>Language</source></trans-unit>
       <trans-unit id="show.field.error"><source>Error</source></trans-unit>
+      <trans-unit id="show.field.sourceDepth"><source>Subpages</source></trans-unit>
+      <trans-unit id="show.field.sourcePages"><source>Pages read</source></trans-unit>
+      <trans-unit id="show.source.left.title"><source>Not every page went into the text</source></trans-unit>
+      <trans-unit id="show.source.left.hidden"><source>%d hidden or outside their publication time</source></trans-unit>
+      <trans-unit id="show.source.left.restricted"><source>%d restricted to frontend groups</source></trans-unit>
+      <trans-unit id="show.source.left.excluded"><source>%d without content of their own (folders, links, shortcuts, spacers)</source></trans-unit>
+      <trans-unit id="show.source.left.noAccess"><source>%d without access for the job owner</source></trans-unit>
+      <trans-unit id="show.source.left.failed"><source>%d could not be read</source></trans-unit>
+      <trans-unit id="show.source.cut.pages"><source>The limit of %d pages cut the selection: further subpages were left out.</source></trans-unit>
+      <trans-unit id="show.source.cut.text"><source>The limit of %1$d characters cut the selection: %2$d selected pages were left out.</source></trans-unit>
+      <trans-unit id="show.source.cut.textSingle"><source>The limit of %d characters cut the text of the page.</source></trans-unit>
       <trans-unit id="show.section.artifacts"><source>Artifacts</source></trans-unit>
       <trans-unit id="show.artifacts.empty"><source>No artifacts have been produced for this job yet.</source></trans-unit>
       <trans-unit id="show.running.notice"><source>This job is still being processed. The page auto-refreshes every 5 seconds.</source></trans-unit>
+      <trans-unit id="source.refused.page.none"><source>Choose a page for this job.</source></trans-unit>
+      <trans-unit id="source.refused.page.access"><source>You may not use this page as a source, or it no longer exists.</source></trans-unit>
+      <trans-unit id="source.refused.page.empty"><source>This selection holds no page a visitor can open: the page is hidden, access-restricted or has no content of its own, and so are its subpages in the chosen depth.</source></trans-unit>
+      <trans-unit id="source.refused.page.url"><source>This page has no public URL: it belongs to no site.</source></trans-unit>
+      <trans-unit id="source.refused.file.none"><source>Choose a PDF file for this job.</source></trans-unit>
+      <trans-unit id="source.refused.file.access"><source>You may not use this file as a source, or it no longer exists.</source></trans-unit>
+      <trans-unit id="source.refused.file.type"><source>Only PDF files can be used as a source.</source></trans-unit>
+      <trans-unit id="source.refused.type"><source>This source type is not known.</source></trans-unit>
+      <trans-unit id="job.created.cut"><source>This page tree holds more than %d pages. The job reads the pages nearest the chosen page; the result view lists what was left out.</source></trans-unit>
       <trans-unit id="show.action.reload"><source>Reload</source></trans-unit>
       <trans-unit id="show.action.back"><source>Back to list</source></trans-unit>
       <trans-unit id="show.podcast.transcript"><source>Transcript</source></trans-unit>

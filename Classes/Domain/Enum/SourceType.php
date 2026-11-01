@@ -14,4 +14,6 @@ enum SourceType: string
     case Url    = 'url';
     case PdfUrl = 'pdf_url';
     case PdfFal = 'pdf_fal';
+    // A page of this installation; source_value holds its uid, source_depth the levels below it.
+    case Page = 'page';
 }

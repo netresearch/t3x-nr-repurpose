@@ -13,6 +13,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
+use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\Repository\ArtifactRepository;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
@@ -23,12 +24,19 @@ use Netresearch\NrRepurpose\Review\ReviewPermission;
 use Netresearch\NrRepurpose\Review\ReviewRefusedException;
 use Netresearch\NrRepurpose\Service\JobSubmissionService;
 use Netresearch\NrRepurpose\Social\SocialPublisherInterface;
+use Netresearch\NrRepurpose\Source\JobSourceAssigner;
+use Netresearch\NrRepurpose\Source\PageSourceLimits;
+use Netresearch\NrRepurpose\Source\PageTreeWalker;
+use Netresearch\NrRepurpose\Source\SourceAccess;
+use Netresearch\NrRepurpose\Source\SourceRefusedException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
+use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Pagination\SimplePagination;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
@@ -41,6 +49,11 @@ class JobController extends ActionController
 {
     /** Rows per page of the job list. */
     private const int JOBS_PER_PAGE = 25;
+
+    /** The hidden inputs of the new-job form the element browsers fill. */
+    private const string PAGE_FIELD = 'nrrepurpose-sourcePage';
+
+    private const string FILE_FIELD = 'nrrepurpose-sourceFile';
 
     protected ModuleTemplate $moduleTemplate;
 
@@ -56,6 +69,11 @@ class JobController extends ActionController
         protected readonly PageRenderer $pageRenderer,
         protected readonly LoggerInterface $logger,
         protected readonly JobVisibility $jobVisibility,
+        protected readonly JobSourceAssigner $sourceAssigner,
+        protected readonly PageTreeWalker $pageTreeWalker,
+        protected readonly SourceAccess $sourceAccess,
+        protected readonly PageSourceLimits $pageSourceLimits,
+        protected readonly BackendUriBuilder $backendUriBuilder,
     ) {}
 
     protected function initializeAction(): void
@@ -101,21 +119,48 @@ class JobController extends ActionController
 
     public function newAction(): ResponseInterface
     {
+        $id = $this->request->getQueryParams()['id'] ?? 0;
+
+        return $this->renderNewForm(new Job(), is_numeric($id) ? (int) $id : 0);
+    }
+
+    /**
+     * The form, for a new job or again with what a refused submission held.
+     *
+     * @param int                $pageUid  the page the picker starts with, when the user may read it
+     * @param array<string, int> $selected the plain request arguments of the form
+     */
+    private function renderNewForm(Job $job, int $pageUid, array $selected = []): ResponseInterface
+    {
         $this->moduleTemplate->setTitle(
             $this->moduleTitle(),
             LocalizationUtility::translate('new.title', 'nr_repurpose') ?? '',
         );
+        $page = $this->pickablePage($pageUid);
+        // The page selected in the module's page tree starts the form on that page.
+        if ($page !== null && $selected === []) {
+            $job->setSourceTypeEnum(SourceType::Page);
+        }
+
         // One uid => name option map per snippet tag for the form's snippet selectors.
         // An unconfigured tag yields an empty map; the select then only offers "(none)".
         $this->moduleTemplate->assignMultiple([
+            'newJob'          => $job,
+            'selected'        => $selected,
             'audienceOptions' => $this->snippetOptions('audience'),
             'toneOptions'     => $this->snippetOptions('tone_of_voice'),
             'personaOptions'  => $this->snippetOptions('persona'),
             'layoutOptions'   => $this->snippetOptions('layout'),
             'styleOptions'    => $this->snippetOptions('style'),
+            'sourcePage'      => $page,
+            'depthOptions'    => $this->depthOptions(),
+            'pageBrowserUrl'  => $this->elementBrowserUrl('db', 'pages', self::PAGE_FIELD, $page === null ? [] : ['expandPage' => $page['uid']]),
+            'fileBrowserUrl'  => $this->elementBrowserUrl('file', 'pdf', self::FILE_FIELD),
+            'maxPages'        => $this->pageSourceLimits->maxPages(),
+            'maxChars'        => $this->pageSourceLimits->maxChars(),
         ]);
-        // Submit feedback (disable the button, show a spinner) as an ES module: the
-        // backend Content Security Policy blocks an inline <script> without a nonce.
+        // Submit feedback (disable the button, show a spinner) and the source pickers as an ES module:
+        // the backend Content Security Policy blocks an inline <script> without a nonce.
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-repurpose/job-new.js');
 
         return $this->moduleTemplate->renderResponse('Job/New');
@@ -125,9 +170,15 @@ class JobController extends ActionController
      * The snippet* arguments are the form's prompt-snippet selectors (plain request arguments,
      * not Job properties — the Job stores the consolidated selection as one JSON snapshot).
      * 0 = "(none)"; the selection VO drops zeros, duplicates and a fourth-plus persona.
+     *
+     * The source* arguments are what the form's pickers chose: JobSourceAssigner reads the records
+     * behind them and fills the job's source, whatever the form sent.
      */
     public function createAction(
         Job $newJob,
+        int $sourcePage = 0,
+        int $sourceDepth = 0,
+        int $sourceFile = 0,
         int $snippetAudience = 0,
         int $snippetTone = 0,
         int $snippetPersona1 = 0,
@@ -148,10 +199,43 @@ class JobController extends ActionController
             storyStyle: $snippetStoryStyle,
         ));
 
-        $this->jobSubmissionService->submit($newJob, $this->backendUser()?->getUserId() ?? 0);
+        try {
+            $source = $this->sourceAssigner->assign($newJob, $this->backendUser(), $sourcePage, $sourceDepth, $sourceFile, $this->requestOrigin());
+        } catch (SourceRefusedException $e) {
+            $this->logger->warning('Refused the source of a new job: {reason} (backend user {backendUser}, page {page}, file {file})', [
+                'reason'      => $e->getMessage(),
+                'backendUser' => $this->backendUser()?->getUserId() ?? 0,
+                'page'        => $sourcePage,
+                'file'        => $sourceFile,
+            ]);
+            $this->addFlashMessage($this->label($e->getMessage()), '', ContextualFeedbackSeverity::ERROR);
+
+            // The form again with what the editor filled in: only the source has to change.
+            return $this->renderNewForm($newJob, $sourcePage, [
+                'sourceDepth'            => $sourceDepth,
+                'snippetAudience'        => $snippetAudience,
+                'snippetTone'            => $snippetTone,
+                'snippetPersona1'        => $snippetPersona1,
+                'snippetPersona2'        => $snippetPersona2,
+                'snippetPersona3'        => $snippetPersona3,
+                'snippetSchaubildLayout' => $snippetSchaubildLayout,
+                'snippetSchaubildStyle'  => $snippetSchaubildStyle,
+                'snippetStoryLayout'     => $snippetStoryLayout,
+                'snippetStoryStyle'      => $snippetStoryStyle,
+            ]);
+        }
+
+        $this->jobSubmissionService->submit($newJob, $this->backendUser()?->getUserId() ?? 0, $source->fileUid);
         $this->addFlashMessage(
             LocalizationUtility::translate('job.created', 'nr_repurpose') ?? 'Job created and queued for generation.',
         );
+        if ($source->cutByPageLimit) {
+            $this->addFlashMessage(
+                LocalizationUtility::translate('job.created.cut', 'nr_repurpose', [$this->pageSourceLimits->maxPages()]) ?? '',
+                '',
+                ContextualFeedbackSeverity::WARNING,
+            );
+        }
 
         return $this->redirect('list');
     }
@@ -269,6 +353,61 @@ class JobController extends ActionController
 
         // Extbase builds the backend route of the fixed action "show"; $job is an int, not a URL.
         return $this->redirect('show', null, null, ['job' => $job]); // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
+    }
+
+    /**
+     * A page the user may read, as the form's picker shows it.
+     *
+     * @return array{uid: int, label: string}|null
+     */
+    private function pickablePage(int $uid): ?array
+    {
+        $user = $this->backendUser();
+        $page = $this->pageTreeWalker->findPage($uid);
+        if ($page === null || !$user instanceof BackendUserAuthentication || !$this->sourceAccess->mayReadPage($user, $page)) {
+            return null;
+        }
+
+        return ['uid' => $uid, 'label' => JobSourceAssigner::label(is_string($page['title'] ?? null) ? $page['title'] : '', $uid)];
+    }
+
+    /** Scheme and host of this request; the worker has none, see PageUrlResolver. */
+    private function requestOrigin(): string
+    {
+        $parameters = $this->request->getAttribute('normalizedParams');
+
+        return $parameters instanceof NormalizedParams ? $parameters->getRequestHost() : '';
+    }
+
+    /** @return array<int, string> levels below the picked page => label */
+    private function depthOptions(): array
+    {
+        return [
+            0                            => $this->label('new.field.sourceDepth.0'),
+            1                            => $this->label('new.field.sourceDepth.1'),
+            2                            => $this->label('new.field.sourceDepth.2'),
+            3                            => $this->label('new.field.sourceDepth.3'),
+            4                            => $this->label('new.field.sourceDepth.4'),
+            JobSourceAssigner::MAX_DEPTH => $this->label('new.field.sourceDepth.all'),
+        ];
+    }
+
+    /**
+     * The URL of TYPO3's element browser for job-new.js. useEvents makes it report a pick as an
+     * event on its iframe, which needs no FormEngine in the opening window; fieldReference must not
+     * be empty, or the browser drops the pick.
+     *
+     * @param array<string, int> $parameters
+     */
+    private function elementBrowserUrl(string $mode, string $allowedTypes, string $fieldReference, array $parameters = []): string
+    {
+        return (string) $this->backendUriBuilder->buildUriFromRoute('wizard_element_browser', [
+            'mode'           => $mode,
+            'allowedTypes'   => $allowedTypes,
+            'fieldReference' => $fieldReference,
+            'useEvents'      => 1,
+            ...$parameters,
+        ]);
     }
 
     private function label(string $key): string

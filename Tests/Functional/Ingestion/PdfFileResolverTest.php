@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Ingestion;
 
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
+use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -84,6 +85,86 @@ final class PdfFileResolverTest extends AbstractFunctionalTestCase
         $this->expectException(IngestionException::class);
         $this->expectExceptionCode(1749379441);
         $resolver->resolve(JobSnapshots::of(['uid' => 4, 'source_type' => 'pdf_fal', 'source_pdf' => 0]));
+    }
+
+    /** The file the form accepted may have moved out of the owner's mounts since. */
+    public function testRefusesAFileTheJobOwnerMayNotRead(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourceUsers.csv');
+        $file = $this->createFile('other', 'outside.pdf');
+        $this->attachToJob(5, $file);
+
+        $this->expectException(IngestionException::class);
+        $this->expectExceptionCode(1749379449);
+
+        $this->get(PdfFileResolver::class)->resolve(JobSnapshots::of(['uid' => 5, 'source_type' => 'pdf_fal', 'be_user' => 2]));
+    }
+
+    public function testRefusesTheFileOfAJobOwnerWhoIsNoLongerEnabled(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourceUsers.csv');
+        $file = $this->createFile('allowed', 'report.pdf');
+        $this->attachToJob(6, $file);
+
+        $this->expectException(IngestionException::class);
+        $this->expectExceptionCode(1749379449);
+
+        $this->get(PdfFileResolver::class)->resolve(JobSnapshots::of(['uid' => 6, 'source_type' => 'pdf_fal', 'be_user' => 4]));
+    }
+
+    public function testResolvesAFileInTheJobOwnersMount(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Source/Fixtures/SourceUsers.csv');
+        $file = $this->createFile('allowed', 'report.pdf');
+        $this->attachToJob(8, $file);
+
+        $path = $this->get(PdfFileResolver::class)->resolve(JobSnapshots::of(['uid' => 8, 'source_type' => 'pdf_fal', 'be_user' => 2]));
+
+        self::assertFileExists($path);
+    }
+
+    /** A job from the record view has no owner; it keeps running on the file it holds. */
+    public function testAJobWithoutAnOwnerKeepsResolvingItsFile(): void
+    {
+        $file = $this->createFile('other', 'legacy.pdf');
+        $this->attachToJob(9, $file);
+
+        $path = $this->get(PdfFileResolver::class)->resolve(JobSnapshots::of(['uid' => 9, 'source_type' => 'pdf_fal', 'be_user' => 0]));
+
+        self::assertFileExists($path);
+    }
+
+    /** The form's way of attaching: what it writes is what the worker's resolver reads. */
+    public function testResolvesAFileAttachedByTheForm(): void
+    {
+        $file = $this->createFile('allowed', 'picked.pdf');
+        GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->insert('tx_nrrepurpose_domain_model_job', ['uid' => 10, 'pid' => 0, 'source_type' => 'pdf_fal']);
+
+        $this->get(JobProcessingRepository::class)->attachSourcePdf(10, $file);
+
+        $path = $this->get(PdfFileResolver::class)->resolve(JobSnapshots::of(['uid' => 10, 'source_type' => 'pdf_fal']));
+        self::assertStringEndsWith('/allowed/picked.pdf', $path);
+
+        $pool = GeneralUtility::makeInstance(ConnectionPool::class);
+        self::assertSame(1, (int) $pool->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->select(['source_pdf'], 'tx_nrrepurpose_domain_model_job', ['uid' => 10])->fetchOne());
+        // The reference index is what the Filelist module's deletion warning reads.
+        self::assertSame(1, $pool->getConnectionForTable('sys_refindex')->count('hash', 'sys_refindex', [
+            'tablename' => 'sys_file_reference', 'ref_table' => 'sys_file', 'ref_uid' => $file,
+        ]));
+    }
+
+    private function createFile(string $folderName, string $name): int
+    {
+        $storage = $this->get(StorageRepository::class)->getDefaultStorage();
+        self::assertNotNull($storage);
+        $folder = $storage->hasFolder($folderName) ? $storage->getFolder($folderName) : $storage->createFolder($folderName);
+        $file   = $storage->createFile($name, $folder);
+        $file->setContents('%PDF-1.4 test');
+
+        return $file->getUid();
     }
 
     /** A pdf_fal job with one attached file, stored as DataHandler stores it. */

@@ -112,12 +112,36 @@ name and password but with its query and fragment. The job keeps the URL as
 entered, and the job record in the List module shows it whole.
 
 No setting allows an internal host. For a PDF that only an internal server
-provides, attach the file to the job as a *PDF file (FAL)* source.
+provides, choose the file as a *PDF file (FAL)* source. A page of this
+installation is a *Page of this site* source, which reads its own site on any
+address.
 
 The worker does not follow redirects, because a redirect target would bypass
 this check. A redirecting URL fails with ``URL returned HTTP 301: …`` or
 ``PDF URL returned HTTP 302: …`` (or another 3xx status); enter the URL the
 redirect points to.
+
+.. _troubleshooting-page-source:
+
+A page job fails or leaves pages out
+====================================
+
+The result view lists what a page job left out. A failed job names the reason:
+
+-   ``None of the … selected pages could be read: …`` — the worker could not
+    load any page; the message names the first failure. A page must answer 200
+    at its public URL without a redirect and without HTTP authentication, and the
+    worker must reach the site's host. ``Page … has no public URL`` means the
+    page belongs to no site, or its site base names no host and the job does not
+    know one. With ``base: /`` the job uses the host of the backend it was created
+    on, and a private address is refused as for a URL source: set an absolute
+    base in the site configuration.
+-   ``Page … and its subpages hold no page a visitor can open`` — the selection
+    has become hidden, restricted or empty since the job was created.
+-   ``The job owner may not read page …`` or ``The job owner may not read the
+    attached PDF: …`` — the user who created the job has lost access. ``A page
+    source needs a job owner with an enabled backend user`` — that user is
+    disabled or deleted.
 
 .. _troubleshooting-source-limits:
 
@@ -128,8 +152,8 @@ The worker reads a web page up to 5 MiB within 30 seconds and downloads a PDF
 up to 50 MiB within 120 seconds. The limits are fixed.
 
 -   ``Source is larger than 5 MiB: …`` (``50 MiB`` for a PDF) — the source is
-    larger than the limit. Attach a larger PDF to the job as a *PDF file (FAL)*
-    source instead.
+    larger than the limit. Choose a larger PDF as a *PDF file (FAL)* source
+    instead.
 -   ``Source did not arrive within 30 seconds: …`` (``120 seconds`` for a
     PDF) — the server did not deliver the source in time.
 -   ``Reading the source failed: …`` — the transfer broke off while the body

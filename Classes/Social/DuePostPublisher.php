@@ -58,8 +58,9 @@ final readonly class DuePostPublisher
                 ScalarCast::string($row['script_text']),
                 ScalarCast::int($row['publish_at']),
                 // Published with the post: the job keeps the user name and password for
-                // the fetch, the channel gets the page's address without them.
-                SourceUrlRedactor::withoutCredentials(ScalarCast::string($row['source_value'])),
+                // the fetch, the channel gets the page's address without them. The source
+                // value of a page job is a uid; its public URL has a column of its own.
+                SourceUrlRedactor::withoutCredentials($row['source_url'] === '' || $row['source_url'] === null ? ScalarCast::string($row['source_value']) : ScalarCast::string($row['source_url'])),
                 is_array($metadata) && is_array($metadata['aiLabel'] ?? null) ? $metadata['aiLabel'] : [],
             );
 
@@ -85,7 +86,7 @@ final readonly class DuePostPublisher
         $expr         = $queryBuilder->expr();
 
         return $queryBuilder
-            ->select('a.uid', 'a.job', 'a.variant', 'a.script_text', 'a.publish_at', 'a.metadata', 'j.source_value')
+            ->select('a.uid', 'a.job', 'a.variant', 'a.script_text', 'a.publish_at', 'a.metadata', 'j.source_value', 'j.source_url')
             ->from(self::TABLE, 'a')
             ->join('a', 'tx_nrrepurpose_domain_model_job', 'j', $expr->eq('j.uid', $queryBuilder->quoteIdentifier('a.job')))
             ->where(

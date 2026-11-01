@@ -56,7 +56,8 @@ Three extension settings:
     The ``http`` or ``https`` URL that receives each due post by POST as JSON:
     ``artifactUid``, ``jobUid``, ``platform`` (``linkedin``, ``x``,
     ``instagram``), ``text``, ``publishAt`` (UTC, ISO 8601), ``sourceUrl``
-    (the job's source URL without user name and password; query and fragment
+    (the job's source URL, for a page source the page's public URL when the job
+    was created, without user name and password; query and fragment
     stay), ``aiGenerated`` (always ``true``) and ``aiLabel``. A 2xx answer marks the
     post published; anything else marks it failed with the status. Empty: no
     post is sent.

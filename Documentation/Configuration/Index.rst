@@ -47,6 +47,9 @@ Configuration > nr_repurpose`:
      - :confval:`technicalBeUserUid <technicalbeuseruid>` below
    * - ``maxPdfPages``
      - :confval:`maxPdfPages <maxpdfpages>` below
+   * - ``maxSourcePages``, ``maxSourceChars``
+     - :confval:`maxSourcePages <maxsourcepages>` and
+       :confval:`maxSourceChars <maxsourcechars>` below
    * - ``chromiumSandbox``
      - :ref:`configuration-chromium-sandbox`
    * - ``aiLabelImages``, ``aiLabelTexts``
@@ -102,6 +105,27 @@ Configuration > nr_repurpose`:
    The analysis has a limit of its own: a source text that splits into more
    than 100 sections of about 12,000 characters fails before the first
    completion call, with ``The source text is too long to analyse: …``.
+
+.. confval:: maxSourcePages
+   :name: maxsourcepages
+   :type: int
+   :default: 25
+
+   The most pages one *Page of this site* job reads. The tree is walked level by
+   level, so a larger tree loses its deepest pages; the form warns, and the result
+   view says so. An empty value or ``0`` means 25.
+
+.. confval:: maxSourceChars
+   :name: maxsourcechars
+   :type: int
+   :default: 200000
+
+   The most characters of text one *Page of this site* job reads. The page that
+   would go over the limit and all pages after it are left out, and the result
+   view says so; only a first page longer than the limit is cut. Every 12,000
+   characters are one completion call in the analysis. Values above 1000000
+   count as 1000000, which keeps a cut selection below the limit of the analysis.
+   An empty value or ``0`` means 200000.
 
 .. _configuration-permissions:
 

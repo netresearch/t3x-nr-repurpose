@@ -22,6 +22,7 @@ use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
+use Netresearch\NrRepurpose\Source\PageSourceReader;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
@@ -74,6 +75,7 @@ final class SourceIngestionServiceTest extends AbstractFunctionalTestCase
             new PdfLayoutExtractor($runner),
             $this->get(CapabilityGrantResolverInterface::class),
             new NullLogger(),
+            $this->createStub(PageSourceReader::class),
         );
     }
 

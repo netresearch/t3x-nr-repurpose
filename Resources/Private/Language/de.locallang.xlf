@@ -31,10 +31,28 @@
       <trans-unit id="new.field.sourceType"><source>Source type</source><target>Quellentyp</target></trans-unit>
       <trans-unit id="new.field.sourceValue"><source>Source URL (for Webpage URL / PDF URL)</source><target>Quell-URL (für Webseiten-URL / PDF-URL)</target></trans-unit>
       <trans-unit id="new.field.sourceValue.placeholder"><source>https://…</source><target>https://…</target></trans-unit>
+      <trans-unit id="new.field.sourcePage"><source>Page</source><target>Seite</target></trans-unit>
+      <trans-unit id="new.field.sourcePage.empty"><source>No page chosen</source><target>Keine Seite ausgewählt</target></trans-unit>
+      <trans-unit id="new.field.sourcePage.browse"><source>Choose page…</source><target>Seite auswählen …</target></trans-unit>
+      <trans-unit id="new.field.sourcePage.remove"><source>Remove the chosen page</source><target>Ausgewählte Seite entfernen</target></trans-unit>
+      <trans-unit id="new.field.sourcePage.required"><source>Choose a page.</source><target>Wählen Sie eine Seite aus.</target></trans-unit>
+      <trans-unit id="new.field.sourceDepth"><source>Subpages</source><target>Unterseiten</target></trans-unit>
+      <trans-unit id="new.field.sourceDepth.0"><source>This page only</source><target>Nur diese Seite</target></trans-unit>
+      <trans-unit id="new.field.sourceDepth.1"><source>This page and 1 level of subpages</source><target>Diese Seite und 1 Ebene Unterseiten</target></trans-unit>
+      <trans-unit id="new.field.sourceDepth.2"><source>This page and 2 levels of subpages</source><target>Diese Seite und 2 Ebenen Unterseiten</target></trans-unit>
+      <trans-unit id="new.field.sourceDepth.3"><source>This page and 3 levels of subpages</source><target>Diese Seite und 3 Ebenen Unterseiten</target></trans-unit>
+      <trans-unit id="new.field.sourceDepth.4"><source>This page and 4 levels of subpages</source><target>Diese Seite und 4 Ebenen Unterseiten</target></trans-unit>
+      <trans-unit id="new.field.sourceDepth.all"><source>This page and all subpages</source><target>Diese Seite und alle Unterseiten</target></trans-unit>
+      <trans-unit id="new.field.sourceFile"><source>PDF file</source><target>PDF-Datei</target></trans-unit>
+      <trans-unit id="new.field.sourceFile.empty"><source>No file chosen</source><target>Keine Datei ausgewählt</target></trans-unit>
+      <trans-unit id="new.field.sourceFile.browse"><source>Choose file…</source><target>Datei auswählen …</target></trans-unit>
+      <trans-unit id="new.field.sourceFile.remove"><source>Remove the chosen file</source><target>Ausgewählte Datei entfernen</target></trans-unit>
+      <trans-unit id="new.field.sourceFile.required"><source>Choose a PDF file.</source><target>Wählen Sie eine PDF-Datei aus.</target></trans-unit>
+      <trans-unit id="new.field.remove"><source>Remove</source><target>Entfernen</target></trans-unit>
+      <trans-unit id="new.hint.sourcePage"><source>Pages are read as a visitor sees them, in the default language. Hidden and access-restricted pages, folders, links and shortcuts are left out. One job reads at most %1$d pages and %2$d characters.</source><target>Seiten werden so gelesen, wie Besucher sie sehen, in der Standardsprache. Verborgene und zugriffsbeschränkte Seiten, Ordner, Links und Verweise bleiben außen vor. Ein Auftrag liest höchstens %1$d Seiten und %2$d Zeichen.</target></trans-unit>
       <trans-unit id="new.field.pdfMode"><source>PDF extraction mode</source><target>PDF-Extraktionsmodus</target></trans-unit>
       <trans-unit id="new.field.theme"><source>Theme</source><target>Design</target></trans-unit>
       <trans-unit id="new.section.artifacts"><source>Artifacts to generate</source><target>Zu generierende Artefakte</target></trans-unit>
-      <trans-unit id="new.hint.pdfFal"><source>For "PDF file (FAL)" upload the PDF as a sys_file and attach it via the record edit view; the New form sets type, URL and extraction mode.</source><target>Für „PDF-Datei (FAL)“ laden Sie die PDF als sys_file hoch und verknüpfen sie über die Datensatzbearbeitung; das Anlageformular setzt Typ, URL und Extraktionsmodus.</target></trans-unit>
       <trans-unit id="new.submit"><source>Create &amp; queue</source><target>Anlegen &amp; einreihen</target></trans-unit>
       <trans-unit id="new.submitting"><source>Queuing job …</source><target>Auftrag wird eingereiht …</target></trans-unit>
       <trans-unit id="new.cancel"><source>Cancel</source><target>Abbrechen</target></trans-unit>
@@ -50,6 +68,7 @@
       <!-- Source types -->
       <trans-unit id="sourceType.url"><source>Webpage URL</source><target>Webseiten-URL</target></trans-unit>
       <trans-unit id="sourceType.pdf_url"><source>PDF URL</source><target>PDF-URL</target></trans-unit>
+      <trans-unit id="sourceType.page"><source>Page of this site</source><target>Seite dieser Website</target></trans-unit>
       <trans-unit id="sourceType.pdf_fal"><source>PDF file (FAL)</source><target>PDF-Datei (FAL)</target></trans-unit>
 
       <!-- PDF extraction modes -->
@@ -84,9 +103,29 @@
       <trans-unit id="show.field.status"><source>Status</source><target>Status</target></trans-unit>
       <trans-unit id="show.field.language"><source>Language</source><target>Sprache</target></trans-unit>
       <trans-unit id="show.field.error"><source>Error</source><target>Fehler</target></trans-unit>
+      <trans-unit id="show.field.sourceDepth"><source>Subpages</source><target>Unterseiten</target></trans-unit>
+      <trans-unit id="show.field.sourcePages"><source>Pages read</source><target>Gelesene Seiten</target></trans-unit>
+      <trans-unit id="show.source.left.title"><source>Not every page went into the text</source><target>Nicht alle Seiten sind in den Text eingegangen</target></trans-unit>
+      <trans-unit id="show.source.left.hidden"><source>%d hidden or outside their publication time</source><target>%d verborgen oder außerhalb der Veröffentlichungszeit</target></trans-unit>
+      <trans-unit id="show.source.left.restricted"><source>%d restricted to frontend groups</source><target>%d auf Frontend-Gruppen beschränkt</target></trans-unit>
+      <trans-unit id="show.source.left.excluded"><source>%d without content of their own (folders, links, shortcuts, spacers)</source><target>%d ohne eigenen Inhalt (Ordner, Links, Verweise, Trenner)</target></trans-unit>
+      <trans-unit id="show.source.left.noAccess"><source>%d without access for the job owner</source><target>%d ohne Zugriff für den Ersteller des Auftrags</target></trans-unit>
+      <trans-unit id="show.source.left.failed"><source>%d could not be read</source><target>%d konnten nicht gelesen werden</target></trans-unit>
+      <trans-unit id="show.source.cut.pages"><source>The limit of %d pages cut the selection: further subpages were left out.</source><target>Die Grenze von %d Seiten hat die Auswahl gekürzt: Weitere Unterseiten wurden ausgelassen.</target></trans-unit>
+      <trans-unit id="show.source.cut.text"><source>The limit of %1$d characters cut the selection: %2$d selected pages were left out.</source><target>Die Grenze von %1$d Zeichen hat die Auswahl gekürzt: %2$d ausgewählte Seiten wurden ausgelassen.</target></trans-unit>
+      <trans-unit id="show.source.cut.textSingle"><source>The limit of %d characters cut the text of the page.</source><target>Die Grenze von %d Zeichen hat den Text der Seite gekürzt.</target></trans-unit>
       <trans-unit id="show.section.artifacts"><source>Artifacts</source><target>Artefakte</target></trans-unit>
       <trans-unit id="show.artifacts.empty"><source>No artifacts have been produced for this job yet.</source><target>Für diesen Auftrag wurden noch keine Artefakte erzeugt.</target></trans-unit>
       <trans-unit id="show.running.notice"><source>This job is still being processed. The page auto-refreshes every 5 seconds.</source><target>Dieser Auftrag wird noch verarbeitet. Die Seite aktualisiert sich automatisch alle 5 Sekunden.</target></trans-unit>
+      <trans-unit id="source.refused.page.none"><source>Choose a page for this job.</source><target>Wählen Sie eine Seite für diesen Auftrag aus.</target></trans-unit>
+      <trans-unit id="source.refused.page.access"><source>You may not use this page as a source, or it no longer exists.</source><target>Sie dürfen diese Seite nicht als Quelle verwenden, oder sie existiert nicht mehr.</target></trans-unit>
+      <trans-unit id="source.refused.page.empty"><source>This selection holds no page a visitor can open: the page is hidden, access-restricted or has no content of its own, and so are its subpages in the chosen depth.</source><target>Diese Auswahl enthält keine Seite, die Besucher öffnen können: Die Seite ist verborgen, zugriffsbeschränkt oder hat keinen eigenen Inhalt, ebenso ihre Unterseiten in der gewählten Tiefe.</target></trans-unit>
+      <trans-unit id="source.refused.page.url"><source>This page has no public URL: it belongs to no site.</source><target>Diese Seite hat keine öffentliche URL: Sie gehört zu keiner Website.</target></trans-unit>
+      <trans-unit id="source.refused.file.none"><source>Choose a PDF file for this job.</source><target>Wählen Sie eine PDF-Datei für diesen Auftrag aus.</target></trans-unit>
+      <trans-unit id="source.refused.file.access"><source>You may not use this file as a source, or it no longer exists.</source><target>Sie dürfen diese Datei nicht als Quelle verwenden, oder sie existiert nicht mehr.</target></trans-unit>
+      <trans-unit id="source.refused.file.type"><source>Only PDF files can be used as a source.</source><target>Als Quelle lassen sich nur PDF-Dateien verwenden.</target></trans-unit>
+      <trans-unit id="source.refused.type"><source>This source type is not known.</source><target>Dieser Quellentyp ist nicht bekannt.</target></trans-unit>
+      <trans-unit id="job.created.cut"><source>This page tree holds more than %d pages. The job reads the pages nearest the chosen page; the result view lists what was left out.</source><target>Dieser Seitenbaum enthält mehr als %d Seiten. Der Auftrag liest die Seiten, die der ausgewählten Seite am nächsten liegen; die Ergebnisansicht nennt, was ausgelassen wurde.</target></trans-unit>
       <trans-unit id="show.action.reload"><source>Reload</source><target>Neu laden</target></trans-unit>
       <trans-unit id="show.action.back"><source>Back to list</source><target>Zurück zur Liste</target></trans-unit>
       <trans-unit id="show.podcast.transcript"><source>Transcript</source><target>Transkript</target></trans-unit>

@@ -263,6 +263,7 @@ final class StartRepurposeJobToolTest extends AbstractFunctionalTestCase
                 $this->get(JobRepository::class),
                 $this->get(PersistenceManagerInterface::class),
                 $bus,
+                $this->get(JobProcessingRepository::class),
             ),
             $this->get(ModuleProvider::class),
             $this->get(LanguageServiceFactory::class),

@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Service;
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
+use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Exception\MalformedJobRowException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
@@ -138,6 +139,12 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             $this->failJob($jobUid, 'Ingestion', $e);
 
             return;
+        }
+
+        // A page source says what it used and what it left out; the result view shows that.
+        $report = $document->meta['sourceReport'] ?? null;
+        if ($report instanceof SourceReport) {
+            $this->jobs->setSourceReport($jobUid, $report);
         }
 
         // 2) Understanding — build exactly one ContentBrief.

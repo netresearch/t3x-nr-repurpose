@@ -37,6 +37,7 @@ use Netresearch\NrRepurpose\Rendering\SlideshowRendererInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
+use Netresearch\NrRepurpose\Source\PageSourceReader;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
@@ -112,6 +113,7 @@ final class SourceUrlInGeneratedOutputTest extends AbstractFunctionalTestCase
             new PdfLayoutExtractor(new SymfonyProcessPopplerRunner(new NullLogger())),
             $this->grants(),
             new NullLogger(),
+            $this->createStub(PageSourceReader::class),
         );
 
         (new GenerationOrchestrator(

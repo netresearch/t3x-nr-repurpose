@@ -18,6 +18,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Exception\MalformedJobRowException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
@@ -44,6 +45,7 @@ use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
+use Netresearch\NrRepurpose\Source\PageSourceReader;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
@@ -215,6 +217,31 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
      * LLM is faked. The other text formats are wired in but not requested, so the run also
      * proves the want_* flags select generators.
      */
+    /** finishJob() clears error_message, so the report has its own column and survives the run. */
+    public function testThePageSourceReportIsStoredAndOutlivesTheRun(): void
+    {
+        $jobUid = $this->seedJob();
+        $report = new SourceReport(pagesUsed: 2, cutByPageLimit: true, maxPages: 2);
+
+        $jobs = $this->get(JobProcessingRepository::class);
+        (new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $this->stubIngestion(new SourceDocument('Doc', 'Body.', 'https://example.com/', 0, 'en', ['sourceReport' => $report])),
+            $this->stubAnalyzer($this->stubBrief()),
+            $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
+            $this->get(CapabilityGrantResolver::class),
+            $this->get(AiLabelSettingsFactory::class),
+            [new RecordingArtifactGenerator($jobs)],
+        ))->process($jobUid);
+
+        $row = $jobs->findRow($jobUid) ?? [];
+        self::assertSame('done', $row['status']);
+        self::assertEquals($report, SourceReport::fromJson((string) $row['source_report']));
+    }
+
     public function testAJobRequestingAnFaqProducesAnFaqArtifact(): void
     {
         $conn = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_nrrepurpose_domain_model_job');
@@ -524,6 +551,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             new PdfLayoutExtractor(new SymfonyProcessPopplerRunner(new NullLogger())),
             $this->get(CapabilityGrantResolverInterface::class),
             new NullLogger(),
+            $this->createStub(PageSourceReader::class),
         );
         $jobs = $this->get(JobProcessingRepository::class);
 

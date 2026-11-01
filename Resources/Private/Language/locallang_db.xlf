@@ -10,6 +10,7 @@
       <trans-unit id="tx_nrrepurpose_domain_model_job.source_type.url"><source>Webpage URL</source></trans-unit>
       <trans-unit id="tx_nrrepurpose_domain_model_job.source_type.pdf_url"><source>PDF URL</source></trans-unit>
       <trans-unit id="tx_nrrepurpose_domain_model_job.source_type.pdf_fal"><source>PDF file (FAL)</source></trans-unit>
+      <trans-unit id="tx_nrrepurpose_domain_model_job.source_type.page"><source>Page of this site</source></trans-unit>
       <trans-unit id="tx_nrrepurpose_domain_model_job.source_value"><source>Source URL</source></trans-unit>
       <trans-unit id="tx_nrrepurpose_domain_model_job.theme"><source>Theme</source></trans-unit>
       <trans-unit id="tx_nrrepurpose_domain_model_job.theme.nr"><source>Netresearch CI</source></trans-unit>

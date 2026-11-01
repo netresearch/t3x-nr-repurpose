@@ -21,6 +21,30 @@ use PHPUnit\Framework\TestCase;
 
 final class JobTest extends TestCase
 {
+    public function testAPickedSourceShowsItsLabelInsteadOfItsValue(): void
+    {
+        $job = new Job();
+        $job->setSourceValue('10');
+        $job->setSourceLabel('About [10]');
+
+        self::assertSame('About [10]', $job->getSourceValueForDisplay());
+    }
+
+    /** @return array<string, array{int, string}> */
+    public static function depthLabels(): array
+    {
+        return ['the page alone' => [0, '0'], 'the deepest named level' => [4, '4'], 'all levels' => [99, 'all']];
+    }
+
+    #[DataProvider('depthLabels')]
+    public function testTheDepthPicksTheFormsLabel(int $depth, string $key): void
+    {
+        $job = new Job();
+        $job->setSourceDepth($depth);
+
+        self::assertSame($key, $job->getSourceDepthLabelKey());
+    }
+
     /**
      * The text formats are opt-in, the media artifacts are not: an upgraded installation
      * must not start making four extra LLM calls per job without anyone choosing that.

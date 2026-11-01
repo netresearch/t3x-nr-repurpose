@@ -15,13 +15,14 @@ use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
+use Netresearch\NrRepurpose\Source\PageSourceReader;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
- * Single ingestion entry point. URL sources go through WebPageFetcher; PDF sources are
- * resolved to a local file and run through a per-page tier dispatcher honoring pdf_mode:
+ * Single ingestion entry point. URL sources go through WebPageFetcher, a page of this
+ * installation through PageSourceReader; PDF sources are resolved to a local file and run through a per-page tier dispatcher honoring pdf_mode:
  *   - auto:   tier 1 (embedded text); sparse page -> tier 2 (Vision OCR); tabular page -> tier 3 (layout)
  *   - text:   tier 1 for every page
  *   - vision: tier 2 for every page
@@ -52,6 +53,7 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         private PdfLayoutExtractor $layoutExtractor,
         private CapabilityGrantResolverInterface $grantResolver,
         private LoggerInterface $logger,
+        private PageSourceReader $pageSourceReader,
         private ?ExtensionConfiguration $extensionConfiguration = null,
     ) {}
 
@@ -60,6 +62,7 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         return match ($job->sourceType) {
             SourceType::Url                        => $this->ingestUrl($job->sourceValue),
             SourceType::PdfUrl, SourceType::PdfFal => $this->ingestPdf($job),
+            SourceType::Page                       => $this->pageSourceReader->read($job),
         };
     }
 

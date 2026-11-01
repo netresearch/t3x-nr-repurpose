@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 return [
     'ctrl' => [
-        'title'            => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job',
-        'label'            => 'source_value',
+        'title' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job',
+        // A picked page or file shows its title and id; a URL job has no label and shows the URL.
+        'label'            => 'source_label',
+        'label_alt'        => 'source_value',
         'tstamp'           => 'tstamp',
         'crdate'           => 'crdate',
         'default_sortby'   => 'crdate DESC',
@@ -25,17 +27,25 @@ return [
                     ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.url', 'value' => 'url'],
                     ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.pdf_url', 'value' => 'pdf_url'],
                     ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.pdf_fal', 'value' => 'pdf_fal'],
+                    ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_type.page', 'value' => 'page'],
                 ],
                 'default' => 'url',
             ],
         ],
         // No link attributes: the stored value is fetched as-is, and a target
         // or title from the link browser would be appended to it.
+        // Hidden for a page job: its value is a page uid, and this field would save it empty.
         'source_value' => [
-            'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_value',
-            'config' => ['type' => 'link', 'allowedTypes' => ['url'], 'appearance' => ['allowedOptions' => []], 'size' => 60],
+            'label'       => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.source_value',
+            'displayCond' => 'FIELD:source_type:!=:page',
+            'config'      => ['type' => 'link', 'allowedTypes' => ['url'], 'appearance' => ['allowedOptions' => []], 'size' => 60],
         ],
-        'theme' => [
+        // Written by the module form and the worker only, hence not editable in the record view.
+        'source_url'    => ['config' => ['type' => 'passthrough']],
+        'source_label'  => ['config' => ['type' => 'passthrough']],
+        'source_depth'  => ['config' => ['type' => 'passthrough']],
+        'source_report' => ['config' => ['type' => 'passthrough']],
+        'theme'         => [
             'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.theme',
             'config' => [
                 'type'  => 'select', 'renderType' => 'selectSingle',

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
+use Closure;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -18,6 +19,8 @@ use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
@@ -41,6 +44,7 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
             $this->get(JobRepository::class),
             $this->get(PersistenceManagerInterface::class),
             $bus,
+            $this->get(JobProcessingRepository::class),
         );
 
         $job = new Job();
@@ -77,7 +81,7 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
                 return new Envelope($message);
             }
         };
-        $service = new JobSubmissionService($this->get(JobRepository::class), $this->get(PersistenceManagerInterface::class), $bus);
+        $service = new JobSubmissionService($this->get(JobRepository::class), $this->get(PersistenceManagerInterface::class), $bus, $this->get(JobProcessingRepository::class));
 
         $job = new Job();
         $job->setSourceValue('https://example.com/');
@@ -93,6 +97,36 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
         }
     }
 
+    /** The worker reads the reference as soon as the message is queued. */
+    public function testAPickedFileIsAttachedBeforeTheMessageGoesOut(): void
+    {
+        $references = [];
+        $count      = static fn (): int => GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('sys_file_reference')->count('uid', 'sys_file_reference', ['uid_local' => 42]);
+        $bus = new class ($references, $count) implements MessageBusInterface {
+            /**
+             * @param list<int>      $seen
+             * @param Closure(): int $count
+             */
+            public function __construct(private array &$seen, private readonly Closure $count) {}
+
+            public function dispatch(object $message, array $stamps = []): Envelope
+            {
+                $this->seen[] = ($this->count)();
+
+                return new Envelope($message);
+            }
+        };
+        $service = new JobSubmissionService($this->get(JobRepository::class), $this->get(PersistenceManagerInterface::class), $bus, $this->get(JobProcessingRepository::class));
+
+        $job = new Job();
+        $job->setSourceType('pdf_fal');
+
+        $service->submit($job, 1, 42);
+
+        self::assertSame([1], $references);
+    }
+
     /** The video is made from the story slides, so asking for it switches the story on. */
     public function testAskingForTheVideoSwitchesTheStoryOn(): void
     {
@@ -102,7 +136,7 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
                 return new Envelope($message);
             }
         };
-        $service = new JobSubmissionService($this->get(JobRepository::class), $this->get(PersistenceManagerInterface::class), $bus);
+        $service = new JobSubmissionService($this->get(JobRepository::class), $this->get(PersistenceManagerInterface::class), $bus, $this->get(JobProcessingRepository::class));
 
         $job = new Job();
         $job->setSourceValue('https://example.com/');

@@ -32,7 +32,7 @@ the dashed line runs in the worker process:
    ┌─────────────────────────── Symfony Messenger (doctrine) ───────────────────────────┐
    │  worker: messenger:consume                                                          │
    │                                                                                     │
-   │   1. INGEST    SourceIngestionService   URL fetch | tiered PDF read  → SourceDocument│
+   │   1. INGEST    SourceIngestionService   URL | page | PDF read       → SourceDocument│
    │   2. ANALYZE   DocumentAnalyzer (nr-llm CompletionService, JSON)     → ContentBrief  │
    │   3. GENERATE  PodcastGenerator | SchaubildGenerator | StoryGenerator               │
    │                ExecutiveSummary | Faq | SocialPost | Newsletter (text formats)       │
@@ -76,6 +76,10 @@ job's ``source_type``:
     strips boilerplate node types (``script``, ``nav``, ``footer``, …) and HTML
     comments, then keeps the densest of ``<article>`` / ``<main>`` (falling back
     to ``<body>``) and collapses whitespace.
+-   **Page of this site** — :php:`PageTreeWalker` selects the page and its
+    subpages down to ``source_depth``, :php:`PageSourceReader` fetches each one
+    through its public URL with :php:`WebPageFetcher` and joins the texts. Both
+    run for the job's owner (:ref:`ADR-010 <adr-010>`).
 -   **PDF** (URL or FAL) — :php:`PdfFileResolver` resolves a local absolute
     path, then each page is read through a per-page tier dispatcher honouring
     ``pdf_mode``:
@@ -96,7 +100,7 @@ job's ``source_type``:
        * - ``tables``
          - Tier 3 (poppler layout extraction) for every page.
 
-Both branches produce a :php:`SourceDocument` value object (title, text, source
+Every branch produces a :php:`SourceDocument` value object (title, text, source
 label, page count, language hint, meta). An empty result raises an
 :php:`IngestionException`, which aborts the job before any artifact is created.
 

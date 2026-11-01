@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Service;
 
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
+use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use RuntimeException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -27,10 +28,15 @@ final readonly class JobSubmissionService
         private JobRepository $jobRepository,
         private PersistenceManagerInterface $persistenceManager,
         private MessageBusInterface $bus,
+        private JobProcessingRepository $processing,
     ) {}
 
-    /** @return int the new job uid */
-    public function submit(Job $job, int $beUser): int
+    /**
+     * @param int $sourceFileUid the sys_file of a pdf_fal job picked in the form; 0 for any other job
+     *
+     * @return int the new job uid
+     */
+    public function submit(Job $job, int $beUser, int $sourceFileUid = 0): int
     {
         $job->setBeUser($beUser);
         // The video is made from the story slides: asking for it asks for the story.
@@ -47,6 +53,11 @@ final readonly class JobSubmissionService
         $jobUid = $job->getUid();
         if ($jobUid === null) {
             throw new RuntimeException('The job has no uid after persisting', 1755000202);
+        }
+
+        // Before the dispatch: the worker reads the reference as soon as the message is queued.
+        if ($sourceFileUid > 0) {
+            $this->processing->attachSourcePdf($jobUid, $sourceFileUid);
         }
 
         // Pin the transport explicitly: TYPO3's TransportLocator (unlike Symfony's

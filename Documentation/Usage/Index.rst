@@ -70,14 +70,25 @@ record:
      - Options
      - Notes
    * - Source type
-     - Webpage URL / PDF URL / PDF file (FAL)
-     - Selects how the source is ingested.
+     - Webpage URL / PDF URL / Page of this site / PDF file (FAL)
+     - Selects how the source is ingested and which of the fields below the
+       form shows.
    * - Source URL
      - free text
      - The URL for *Webpage URL* and *PDF URL* sources.
+   * - Page
+     - TYPO3's page browser
+     - For *Page of this site*. Opened on a page of the page tree, the form
+       starts with that page. See :ref:`usage-page-source`.
+   * - Subpages
+     - This page only / 1 to 4 levels / all subpages
+     - For *Page of this site*: how far below the chosen page the job reads.
+   * - PDF file
+     - TYPO3's file browser
+     - For *PDF file (FAL)*. One PDF per job, from your file mounts.
    * - PDF extraction mode
      - Auto / Embedded text only / Vision OCR / Layout / tables
-     - Only relevant for PDF sources. *Auto* decides per page (see
+     - For PDF sources. *Auto* decides per page (see
        :ref:`architecture-ingestion`).
    * - Theme
      - Netresearch CI / Neutral
@@ -107,15 +118,10 @@ record:
      - Which documents to print as PDF this run (see
        :ref:`usage-documents`). Steered like the text formats.
 
-.. note::
-
-   For a *PDF file (FAL)* source, upload the PDF as a ``sys_file`` and attach it
-   to the job record via the record edit view; the *New job* form sets the
-   source type, URL and extraction mode.
-
 .. figure:: /Images/Usage/JobNew.png
-   :alt: New job form with source type, source URL, PDF extraction mode, theme,
-       audience and tone of voice selects, the Podcast, Schaubild and Story
+   :alt: New job form with source type, the chosen page with its id, the
+       Choose page and Remove buttons, the subpages select, theme, audience and
+       tone of voice selects, the Podcast, Schaubild and Story
        cards with their persona, layout and style selects, and the text and
        document format checkboxes
    :zoom: lightbox
@@ -127,6 +133,52 @@ record:
 After submitting, a flash message confirms the job was created and queued, and
 you are redirected to the list. The worker picks the job up and processes it
 asynchronously.
+
+A chosen page or file shows its title and its id, and :guilabel:`Remove` clears
+it. The list and the result view show the same title and id as they were when
+the job was created. The form checks that you may read the page or file, and the
+worker checks it again for the user who created the job.
+
+.. _usage-page-source:
+
+Pages as a source
+~~~~~~~~~~~~~~~~~
+
+The worker reads a page the way a visitor sees it: through its public URL, in
+the default language, with the same text extraction as a *Webpage URL* source
+(:ref:`ADR-010 <adr-010>`). So a page needs a site, and the worker must be able to
+reach that site's URL. With a site base of ``/``, which names no host, the worker
+uses the host of the backend the job was created on. With subpages, each page becomes one section of the source
+text, under its title.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 44 28 28
+
+   * - Page
+     - The page
+     - Its subpages
+   * - Outside your web mounts, or without *show page* for you
+     - left out
+     - left out
+   * - Hidden, or outside its start and end time
+     - left out
+     - read, unless *extend to subpages* is set
+   * - Restricted to frontend groups
+     - left out
+     - read, unless *extend to subpages* is set
+   * - Link, shortcut, backend user section, mount point, spacer, folder or
+       another doktype from 200 on
+     - left out
+     - read
+
+One job reads at most :confval:`maxSourcePages <maxsourcepages>` pages (default
+25) and :confval:`maxSourceChars <maxsourcechars>` characters (default 200,000).
+The tree is walked level by level, so a limit keeps the pages nearest the chosen
+one. The form warns when a tree has more pages than the limit. In the result view,
+a warning lists which limit cut the selection, and how many pages were left out for
+which reason, or could not be read. A page that fails to load does not fail the
+job; only a job in which no page could be read does.
 
 .. _usage-show:
 

@@ -21,8 +21,8 @@ use Netresearch\NrRepurpose\Exception\MalformedJobRowException;
  * generators read these properties.
  *
  * A missing column takes the value the pipeline assumed before this object existed:
- * status "queued", source_type "url", theme "nr", pdf_mode Auto, 0 for be_user, an
- * empty string for source_value and no snippet selection, and false for
+ * status "queued", source_type "url", theme "nr", pdf_mode Auto, 0 for be_user and
+ * source_depth, an empty string for source_value and source_url and no snippet selection, and false for
  * every want_* flag. A present value of the wrong type, an unknown status or
  * source_type, and a missing or non-positive uid are rejected.
  */
@@ -32,12 +32,15 @@ final readonly class JobSnapshot
         public int $uid,
         public JobStatus $status,
         public SourceType $sourceType,
-        // The URL of a url or pdf_url job; '' when the column is NULL.
+        // The URL of a url or pdf_url job, the page uid of a page job; '' when the column is NULL.
         public string $sourceValue,
         public PdfMode $pdfMode,
         public string $theme,   // 'nr' | 'neutral', not validated (as before)
         public int $beUser,
         public PromptSnippetSelection $promptSnippets,
+        public int $sourceDepth = 0,
+        // The public URL of a page job's page; '' for any other job.
+        public string $sourceUrl = '',
         public bool $wantPodcast = false,
         public bool $wantSchaubild = false,
         public bool $wantStory = false,
@@ -81,6 +84,8 @@ final readonly class JobSnapshot
             theme: self::string($row, 'theme', 'nr'),
             beUser: self::unsignedInt($row, 'be_user', 0),
             promptSnippets: PromptSnippetSelection::fromJson(self::string($row, 'prompt_snippets', '')),
+            sourceDepth: self::unsignedInt($row, 'source_depth', 0),
+            sourceUrl: self::string($row, 'source_url', ''),
             wantPodcast: self::flag($row, 'want_podcast'),
             wantSchaubild: self::flag($row, 'want_schaubild'),
             wantStory: self::flag($row, 'want_story'),

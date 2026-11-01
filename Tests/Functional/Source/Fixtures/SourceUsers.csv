@@ -1,0 +1,13 @@
+"sys_filemounts"
+,"uid","pid","title","identifier","read_only"
+,1,0,"Allowed folder","1:/allowed/",0
+"be_groups"
+,"uid","pid","title","file_mountpoints","file_permissions"
+,1,0,"Editors","1","readFile,readFolder"
+,2,0,"Mounted without permission","1","readFolder"
+"be_users"
+,"uid","pid","username","admin","usergroup","db_mountpoints","deleted","disable","TSconfig"
+,1,0,"admin",1,"","",0,0,""
+,2,0,"editor",0,"1","10",0,0,""
+,3,0,"reader",0,"2","10",0,0,"permissions.file.default.readFile = 0"
+,4,0,"gone",0,"1","10",0,1,""

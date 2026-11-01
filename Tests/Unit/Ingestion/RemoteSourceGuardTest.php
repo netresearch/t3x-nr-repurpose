@@ -176,6 +176,44 @@ final class RemoteSourceGuardTest extends TestCase
         (new RemoteSourceGuard(new StaticHostResolver()))->createRequest(new HttpFactory(), 'GET', 'https://:80');
     }
 
+    /** A site on an intranet or a container network: its own pages stay readable. */
+    public function testAnOwnSiteRequestMayReachAPrivateAddress(): void
+    {
+        $guard = new RemoteSourceGuard(new StaticHostResolver(['typo3.internal' => ['10.0.0.5']]));
+
+        $request = $guard->createOwnSiteRequest(new HttpFactory(), 'GET', 'https://typo3.internal/about');
+
+        self::assertSame(['typo3.internal:443:10.0.0.5'], $request->curlOptions()[CURLOPT_RESOLVE]);
+    }
+
+    public function testTheSamePrivateAddressStaysRefusedForAnEditorsUrl(): void
+    {
+        $guard = new RemoteSourceGuard(new StaticHostResolver(['typo3.internal' => ['10.0.0.5']]));
+
+        $this->expectExceptionCode(1749379463);
+
+        $guard->createRequest(new HttpFactory(), 'GET', 'https://typo3.internal/about');
+    }
+
+    /** @return array<string, array{string, int}> */
+    public static function badOwnSiteUrls(): array
+    {
+        return [
+            'another scheme'  => ['ssh://typo3.internal/about', 1749379460],
+            'a relative base' => ['/about', 1749379460],
+            'no such host'    => ['https://gone.internal/about', 1749379462],
+        ];
+    }
+
+    #[DataProvider('badOwnSiteUrls')]
+    public function testAnOwnSiteRequestStillNeedsAHostAndHttp(string $url, int $code): void
+    {
+        $this->expectException(IngestionException::class);
+        $this->expectExceptionCode($code);
+
+        (new RemoteSourceGuard(new StaticHostResolver()))->createOwnSiteRequest(new HttpFactory(), 'GET', $url);
+    }
+
     private function guzzleParses(string $url): bool
     {
         try {

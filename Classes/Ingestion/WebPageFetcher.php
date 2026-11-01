@@ -41,7 +41,18 @@ class WebPageFetcher
 
     public function fetch(string $url): SourceDocument
     {
-        $request = $this->guard->createRequest($this->requestFactory, 'GET', $url)
+        return $this->fetchRequest($this->guard->createRequest($this->requestFactory, 'GET', $url), $url);
+    }
+
+    /** A page of this installation, by the URL its site builds (see RemoteSourceGuard::createOwnSiteRequest()). */
+    public function fetchOwnPage(string $url): SourceDocument
+    {
+        return $this->fetchRequest($this->guard->createOwnSiteRequest($this->requestFactory, 'GET', $url), $url);
+    }
+
+    private function fetchRequest(GuardedRequest $request, string $url): SourceDocument
+    {
+        $request = $request
             ->withHeader('User-Agent', 'nr_repurpose/0.1 (+https://www.netresearch.de)')
             ->withHeader('Accept', 'text/html,application/xhtml+xml');
 

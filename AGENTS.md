@@ -9,7 +9,7 @@
 **Precedence:** the **closest `AGENTS.md`** to the files you're changing wins. Root holds global defaults only.
 
 ## Overview
-TYPO3 v14 extension `nr_repurpose` (`netresearch/nr-repurpose`): turns a URL or PDF into a podcast, a diagram (Schaubild), a story carousel (optionally as MP4 video), four text formats, and a slide deck and a handout (PDF) from the TYPO3 backend. Every AI call goes through nr-llm. Pipeline: see `## Architecture` below; component map in `docs/ARCHITECTURE.md`; user docs in `Documentation/`; human contributor flow in `CONTRIBUTING.md`.
+TYPO3 v14 extension `nr_repurpose` (`netresearch/nr-repurpose`): turns a URL, a page of the installation or a PDF into a podcast, a diagram (Schaubild), a story carousel (optionally as MP4 video), four text formats, and a slide deck and a handout (PDF) from the TYPO3 backend. Every AI call goes through nr-llm. Pipeline: see `## Architecture` below; component map in `docs/ARCHITECTURE.md`; user docs in `Documentation/`; human contributor flow in `CONTRIBUTING.md`.
 
 ## Setup / Environment
 ```bash
