@@ -17,6 +17,27 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-12-0:
+
+Version 0.12.0 (2026-11-01)
+===========================
+
+Added
+-----
+
+-   The *New job* form picks a source from the CMS: a page with a depth choice
+    for its subpages, or a PDF from FAL, each in TYPO3's element browser. See
+    :ref:`usage-page-source` and :ref:`ADR-010 <adr-010>`.
+-   Extension settings :confval:`maxSourcePages <maxsourcepages>` and
+    :confval:`maxSourceChars <maxsourcechars>`.
+
+Changed
+-------
+
+-   ``typo3/cms-filelist`` is required. Run the extension setup: the job table
+    gets four columns.
+-   A guardrail stop keeps its reason on the failed job.
+
 .. _version-0-11-5:
 
 Version 0.11.5 (2026-11-01)

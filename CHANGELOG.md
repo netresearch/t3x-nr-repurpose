@@ -8,6 +8,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-01
+
+Upgrade: run the extension setup, the job table gets four columns. `typo3/cms-filelist` is now required; a composer installation gets it with the update. Stored jobs keep working.
+
+### Added
+
+- **A job source can be picked from the CMS (#192).** The *New job* form gets the source type *Page of this site*: an editor picks a page, with a depth choice for its subpages, in TYPO3's page browser. Opened on a page of the page tree, the form starts with that page. *PDF file (FAL)* now picks the file in TYPO3's file browser; the record view is no longer needed. One job takes one PDF. A picked item shows its title and id and can be removed, and the form shows the fields of the selected source type.
+- **A page is read as a visitor sees it.** The worker fetches it through its public URL in the default language, with the text extraction of URL jobs. Hidden and restricted pages, folders, links and shortcuts are left out; ADR-010 states the rules.
+- **Limits for a page source:** the extension settings `maxSourcePages` (default 25) and `maxSourceChars` (default 200,000, at most 1,000,000). The form warns about a tree over the page limit, and the result view lists what was left out.
+- The form checks access to a picked page or file for the requesting user, and the worker checks it again for the job's owner.
+
+### Changed
+
+- A guardrail stop keeps its reason on the failed job, and in the diagram fails its artifact instead of the job (#191).
+
 ## [0.11.5] - 2026-11-01
 
 ### Changed
@@ -527,7 +542,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.5...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.5...v0.12.0
 [0.11.5]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.4...v0.11.5
 [0.11.4]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.3...v0.11.4
 [0.11.3]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.2...v0.11.3
