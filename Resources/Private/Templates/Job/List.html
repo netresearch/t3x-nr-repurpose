@@ -45,6 +45,9 @@
                                     <span class="badge badge-{job.statusEnum.severity}">
                                         <f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{job.statusEnum.labelKey}" />
                                     </span>
+                                    <f:if condition="{job.failure}">
+                                        <span class="d-block text-muted mt-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:failure.{job.failure.value}.short" /></span>
+                                    </f:if>
                                 </td>
                                 <td class="col-nowrap">
                                     <f:render partial="Job/ArtifactSummaries" arguments="{summaries: '{artifactSummaries.{job.uid}}'}" />
@@ -56,11 +59,19 @@
                                         progressbar cannot be named, and its dark-scheme fill is below 3:1. Core v14 ships
                                         no .progress/.progress-bar CSS. The percentage beside it repeats the value for sight.
                                     --></f:comment>
-                                    <div class="nrrepurpose-progress">
-                                        <progress class="nrrepurpose-progress-track" max="100" value="{job.progress}"
-                                                  aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.progress.label', arguments: {0: job.uid})}"></progress>
-                                        <span class="nrrepurpose-progress-value" aria-hidden="true">{job.progress}%</span>
-                                    </div>
+                                    <f:if condition="{job.failed}">
+                                        <f:then>
+                                            <span aria-hidden="true">–</span>
+                                            <span class="visually-hidden"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.progress.none" /></span>
+                                        </f:then>
+                                        <f:else>
+                                            <div class="nrrepurpose-progress">
+                                                <progress class="nrrepurpose-progress-track" max="100" value="{job.progress}"
+                                                          aria-label="{f:translate(key: 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:list.progress.label', arguments: {0: job.uid})}"></progress>
+                                                <span class="nrrepurpose-progress-value" aria-hidden="true">{job.progress}%</span>
+                                            </div>
+                                        </f:else>
+                                    </f:if>
                                 </td>
                                 <td class="col-control">
                                     <f:link.action action="show" arguments="{job: job}" class="btn btn-sm btn-default">

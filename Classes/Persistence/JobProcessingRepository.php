@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Persistence;
 
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
@@ -70,7 +71,7 @@ class JobProcessingRepository
      * column; DataHandler keeps it for records it writes, and the worker writes
      * artifact rows directly, so the rows are counted here.
      */
-    public function finishJob(int $jobUid, JobStatus $status, string $error): void
+    public function finishJob(int $jobUid, JobStatus $status, string $error, ?FailureReason $reason = null): void
     {
         $artifacts = $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)
             ->count('uid', self::ARTIFACT_TABLE, ['job' => $jobUid]);
@@ -78,24 +79,38 @@ class JobProcessingRepository
         $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
             self::JOB_TABLE,
             [
-                'status'        => $status->value,
-                'current_step'  => 'done',
-                'progress'      => 100,
-                'error_message' => $error,
-                'artifacts'     => $artifacts,
-                'tstamp'        => time(),
+                'status'         => $status->value,
+                'current_step'   => 'done',
+                'progress'       => 100,
+                'error_message'  => $error,
+                'failure_reason' => $reason->value ?? '',
+                'artifacts'      => $artifacts,
+                'tstamp'         => time(),
             ],
             ['uid' => $jobUid],
         );
     }
 
-    public function markFailed(int $jobUid, string $error): void
+    public function markFailed(int $jobUid, string $error, FailureReason $reason): void
     {
         $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
             self::JOB_TABLE,
-            ['status' => JobStatus::Failed->value, 'error_message' => $error, 'tstamp' => time()],
+            ['status' => JobStatus::Failed->value, 'error_message' => $error, 'failure_reason' => $reason->value, 'tstamp' => time()],
             ['uid' => $jobUid],
         );
+    }
+
+    /**
+     * Back into the queue. One statement that only a failed job passes, so of two clicks, or of
+     * two people, one run starts: the caller dispatches only when this returns true.
+     */
+    public function requeueFailed(int $jobUid): bool
+    {
+        return $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
+            self::JOB_TABLE,
+            ['status' => JobStatus::Queued->value, 'current_step' => '', 'progress' => 0, 'error_message' => '', 'failure_reason' => '', 'tstamp' => time()],
+            ['uid' => $jobUid, 'status' => JobStatus::Failed->value],
+        ) === 1;
     }
 
     public function setLanguageDetected(int $jobUid, string $language): void
@@ -236,13 +251,14 @@ class JobProcessingRepository
      * Empty $fields is a no-op (no UPDATE issued).
      *
      * @param array<string, mixed> $fields keys: file_uid, subtitle_file_uid, source_html,
-     *                                     script_text, metadata, status, variant, error_message
+     *                                     script_text, metadata, status, variant, error_message,
+     *                                     failure_reason
      */
     public function updateArtifact(int $artifactUid, array $fields): void
     {
         $allowed = [
             'file_uid', 'subtitle_file_uid', 'source_html',
-            'script_text', 'metadata', 'status', 'variant', 'error_message',
+            'script_text', 'metadata', 'status', 'variant', 'error_message', 'failure_reason',
         ];
         $update = [];
         foreach ($allowed as $column) {

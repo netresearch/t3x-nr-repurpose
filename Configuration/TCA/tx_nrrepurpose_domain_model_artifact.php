@@ -26,6 +26,7 @@ return [
         'script_text'       => ['config' => ['type' => 'passthrough']],
         'status'            => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_artifact.status', 'config' => ['type' => 'input', 'readOnly' => true]],
         'error_message'     => ['config' => ['type' => 'text']],
+        'failure_reason'    => ['config' => ['type' => 'passthrough']],
         'metadata'          => ['config' => ['type' => 'passthrough']],
         // Written by the result view's review and scheduling actions and by the
         // nr_repurpose:publish-due command, never by the record form.

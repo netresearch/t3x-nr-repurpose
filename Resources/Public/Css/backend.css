@@ -130,3 +130,9 @@
     font-family: inherit;
     font-size: inherit;
 }
+
+/* The line an editor passes on: one click selects all of it. */
+.nrrepurpose-reference {
+    overflow-wrap: anywhere;
+    user-select: all;
+}

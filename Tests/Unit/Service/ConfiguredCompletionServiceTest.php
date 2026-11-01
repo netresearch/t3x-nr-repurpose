@@ -79,7 +79,7 @@ final class ConfiguredCompletionServiceTest extends TestCase
         $inner            = new FakeCompletionService();
         $inner->responses = [];
 
-        $subject          = $this->subject($inner, $configuration);
+        $subject = $this->subject($inner, $configuration);
 
         $subject->completeJson('json');
         $subject->completeStructured('structured', ['type' => 'object']);

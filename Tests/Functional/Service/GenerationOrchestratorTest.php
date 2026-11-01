@@ -45,6 +45,7 @@ use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
+use Netresearch\NrRepurpose\Service\UnusableAnswerException;
 use Netresearch\NrRepurpose\Source\PageSourceReader;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
@@ -452,18 +453,19 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * @return array<string, array{0: string, 1: Throwable, 2: string}> failing step, exception, stored error_message
+     * @return array<string, array{0: string, 1: Throwable, 2: string, 3: string}> failing step, exception, stored error_message, stored reason
      */
     public static function jobStepFailures(): array
     {
         $foreign = 'Provider answered 401 for https://api.example.test/v1 with key sk-secret; /var/www/html/var/transient/x.pdf';
 
         return [
-            'ingestion, own message'         => ['ingestion', new IngestionException('PDF URL returned HTTP 404: https://example.com/a.pdf'), 'PDF URL returned HTTP 404: https://example.com/a.pdf'],
-            'ingestion, foreign exception'   => ['ingestion', new RuntimeException($foreign), 'Ingestion failed'],
-            'analysis, own message'          => ['analysis', new AnalysisException('Cannot analyze an empty source document'), 'Cannot analyze an empty source document'],
-            'analysis, text model exception' => ['analysis', new RuntimeException($foreign), 'Analysis failed'],
-            'analysis, guardrail stop'       => ['analysis', new GuardrailViolationException('Guardrail', 'Es enthält Rabatt.'), 'Es enthält Rabatt.'],
+            'ingestion, own message'         => ['ingestion', new IngestionException('PDF URL returned HTTP 404: https://example.com/a.pdf'), 'PDF URL returned HTTP 404: https://example.com/a.pdf', 'source_unreadable'],
+            'ingestion, foreign exception'   => ['ingestion', new RuntimeException($foreign), 'Ingestion failed', 'internal'],
+            'analysis, own message'          => ['analysis', new AnalysisException('Cannot analyze an empty source document', 1749384000), 'Cannot analyze an empty source document', 'source_empty'],
+            'analysis, text model exception' => ['analysis', new RuntimeException($foreign), 'Analysis failed', 'internal'],
+            'analysis, unusable answer'      => ['analysis', new UnusableAnswerException($foreign), 'Analysis failed', 'answer_unusable'],
+            'analysis, guardrail stop'       => ['analysis', new GuardrailViolationException('Guardrail', 'Es enthält Rabatt.'), 'Es enthält Rabatt.', 'guardrail'],
         ];
     }
 
@@ -474,7 +476,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
      * "<step> failed" and the exception goes to the log.
      */
     #[DataProvider('jobStepFailures')]
-    public function testAFailedJobStepStoresOnlyTheExtensionsOwnMessage(string $step, Throwable $cause, string $expected): void
+    public function testAFailedJobStepStoresOnlyTheExtensionsOwnMessage(string $step, Throwable $cause, string $expected, string $reason): void
     {
         $jobUid = $this->seedJob();
         $jobs   = $this->get(JobProcessingRepository::class);
@@ -504,6 +506,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
         $row = $jobs->findRow($jobUid);
         self::assertSame('failed', $row['status']);
         self::assertSame($expected, $row['error_message']);
+        self::assertSame($reason, $row['failure_reason']);
         self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
     }
 

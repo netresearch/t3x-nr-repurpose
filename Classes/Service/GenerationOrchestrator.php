@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Service;
 
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
@@ -226,13 +227,13 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
 
         // 6) Final status. Each artifact carries its own error; the job names how many
         // formats failed, so a failed job is never without a reason (#77).
-        $failed          = $count - $ok;
-        [$final, $error] = match (true) {
-            $failed === 0 => [JobStatus::Done, ''],
-            $ok > 0       => [JobStatus::PartiallyDone, sprintf('%d of %d formats failed; each failed artifact shows its error', $failed, $count)],
-            default       => [JobStatus::Failed, sprintf('All %d formats failed; each artifact shows its error', $count)],
+        $failed                   = $count - $ok;
+        [$final, $error, $reason] = match (true) {
+            $failed === 0 => [JobStatus::Done, '', null],
+            $ok > 0       => [JobStatus::PartiallyDone, sprintf('%d of %d formats failed; each failed artifact shows its error', $failed, $count), FailureReason::SomeFormatsFailed],
+            default       => [JobStatus::Failed, sprintf('All %d formats failed; each artifact shows its error', $count), FailureReason::AllFormatsFailed],
         };
-        $this->jobs->finishJob($jobUid, $final, $error);
+        $this->jobs->finishJob($jobUid, $final, $error, $reason);
     }
 
     /**
@@ -240,7 +241,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
      * ingestion and analysis messages reach it: fixed texts, or naming the editor's own source
      * URL without user name, password, query and fragment (SourceUrlRedactor). Any other exception (the text model, Guzzle, poppler, the database) can carry
      * provider detail, paths or SQL: the row gets "<step> failed". The exception goes to the
-     * log either way.
+     * log either way. What the editor reads comes from the stored reason (FailureReason, ADR-011).
      */
     private function failJob(int $jobUid, string $step, Throwable $e): void
     {
@@ -248,6 +249,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         $this->jobs->markFailed(
             $jobUid,
             $e instanceof IngestionException || $e instanceof AnalysisException || $e instanceof GuardrailPolicyException ? $e->getMessage() : $step . ' failed',
+            FailureClassifier::reasonFor($e),
         );
     }
 }

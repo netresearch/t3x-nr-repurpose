@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\StorySlideRole;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\Support\StorySlide;
@@ -427,7 +428,7 @@ class StoryGenerator extends AbstractGenerator
             return;
         }
 
-        $this->failArtifact($artifactUid, $jobUid, $reason);
+        $this->failArtifact($artifactUid, $jobUid, $reason, FailureReason::AnswerUnusable);
     }
 
     /** Build one branded 9:16 slide HTML; seam isolated for unit testing. */

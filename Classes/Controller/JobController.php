@@ -266,6 +266,33 @@ class JobController extends ActionController
         return $this->moduleTemplate->renderResponse('Job/Show');
     }
 
+    /**
+     * Another run of a failed job, by whoever may see it. Job::isRetryable() decides here as it
+     * does for the button, so a stale page cannot run a job that gained a finished result.
+     */
+    public function retryAction(Job $job): ResponseInterface
+    {
+        if (!$this->jobVisibility->maySee($this->backendUser(), $job)) {
+            $this->logger->warning('Refused a new run of job {job}: backend user {backendUser} did not create it and may not see all jobs', [
+                'backendUser' => $this->backendUser()?->getUserId() ?? 0,
+                'job'         => (int) $job->getUid(),
+            ]);
+            $this->addFlashMessage($this->label('job.refused.access'), '', ContextualFeedbackSeverity::ERROR);
+
+            return $this->redirect('list');
+        }
+
+        $started = $job->isRetryable() && $this->jobSubmissionService->retry((int) $job->getUid());
+        $this->addFlashMessage(
+            $this->label($started ? 'job.retry.started' : 'job.retry.refused'),
+            '',
+            $started ? ContextualFeedbackSeverity::OK : ContextualFeedbackSeverity::WARNING,
+        );
+
+        // Extbase builds the backend route of the fixed action "show"; the argument is an int, not a URL.
+        return $this->redirect('show', null, null, ['job' => (int) $job->getUid()]); // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
+    }
+
     /** Approve or reject a finished artifact. */
     public function reviewAction(int $artifact, int $job, string $decision): ResponseInterface
     {

@@ -293,6 +293,7 @@ abstract class TextGeneratorTestCase extends TestCase
         self::assertSame($this->expectedType(), $row['type']);
         self::assertSame('failed', $row['status']);
         self::assertSame($this->expectedLabel() . ' generation failed', $row['error_message']);
+        self::assertSame('internal', $row['failure_reason'] ?? null, 'The card explains itself by this');
         self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $this->logger()->records));
     }
 

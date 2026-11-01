@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
 use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
 use Netresearch\NrRepurpose\Generator\Support\DialogueScript;
@@ -86,7 +87,7 @@ final class PodcastGenerator extends AbstractGenerator
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Podcast, 'default', 0, ArtifactStatus::Pending);
 
         if (!$ctx->grants->audio) {
-            $this->failArtifact($artifactUid, $jobUid, self::DENIED_AUDIO);
+            $this->failArtifact($artifactUid, $jobUid, self::DENIED_AUDIO, FailureReason::NotPermitted);
 
             return false;
         }
@@ -95,7 +96,7 @@ final class PodcastGenerator extends AbstractGenerator
         $turnCount      = max(1, count($ctx->brief->keyPoints) + count($ctx->brief->sections) + 2);
         $plannedTtsCost = self::TTS_COST_PER_TURN * $turnCount;
         if (!$this->specializedAllowed($ctx, $plannedTtsCost, $this->speech->isAvailable())) {
-            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or speech synthesis unavailable');
+            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or speech synthesis unavailable', FailureReason::BudgetOrService);
 
             return false;
         }
@@ -106,7 +107,7 @@ final class PodcastGenerator extends AbstractGenerator
             $dialogue      = $this->buildDialogue($ctx, $personaVoices);
             $turns         = $dialogue->turns;
             if ($turns === []) {
-                $this->failArtifact($artifactUid, $jobUid, 'LLM produced no dialogue turns');
+                $this->failArtifact($artifactUid, $jobUid, 'LLM produced no dialogue turns', FailureReason::AnswerUnusable);
 
                 return false;
             }
@@ -137,7 +138,7 @@ final class PodcastGenerator extends AbstractGenerator
             }
 
             if ($segmentPaths === []) {
-                $this->failArtifact($artifactUid, $jobUid, 'All podcast TTS turns failed');
+                $this->failArtifact($artifactUid, $jobUid, 'All podcast TTS turns failed', FailureReason::ProviderUnavailable);
 
                 return false;
             }

@@ -36,6 +36,9 @@ final class AiBoundaryTest
                 Selector::inNamespace('Gemini'),
                 Selector::inNamespace('Aws\BedrockRuntime'),
             )
+            // What nr-llm's services throw is their contract (nr-llm ADR-053), not provider
+            // code: FailureClassifier reads the class to tell the editor why a job failed.
+            ->excluding(Selector::inNamespace('Netresearch\NrLlm\Provider\Exception'))
             ->because('All AI calls go through nr-llm; nr_repurpose contains zero provider code.');
     }
 }

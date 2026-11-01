@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
 use Closure;
+use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
+use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -67,6 +70,43 @@ final class JobSubmissionServiceTest extends AbstractFunctionalTestCase
         );
         self::assertCount(1, $stamps);
         self::assertSame(['doctrine'], array_values($stamps)[0]->getTransportNames());
+    }
+
+    /** Two clicks, one run: what stops the second is the status, in the statement itself. */
+    public function testAFailedJobRunsAgainOnceAndKeepsNoOldArtifact(): void
+    {
+        $dispatched = [];
+        $bus        = new class ($dispatched) implements MessageBusInterface {
+            /** @param list<object> $sink */
+            public function __construct(private array &$sink) {}
+
+            public function dispatch(object $message, array $stamps = []): Envelope
+            {
+                $this->sink[] = $message;
+
+                return new Envelope($message);
+            }
+        };
+        $jobs    = $this->get(JobProcessingRepository::class);
+        $service = new JobSubmissionService($this->get(JobRepository::class), $this->get(PersistenceManagerInterface::class), $bus, $jobs);
+
+        $job = new Job();
+        $job->setSourceValue('https://example.com/');
+
+        $uid        = $service->submit($job, 1);
+        $dispatched = [];
+        $jobs->insertArtifact($uid, ArtifactType::Faq, 'default', 0, ArtifactStatus::Failed, 'FAQ failed');
+        $jobs->markFailed($uid, 'Analysis failed', FailureReason::AnswerUnusable);
+
+        self::assertTrue($service->retry($uid));
+        self::assertFalse($service->retry($uid), 'The job is queued now');
+
+        self::assertCount(1, $dispatched);
+        $row = $jobs->findRow($uid) ?? [];
+        self::assertSame(['queued', '', '', 0], [$row['status'], $row['error_message'], $row['failure_reason'], (int) $row['progress']]);
+        self::assertSame(0, GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->count('uid', 'tx_nrrepurpose_domain_model_artifact', ['job' => $uid]));
     }
 
     /**

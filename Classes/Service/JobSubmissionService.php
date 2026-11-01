@@ -60,6 +60,32 @@ final readonly class JobSubmissionService
             $this->processing->attachSourcePdf($jobUid, $sourceFileUid);
         }
 
+        $this->dispatch($jobUid);
+
+        return $jobUid;
+    }
+
+    /**
+     * Another run of a failed job. Its failed artifact rows go first: generation clears them
+     * anyway, but a run that fails earlier would leave the old reasons beside the new one.
+     * The source is read and every model call made and billed again; nothing is reused.
+     *
+     * @return bool false when the job was no longer failed, so no second run starts
+     */
+    public function retry(int $jobUid): bool
+    {
+        if (!$this->processing->requeueFailed($jobUid)) {
+            return false;
+        }
+
+        $this->processing->deleteArtifactsForJob($jobUid);
+        $this->dispatch($jobUid);
+
+        return true;
+    }
+
+    private function dispatch(int $jobUid): void
+    {
         // Pin the transport explicitly: TYPO3's TransportLocator (unlike Symfony's
         // SendersLocator) does NOT treat the '*' routing entry as a fallback — it
         // yields a sender for EVERY matching routing type. With core's default
@@ -73,7 +99,5 @@ final readonly class JobSubmissionService
             new GenerateArtifactsMessage($jobUid),
             [new TransportNamesStamp(['doctrine'])],
         );
-
-        return $jobUid;
     }
 }

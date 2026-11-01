@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\Support\DiagramBodySanitizer;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -176,13 +177,13 @@ class SchaubildGenerator extends AbstractGenerator
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html_bg', 0, ArtifactStatus::Pending);
         if (!$ctx->grants->vision) {
-            $this->failArtifact($artifactUid, $jobUid, self::DENIED_VISION);
+            $this->failArtifact($artifactUid, $jobUid, self::DENIED_VISION, FailureReason::NotPermitted);
 
             return false;
         }
 
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
-            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or image service unavailable');
+            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or image service unavailable', FailureReason::BudgetOrService);
 
             return false;
         }
@@ -236,13 +237,13 @@ class SchaubildGenerator extends AbstractGenerator
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'ki_image', 0, ArtifactStatus::Pending);
         if (!$ctx->grants->vision) {
-            $this->failArtifact($artifactUid, $jobUid, self::DENIED_VISION);
+            $this->failArtifact($artifactUid, $jobUid, self::DENIED_VISION, FailureReason::NotPermitted);
 
             return false;
         }
 
         if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
-            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or image service unavailable');
+            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or image service unavailable', FailureReason::BudgetOrService);
 
             return false;
         }
