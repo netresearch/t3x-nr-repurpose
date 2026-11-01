@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-11-01
+
+- `netresearch/nr-llm` is accepted up to `^0.43`.
+
 ## [0.12.1] - 2026-11-01
 
 ### Fixed
@@ -551,7 +555,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.2...HEAD
+[0.12.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.5...v0.12.0
 [0.11.5]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.11.4...v0.11.5
