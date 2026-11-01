@@ -17,6 +17,19 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-12-1:
+
+Version 0.12.1 (2026-11-01)
+===========================
+
+Fixed
+-----
+
+-   The Records module heads the job table's first column with "Source".
+-   The file reference of a picked PDF lies on the job's page.
+-   A failed story slide shows its reason in the text.
+-   A diagram loses only the variant whose text failed.
+
 .. _version-0-12-0:
 
 Version 0.12.0 (2026-11-01)
