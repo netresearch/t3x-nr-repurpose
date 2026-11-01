@@ -14,6 +14,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `netresearch/nr-llm` is accepted at `^0.35 || ^0.36 || ^0.37 || ^0.38 || ^0.39 || ^0.40 || ^0.41 || ^0.42` (`ext_emconf.php`: `0.35.0-0.42.99`). On a 0.x version a caret does not admit the next minor, so an installation could not move to nr-llm 0.42.0. nr-llm 0.42 adds `defer()` to `AgentRuntimeInterface`, which this extension does not implement.
 
+### Fixed
+
+- `WebPageFetcher` no longer casts a value that is already a string in `densestNode()` (#189). Behaviour does not change.
+
 ## [0.11.4] - 2026-10-20
 
 ### Changed
