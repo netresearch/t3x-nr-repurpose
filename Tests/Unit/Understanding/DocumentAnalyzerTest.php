@@ -115,7 +115,7 @@ final class DocumentAnalyzerTest extends TestCase
         $fake     = new ScriptedJsonCompletion([$this->briefResult('en')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 24000, chunkSize: 12000);
 
-        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
+        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7, 'source_type' => 'page', 'site' => 'main']));
 
         $call = $fake->jsonCalls[0];
         self::assertStringContainsString('Revenue grew across all regions.', $call['prompt']);
@@ -124,6 +124,19 @@ final class DocumentAnalyzerTest extends TestCase
         self::assertSame('json', $options->getResponseFormat());
         self::assertNotSame('', (string) $options->getSystemPrompt());
         self::assertSame(7, $options->getBeUserUid());
+        // The job's site, so nr-llm runs the analysis on the site's configuration (ADR-012).
+        self::assertSame('main', $options->getSite());
+    }
+
+    /** A job without a site (URL, PDF) leaves the call on the instance default. */
+    public function testAJobWithoutASiteNamesNone(): void
+    {
+        $fake     = new ScriptedJsonCompletion([$this->briefResult('en')]);
+        $analyzer = new DocumentAnalyzer($fake, new NullLogger());
+
+        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
+
+        self::assertNull($fake->jsonCalls[0]['options']?->getSite());
     }
 
     /**
@@ -151,12 +164,13 @@ final class DocumentAnalyzerTest extends TestCase
         ]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
-        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 0]));
+        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 0, 'source_type' => 'page', 'site' => 'main']));
 
         $options = $fake->jsonCalls[1]['options'];
         self::assertInstanceOf(ChatOptions::class, $options);
         self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
         self::assertSame(CallerSource::ANALYZE_DOCUMENT, $options->getCallerSourceOperation());
+        self::assertSame('main', $options->getSite());
     }
 
     /**
@@ -178,7 +192,13 @@ final class DocumentAnalyzerTest extends TestCase
         $fake      = new ScriptedJsonCompletion([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
         $analyzer  = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000);
 
-        $analyzer->analyze($document, JobSnapshots::of(['uid' => 1, 'be_user' => 7]));
+        $analyzer->analyze($document, JobSnapshots::of(['uid' => 1, 'be_user' => 7, 'source_type' => 'page', 'site' => 'main']));
+
+        // Every map call and the synthesis name the job's site (ADR-012).
+        self::assertSame(['main', 'main', 'main', 'main'], array_map(
+            static fn (array $call): ?string => $call['options'] instanceof ChatOptions ? $call['options']->getSite() : null,
+            $fake->jsonCalls,
+        ));
 
         $operations = array_map(
             static function (array $call): ?string {

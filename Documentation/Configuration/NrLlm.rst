@@ -65,6 +65,45 @@ Keys are always referenced by identifier: both the chat providers and the
 specialized services let nr-llm resolve and inject the key — no plaintext key
 is ever set here. See :ref:`adr-003`.
 
+.. _configuration-site:
+
+A site's own LLM configuration
+==============================
+
+A site can name the LLM configuration its AI calls run on, in nr-llm's site
+setting ``nrllm.configuration`` (see the nr-llm manual, chapter "Site
+settings"). A job whose source is a page of that site names the site on every
+text call: the analysis, the podcast script, the diagram body, the story copy
+and the text and document formats. The site is stored with the job when it is
+created, so the worker and a later retry use it.
+
+*   While the ``nr_repurpose_text`` record exists, is active and is not
+    restricted to backend groups, the text calls run on it. nr-llm treats an
+    extension's own configuration as an explicit choice that wins over the
+    site. The site then only selects the term lists bound to it.
+*   Without that record, the text calls take the instance default, and nr-llm
+    replaces it with the configuration the site names. A site that names a
+    configuration that does not exist, is disabled or is restricted to backend
+    groups fails the job; there is no fallback to the default.
+*   A job from a URL or a PDF has no site and keeps the instance default.
+*   Images (``nr_repurpose_image``), speech (``nr_repurpose_tts``) and the
+    OCR of PDF pages do not use the site's configuration.
+*   A page tree whose pages belong to several sites uses the site of the
+    first page the job reads.
+
+To let the sites' configurations answer, ``nr_repurpose_text`` has to go:
+first mark another configuration as the instance default, one with a model
+assigned directly (not chosen by criteria) and without a backend-group
+restriction, because nr-llm does not use any other configuration as the
+default. Then delete or deactivate ``nr_repurpose_text``. If it is the instance default when it goes,
+the installation has none, and URL and PDF jobs, and page jobs of a site that
+names no configuration, fail at the analysis.
+
+A running worker keeps what it read: changes to ``nr_repurpose_text`` and to a
+site's ``nrllm.configuration`` reach it only after it restarts.
+
+:ref:`adr-012` records the decisions.
+
 .. _configuration-snippets:
 
 Prompt snippets

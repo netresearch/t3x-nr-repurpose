@@ -27,6 +27,7 @@ use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\AudioStitcherInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\JobLlmOptions;
 use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -237,13 +238,13 @@ final class PodcastGenerator extends AbstractGenerator
             SourceMaterial::SYSTEM_RULE,
             SourceMaterial::language($ctx->brief->language),
         );
-        $options = (new ChatOptions(
+        $options = JobLlmOptions::forJob((new ChatOptions(
             temperature: 0.6,
             responseFormat: 'json',
             systemPrompt: $systemPrompt,
             beUserUid: $ctx->beUser,
             plannedCost: self::SCRIPT_COST,
-        ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_PODCAST);
+        ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_PODCAST), $ctx->job);
 
         $data     = $this->completion->completeJson($prompt, $options);
         $rawTurns = is_array($data['turns'] ?? null) ? $data['turns'] : [];
@@ -308,13 +309,13 @@ final class PodcastGenerator extends AbstractGenerator
             SourceMaterial::language($ctx->brief->language),
             $speakerAlternation,
         );
-        $options = (new ChatOptions(
+        $options = JobLlmOptions::forJob((new ChatOptions(
             temperature: 0.6,
             responseFormat: 'json',
             systemPrompt: $systemPrompt,
             beUserUid: $ctx->beUser,
             plannedCost: self::SCRIPT_COST,
-        ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_PODCAST);
+        ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_PODCAST), $ctx->job);
 
         $data     = $this->completion->completeJson($prompt, $options);
         $rawTurns = is_array($data['turns'] ?? null) ? $data['turns'] : [];

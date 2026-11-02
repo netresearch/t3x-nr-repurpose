@@ -10,6 +10,7 @@ CREATE TABLE tx_nrrepurpose_domain_model_job (
     source_label varchar(255) DEFAULT '' NOT NULL,
     source_depth smallint unsigned DEFAULT 0 NOT NULL,
     source_report text,
+    site varchar(255) DEFAULT '' NOT NULL,
     theme varchar(16) DEFAULT 'nr' NOT NULL,
     pdf_mode varchar(16) DEFAULT 'auto' NOT NULL,
     want_podcast smallint unsigned DEFAULT 1 NOT NULL,

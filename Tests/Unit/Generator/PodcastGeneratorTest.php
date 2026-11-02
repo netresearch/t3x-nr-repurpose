@@ -66,7 +66,7 @@ final class PodcastGeneratorTest extends TestCase
         );
 
         return new GenerationContext(
-            JobSnapshots::of(['uid' => 7, 'theme' => 'nr', 'be_user' => 3, 'want_podcast' => $wantPodcast]),
+            JobSnapshots::of(['uid' => 7, 'theme' => 'nr', 'be_user' => 3, 'want_podcast' => $wantPodcast, 'source_type' => 'page', 'site' => 'main']),
             $document,
             $brief,
             'nr',
@@ -239,6 +239,8 @@ final class PodcastGeneratorTest extends TestCase
         self::assertSame('done', $update['status']);
         self::assertSame('json', $completion->completeJsonCalls[0]['options']?->getResponseFormat());
         self::assertSame(3, $completion->completeJsonCalls[0]['options']?->getBeUserUid());
+        // The job's site, so nr-llm runs the script on the site's configuration (ADR-012).
+        self::assertSame('main', $completion->completeJsonCalls[0]['options']?->getSite());
     }
 
     public function testWebVttCuesUseProbedDurations(): void
@@ -537,6 +539,7 @@ final class PodcastGeneratorTest extends TestCase
         self::assertSame(CallerSource::GENERATE_PODCAST, $options->getCallerSourceOperation());
         // The wither returns a copy — the budget guard must survive it.
         self::assertSame(3, $options->getBeUserUid());
+        self::assertSame('main', $options->getSite());
     }
 
     /**

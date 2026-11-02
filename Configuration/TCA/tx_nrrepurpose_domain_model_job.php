@@ -49,6 +49,8 @@ return [
         ],
         'source_depth'  => ['config' => ['type' => 'passthrough']],
         'source_report' => ['config' => ['type' => 'passthrough']],
+        // The site of a page job, for nr-llm (ADR-012); written by the module form only.
+        'site' => ['config' => ['type' => 'passthrough']],
         // Written by the worker, read by the result view (FailureReason).
         'failure_reason' => ['config' => ['type' => 'passthrough']],
         // The result view shows it as the time of a failure, and a job that stands still by it.

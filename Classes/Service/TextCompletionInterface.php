@@ -18,9 +18,10 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  * The extension's own contract rather than nr-llm's CompletionServiceInterface:
  * nr-llm 0.39 changed `completeStructured()` to return a
  * StructuredCompletionResponse instead of an array (ADR-211), and no single class
- * can implement that method for 0.38 and 0.39 at once — a return type has to be a
+ * could implement that method for 0.38 and 0.39 at once — a return type has to be a
  * subtype of both, and `array` and an object have none in common. This interface
- * is implemented here and only calls into nr-llm, so it holds on both.
+ * is implemented here and only calls into nr-llm, so the generators do not depend
+ * on that return type.
  */
 interface TextCompletionInterface
 {

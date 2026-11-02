@@ -104,6 +104,8 @@ final readonly class JobSourceAssigner
         $title = $page['title'] ?? '';
         $job->setSourceValue((string) $pageUid);
         $job->setSourceUrl($url->url);
+        // The site of the page whose URL the job keeps: its LLM configuration runs the job (ADR-012).
+        $job->setSite($url->site);
         $job->setSourceDepth($depth);
         $job->setSourceLabel(self::label(is_string($title) ? $title : '', $pageUid));
 

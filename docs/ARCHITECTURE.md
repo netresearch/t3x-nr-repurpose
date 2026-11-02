@@ -32,7 +32,7 @@ Derived from `Configuration/Services.yaml` (no phpat architecture test suite exi
 
 - The orchestrator consumes generators only via the `nr_repurpose.artifact_generator` tagged iterator; new generators are registered there, never called directly.
 - Swappable backends live behind interfaces with a DI alias: `ImageGeneratorInterface` → `DallEImageGenerator`, `SpeechSynthesizerInterface` → `OpenAiSpeechSynthesizer`, `HtmlToImageRendererInterface` → `PlaywrightHtmlToImageRenderer`, `ImageCompositorInterface` → `GdImageCompositor`, `AudioStitcherInterface` → `FfmpegAudioStitcher`, `PopplerRunnerInterface` → `SymfonyProcessPopplerRunner`, `ProcessRunnerInterface` → `SymfonyProcessRunner`. Change the alias, not the callers.
-- Text completions go through `TextCompletionInterface` (aliased to `ConfiguredCompletionService`), never through nr-llm's `CompletionServiceInterface` directly: nr-llm 0.39 changed that interface's structured return type, and the extension's own interface keeps one codebase working on nr-llm 0.38 and 0.39 — never instantiate nr-llm provider services directly.
+- Text completions go through `TextCompletionInterface` (aliased to `ConfiguredCompletionService`), never through nr-llm's `CompletionServiceInterface` directly: nr-llm 0.39 changed that interface's structured return type, and the extension's own interface keeps the generators independent of it — never instantiate nr-llm provider services directly.
 - `Classes/Domain/Model/` and `Classes/Queue/Message/` are excluded from DI autowiring — plain data objects.
 
 ## Data flow

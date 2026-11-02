@@ -15,6 +15,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\JobLlmOptions;
 use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 
@@ -63,15 +64,14 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
 
     public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
     {
-        $beUser = $job->beUser;
-        $text   = trim($document->text);
+        $text = trim($document->text);
 
         if ($text === '') {
             throw new AnalysisException('Cannot analyze an empty source document', 1749384000);
         }
 
         if (mb_strlen($text) > $this->chunkThreshold) {
-            $synthesisInput = $this->mapReduce($text, $beUser);
+            $synthesisInput = $this->mapReduce($text, $job);
         } else {
             $synthesisInput = $text;
         }
@@ -79,7 +79,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
         $prompt  = $this->buildSynthesisPrompt($document, $synthesisInput);
         $decoded = $this->completion->completeJson(
             $prompt,
-            $this->jsonOptions(self::SYSTEM_PROMPT, $beUser, CallerSource::ANALYZE_DOCUMENT),
+            $this->jsonOptions(self::SYSTEM_PROMPT, $job, CallerSource::ANALYZE_DOCUMENT),
         );
 
         if (!$this->hasRequiredBriefKeys($decoded)) {
@@ -100,7 +100,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
                 . '— non-empty "title" and "summary" are mandatory.';
             $decoded = $this->completion->completeJson(
                 $prompt,
-                $this->jsonOptions($retrySystemPrompt, $beUser, CallerSource::ANALYZE_DOCUMENT),
+                $this->jsonOptions($retrySystemPrompt, $job, CallerSource::ANALYZE_DOCUMENT),
             );
         }
 
@@ -137,7 +137,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
      * Map step: summarize each chunk; returns the concatenated per-chunk summaries used as the
      * reduce input.
      */
-    private function mapReduce(string $text, int $beUser): string
+    private function mapReduce(string $text, JobSnapshot $job): string
     {
         $chunks = $this->splitIntoChunks($text);
         $this->logger->info('DocumentAnalyzer map-reduce', ['chunks' => count($chunks)]);
@@ -154,7 +154,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
             $prompt  = SourceMaterial::wrap('SECTION ' . ($index + 1) . ":\n" . $chunk);
             $decoded = $this->completion->completeJson(
                 $prompt,
-                $this->jsonOptions(self::MAP_SYSTEM_PROMPT, $beUser, CallerSource::ANALYZE_DOCUMENT_CHUNK),
+                $this->jsonOptions(self::MAP_SYSTEM_PROMPT, $job, CallerSource::ANALYZE_DOCUMENT_CHUNK),
             );
 
             $summary     = is_string($decoded['summary'] ?? null) ? $decoded['summary'] : '';
@@ -202,16 +202,16 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
         );
     }
 
-    private function jsonOptions(string $systemPrompt, int $beUser, string $operation): ChatOptions
+    private function jsonOptions(string $systemPrompt, JobSnapshot $job, string $operation): ChatOptions
     {
-        $options = (new ChatOptions(
+        $options = JobLlmOptions::forJob((new ChatOptions(
             temperature: 0.3,
             responseFormat: 'json',
             systemPrompt: $systemPrompt,
-        ))->withCallerSource(CallerSource::EXTENSION, $operation);
+        ))->withCallerSource(CallerSource::EXTENSION, $operation), $job);
 
         // beUserUid opts the call into nr-llm BudgetMiddleware; 0 = skip (anonymous/CLI).
-        return $beUser > 0 ? $options->withBeUserUid($beUser) : $options;
+        return $job->beUser > 0 ? $options->withBeUserUid($job->beUser) : $options;
     }
 
     /**

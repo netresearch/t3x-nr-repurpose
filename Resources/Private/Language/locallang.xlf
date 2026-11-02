@@ -292,7 +292,7 @@
       <trans-unit id="failure.provider_setup.what"><source>The AI service could not be used with the configured access: a key, a configuration or a permission is missing or wrong.</source></trans-unit>
       <trans-unit id="failure.provider_setup.result"><source>No results were created, and nothing was published.</source></trans-unit>
       <trans-unit id="failure.provider_setup.action"><source>You cannot solve this yourself. Once your administrator has corrected it, start the job again with the button below.</source></trans-unit>
-      <trans-unit id="failure.provider_setup.admin"><source>Ask your administrator to check the AI provider, its API key and the AI configurations "Content Repurpose".</source></trans-unit>
+      <trans-unit id="failure.provider_setup.admin"><source>Ask your administrator to check the AI provider, its API key, the AI configurations "Content Repurpose" and, for a page, the AI configuration its site names.</source></trans-unit>
       <trans-unit id="failure.budget_exhausted.short"><source>The AI budget is used up</source></trans-unit>
       <trans-unit id="failure.budget_exhausted.what"><source>The AI budget of the user who created this job is used up, so the AI service was not called any more.</source></trans-unit>
       <trans-unit id="failure.budget_exhausted.result"><source>No results were created, and nothing was published.</source></trans-unit>

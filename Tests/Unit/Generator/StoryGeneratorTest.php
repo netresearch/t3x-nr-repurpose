@@ -67,7 +67,7 @@ final class StoryGeneratorTest extends TestCase
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief    = new ContentBrief('Report', $summary, $keyPoints, [], 'All', 'en');
 
-        return new GenerationContext(JobSnapshots::of(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0, 'want_video' => $wantVideo ? 1 : 0]), $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
+        return new GenerationContext(JobSnapshots::of(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0, 'want_video' => $wantVideo ? 1 : 0, 'source_type' => 'page', 'site' => 'main']), $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
     }
 
     /** @param array<mixed>|Throwable $completionResult */
@@ -637,6 +637,8 @@ final class StoryGeneratorTest extends TestCase
         self::assertSame(CallerSource::GENERATE_STORY, $options->getCallerSourceOperation());
         // The wither returns a copy — the budget guard must survive it.
         self::assertSame(5, $options->getBeUserUid());
+        // The job's site, so nr-llm runs the copy on the site's configuration (ADR-012).
+        self::assertSame('main', $options->getSite());
     }
 
     public function testSlidesPromptCarriesTheComposedSnippetSections(): void

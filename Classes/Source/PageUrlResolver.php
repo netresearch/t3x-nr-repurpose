@@ -42,20 +42,21 @@ class PageUrlResolver
     {
         $pageUid = ScalarCast::int($page['uid'] ?? 0);
         try {
-            $uri = $this->siteFinder->getSiteByPageId($pageUid)->getRouter()->generateUri($page, ['_language' => 0]);
+            $site = $this->siteFinder->getSiteByPageId($pageUid);
+            $uri  = $site->getRouter()->generateUri($page, ['_language' => 0]);
         } catch (SiteNotFoundException|InvalidRouteArgumentsException $e) {
             throw new IngestionException(sprintf('Page %d has no public URL: it belongs to no site', $pageUid), 1749379485, $e);
         }
 
         if ($uri->getHost() !== '') {
-            return new PublicPageUrl((string) $uri, true);
+            return new PublicPageUrl((string) $uri, true, $site->getIdentifier());
         }
 
         if ($origin === '') {
             throw new IngestionException(sprintf('Page %d has no public URL: its site base names no host', $pageUid), 1749379486);
         }
 
-        return new PublicPageUrl(rtrim($origin, '/') . $uri, false);
+        return new PublicPageUrl(rtrim($origin, '/') . $uri, false, $site->getIdentifier());
     }
 
     /** Scheme, host and port of an absolute URL; '' when it has no host. */

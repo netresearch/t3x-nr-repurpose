@@ -78,6 +78,7 @@ final class JobSnapshotTest extends TestCase
         self::assertSame(0, $job->sourceDepth, 'A row from before the column reads as the page alone');
         self::assertSame(3, JobSnapshot::fromRow(['uid' => 1, 'source_type' => 'page', 'source_depth' => '3'])->sourceDepth);
         self::assertSame(SourceType::Page, JobSnapshot::fromRow(['uid' => 1, 'source_type' => 'page'])->sourceType);
+        self::assertSame('main', JobSnapshot::fromRow(['uid' => 1, 'source_type' => 'page', 'site' => 'main'])->site);
         self::assertSame('https://example.com/report.pdf', $job->sourceValue);
         self::assertSame(PdfMode::Tables, $job->pdfMode);
         self::assertSame('neutral', $job->theme);
@@ -109,16 +110,28 @@ final class JobSnapshotTest extends TestCase
         self::assertSame(PdfMode::Auto, $job->pdfMode);
         self::assertSame('nr', $job->theme);
         self::assertSame(0, $job->beUser);
+        self::assertSame('', $job->site, 'A row from before the column names no site');
         self::assertTrue($job->promptSnippets->isEmpty());
         foreach (self::FLAGS as $type) {
             self::assertFalse($job->wants($type), $type->value);
         }
     }
 
+    /**
+     * The record view can turn a stored page job into a URL or PDF job; the site of its former
+     * page must not follow it into the worker (ADR-012).
+     */
+    public function testASiteCountsOnlyForAPageJob(): void
+    {
+        foreach (['url', 'pdf_url', 'pdf_fal'] as $type) {
+            self::assertSame('', JobSnapshot::fromRow(['uid' => 1, 'source_type' => $type, 'site' => 'main'])->site, $type);
+        }
+    }
+
     public function testNullColumnsTakeThePipelineDefaults(): void
     {
         $row = ['uid' => 5];
-        foreach (['status', 'source_type', 'source_value', 'pdf_mode', 'theme', 'be_user', 'prompt_snippets', ...array_keys(self::FLAGS)] as $column) {
+        foreach (['status', 'source_type', 'source_value', 'pdf_mode', 'theme', 'be_user', 'prompt_snippets', 'site', ...array_keys(self::FLAGS)] as $column) {
             $row[$column] = null;
         }
 

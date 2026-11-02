@@ -31,9 +31,8 @@ use Psr\Log\LoggerInterface;
  * resolves the named configuration and dispatches through the matching
  * `*ForConfiguration()` entry point. Per-call budget metadata on the options
  * is preserved on the configuration path. It implements the extension's own
- * TextCompletionInterface, not nr-llm's interface, so it loads with nr-llm
- * 0.38 and 0.39 alike; the one return shape that differs between them, the
- * structured answer, is unwrapped here.
+ * TextCompletionInterface, not nr-llm's interface; the structured answer, whose
+ * return shape nr-llm 0.39 changed, is unwrapped here.
  *
  * Fail-soft: when the "nr_repurpose_text" record is not imported (or inactive,
  * or access-restricted in a user-less worker context) resolution falls back to
@@ -66,7 +65,7 @@ final class ConfiguredCompletionService implements TextCompletionInterface
     /**
      * nr-llm's codes for an answer that is no JSON (2805117333), no object (2805117334) or empty
      * at the output limit (2041730951, OutputBudgetExhaustedException since nr-llm 0.43.2).
-     * The code and not the class, because older versions of nr-llm stay supported.
+     * The code and not the class: the check dates from when older versions of nr-llm were supported.
      */
     private const array UNUSABLE_ANSWER_CODES = [2805117333, 2805117334, 2041730951];
 
@@ -173,11 +172,10 @@ final class ConfiguredCompletionService implements TextCompletionInterface
     }
 
     /**
-     * The decoded answer of a structured completion. nr-llm up to 0.38 returns
-     * it as the array itself; 0.39 returns a StructuredCompletionResponse whose
-     * `data` it is (ADR-211). The parameter is `mixed` because the declared
-     * type depends on the installed nr-llm version. `instanceof` does not
-     * autoload, so the check runs on 0.38, where the class does not exist.
+     * The decoded answer of a structured completion. nr-llm 0.39 and later return
+     * a StructuredCompletionResponse whose `data` it is (ADR-211); nr-llm up to
+     * 0.38 returned the array itself, which this still accepts although the
+     * required version (^0.43.4) no longer installs such a version.
      *
      * @return array<string, mixed>
      */

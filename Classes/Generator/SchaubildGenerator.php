@@ -24,6 +24,7 @@ use Netresearch\NrRepurpose\Rendering\HtmlToImageRendererInterface;
 use Netresearch\NrRepurpose\Rendering\ImageCompositorInterface;
 use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\JobLlmOptions;
 use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -330,12 +331,12 @@ class SchaubildGenerator extends AbstractGenerator
     protected function renderDiagramHtml(GenerationContext $ctx, bool $transparent): string
     {
         $brief   = $ctx->brief;
-        $options = (new ChatOptions(
+        $options = JobLlmOptions::forJob((new ChatOptions(
             temperature: 0.3,
             systemPrompt: $this->diagramSystemPrompt($ctx),
             beUserUid: $ctx->beUser,
             plannedCost: 0.03,
-        ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_DIAGRAM);
+        ))->withCallerSource(CallerSource::EXTENSION, CallerSource::GENERATE_DIAGRAM), $ctx->job);
         // The body is model output steered by the source text: only static, styled markup
         // reaches the template, which outputs it unescaped.
         $bodyHtml = DiagramBodySanitizer::sanitize(self::stripCodeFences($this->completion->completeMarkdown($this->diagramBodyPrompt($ctx), $options)));
