@@ -66,7 +66,7 @@ final class PodcastGeneratorTest extends TestCase
         );
 
         return new GenerationContext(
-            JobSnapshots::of(['uid' => 7, 'theme' => 'nr', 'be_user' => 3, 'want_podcast' => $wantPodcast, 'site' => 'main']),
+            JobSnapshots::of(['uid' => 7, 'theme' => 'nr', 'be_user' => 3, 'want_podcast' => $wantPodcast, 'source_type' => 'page', 'site' => 'main']),
             $document,
             $brief,
             'nr',

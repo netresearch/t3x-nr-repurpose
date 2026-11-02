@@ -80,7 +80,9 @@ Consequences
 ◐  While ``nr_repurpose_text`` can be used, which the extension's setup
    recommends, the site's configuration does not apply to the text calls. To
    use it, an administrator marks another configuration as the instance default
-   and then deletes or deactivates that record; removing the instance default
+   (one with a directly assigned model and no backend-group restriction, the
+   only kind nr-llm uses as the default) and then deletes or deactivates that
+   record; removing the instance default
    would fail every job without a site configuration.
 
 ◐  A running worker keeps what it read: changes to ``nr_repurpose_text`` and to

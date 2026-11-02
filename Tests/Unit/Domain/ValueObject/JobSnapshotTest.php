@@ -117,6 +117,17 @@ final class JobSnapshotTest extends TestCase
         }
     }
 
+    /**
+     * The record view can turn a stored page job into a URL or PDF job; the site of its former
+     * page must not follow it into the worker (ADR-012).
+     */
+    public function testASiteCountsOnlyForAPageJob(): void
+    {
+        foreach (['url', 'pdf_url', 'pdf_fal'] as $type) {
+            self::assertSame('', JobSnapshot::fromRow(['uid' => 1, 'source_type' => $type, 'site' => 'main'])->site, $type);
+        }
+    }
+
     public function testNullColumnsTakeThePipelineDefaults(): void
     {
         $row = ['uid' => 5];

@@ -67,7 +67,7 @@ final class StoryGeneratorTest extends TestCase
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief    = new ContentBrief('Report', $summary, $keyPoints, [], 'All', 'en');
 
-        return new GenerationContext(JobSnapshots::of(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0, 'want_video' => $wantVideo ? 1 : 0, 'site' => 'main']), $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
+        return new GenerationContext(JobSnapshots::of(['uid' => 21, 'theme' => 'nr', 'be_user' => 5, 'want_story' => $wantStory ? 1 : 0, 'want_video' => $wantVideo ? 1 : 0, 'source_type' => 'page', 'site' => 'main']), $document, $brief, 'nr', 5, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
     }
 
     /** @param array<mixed>|Throwable $completionResult */

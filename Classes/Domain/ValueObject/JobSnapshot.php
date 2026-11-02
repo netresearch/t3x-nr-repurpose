@@ -41,7 +41,7 @@ final readonly class JobSnapshot
         public int $sourceDepth = 0,
         // The public URL of a page job's page; '' for any other job.
         public string $sourceUrl = '',
-        // The identifier of the site a page job reads; '' for any other job (ADR-012).
+        // The identifier of the site a page job reads; '' for any other job, whatever the row holds (ADR-012).
         public string $site = '',
         public bool $wantPodcast = false,
         public bool $wantSchaubild = false,
@@ -88,7 +88,9 @@ final readonly class JobSnapshot
             promptSnippets: PromptSnippetSelection::fromJson(self::string($row, 'prompt_snippets', '')),
             sourceDepth: self::unsignedInt($row, 'source_depth', 0),
             sourceUrl: self::string($row, 'source_url', ''),
-            site: self::string($row, 'site', ''),
+            // Only a page job has a site: the record view can turn a stored page job into a URL or
+            // PDF job, and the site of its former page must not run that job (ADR-012).
+            site: $sourceType === SourceType::Page ? self::string($row, 'site', '') : '',
             wantPodcast: self::flag($row, 'want_podcast'),
             wantSchaubild: self::flag($row, 'want_schaubild'),
             wantStory: self::flag($row, 'want_story'),

@@ -115,7 +115,7 @@ final class DocumentAnalyzerTest extends TestCase
         $fake     = new ScriptedJsonCompletion([$this->briefResult('en')]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 24000, chunkSize: 12000);
 
-        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7, 'site' => 'main']));
+        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 7, 'source_type' => 'page', 'site' => 'main']));
 
         $call = $fake->jsonCalls[0];
         self::assertStringContainsString('Revenue grew across all regions.', $call['prompt']);
@@ -164,7 +164,7 @@ final class DocumentAnalyzerTest extends TestCase
         ]);
         $analyzer = new DocumentAnalyzer($fake, new NullLogger());
 
-        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 0, 'site' => 'main']));
+        $analyzer->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 1, 'be_user' => 0, 'source_type' => 'page', 'site' => 'main']));
 
         $options = $fake->jsonCalls[1]['options'];
         self::assertInstanceOf(ChatOptions::class, $options);
@@ -192,7 +192,7 @@ final class DocumentAnalyzerTest extends TestCase
         $fake      = new ScriptedJsonCompletion([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
         $analyzer  = new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000);
 
-        $analyzer->analyze($document, JobSnapshots::of(['uid' => 1, 'be_user' => 7, 'site' => 'main']));
+        $analyzer->analyze($document, JobSnapshots::of(['uid' => 1, 'be_user' => 7, 'source_type' => 'page', 'site' => 'main']));
 
         // Every map call and the synthesis name the job's site (ADR-012).
         self::assertSame(['main', 'main', 'main', 'main'], array_map(

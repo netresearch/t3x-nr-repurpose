@@ -79,7 +79,7 @@ abstract class TextGeneratorTestCase extends TestCase
         );
 
         return new GenerationContext(
-            JobSnapshots::of(['uid' => 31, 'theme' => 'nr', 'be_user' => 7, $this->wantColumn() => $want ? 1 : 0, 'site' => 'main']),
+            JobSnapshots::of(['uid' => 31, 'theme' => 'nr', 'be_user' => 7, $this->wantColumn() => $want ? 1 : 0, 'source_type' => 'page', 'site' => 'main']),
             $document,
             $brief,
             'nr',

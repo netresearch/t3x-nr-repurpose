@@ -92,8 +92,10 @@ created, so the worker and a later retry use it.
     first page the job reads.
 
 To let the sites' configurations answer, ``nr_repurpose_text`` has to go:
-mark another configuration as the instance default first, then delete or
-deactivate ``nr_repurpose_text``. If it is the instance default when it goes,
+first mark another configuration as the instance default, one with a model
+assigned directly (not chosen by criteria) and without a backend-group
+restriction, because nr-llm does not use any other configuration as the
+default. Then delete or deactivate ``nr_repurpose_text``. If it is the instance default when it goes,
 the installation has none, and URL and PDF jobs, and page jobs of a site that
 names no configuration, fail at the analysis.
 

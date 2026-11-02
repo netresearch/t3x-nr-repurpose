@@ -53,7 +53,7 @@ final class SchaubildGeneratorTest extends TestCase
         $document = new SourceDocument('Report', 'text', 'https://example.com/', 0, 'en');
         $brief    = new ContentBrief('Report', $summary, ['A', 'B'], [['heading' => 'H', 'body' => 'B']], 'All', 'en');
 
-        return new GenerationContext(JobSnapshots::of(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1, 'site' => 'main']), $document, $brief, 'nr', 4, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
+        return new GenerationContext(JobSnapshots::of(['uid' => 11, 'theme' => 'nr', 'be_user' => 4, 'want_schaubild' => 1, 'source_type' => 'page', 'site' => 'main']), $document, $brief, 'nr', 4, $snippets, grants: $grants ?? CapabilityGrants::all(), aiLabel: $aiLabel);
     }
 
     /**
