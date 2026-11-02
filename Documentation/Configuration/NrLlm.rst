@@ -78,12 +78,11 @@ and the text and document formats. The site is stored with the job when it is
 created, so the worker and a later retry use it.
 
 *   While the ``nr_repurpose_text`` record exists, is active and is not
-    restricted to backend groups, the text calls run on it. nr-llm treats an extension's own configuration as an explicit
-    choice that wins over the site. The site then only selects the term lists
-    bound to it.
+    restricted to backend groups, the text calls run on it. nr-llm treats an
+    extension's own configuration as an explicit choice that wins over the
+    site. The site then only selects the term lists bound to it.
 *   Without that record, the text calls take the instance default, and nr-llm
-    replaces it with the configuration the site names. A running worker keeps
-    the record it resolved until it is restarted. A site that names a
+    replaces it with the configuration the site names. A site that names a
     configuration that does not exist, is disabled or is restricted to backend
     groups fails the job; there is no fallback to the default.
 *   A job from a URL or a PDF has no site and keeps the instance default.
@@ -91,6 +90,15 @@ created, so the worker and a later retry use it.
     OCR of PDF pages do not use the site's configuration.
 *   A page tree whose pages belong to several sites uses the site of the
     first page the job reads.
+
+To let the sites' configurations answer, ``nr_repurpose_text`` has to go:
+mark another configuration as the instance default first, then delete or
+deactivate ``nr_repurpose_text``. If it is the instance default when it goes,
+the installation has none, and URL and PDF jobs, and page jobs of a site that
+names no configuration, fail at the analysis.
+
+A running worker keeps what it read: changes to ``nr_repurpose_text`` and to a
+site's ``nrllm.configuration`` reach it only after it restarts.
 
 :ref:`adr-012` records the decisions.
 

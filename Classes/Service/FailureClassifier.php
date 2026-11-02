@@ -57,7 +57,7 @@ final class FailureClassifier
     /** nr-llm: no JSON (…333), no object (…334), a structured answer off its schema (…001, …002). */
     private const array UNUSABLE_ANSWER_CODES = [2805117333, 2805117334, 1784500001, 1784500002];
 
-    /** nr-llm: no text at the output limit. OutputBudgetExhaustedException, which older versions lack. */
+    /** nr-llm: no text at the output limit (OutputBudgetExhaustedException since nr-llm 0.43.2), checked by code. */
     private const int OUTPUT_BUDGET_EXHAUSTED = 2041730951;
 
     public static function reasonFor(Throwable $failure): FailureReason

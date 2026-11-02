@@ -60,9 +60,9 @@ script, the diagram body, the story copy and every text and document format.
     restricted to backend groups makes the call fail. It does not fall back.
     The worker has no user to check the backend groups against.
 
-**Image, speech and the OCR of PDF pages do not name the site.** nr-llm
-0.43.4 reads the site for ``chat()``, ``complete()`` and ``streamChat()``
-only. The image and speech services take their configuration by identifier
+**Image, speech and the OCR of PDF pages do not name the site.** Of the nr-llm
+0.43.4 services this extension calls, only ``chat()``, ``complete()`` and
+``streamChat()`` read the site. The image and speech services take their configuration by identifier
 (``nr_repurpose_image``, ``nr_repurpose_tts``), and vision keeps the instance
 default. A site on those options would change nothing.
 
@@ -79,8 +79,12 @@ Consequences
 
 ◐  While ``nr_repurpose_text`` can be used, which the extension's setup
    recommends, the site's configuration does not apply to the text calls. To
-   use it, an administrator deletes or deactivates that record and restarts the
-   worker, which keeps the record it resolved for as long as it runs.
+   use it, an administrator marks another configuration as the instance default
+   and then deletes or deactivates that record; removing the instance default
+   would fail every job without a site configuration.
+
+◐  A running worker keeps what it read: changes to ``nr_repurpose_text`` and to
+   a site's ``nrllm.configuration`` reach it after it restarts.
 
 ◐  A tree whose pages belong to several sites runs on the site of the first
    page it reads.
