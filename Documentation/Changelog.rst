@@ -17,6 +17,27 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-14-0:
+
+Version 0.14.0 (2026-11-02)
+===========================
+
+Added
+-----
+
+-   A job whose source is a page names the page's site on every text call, so
+    nr-llm runs the analysis and the text formats on the LLM configuration the
+    site names in ``nrllm.configuration``. While the ``nr_repurpose_text``
+    record can be used, it still wins and the site only selects its term
+    lists. URL and PDF jobs, images, speech and OCR keep their configuration
+    (ADR-012).
+
+Changed
+-------
+
+-   ``netresearch/nr-llm`` is required at ``^0.43.4``. The new job column
+    ``site`` needs a database schema update.
+
 .. _version-0-13-1:
 
 Version 0.13.1 (2026-11-02)
