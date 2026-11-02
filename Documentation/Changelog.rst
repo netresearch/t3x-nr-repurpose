@@ -17,6 +17,20 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-13-1:
+
+Version 0.13.1 (2026-11-02)
+===========================
+
+Fixed
+-----
+
+-   The notice of a stalled job no longer promises that the job continues by
+    itself, and says what to do if it still does not move.
+-   With nr-llm 0.43.2 or newer, an answer without text at the output limit
+    gets one more try with twice the room, and a job that still fails reads
+    as an unusable answer.
+
 .. _version-0-13-0:
 
 Version 0.13.0 (2026-11-02)

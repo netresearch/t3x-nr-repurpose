@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-02
+
+### Fixed
+
+- The notice of a stalled job no longer promises that the job continues by itself. It says the job normally does, and what to do if it still does not move (#200).
+- With nr-llm 0.43.2 or newer, an answer without text at the output limit gets the retry with twice the room, and a job that still fails reads `answer_unusable` rather than "provider unavailable" (#201).
+
 ## [0.13.0] - 2026-11-02
 
 ### Fixed
@@ -574,7 +581,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.12.0...v0.12.1
