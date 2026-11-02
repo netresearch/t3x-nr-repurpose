@@ -14,7 +14,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- A job whose source is a page names the page's site on every text call, so nr-llm runs the analysis and the text formats on the LLM configuration the site names in `nrllm.configuration`. While the `nr_repurpose_text` record exists, it still wins, and the site only selects the term lists bound to it. URL and PDF jobs, images, speech and the OCR of PDF pages keep their configuration. See ADR-012.
+- A job whose source is a page names the page's site on every text call, so nr-llm runs the analysis and the text formats on the LLM configuration the site names in `nrllm.configuration`. While the `nr_repurpose_text` record can be used (it exists, is active and is not restricted to backend groups), it still wins, and the site only selects the term lists bound to it. URL and PDF jobs, images, speech and the OCR of PDF pages keep their configuration. See ADR-012.
 
 ## [0.13.1] - 2026-11-02
 

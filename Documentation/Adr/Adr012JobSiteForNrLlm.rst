@@ -50,8 +50,9 @@ script, the diagram body, the story copy and every text and document format.
 
 -   The configuration ``nr_repurpose_text`` is the extension's own named
     configuration. nr-llm treats it as an explicit choice that wins over the
-    site. While it exists, a call runs on it, and the site only selects the
-    term lists bound to the site.
+    site. While it exists, is active and is not restricted to backend groups,
+    a call runs on it, and the site only selects the term lists bound to the
+    site.
 -   Without that record, :php:`ConfiguredCompletionService` takes the instance
     default. For a call that names a site, nr-llm puts the site's
     configuration in place of the default.
@@ -76,9 +77,10 @@ Consequences
 ●  An installation with several sites runs a page job on the configuration of
    the page's site, without a configuration per job.
 
-◐  While ``nr_repurpose_text`` exists, which the extension's setup recommends,
-   the site's configuration does not apply to the text calls. To use it, an
-   administrator deletes or deactivates that record.
+◐  While ``nr_repurpose_text`` can be used, which the extension's setup
+   recommends, the site's configuration does not apply to the text calls. To
+   use it, an administrator deletes or deactivates that record and restarts the
+   worker, which keeps the record it resolved for as long as it runs.
 
 ◐  A tree whose pages belong to several sites runs on the site of the first
    page it reads.

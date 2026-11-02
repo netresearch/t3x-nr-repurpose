@@ -77,12 +77,13 @@ text call: the analysis, the podcast script, the diagram body, the story copy
 and the text and document formats. The site is stored with the job when it is
 created, so the worker and a later retry use it.
 
-*   While the ``nr_repurpose_text`` record exists and is active, the text calls
-    run on it. nr-llm treats an extension's own configuration as an explicit
+*   While the ``nr_repurpose_text`` record exists, is active and is not
+    restricted to backend groups, the text calls run on it. nr-llm treats an extension's own configuration as an explicit
     choice that wins over the site. The site then only selects the term lists
     bound to it.
 *   Without that record, the text calls take the instance default, and nr-llm
-    replaces it with the configuration the site names. A site that names a
+    replaces it with the configuration the site names. A running worker keeps
+    the record it resolved until it is restarted. A site that names a
     configuration that does not exist, is disabled or is restricted to backend
     groups fails the job; there is no fallback to the default.
 *   A job from a URL or a PDF has no site and keeps the instance default.

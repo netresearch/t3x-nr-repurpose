@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit;
 
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -94,6 +95,15 @@ final class ExtensionDependencyRangeTest extends TestCase
         self::assertSame($range, $this->emconfRange($constraint));
     }
 
+    /** A patch floor above the lowest minor has no ext_emconf.php range, so it fails instead. */
+    public function testAPatchFloorOnALaterPartIsRefused(): void
+    {
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage('patch floor on a part other than the lowest: ^0.42 || ^0.43.4');
+
+        $this->emconfRange('^0.42 || ^0.43.4');
+    }
+
     /**
      * The ext_emconf.php range a caret constraint (or a contiguous || list of them) allows.
      * Anything else fails loudly instead of being compared approximately.
@@ -107,6 +117,12 @@ final class ExtensionDependencyRangeTest extends TestCase
         }
 
         sort($bounds);
+        // Only the lowest part may name a patch: ext_emconf.php has one lower bound and cannot
+        // express a patch floor inside the range.
+        foreach (array_slice($bounds, 1) as $bound) {
+            self::assertSame(0, $bound[2], 'patch floor on a part other than the lowest: ' . $constraint);
+        }
+
         [$lowMajor, $lowMinor, $lowPatch] = $bounds[0];
         [$highMajor, $highMinor]          = $bounds[count($bounds) - 1];
 
