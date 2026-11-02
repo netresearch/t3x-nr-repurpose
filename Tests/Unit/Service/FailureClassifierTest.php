@@ -55,6 +55,7 @@ final class FailureClassifierTest extends TestCase
             'JSON that is no object'                => [new InvalidArgumentException('JSON response must be an object, got string', 2805117334), FailureReason::AnswerUnusable],
             'a structured answer off its schema'    => [new InvalidArgumentException('x', 1784500001), FailureReason::AnswerUnusable],
             'the same on a named configuration'     => [new InvalidArgumentException('x', 1784500002), FailureReason::AnswerUnusable],
+            'no text at the output limit'           => [new ProviderException('x', 2041730951), FailureReason::AnswerUnusable],
             'an argument nr-llm refused'            => [new InvalidArgumentException('temperature', 1), FailureReason::Internal],
             'two unusable answers'                  => [new UnusableAnswerException('x'), FailureReason::AnswerUnusable],
             'a generator refused the answer'        => [new InvalidLlmOutputException('x'), FailureReason::AnswerUnusable],

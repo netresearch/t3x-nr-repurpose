@@ -30,7 +30,9 @@ The reason is ``answer_unusable``, and the log holds
 that is no JSON object, twice: the extension asks once more with twice the room.
 An empty answer reads as this syntax error too. A reasoning model counts its
 thinking against the token limit, and at a limit near the length of the answer
-it can return nothing at all, with finish reason ``length``.
+it can return nothing at all, with finish reason ``length``. From nr-llm 0.43.2 on
+the log names this case: ``The model reached its output limit before it wrote an
+answer``.
 
 Check the ``Max tokens`` field of the ``nr_repurpose_text`` configuration
 (see :ref:`configuration-nr-llm`). A value below 16,000 is raised per call, and

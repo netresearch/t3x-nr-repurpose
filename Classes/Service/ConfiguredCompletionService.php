@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -49,7 +50,8 @@ use Psr\Log\LoggerInterface;
  * It also guarantees the room for the answer. nr-llm stores a limit of 1000 output tokens on a
  * configuration unless somebody changes it, and a reasoning model counts its thinking against
  * that limit: an answer of 1050 tokens then comes back empty with finish reason "length", and
- * nr-llm reports "Failed to decode JSON response: Syntax error". So a limit below
+ * nr-llm reports "Failed to decode JSON response: Syntax error", from 0.43.2 on that the model
+ * reached its output limit. So a limit below
  * MIN_OUTPUT_TOKENS is raised per call. nr-llm caps the value at the model's known output limit;
  * a limit of 0 on the record means the model's own maximum and stays.
  */
@@ -61,8 +63,12 @@ final class ConfiguredCompletionService implements TextCompletionInterface
     /** The least room a text completion gets for thinking and answer together. */
     public const int MIN_OUTPUT_TOKENS = 16000;
 
-    /** nr-llm's codes for an answer that is no JSON (2805117333) or no object (2805117334). */
-    private const array UNUSABLE_ANSWER_CODES = [2805117333, 2805117334];
+    /**
+     * nr-llm's codes for an answer that is no JSON (2805117333), no object (2805117334) or empty
+     * at the output limit (2041730951, OutputBudgetExhaustedException since nr-llm 0.43.2).
+     * The code and not the class, because older versions of nr-llm stay supported.
+     */
+    private const array UNUSABLE_ANSWER_CODES = [2805117333, 2805117334, 2041730951];
 
     /** Resolved configuration, memoized once per instance (null = fall back to default). */
     private ?LlmConfiguration $configuration = null;
@@ -88,7 +94,7 @@ final class ConfiguredCompletionService implements TextCompletionInterface
 
         try {
             return $this->json($prompt, $configuration, $options);
-        } catch (InvalidArgumentException $e) {
+        } catch (InvalidArgumentException|ProviderException $e) {
             if (!$this->isUnusableAnswer($e)) {
                 throw $e;
             }
@@ -98,7 +104,7 @@ final class ConfiguredCompletionService implements TextCompletionInterface
 
         try {
             return $this->json($prompt, $configuration, $this->withDoubledBudget($options, $configuration));
-        } catch (InvalidArgumentException $e) {
+        } catch (InvalidArgumentException|ProviderException $e) {
             if (!$this->isUnusableAnswer($e)) {
                 throw $e;
             }
@@ -140,7 +146,7 @@ final class ConfiguredCompletionService implements TextCompletionInterface
             : $this->inner->completeJson($prompt, $options);
     }
 
-    private function isUnusableAnswer(InvalidArgumentException $e): bool
+    private function isUnusableAnswer(InvalidArgumentException|ProviderException $e): bool
     {
         return in_array($e->getCode(), self::UNUSABLE_ANSWER_CODES, true);
     }
