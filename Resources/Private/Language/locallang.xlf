@@ -335,8 +335,8 @@
       <trans-unit id="failure.internal.admin"><source>This needs your administrator if it happens again.</source></trans-unit>
       <trans-unit id="failure.worker_stalled.short"><source>No progress for more than two hours</source></trans-unit>
       <trans-unit id="failure.worker_stalled.what"><source>This job has not moved for more than two hours. The background service that processes jobs is probably not running.</source></trans-unit>
-      <trans-unit id="failure.worker_stalled.result"><source>Nothing was lost. The job continues by itself once the service runs again.</source></trans-unit>
-      <trans-unit id="failure.worker_stalled.action"><source>You cannot solve this yourself. You do not need to create the job again.</source></trans-unit>
+      <trans-unit id="failure.worker_stalled.result"><source>Nothing was lost. The job normally continues by itself once the service runs again.</source></trans-unit>
+      <trans-unit id="failure.worker_stalled.action"><source>You cannot solve this yourself. If the job still does not move after the service was checked, create it again.</source></trans-unit>
       <trans-unit id="failure.worker_stalled.admin"><source>Ask your administrator to check the Messenger worker of this installation.</source></trans-unit>
       <trans-unit id="failure.unknown.short"><source>Failed, the reason was not saved</source></trans-unit>
       <trans-unit id="failure.unknown.what"><source>This failed with an older version of the extension, which did not save the reason for this page.</source></trans-unit>

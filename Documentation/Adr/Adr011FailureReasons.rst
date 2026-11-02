@@ -74,6 +74,9 @@ run is reused, and the page says so beside the button.
 **A job that stands still counts as a failure to explain.** The worker cannot
 report its own death. A job that is not finished and has not been written for
 two hours shows ``worker_stalled``, and it keeps running if the worker comes back.
+A job whose queue message never arrived, because the database failed between the
+requeue and the dispatch, does not. The texts therefore promise neither, and name
+creating the job again as the way out.
 
 .. _adr-011-consequences:
 
