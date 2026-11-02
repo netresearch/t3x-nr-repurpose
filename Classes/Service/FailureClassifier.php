@@ -57,6 +57,9 @@ final class FailureClassifier
     /** nr-llm: no JSON (…333), no object (…334), a structured answer off its schema (…001, …002). */
     private const array UNUSABLE_ANSWER_CODES = [2805117333, 2805117334, 1784500001, 1784500002];
 
+    /** nr-llm: no text at the output limit. OutputBudgetExhaustedException, which older versions lack. */
+    private const int OUTPUT_BUDGET_EXHAUSTED = 2041730951;
+
     public static function reasonFor(Throwable $failure): FailureReason
     {
         $found = null;
@@ -83,9 +86,10 @@ final class FailureClassifier
                 default                     => FailureReason::AnswerUnusable,
             },
             $e instanceof UnusableAnswerException,
-            $e instanceof InvalidLlmOutputException                                                              => FailureReason::AnswerUnusable,
-            $e instanceof InvalidArgumentException && in_array($e->getCode(), self::UNUSABLE_ANSWER_CODES, true) => FailureReason::AnswerUnusable,
-            $e instanceof IngestionException                                                                     => match ($e->getCode()) {
+            $e instanceof InvalidLlmOutputException => FailureReason::AnswerUnusable,
+            $e instanceof InvalidArgumentException && in_array($e->getCode(), self::UNUSABLE_ANSWER_CODES, true),
+            $e instanceof ProviderException && $e->getCode() === self::OUTPUT_BUDGET_EXHAUSTED => FailureReason::AnswerUnusable,
+            $e instanceof IngestionException                                                   => match ($e->getCode()) {
                 self::INGESTION_NO_TEXT, self::INGESTION_IMAGES_REFUSED => FailureReason::SourceEmpty,
                 self::INGESTION_TOO_MANY_PAGES                          => FailureReason::SourceTooLong,
                 default                                                 => FailureReason::SourceUnreadable,

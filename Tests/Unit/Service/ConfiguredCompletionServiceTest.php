@@ -11,11 +11,14 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Service;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
+use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Service\ConfiguredCompletionService;
+use Netresearch\NrRepurpose\Service\UnusableAnswerException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -97,6 +100,55 @@ final class ConfiguredCompletionServiceTest extends TestCase
         $this->subject($inner, $this->activeConfigurationStub())->completeJson('prompt', (new ChatOptions())->withMaxTokens(500));
 
         self::assertSame(500, $inner->completeJsonForConfigurationCalls[0]['options']?->getMaxTokens());
+    }
+
+    public function testNoTextAtTheLimitIsAskedAgainWithTwiceTheRoom(): void
+    {
+        $configuration = $this->activeConfigurationStub();
+        self::assertInstanceOf(Stub::class, $configuration);
+        $configuration->method('getMaxTokens')->willReturn(16000);
+        $inner             = new FakeCompletionService();
+        $inner->throwable  = new ProviderException('no text', 2041730951);
+        $inner->jsonResult = ['answer' => 'second try'];
+
+        $answer = $this->subject($inner, $configuration)->completeJson('prompt');
+
+        self::assertSame(['answer' => 'second try'], $answer);
+        self::assertCount(2, $inner->completeJsonForConfigurationCalls);
+        self::assertSame(32000, $inner->completeJsonForConfigurationCalls[1]['options']?->getMaxTokens());
+    }
+
+    public function testNoTextAtTheLimitTwiceIsAnUnusableAnswer(): void
+    {
+        $repository = $this->createStub(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($this->activeConfigurationStub());
+        $failure = new ProviderException('no text', 2041730951);
+        $inner   = $this->createStub(CompletionServiceInterface::class);
+        $inner->method('completeJsonForConfiguration')->willThrowException($failure);
+
+        $subject = new ConfiguredCompletionService($inner, new ConfigurationResolver($repository), new NullLogger());
+
+        try {
+            $subject->completeJson('prompt');
+            self::fail('Two answers without text are no answer');
+        } catch (UnusableAnswerException $e) {
+            self::assertSame($failure, $e->getPrevious());
+        }
+    }
+
+    public function testAnotherProviderFailureIsNotAskedAgain(): void
+    {
+        $inner            = new FakeCompletionService();
+        $inner->throwable = new ProviderException('down', 1);
+
+        try {
+            $this->subject($inner, $this->activeConfigurationStub())->completeJson('prompt');
+            self::fail('The failure must reach the caller');
+        } catch (ProviderException $e) {
+            self::assertSame(1, $e->getCode());
+        }
+
+        self::assertCount(1, $inner->completeJsonForConfigurationCalls);
     }
 
     public function testTheInstanceDefaultGetsTheRoomToo(): void
