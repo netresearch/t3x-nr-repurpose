@@ -79,7 +79,7 @@ abstract class TextGeneratorTestCase extends TestCase
         );
 
         return new GenerationContext(
-            JobSnapshots::of(['uid' => 31, 'theme' => 'nr', 'be_user' => 7, $this->wantColumn() => $want ? 1 : 0]),
+            JobSnapshots::of(['uid' => 31, 'theme' => 'nr', 'be_user' => 7, $this->wantColumn() => $want ? 1 : 0, 'site' => 'main']),
             $document,
             $brief,
             'nr',
@@ -148,6 +148,8 @@ abstract class TextGeneratorTestCase extends TestCase
         self::assertSame('nr_repurpose', $options->getCallerSourceExtension());
         self::assertSame($this->expectedOperation(), $options->getCallerSourceOperation());
         self::assertSame(7, $options->getBeUserUid());
+        // The job's site, so nr-llm runs the text on the site's configuration (ADR-012).
+        self::assertSame('main', $options->getSite());
         self::assertSame('json', $options->getResponseFormat());
     }
 

@@ -52,6 +52,10 @@ class Job extends AbstractEntity
     // JSON of the SourceReport the worker writes for a page source.
     protected string $sourceReport = '';
 
+    // Identifier of the site a page job reads; '' for every other job. nr-llm runs the job's
+    // calls on the configuration this site names (ADR-012).
+    protected string $site = '';
+
     protected string $theme = 'nr';
 
     protected string $pdfMode = 'auto';
@@ -186,6 +190,16 @@ class Job extends AbstractEntity
     public function setSourceDepth(int $sourceDepth): void
     {
         $this->sourceDepth = $sourceDepth;
+    }
+
+    public function getSite(): string
+    {
+        return $this->site;
+    }
+
+    public function setSite(string $site): void
+    {
+        $this->site = $site;
     }
 
     public function getSourceReport(): string

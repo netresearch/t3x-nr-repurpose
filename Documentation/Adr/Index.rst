@@ -113,6 +113,14 @@ Decision records
       .. card-footer:: :ref:`Read <adr-011>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-012: A page job names its site
+
+      Why a page job stores the site of its page, and what the site changes
+      for the job's calls to nr-llm.
+
+      .. card-footer:: :ref:`Read <adr-012>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -127,3 +135,4 @@ Decision records
    Adr009ChatToolDataClass
    Adr010PageAndFileSources
    Adr011FailureReasons
+   Adr012JobSiteForNrLlm

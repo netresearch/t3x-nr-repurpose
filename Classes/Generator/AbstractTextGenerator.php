@@ -20,6 +20,7 @@ use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Service\CallerSource;
+use Netresearch\NrRepurpose\Service\JobLlmOptions;
 use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -100,13 +101,13 @@ abstract class AbstractTextGenerator extends AbstractGenerator
 
         try {
             $ctx->progress?->step($this->label() . ': writing text', 0.1);
-            $options = (new ChatOptions(
+            $options = JobLlmOptions::forJob((new ChatOptions(
                 temperature: 0.4,
                 responseFormat: 'json',
                 systemPrompt: $system,
                 beUserUid: $ctx->beUser,
                 plannedCost: self::PLANNED_COST,
-            ))->withCallerSource(CallerSource::EXTENSION, $this->operation());
+            ))->withCallerSource(CallerSource::EXTENSION, $this->operation()), $ctx->job);
 
             $artifacts = $this->withClosingLine(
                 $this->parse(

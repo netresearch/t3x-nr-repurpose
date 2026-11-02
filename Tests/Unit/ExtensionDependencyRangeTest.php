@@ -82,6 +82,7 @@ final class ExtensionDependencyRangeTest extends TestCase
             'one minor of a 0.x line' => ['^0.15', '0.15.0-0.15.99'],
             'consecutive 0.x minors'  => ['^0.15 || ^0.16', '0.15.0-0.16.99'],
             'four 0.x minors'         => ['^0.35 || ^0.36 || ^0.37 || ^0.38', '0.35.0-0.38.99'],
+            'a 0.x patch floor'       => ['^0.43.4', '0.43.4-0.43.99'],
             'a major from a minor on' => ['^14.3', '14.3.0-14.99.99'],
             'php'                     => ['^8.3', '8.3.0-8.99.99'],
         ];
@@ -101,24 +102,24 @@ final class ExtensionDependencyRangeTest extends TestCase
     {
         $bounds = [];
         foreach (preg_split('/\s*\|\|\s*/', trim($constraint)) ?: [] as $part) {
-            self::assertSame(1, preg_match('/^\^(\d+)\.(\d+)$/', $part, $m), 'unsupported constraint: ' . $constraint);
-            $bounds[] = [(int) $m[1], (int) $m[2]];
+            self::assertSame(1, preg_match('/^\^(\d+)\.(\d+)(?:\.(\d+))?$/', $part, $m), 'unsupported constraint: ' . $constraint);
+            $bounds[] = [(int) $m[1], (int) $m[2], (int) ($m[3] ?? 0)];
         }
 
         sort($bounds);
-        [$lowMajor, $lowMinor]   = $bounds[0];
-        [$highMajor, $highMinor] = $bounds[count($bounds) - 1];
+        [$lowMajor, $lowMinor, $lowPatch] = $bounds[0];
+        [$highMajor, $highMinor]          = $bounds[count($bounds) - 1];
 
         if ($lowMajor === 0) {
             self::assertSame(0, $highMajor, 'mixed 0.x and stable constraint: ' . $constraint);
             self::assertSame(range($lowMinor, $highMinor), array_column($bounds, 1), 'gap in 0.x minors: ' . $constraint);
 
-            return sprintf('0.%d.0-0.%d.99', $lowMinor, $highMinor);
+            return sprintf('0.%d.%d-0.%d.99', $lowMinor, $lowPatch, $highMinor);
         }
 
         self::assertCount(1, $bounds, 'more than one stable caret: ' . $constraint);
 
-        return sprintf('%d.%d.0-%d.99.99', $lowMajor, $lowMinor, $lowMajor);
+        return sprintf('%d.%d.%d-%d.99.99', $lowMajor, $lowMinor, $lowPatch, $lowMajor);
     }
 
     /** @return array<string, mixed> */

@@ -65,6 +65,34 @@ Keys are always referenced by identifier: both the chat providers and the
 specialized services let nr-llm resolve and inject the key — no plaintext key
 is ever set here. See :ref:`adr-003`.
 
+.. _configuration-site:
+
+A site's own LLM configuration
+==============================
+
+A site can name the LLM configuration its AI calls run on, in nr-llm's site
+setting ``nrllm.configuration`` (see the nr-llm manual, chapter "Site
+settings"). A job whose source is a page of that site names the site on every
+text call: the analysis, the podcast script, the diagram body, the story copy
+and the text and document formats. The site is stored with the job when it is
+created, so the worker and a later retry use it.
+
+*   While the ``nr_repurpose_text`` record exists and is active, the text calls
+    run on it. nr-llm treats an extension's own configuration as an explicit
+    choice that wins over the site. The site then only selects the term lists
+    bound to it.
+*   Without that record, the text calls take the instance default, and nr-llm
+    replaces it with the configuration the site names. A site that names a
+    configuration that does not exist, is disabled or is restricted to backend
+    groups fails the job; there is no fallback to the default.
+*   A job from a URL or a PDF has no site and keeps the instance default.
+*   Images (``nr_repurpose_image``), speech (``nr_repurpose_tts``) and the
+    OCR of PDF pages do not use the site's configuration.
+*   A page tree whose pages belong to several sites uses the site of the
+    first page the job reads.
+
+:ref:`adr-012` records the decisions.
+
 .. _configuration-snippets:
 
 Prompt snippets

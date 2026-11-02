@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **`netresearch/nr-llm` is required at `^0.43.4`** (`ext_emconf.php`: `0.43.4-0.43.99`). The site option used below exists from that version on. The new column `site` on the job needs a schema update.
+
+### Added
+
+- A job whose source is a page names the page's site on every text call, so nr-llm runs the analysis and the text formats on the LLM configuration the site names in `nrllm.configuration`. While the `nr_repurpose_text` record exists, it still wins, and the site only selects the term lists bound to it. URL and PDF jobs, images, speech and the OCR of PDF pages keep their configuration. See ADR-012.
+
 ## [0.13.1] - 2026-11-02
 
 ### Fixed

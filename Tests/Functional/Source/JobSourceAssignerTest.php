@@ -57,6 +57,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
         self::assertSame('https://example.com/', $job->getSourceValue());
         self::assertSame(0, $job->getSourceDepth());
         self::assertSame(0, $source->fileUid);
+        self::assertSame('', $job->getSite(), 'A URL belongs to no site of the installation');
     }
 
     #[Test]
@@ -71,6 +72,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
         self::assertSame(2, $job->getSourceDepth());
         self::assertSame('About [10]', $job->getSourceLabel());
         self::assertSame('https://www.example.org/about', $job->getSourceUrl());
+        self::assertSame('main', $job->getSite(), 'The site whose LLM configuration runs the job (ADR-012)');
     }
 
     /** A site with `base: /` answers on any host; only the request knows which one. */
@@ -84,6 +86,7 @@ final class JobSourceAssignerTest extends AbstractFunctionalTestCase
         $this->assigner()->assign($job, $this->user(self::ADMIN), 10, 0, 0, self::ORIGIN);
 
         self::assertSame(self::ORIGIN . '/about', $job->getSourceUrl());
+        self::assertSame('main', $job->getSite());
     }
 
     #[Test]

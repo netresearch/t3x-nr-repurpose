@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Source;
 
-/** The public URL of a page, and whether the site configuration named its host. */
+/** The public URL of a page, whether the site configuration named its host, and that site. */
 final readonly class PublicPageUrl
 {
     public function __construct(
         public string $url,
         public bool $hostFromSite,
+        // The identifier of the page's site.
+        public string $site = '',
     ) {}
 }
