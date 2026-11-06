@@ -58,6 +58,14 @@ Configuration > nr_repurpose`:
    * - ``socialWebhookUrl``, ``socialWebhookSecretIdentifier``,
        ``socialWebhookSecret``
      - :ref:`configuration-social`
+   * - ``sourceReviewMode``
+     - :ref:`configuration-source-review`
+   * - ``sourceReviewConfiguration``
+     - :ref:`configuration-source-review`
+   * - ``sourceReviewMinimumScore``
+     - :ref:`configuration-source-review`
+   * - ``sourceReviewDataClass``
+     - :ref:`configuration-source-review`
 
 .. confval:: technicalBeUserUid
    :name: technicalbeuseruid

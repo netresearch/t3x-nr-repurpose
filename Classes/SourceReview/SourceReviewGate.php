@@ -43,7 +43,16 @@ final readonly class SourceReviewGate
             ],
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
         );
-        $previous       = $this->jobs->findRow($job->uid)['source_review'] ?? '';
+        $row = $this->jobs->findRow($job->uid);
+        if ($row === null) {
+            throw new SourceReviewRejectedException();
+        }
+
+        $previous = $row['source_review'] ?? null;
+        if ($previous !== null && !is_string($previous)) {
+            throw new SourceReviewRejectedException();
+        }
+
         $previousReview = is_string($previous) ? json_decode($previous, true) : null;
         $forceEnforce   = is_array($previousReview) && ($previousReview['mode'] ?? null) === 'enforce';
         $review         = $this->service->review(
@@ -53,8 +62,11 @@ final readonly class SourceReviewGate
             'content brief',
             $forceEnforce,
         );
-        $review['sourcePointerHash'] = $sourcePointerHash ?? $this->captureSource($this->jobs->findRow($job->uid) ?? []);
-        $this->jobs->setSourceReview($job->uid, $review);
+        $review['sourcePointerHash'] = $sourcePointerHash ?? $this->captureSource($row);
+        if (!$this->jobs->compareAndSetSourceReview($job->uid, $review, $previous)) {
+            throw new SourceReviewRejectedException();
+        }
+
         if (!$this->policy->allowsBrief($review)) {
             throw new SourceReviewRejectedException();
         }

@@ -184,7 +184,7 @@ final readonly class ArtifactReviewService
         return $url === '' ? '' : SourceUrlRedactor::redact($url);
     }
 
-    /** @return array{job: int, type: string, status: string, review_status: string, publish_status: string, source_review: ?string, script_text: ?string} */
+    /** @return array{job: int, type: string, status: string, review_status: string, publish_status: string, publish_at: int, source_review: ?string, script_text: ?string} */
     private function row(int $artifactUid): array
     {
         $row = $this->connectionPool
@@ -196,6 +196,7 @@ final readonly class ArtifactReviewService
                     'status',
                     'review_status',
                     'publish_status',
+                    'publish_at',
                     'source_review',
                     'script_text',
                 ],
@@ -213,6 +214,7 @@ final readonly class ArtifactReviewService
             'status'         => ScalarCast::string($row['status']),
             'review_status'  => ScalarCast::string($row['review_status']),
             'publish_status' => ScalarCast::string($row['publish_status']),
+            'publish_at'     => ScalarCast::int($row['publish_at']),
             // Keep SQL NULL intact for the compare-and-set on pre-migration rows.
             'source_review' => $row['source_review'] === null ? null : ScalarCast::string($row['source_review']),
             'script_text'   => $row['script_text'] === null ? null : ScalarCast::string($row['script_text']),
@@ -221,7 +223,7 @@ final readonly class ArtifactReviewService
 
     /**
      * Change only the state the editor actually read. A concurrent publisher's
-     * claim must win over a late approval, rejection or scheduling request.
+     * claim or another editor's schedule must win over a stale request.
      *
      * @param array<string, int|string>      $fields
      * @param array<string, int|string|null> $snapshot
@@ -231,12 +233,26 @@ final readonly class ArtifactReviewService
         array $fields,
         array $snapshot,
     ): void {
-        $criteria = ['uid' => $artifactUid] + $snapshot;
-        if ($this->connectionPool
-            ->getConnectionForTable(self::TABLE)
-            ->update(self::TABLE, $fields, $criteria) !== 1) {
-            throw new ReviewRefusedException('review.refused.changed', 1793980002);
+        $criteria   = ['uid' => $artifactUid] + $snapshot;
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $affected   = $connection->update(self::TABLE, $fields, $criteria);
+        if ($affected === 1) {
+            return;
         }
+
+        if ($affected === 0) {
+            // MySQL may count changed rows instead of matched rows. Accept an
+            // unchanged action only while both its original snapshot and all
+            // requested values still match, preserving SQL NULL and exact bytes.
+            $current = $connection
+                ->select(['*'], self::TABLE, ['uid' => $artifactUid])
+                ->fetchAssociative();
+            if (is_array($current) && $this->matchesFields($current, $criteria) && $this->matchesFields($current, $fields)) {
+                return;
+            }
+        }
+
+        throw new ReviewRefusedException('review.refused.changed', 1793980002);
     }
 
     private function assertSourceReview(
@@ -262,5 +278,24 @@ final readonly class ArtifactReviewService
                 1793980001,
             );
         }
+    }
+
+    /**
+     * @param array<string, mixed>           $row
+     * @param array<string, int|string|null> $expected
+     */
+    private function matchesFields(array $row, array $expected): bool
+    {
+        foreach ($expected as $field => $value) {
+            if (!array_key_exists($field, $row)) {
+                return false;
+            }
+
+            if ($value === null ? $row[$field] !== null : $row[$field] === null || ScalarCast::string($row[$field]) !== (string) $value) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

@@ -9,7 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
+use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
+use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
+use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
+use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
+use Netresearch\NrRepurpose\Domain\Model\Job;
+use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
@@ -18,10 +25,13 @@ use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
+use Netresearch\NrRepurpose\Review\ArtifactReviewService;
+use Netresearch\NrRepurpose\Review\ReviewRefusedException;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewPointer;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewPolicy;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewProfileProvider;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewService;
@@ -228,5 +238,168 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
         self::assertSame('flagged', $review['status']);
         self::assertSame('enforce', $review['mode']);
         self::assertSame(0, (int) $row['artifacts']);
+    }
+
+    public function testRejectedRedeliveryPreservesFinishedResultsAndRequiresANewJob(): void
+    {
+        $uid                                                                          = $this->seed();
+        $jobs                                                                         = $this->get(JobProcessingRepository::class);
+        $pool                                                                         = $this->get(ConnectionPool::class);
+        $artifacts                                                                    = $pool->getConnectionForTable('tx_nrrepurpose_domain_model_artifact');
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_repurpose']['sourceReviewMode'] = 'enforce';
+        $policy                                                                       = new SourceReviewPolicy($this->get(ExtensionConfiguration::class));
+        $document                                                                     = new SourceDocument(
+            'Forecast',
+            'Sales may rise by 12%.',
+            'https://example.com/source',
+            1,
+            'en',
+        );
+        $text              = 'Sales may rise by 12%.';
+        $acceptedDecisions = $this->createMock(DecisionServiceInterface::class);
+        $acceptedDecisions
+            ->expects(self::exactly(2))
+            ->method('evaluate')
+            ->willReturn(SourceReviewFixture::result());
+        $reviewer                         = new SourceReviewService($acceptedDecisions, $policy);
+        $pointer                          = new SourceReviewPointer($pool);
+        $briefReview                      = $reviewer->review($text, $document, 0, 'content brief');
+        $briefReview['sourcePointerHash'] = $pointer->fingerprint($jobs->findRow($uid));
+        $jobs->setSourceReview($uid, $briefReview);
+        $jobs->markStatus($uid, JobStatus::Generating, 'social_post', 50);
+
+        $artifactUid = $jobs->insertArtifact(
+            $uid,
+            ArtifactType::SocialPost,
+            'linkedin',
+            0,
+            ArtifactStatus::Done,
+        );
+        $jobs->updateArtifact(
+            $artifactUid,
+            [
+                'script_text'   => $text,
+                'source_review' => json_encode(
+                    $reviewer->review($text, $document, 0, 'social post'),
+                    JSON_THROW_ON_ERROR,
+                ),
+            ],
+        );
+        $approval = new ArtifactReviewService($pool, $policy, $pointer);
+        $approval->review($artifactUid, ReviewStatus::Approved, 9, 1793900000);
+
+        $preserved = $artifacts
+            ->select(
+                ['*'],
+                'tx_nrrepurpose_domain_model_artifact',
+                ['uid' => $artifactUid],
+            )
+            ->fetchAssociative();
+        self::assertIsArray($preserved);
+        self::assertSame('approved', $preserved['review_status']);
+        // A killed worker has not called finishJob: the relation counter is still zero.
+        self::assertSame(0, (int) $jobs->findRow($uid)['artifacts']);
+
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions
+            ->expects(self::once())
+            ->method('evaluate')
+            ->willReturn(SourceReviewFixture::result(false));
+        $generator = $this->createMock(ArtifactGeneratorInterface::class);
+        $generator->expects(self::never())->method('generate');
+        $this->runJob($uid, 'enforce', $decisions, $generator);
+
+        $row = $jobs->findRow($uid);
+        self::assertNotNull($row);
+        self::assertSame('failed', $row['status']);
+        self::assertSame('source_review', $row['failure_reason']);
+        $review = json_decode($row['source_review'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('enforce', $review['mode']);
+        self::assertSame('flagged', $review['status']);
+        self::assertSame($briefReview['sourceHash'], $review['sourceHash']);
+        self::assertSame(
+            $briefReview['sourcePointerHash'],
+            $review['sourcePointerHash'],
+        );
+        self::assertSame(
+            $preserved,
+            $artifacts
+                ->select(
+                    ['*'],
+                    'tx_nrrepurpose_domain_model_artifact',
+                    ['uid' => $artifactUid],
+                )
+                ->fetchAssociative(),
+        );
+
+        // Extbase must follow the actual child relation, despite the stale zero counter.
+        $loaded = $this->get(JobRepository::class)->findByUid($uid);
+        self::assertInstanceOf(Job::class, $loaded);
+        self::assertTrue($loaded->isFailed());
+        self::assertTrue($loaded->getFailure()->isRetryable());
+        self::assertSame(1, $loaded->getDoneArtifactCount());
+        self::assertFalse($loaded->isRetryable());
+
+        try {
+            $approval->review(
+                $artifactUid,
+                ReviewStatus::Approved,
+                10,
+                1793900001,
+            );
+            self::fail(
+                'The newly rejected brief must block approval of the retained result.',
+            );
+        } catch (ReviewRefusedException $exception) {
+            self::assertSame(
+                'review.refused.sourceReview',
+                $exception->getMessage(),
+            );
+        }
+
+        self::assertSame(
+            $preserved,
+            $artifacts
+                ->select(
+                    ['*'],
+                    'tx_nrrepurpose_domain_model_artifact',
+                    ['uid' => $artifactUid],
+                )
+                ->fetchAssociative(),
+        );
+    }
+
+    public function testOverlappingObserveRunCannotReplaceAnEnforcedBriefReview(): void
+    {
+        $uid         = $this->seed();
+        $jobs        = $this->get(JobProcessingRepository::class);
+        $newerReview = [
+            'mode'          => 'enforce',
+            'status'        => 'flagged',
+            'candidateHash' => hash('sha256', 'newer brief'),
+        ];
+        $newerJson = json_encode($newerReview, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions
+            ->expects(self::once())
+            ->method('evaluate')
+            ->willReturnCallback(
+                static function () use ($jobs, $uid, $newerReview): DecisionResult {
+                    // A second worker finishes its mandatory review while this call is pending.
+                    $jobs->setSourceReview($uid, $newerReview);
+
+                    return SourceReviewFixture::result();
+                },
+            );
+        $generator = $this->createMock(ArtifactGeneratorInterface::class);
+        $generator->expects(self::never())->method('generate');
+
+        $this->runJob($uid, 'observe', $decisions, $generator);
+
+        $row = $jobs->findRow($uid);
+        self::assertNotNull($row);
+        self::assertSame($newerJson, $row['source_review']);
+        self::assertSame('failed', $row['status']);
+        self::assertSame('source_review', $row['failure_reason']);
     }
 }

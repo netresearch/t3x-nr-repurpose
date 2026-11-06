@@ -78,7 +78,7 @@ final class SourceReviewRenderingTest extends AbstractFunctionalTestCase
         );
         self::assertStringNotContainsString('<script>judge</script>', $html);
         self::assertStringContainsString('Reviewed at', $html);
-        self::assertStringContainsString('Observation mode', $html);
+        self::assertStringContainsString('recorded in observation mode', $html);
     }
 
     private function render(SourceReviewResult $review): string
@@ -134,5 +134,23 @@ final class SourceReviewRenderingTest extends AbstractFunctionalTestCase
             'Compare the text with the original source',
             $html,
         );
+    }
+
+    public function testStoredObservationModeDoesNotPromisePublicationUnderCurrentSettings(): void
+    {
+        $html = $this->render(
+            SourceReviewResult::fromJson(
+                '{"status":"flagged","mode":"observe"}',
+            ),
+        );
+        self::assertStringContainsString(
+            'This assessment was recorded in observation mode.',
+            $html,
+        );
+        self::assertStringContainsString(
+            'Current review settings still apply to approval and publication.',
+            $html,
+        );
+        self::assertStringNotContainsString('do not block', $html);
     }
 }
