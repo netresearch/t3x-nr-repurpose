@@ -163,6 +163,7 @@
       <trans-unit id="review.refused.noTime"><source>Enter a date and time for publishing.</source><target>Geben Sie Datum und Uhrzeit für die Veröffentlichung an.</target></trans-unit>
       <trans-unit id="review.refused.notFound"><source>The artifact no longer exists; the job may have been generated again.</source><target>Das Artefakt gibt es nicht mehr; der Job wurde vielleicht neu erzeugt.</target></trans-unit>
       <trans-unit id="review.refused.decision"><source>Unknown review decision.</source><target>Unbekannte Prüfentscheidung.</target></trans-unit>
+      <trans-unit id="review.refused.changed"><source>The artifact changed while this action was being processed. Reload its current status and try again.</source><target>Das Artefakt wurde während dieser Aktion geändert. Laden Sie den aktuellen Stand neu und versuchen Sie es erneut.</target></trans-unit>
       <trans-unit id="publish.none"><source>Not scheduled</source><target>Nicht eingeplant</target></trans-unit>
       <trans-unit id="publish.scheduled"><source>Scheduled</source><target>Eingeplant</target></trans-unit>
       <trans-unit id="publish.publishing"><source>Being published</source><target>Wird veröffentlicht</target></trans-unit>
@@ -358,6 +359,30 @@
       <trans-unit id="show.aiLabel.closingLine"><source>Closing line of the copy-ready text:</source><target>Schlusszeile des kopierfertigen Texts:</target></trans-unit>
       <trans-unit id="aiLabel.image"><source>AI-generated</source><target>KI-generiert</target></trans-unit>
       <trans-unit id="aiLabel.text"><source>This text was created with AI.</source><target>Dieser Text wurde mit KI erstellt.</target></trans-unit>
+      <trans-unit id="sourceReview.title"><source>Last automatic source review</source><target>Letzte automatische Quellenprüfung</target></trans-unit>
+      <trans-unit id="sourceReview.brief"><source>Shared content brief</source><target>Gemeinsames Inhaltsbriefing</target></trans-unit>
+      <trans-unit id="sourceReview.status.not_run"><source>Not reviewed</source><target>Nicht geprüft</target></trans-unit>
+      <trans-unit id="sourceReview.status.passed"><source>No issues detected automatically</source><target>Automatisch unauffällig</target></trans-unit>
+      <trans-unit id="sourceReview.status.flagged"><source>Issues detected</source><target>Auffälligkeiten gefunden</target></trans-unit>
+      <trans-unit id="sourceReview.status.error"><source>Review unavailable or outdated</source><target>Prüfung fehlgeschlagen oder veraltet</target></trans-unit>
+      <trans-unit id="sourceReview.scope"><source>Checks the text or script against the source. This is separate from editorial approval; generated audio and images still need their own review.</source><target>Prüft Text oder Skript gegen die Quelle. Die redaktionelle Freigabe bleibt ein eigener Schritt; erzeugte Audios und Bilder müssen zusätzlich geprüft werden.</target></trans-unit>
+      <trans-unit id="sourceReview.changed"><source>The text has changed since this assessment. A new source review is required.</source><target>Der Text wurde seit dieser Bewertung verändert. Eine neue Quellenprüfung ist erforderlich.</target></trans-unit>
+      <trans-unit id="sourceReview.observe"><source>Observation mode: issues are shown but do not block the next step. Editorial approval is still required.</source><target>Beobachtungsmodus: Auffälligkeiten werden angezeigt, stoppen aber nicht den nächsten Schritt. Die redaktionelle Freigabe bleibt erforderlich.</target></trans-unit>
+      <trans-unit id="sourceReview.details"><source>Review details</source><target>Details der Prüfung</target></trans-unit>
+      <trans-unit id="sourceReview.checkedAt"><source>Reviewed at</source><target>Geprüft am</target></trans-unit>
+      <trans-unit id="sourceReview.model"><source>Review model</source><target>Prüfmodell</target></trans-unit>
+      <trans-unit id="review.refused.sourceReview"><source>The source review is missing, has detected issues, or no longer matches the text, source or current review settings. Generate and review the artifact again.</source><target>Die Quellenprüfung fehlt, hat Auffälligkeiten gefunden oder passt nicht mehr zum Text, zur Quelle oder zu den aktuellen Prüfeinstellungen. Erzeugen und prüfen Sie das Artefakt erneut.</target></trans-unit>
+      <trans-unit id="failure.source_review.short"><source>Automatic source fidelity check did not pass</source><target>Automatische Quellenprüfung nicht bestanden</target></trans-unit>
+      <trans-unit id="failure.source_review.what"><source>The automatic source review detected issues or could not complete. Enforcement stopped the next processing step.</source><target>Die automatische Quellenprüfung hat Auffälligkeiten gefunden oder konnte nicht abgeschlossen werden. Die aktive Durchsetzung hat den nächsten Verarbeitungsschritt gestoppt.</target></trans-unit>
+      <trans-unit id="failure.source_review.result"><source>The assessment remains visible separately from editorial approval. This check does not certify generated audio or images.</source><target>Die Bewertung bleibt getrennt von der redaktionellen Freigabe sichtbar. Die Prüfung bestätigt nicht die Korrektheit erzeugter Audios oder Bilder.</target></trans-unit>
+      <trans-unit id="failure.source_review.action"><source>Compare the text with the original source. Correct the source or task where needed and generate the affected result again.</source><target>Vergleichen Sie den Text mit der Originalquelle. Korrigieren Sie bei Bedarf die Quelle oder den Auftrag und erzeugen Sie das betroffene Ergebnis erneut.</target></trans-unit>
+      <trans-unit id="failure.source_review.admin"><source>If the review could not run, ask your administrator to check the review model, configuration, budget and data permissions.</source><target>Falls die Prüfung nicht ausgeführt werden konnte, lassen Sie Prüfmodell, Konfiguration, Budget und Datenfreigaben von Ihrer Administration prüfen.</target></trans-unit>
+      <trans-unit id="sourceReview.reason.disabled"><source>The automatic source review is disabled.</source><target>Die automatische Quellenprüfung ist ausgeschaltet.</target></trans-unit>
+      <trans-unit id="sourceReview.reason.noEvidence"><source>No original source is available for comparison.</source><target>Für den Abgleich ist keine Originalquelle verfügbar.</target></trans-unit>
+      <trans-unit id="sourceReview.reason.emptyCandidate"><source>There is no generated text to review.</source><target>Es gibt keinen erzeugten Text, der geprüft werden kann.</target></trans-unit>
+      <trans-unit id="sourceReview.reason.sourceMismatch"><source>Compare the text with the original source: the automatic review found unsupported statements or lost qualifications.</source><target>Vergleichen Sie den Text mit der Originalquelle: Die automatische Prüfung hat unbelegte Aussagen oder verlorene Einschränkungen gefunden.</target></trans-unit>
+      <trans-unit id="sourceReview.reason.candidateChanged"><source>The text changed after the assessment. Generate and review it again.</source><target>Der Text wurde nach der Bewertung geändert. Erzeugen und prüfen Sie ihn erneut.</target></trans-unit>
+      <trans-unit id="sourceReview.reason.unavailable"><source>No usable assessment is available. Check the reviewer configuration and availability, then generate and review again.</source><target>Es liegt keine verwertbare Bewertung vor. Prüfen Sie die Konfiguration und Erreichbarkeit des Prüfers, bevor Sie den Inhalt erneut erzeugen und prüfen.</target></trans-unit>
     </body>
   </file>
 </xliff>

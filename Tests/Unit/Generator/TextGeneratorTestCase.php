@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Service\Decision\DecisionRequest;
+use Netresearch\NrLlm\Service\Decision\DecisionResult;
+use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Domain\ValueObject\AiLabelSettings;
@@ -27,6 +30,7 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -326,5 +330,58 @@ abstract class TextGeneratorTestCase extends TestCase
     protected function expectedSteps(): array
     {
         return [$this->expectedLabel() . ': writing text'];
+    }
+
+    public function testFinalTextAssessmentBindsEveryStoredTextAfterFormatLimits(): void
+    {
+        $decisions  = $this->createMock(DecisionServiceInterface::class);
+        $candidates = [];
+        $decisions
+            ->method('evaluate')
+            ->willReturnCallback(
+                static function (
+                    DecisionRequest $request,
+                ) use (&$candidates): DecisionResult {
+                    $candidates[] = $request->subject->candidate;
+
+                    return SourceReviewFixture::result();
+                },
+            );
+        $ctx = SourceReviewFixture::attach(
+            $this->context(
+                aiLabel: new AiLabelSettings(textLine: 'AI-generated'),
+            ),
+            $this->jobs,
+            $decisions,
+        );
+        self::assertTrue($this->generatorWithAnswer()->generate($ctx));
+        self::assertNotEmpty($candidates);
+        foreach ($this->jobs->updates as $row) {
+            self::assertContains($row['script_text'], $candidates);
+            $review = json_decode($row['source_review'], true, flags: JSON_THROW_ON_ERROR);
+            self::assertSame('passed', $review['status']);
+            self::assertSame(
+                hash('sha256', $row['script_text']),
+                $review['candidateHash'],
+            );
+        }
+    }
+
+    public function testRejectedFinalTextNeverBecomesADoneArtifact(): void
+    {
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions
+            ->method('evaluate')
+            ->willReturn(SourceReviewFixture::result(false));
+        $ctx = SourceReviewFixture::attach($this->context(), $this->jobs, $decisions);
+        self::assertFalse($this->generatorWithAnswer()->generate($ctx));
+        self::assertNotEmpty($this->jobs->updates);
+        foreach ($this->jobs->updates as $row) {
+            self::assertSame('failed', $row['status']);
+            self::assertSame('source_review', $row['failure_reason']);
+            $review = json_decode($row['source_review'], true, flags: JSON_THROW_ON_ERROR);
+            self::assertSame('flagged', $review['status']);
+            self::assertArrayNotHasKey('file_uid', $row);
+        }
     }
 }

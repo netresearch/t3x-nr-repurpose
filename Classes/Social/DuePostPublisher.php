@@ -14,7 +14,11 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\PublishStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
 use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewPointer;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewPolicy;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewResult;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
+use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -34,6 +38,8 @@ final readonly class DuePostPublisher
     public function __construct(
         private ConnectionPool $connectionPool,
         private SocialPublisherInterface $publisher,
+        private SourceReviewPolicy $sourceReviewPolicy,
+        private SourceReviewPointer $sourceReviewPointer,
     ) {}
 
     public function publishDue(int $now): PublishReport
@@ -46,7 +52,19 @@ final readonly class DuePostPublisher
         $published = 0;
         $failed    = 0;
         foreach ($due as $row) {
-            if (!$this->claim(ScalarCast::int($row['uid']))) {
+            if (!$this->claim($row)) {
+                continue;
+            }
+
+            if (!$this->sourceReviewAllowsPublishing($row)) {
+                $this->mark(
+                    ScalarCast::int($row['uid']),
+                    [
+                        'publish_status' => PublishStatus::Failed->value,
+                        'publish_error'  => 'Publication blocked: source review is missing, unaccepted or no longer matches the text and original source.',
+                    ],
+                );
+                ++$failed;
                 continue;
             }
 
@@ -85,8 +103,17 @@ final readonly class DuePostPublisher
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $expr         = $queryBuilder->expr();
 
-        return $queryBuilder
-            ->select('a.uid', 'a.job', 'a.variant', 'a.script_text', 'a.publish_at', 'a.metadata', 'j.source_value', 'j.source_url')
+        return $queryBuilder->select(
+            'a.uid',
+            'a.job',
+            'a.variant',
+            'a.script_text',
+            'a.publish_at',
+            'a.metadata',
+            'a.source_review',
+            'j.source_value',
+            'j.source_url',
+        )
             ->from(self::TABLE, 'a')
             ->join('a', 'tx_nrrepurpose_domain_model_job', 'j', $expr->eq('j.uid', $queryBuilder->quoteIdentifier('a.job')))
             ->where(
@@ -103,18 +130,30 @@ final readonly class DuePostPublisher
             ->fetchAllAssociative();
     }
 
-    /** scheduled → publishing, only if the row is still scheduled and still approved. */
-    private function claim(int $artifactUid): bool
+    /**
+     * Claim only the text and review snapshot that was read. A changed post is
+     * left for the next run; an old accepted assessment cannot authorize new copy.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function claim(array $row): bool
     {
-        return $this->connectionPool->getConnectionForTable(self::TABLE)->update(
-            self::TABLE,
-            ['publish_status' => PublishStatus::Publishing->value],
-            [
-                'uid'            => $artifactUid,
-                'publish_status' => PublishStatus::Scheduled->value,
-                'review_status'  => ReviewStatus::Approved->value,
-            ],
-        ) === 1;
+        return $this->connectionPool
+            ->getConnectionForTable(self::TABLE)
+            ->update(
+                self::TABLE,
+                ['publish_status' => PublishStatus::Publishing->value],
+                [
+                    'uid'            => ScalarCast::int($row['uid']),
+                    'status'         => ArtifactStatus::Done->value,
+                    'publish_status' => PublishStatus::Scheduled->value,
+                    'review_status'  => ReviewStatus::Approved->value,
+                    'script_text'    => $row['script_text'],
+                    'source_review'  => $row['source_review'],
+                    'metadata'       => $row['metadata'],
+                    'publish_at'     => $row['publish_at'],
+                ],
+            ) === 1;
     }
 
     /**
@@ -123,5 +162,78 @@ final readonly class DuePostPublisher
     private function mark(int $artifactUid, array $fields): void
     {
         $this->connectionPool->getConnectionForTable(self::TABLE)->update(self::TABLE, $fields, ['uid' => $artifactUid]);
+    }
+
+    /** @param array<string, mixed> $row */
+    private function sourceReviewAllowsPublishing(array $row): bool
+    {
+        try {
+            // SQL text equality may use a case-insensitive collation. Compare
+            // the claimed bytes before authorizing the snapshot to be sent.
+            $current = $this->connectionPool
+                ->getConnectionForTable(self::TABLE)
+                ->select(
+                    [
+                        'script_text',
+                        'source_review',
+                        'metadata',
+                        'publish_at',
+                        'status',
+                        'review_status',
+                        'publish_status',
+                    ],
+                    self::TABLE,
+                    ['uid' => ScalarCast::int($row['uid'])],
+                )
+                ->fetchAssociative();
+            if (!is_array($current) || $current['status'] !== ArtifactStatus::Done->value || $current['review_status'] !== ReviewStatus::Approved->value || $current['publish_status'] !== PublishStatus::Publishing->value) {
+                return false;
+            }
+
+            foreach (['script_text', 'source_review', 'metadata', 'publish_at'] as $field) {
+                if (ScalarCast::string($current[$field]) !== ScalarCast::string($row[$field])) {
+                    return false;
+                }
+            }
+
+            $job = $this->connectionPool
+                ->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+                ->select(
+                    ['*'],
+                    'tx_nrrepurpose_domain_model_job',
+                    ['uid' => ScalarCast::int($row['job'])],
+                )
+                ->fetchAssociative();
+            if (!is_array($job)) {
+                return false;
+            }
+
+            foreach (['source_value', 'source_url'] as $field) {
+                if (ScalarCast::string($job[$field]) !== ScalarCast::string($row[$field])) {
+                    return false;
+                }
+            }
+
+            $review = SourceReviewResult::fromJson(
+                ScalarCast::string($row['source_review']),
+            )->toArray();
+            $brief = SourceReviewResult::fromJson(
+                ScalarCast::string($job['source_review']),
+            )->toArray();
+
+            return $this->sourceReviewPolicy->allowsArtifact(
+                $review,
+                ScalarCast::string($row['script_text']),
+                $brief,
+            ) && $this->sourceReviewPolicy->allowsSource(
+                $brief,
+                $this->sourceReviewPointer->fingerprint($job),
+                $review,
+            );
+        } catch (Throwable) {
+            // An unavailable policy cannot authorize publication. The caller
+            // records a fixed failure and releases the publishing state.
+            return false;
+        }
     }
 }

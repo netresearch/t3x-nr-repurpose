@@ -121,32 +121,106 @@ class StoryGenerator extends AbstractGenerator
         }
 
         if ($slides === []) {
-            $this->failStoryUpfront($jobUid, 'Story generation error: the LLM returned no usable slides');
+            $this->failStoryUpfront(
+                $jobUid,
+                'Story generation error: the LLM returned no usable slides',
+            );
 
+            return false;
+        }
+
+        $prepared = [];
+        foreach ($slides as $i => $slide) {
+            $artifactUid = $this->jobs->insertArtifact(
+                $jobUid,
+                ArtifactType::Story,
+                'slide-' . ($i + 1),
+                0,
+                ArtifactStatus::Pending,
+            );
+            $this->jobs->updateArtifact(
+                $artifactUid,
+                [
+                    'metadata' => json_encode(
+                        [
+                            'role'       => $slide->role->value,
+                            'slideIndex' => $i + 1,
+                            'slideTotal' => count($slides),
+                        ],
+                        JSON_THROW_ON_ERROR,
+                    ),
+                ],
+            );
+            try {
+                $this->reviewArtifact(
+                    $ctx,
+                    $artifactUid,
+                    $slide->headline . "\n" . $slide->subline,
+                    'story slide copy (image not inspected)',
+                );
+                $prepared[$i] = $artifactUid;
+            } catch (Throwable $e) {
+                $this->failArtifactFrom(
+                    $artifactUid,
+                    $jobUid,
+                    'Story source fidelity',
+                    $e,
+                );
+            }
+        }
+
+        if ($prepared === []) {
             return false;
         }
 
         // Layout snippets may hint a custom AI-image size; resolved once so an invalid
         // hint logs a single warning. The slide renders (Chromium) are unaffected.
-        $imageSize = $this->resolveImageSize($ctx->snippets->storyImageSize, self::IMAGE_SIZE);
+        $imageSize = $this->resolveImageSize(
+            $ctx->snippets->storyImageSize,
+            self::IMAGE_SIZE,
+        );
         $ctx->progress?->step('Story: background image', 0.3);
         $backgroundPath = $this->generateSharedBackground($ctx, $imageSize);
 
-        $total  = count($slides);
-        $images = [];
+        $total       = count($slides);
+        $images      = [];
+        $videoScript = [];
         try {
             foreach ($slides as $i => $slide) {
-                $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
-                $image = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
+                if (!isset($prepared[$i])) {
+                    continue;
+                }
+
+                $ctx->progress?->step(
+                    sprintf('Story: slide %d/%d', $i + 1, $total),
+                    0.4 + 0.6 * $i / $total,
+                );
+                $image = $this->generateSlideArtifact(
+                    $ctx,
+                    $jobUid,
+                    $slide,
+                    $i + 1,
+                    $total,
+                    $backgroundPath,
+                    $imageSize,
+                    $prepared[$i],
+                );
                 if ($image !== null) {
-                    $images[] = $image;
+                    $images[]      = $image;
+                    $videoScript[] = $slide->headline . "\n" . $slide->subline;
                 }
             }
 
             $ok = $images !== [];
             if ($ok && $this->slideshow instanceof SlideshowRendererInterface && $ctx->job->wantVideo) {
                 $ctx->progress?->step('Story: video', 0.95);
-                $this->generateVideoArtifact($ctx, $jobUid, $this->slideshow, $images);
+                $this->generateVideoArtifact(
+                    $ctx,
+                    $jobUid,
+                    $this->slideshow,
+                    $images,
+                    implode("\n\n", $videoScript),
+                );
             }
 
             return $ok;
@@ -165,11 +239,25 @@ class StoryGenerator extends AbstractGenerator
      *
      * @param non-empty-list<string> $images slide PNGs in order
      */
-    private function generateVideoArtifact(GenerationContext $ctx, int $jobUid, SlideshowRendererInterface $slideshow, array $images): void
-    {
-        $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Video, 'default', 0, ArtifactStatus::Pending);
-        $provenance  = $this->provenance($ctx, DigitalSourceType::CompositeWithTrainedAlgorithmicMedia);
-        $metadata    = [
+    private function generateVideoArtifact(
+        GenerationContext $ctx,
+        int $jobUid,
+        SlideshowRendererInterface $slideshow,
+        array $images,
+        string $script,
+    ): void {
+        $artifactUid = $this->jobs->insertArtifact(
+            $jobUid,
+            ArtifactType::Video,
+            'default',
+            0,
+            ArtifactStatus::Pending,
+        );
+        $provenance = $this->provenance(
+            $ctx,
+            DigitalSourceType::CompositeWithTrainedAlgorithmicMedia,
+        );
+        $metadata = [
             'width'           => self::WIDTH,
             'height'          => self::HEIGHT,
             'slides'          => count($images),
@@ -178,26 +266,46 @@ class StoryGenerator extends AbstractGenerator
         ];
 
         try {
-            $video = $slideshow->render($images, self::WIDTH, self::HEIGHT, self::VIDEO_SECONDS_PER_SLIDE, [
-                'comment'           => $provenance->describeAscii(),
-                'AIGenerated'       => 'true',
-                'DigitalSourceType' => $provenance->sourceType->value,
-            ]);
+            $this->reviewArtifact(
+                $ctx,
+                $artifactUid,
+                $script,
+                'story video copy (images and video not inspected)',
+            );
+            $video = $slideshow->render(
+                $images,
+                self::WIDTH,
+                self::HEIGHT,
+                self::VIDEO_SECONDS_PER_SLIDE,
+                [
+                    'comment'           => $provenance->describeAscii(),
+                    'AIGenerated'       => 'true',
+                    'DigitalSourceType' => $provenance->sourceType->value,
+                ],
+            );
             try {
-                $file = $this->fileStorage->store((string) file_get_contents($video), 'story-video.mp4', $provenance);
+                $file = $this->fileStorage->store(
+                    (string) file_get_contents($video),
+                    'story-video.mp4',
+                    $provenance,
+                );
             } finally {
                 // Also when the FAL write fails: the worker runs long.
                 if (is_file($video)) {
                     // $video is the slideshow renderer's own temp file, never user input.
-                    unlink($video); // nosemgrep: php.lang.security.unlink-use.unlink-use
+                    unlink($video);
+                    // nosemgrep: php.lang.security.unlink-use.unlink-use
                 }
             }
 
-            $this->jobs->updateArtifact($artifactUid, [
-                'file_uid' => $file->getUid(),
-                'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
-                'status'   => ArtifactStatus::Done->value,
-            ]);
+            $this->jobs->updateArtifact(
+                $artifactUid,
+                [
+                    'file_uid' => $file->getUid(),
+                    'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+                    'status'   => ArtifactStatus::Done->value,
+                ],
+            );
         } catch (Throwable $e) {
             $this->failArtifactFrom($artifactUid, $jobUid, 'Story video', $e);
         }
@@ -349,8 +457,9 @@ class StoryGenerator extends AbstractGenerator
         int $total,
         ?string $backgroundPath,
         string $imageSize,
+        int $artifactUid,
     ): ?string {
-        $artifactUid   = $this->jobs->insertArtifact($jobUid, ArtifactType::Story, 'slide-' . $index, 0, ArtifactStatus::Pending);
+        // The copy was checked and persisted before the shared background was generated.
         $hasBackground = $backgroundPath !== null;
         // AI-written copy (and optionally an AI background) in the branded template.
         $provenance = $this->provenance(
@@ -380,31 +489,64 @@ class StoryGenerator extends AbstractGenerator
         $fgPath  = null;
         $pngPath = null;
         try {
-            $html = $this->renderSlideHtml($ctx, $slide, $index, $total, $backgroundPath !== null);
+            $html = $this->renderSlideHtml(
+                $ctx,
+                $slide,
+                $index,
+                $total,
+                $backgroundPath !== null,
+            );
 
             if ($backgroundPath !== null) {
-                $fgPath  = $this->renderer->render($html, self::WIDTH, self::HEIGHT, 1.0, true);
+                $fgPath = $this->renderer->render(
+                    $html,
+                    self::WIDTH,
+                    self::HEIGHT,
+                    1.0,
+                    true,
+                );
                 $pngPath = $this->makeTempDir() . '/slide.png';
                 $this->compositor->overlay($backgroundPath, $fgPath, $pngPath);
             } else {
-                $pngPath = $this->renderer->render($html, self::WIDTH, self::HEIGHT, 1.0, false);
+                $pngPath = $this->renderer->render(
+                    $html,
+                    self::WIDTH,
+                    self::HEIGHT,
+                    1.0,
+                    false,
+                );
             }
 
-            $file = $this->fileStorage->store((string) file_get_contents($pngPath), sprintf('story-slide-%d.png', $index), $provenance);
-            $this->jobs->updateArtifact($artifactUid, [
-                'file_uid'    => $file->getUid(),
-                'source_html' => $html,
-                'metadata'    => json_encode($metadata, JSON_THROW_ON_ERROR),
-                'status'      => ArtifactStatus::Done->value,
-            ]);
+            $file = $this->fileStorage->store(
+                (string) file_get_contents($pngPath),
+                sprintf('story-slide-%d.png', $index),
+                $provenance,
+            );
+            $this->jobs->updateArtifact(
+                $artifactUid,
+                [
+                    'file_uid'    => $file->getUid(),
+                    'source_html' => $html,
+                    'metadata'    => json_encode($metadata, JSON_THROW_ON_ERROR),
+                    'status'      => ArtifactStatus::Done->value,
+                ],
+            );
 
             return $pngPath;
         } catch (Throwable $e) {
             // Keep the slide identity on the failed row so the result view can still place it.
             // JSON_THROW_ON_ERROR matches the success path; $metadata is a fixed shape of
             // local scalars, so encoding cannot actually fail here.
-            $this->jobs->updateArtifact($artifactUid, ['metadata' => json_encode($metadata, JSON_THROW_ON_ERROR)]);
-            $this->failArtifactFrom($artifactUid, $jobUid, sprintf('Story slide %d/%d', $index, $total), $e);
+            $this->jobs->updateArtifact(
+                $artifactUid,
+                ['metadata' => json_encode($metadata, JSON_THROW_ON_ERROR)],
+            );
+            $this->failArtifactFrom(
+                $artifactUid,
+                $jobUid,
+                sprintf('Story slide %d/%d', $index, $total),
+                $e,
+            );
             // Not handed to the caller, so nobody else removes it.
             $this->discardRenderedFile($pngPath);
 

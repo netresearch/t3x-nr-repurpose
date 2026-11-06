@@ -41,6 +41,9 @@
         </f:if>
     </dl>
 
+    <h2 class="h5"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceReview.brief" /></h2>
+    <f:render partial="Job/SourceReview" arguments="{review: job.sourceReviewResult}" />
+
     <f:if condition="{job.failure}">
         <f:render partial="Job/FailureNotice" arguments="{job: job}" />
     </f:if>
@@ -131,6 +134,7 @@
                     </div>
                     <f:comment><!-- LLM text can carry long unbroken tokens (URLs): break them inside the card. --></f:comment>
                     <div class="card-body text-break">
+                        <f:render partial="Job/SourceReview" arguments="{review: artifact.sourceReviewResult}" />
                         <f:render partial="Job/ArtifactFailure" arguments="{artifact: artifact}" />
 
                         <f:if condition="{artifact.status} == 'done'">
@@ -273,6 +277,7 @@
                                         </f:else>
                                     </f:if>
                                     <div class="nrrepurpose-story-slide-meta">
+                                        <f:render partial="Job/SourceReview" arguments="{review: slide.sourceReviewResult}" />
                                         <f:render partial="Job/GenerationParameters" arguments="{prompts: slide.metadataArray.prompts}" />
                                         <f:render partial="Job/Review" arguments="{artifact: slide, job: job, canReview: canReview}" />
                                     </div>

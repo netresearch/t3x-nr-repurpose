@@ -9,7 +9,7 @@
 Configuration
 =============
 
-nr_repurpose has five extension settings of its own (see
+nr_repurpose has extension settings of its own (see
 :ref:`configuration-extension-settings`). Everything else it needs is wiring it
 shares with the host instance: the nr-llm provider, model and Configuration
 records, the Symfony Messenger routing, and the outbound HTTP timeouts. In the
@@ -28,6 +28,7 @@ have their own pages:
    NrLlm
    Worker
    AiLabelAndPublishing
+   SourceReview
 
 .. _configuration-extension-settings:
 

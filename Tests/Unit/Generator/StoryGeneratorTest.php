@@ -11,6 +11,9 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Decision\DecisionRequest;
+use Netresearch\NrLlm\Service\Decision\DecisionResult;
+use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -40,7 +43,9 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -140,6 +145,92 @@ final class StoryGeneratorTest extends TestCase
                 return new File(['uid' => $this->uid], $this->falStorage);
             }
         };
+    }
+
+    public function testTheTruncatedSlideIsReviewedBeforeAnyBackgroundOrRendering(): void
+    {
+        $jobs      = $this->jobs();
+        $renderer  = $this->renderer();
+        $images    = $this->imageGenerator(true);
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions->expects(self::once())->method('evaluate')->willReturnCallback(
+            static function (DecisionRequest $request) use ($renderer, $images): DecisionResult {
+                self::assertSame(str_repeat('A', 60) . "\nOnly in the trial.", $request->subject->candidate);
+                self::assertSame([], $renderer->outputs);
+                self::assertSame(0, $images->calls);
+
+                return SourceReviewFixture::result(false);
+            },
+        );
+        $ctx       = SourceReviewFixture::attach($this->context(), $jobs, $decisions);
+        $generator = $this->generator(
+            ['slides' => [['role' => 'cover', 'headline' => str_repeat('A', 80), 'subline' => 'Only in the trial.']]],
+            $renderer,
+            $images,
+            $jobs,
+            $this->allowingBudget(),
+            $this->compositor(),
+        );
+
+        self::assertFalse($generator->generate($ctx));
+        self::assertSame([], $renderer->outputs);
+        self::assertSame(0, $images->calls);
+        $update = $jobs->updates[$jobs->uidForVariant('slide-1')];
+        self::assertSame('source_review', $update['failure_reason']);
+        self::assertSame('flagged', json_decode($update['source_review'], true)['status']);
+        self::assertSame(['role' => 'cover', 'slideIndex' => 1, 'slideTotal' => 1], json_decode($update['metadata'], true));
+    }
+
+    /** @return array<string, array{bool}> */
+    public static function videoSubsetVerdicts(): array
+    {
+        return ['supported subset' => [true], 'lost qualification' => [false]];
+    }
+
+    #[DataProvider('videoSubsetVerdicts')]
+    public function testVideoReviewsOnlyTheSlidesThatActuallyRenderedBeforeEncoding(bool $subsetPasses): void
+    {
+        $jobs      = $this->jobs();
+        $slideshow = $this->slideshow();
+        $renderer  = $this->createMock(HtmlToImageRendererInterface::class);
+        $renderer->expects(self::exactly(3))->method('render')->willReturnCallback(
+            static function (string $html): string {
+                if (str_contains($html, 'Point one')) {
+                    throw new RenderingException('middle slide could not render');
+                }
+
+                $path = sys_get_temp_dir() . '/story_review_' . bin2hex(random_bytes(4)) . '.png';
+                file_put_contents($path, 'PNG');
+
+                return $path;
+            },
+        );
+        $candidates = [];
+        $decisions  = $this->createMock(DecisionServiceInterface::class);
+        $decisions->expects(self::exactly(4))->method('evaluate')->willReturnCallback(
+            static function (DecisionRequest $request) use (&$candidates, $slideshow, $subsetPasses): DecisionResult {
+                self::assertSame([], $slideshow->calls);
+                $candidates[] = $request->subject->candidate;
+
+                return SourceReviewFixture::result(count($candidates) <= 3 || $subsetPasses);
+            },
+        );
+        $ctx       = SourceReviewFixture::attach($this->context(wantVideo: true), $jobs, $decisions);
+        $generator = $this->generator(self::THREE_SLIDES, $renderer, $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), slideshow: $slideshow);
+
+        self::assertTrue($generator->generate($ctx));
+        self::assertCount(4, $candidates);
+        self::assertSame("Big News\nDetails inside\n\nTakeaway\nSource: example.com", $candidates[3]);
+        self::assertStringNotContainsString('Point one', $candidates[3]);
+        $update = $jobs->updates[$jobs->uidForVariant('default')];
+        $review = json_decode($update['source_review'], true);
+        self::assertSame($candidates[3], $update['script_text']);
+        self::assertSame(hash('sha256', $candidates[3]), $review['candidateHash']);
+        self::assertSame($subsetPasses ? 'passed' : 'flagged', $review['status']);
+        self::assertCount($subsetPasses ? 1 : 0, $slideshow->calls);
+        if ($subsetPasses) {
+            self::assertCount(2, $slideshow->calls[0]['images']);
+        }
     }
 
     public function testCreatesOneArtifactPerSlideWithRoleIndexAndTotalMetadata(): void

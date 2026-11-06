@@ -163,6 +163,7 @@
       <trans-unit id="review.refused.noTime"><source>Enter a date and time for publishing.</source></trans-unit>
       <trans-unit id="review.refused.notFound"><source>The artifact no longer exists; the job may have been generated again.</source></trans-unit>
       <trans-unit id="review.refused.decision"><source>Unknown review decision.</source></trans-unit>
+      <trans-unit id="review.refused.changed"><source>The artifact changed while this action was being processed. Reload its current status and try again.</source></trans-unit>
       <trans-unit id="publish.none"><source>Not scheduled</source></trans-unit>
       <trans-unit id="publish.scheduled"><source>Scheduled</source></trans-unit>
       <trans-unit id="publish.publishing"><source>Being published</source></trans-unit>
@@ -358,6 +359,30 @@
       <trans-unit id="show.aiLabel.closingLine"><source>Closing line of the copy-ready text:</source></trans-unit>
       <trans-unit id="aiLabel.image"><source>AI-generated</source></trans-unit>
       <trans-unit id="aiLabel.text"><source>This text was created with AI.</source></trans-unit>
+      <trans-unit id="sourceReview.title"><source>Last automatic source review</source></trans-unit>
+      <trans-unit id="sourceReview.brief"><source>Shared content brief</source></trans-unit>
+      <trans-unit id="sourceReview.status.not_run"><source>Not reviewed</source></trans-unit>
+      <trans-unit id="sourceReview.status.passed"><source>No issues detected automatically</source></trans-unit>
+      <trans-unit id="sourceReview.status.flagged"><source>Issues detected</source></trans-unit>
+      <trans-unit id="sourceReview.status.error"><source>Review unavailable or outdated</source></trans-unit>
+      <trans-unit id="sourceReview.scope"><source>Checks the text or script against the source. This is separate from editorial approval; generated audio and images still need their own review.</source></trans-unit>
+      <trans-unit id="sourceReview.changed"><source>The text has changed since this assessment. A new source review is required.</source></trans-unit>
+      <trans-unit id="sourceReview.observe"><source>Observation mode: issues are shown but do not block the next step. Editorial approval is still required.</source></trans-unit>
+      <trans-unit id="sourceReview.details"><source>Review details</source></trans-unit>
+      <trans-unit id="sourceReview.checkedAt"><source>Reviewed at</source></trans-unit>
+      <trans-unit id="sourceReview.model"><source>Review model</source></trans-unit>
+      <trans-unit id="review.refused.sourceReview"><source>The source review is missing, has detected issues, or no longer matches the text, source or current review settings. Generate and review the artifact again.</source></trans-unit>
+      <trans-unit id="failure.source_review.short"><source>Automatic source fidelity check did not pass</source></trans-unit>
+      <trans-unit id="failure.source_review.what"><source>The automatic source review detected issues or could not complete. Enforcement stopped the next processing step.</source></trans-unit>
+      <trans-unit id="failure.source_review.result"><source>The assessment remains visible separately from editorial approval. This check does not certify generated audio or images.</source></trans-unit>
+      <trans-unit id="failure.source_review.action"><source>Compare the text with the original source. Correct the source or task where needed and generate the affected result again.</source></trans-unit>
+      <trans-unit id="failure.source_review.admin"><source>If the review could not run, ask your administrator to check the review model, configuration, budget and data permissions.</source></trans-unit>
+      <trans-unit id="sourceReview.reason.disabled"><source>The automatic source review is disabled.</source></trans-unit>
+      <trans-unit id="sourceReview.reason.noEvidence"><source>No original source is available for comparison.</source></trans-unit>
+      <trans-unit id="sourceReview.reason.emptyCandidate"><source>There is no generated text to review.</source></trans-unit>
+      <trans-unit id="sourceReview.reason.sourceMismatch"><source>Compare the text with the original source: the automatic review found unsupported statements or lost qualifications.</source></trans-unit>
+      <trans-unit id="sourceReview.reason.candidateChanged"><source>The text changed after the assessment. Generate and review it again.</source></trans-unit>
+      <trans-unit id="sourceReview.reason.unavailable"><source>No usable assessment is available. Check the reviewer configuration and availability, then generate and review again.</source></trans-unit>
     </body>
   </file>
 </xliff>

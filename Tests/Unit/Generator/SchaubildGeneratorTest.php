@@ -12,6 +12,9 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Decision\DecisionRequest;
+use Netresearch\NrLlm\Service\Decision\DecisionResult;
+use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -36,6 +39,7 @@ use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -127,6 +131,77 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertSame('<p>x</p>', $subject->expose('```html<p>x</p>```'));
         // Unfenced input is returned trimmed but otherwise untouched.
         self::assertSame('<p>x</p>', $subject->expose('  <p>x</p>  '));
+    }
+
+    public function testOpaqueAndTransparentCompletionsAreReviewedSeparatelyBeforeTheirMedia(): void
+    {
+        $jobs       = $this->jobs();
+        $renderer   = $this->renderer();
+        $images     = $this->imageGenerator();
+        $compositor = $this->compositor();
+        $completion = $this->createMock(TextCompletionInterface::class);
+        $completion->expects(self::exactly(2))->method('completeMarkdown')->willReturn(
+            '<h2>Revenue grew</h2><p>Only in the trial.</p>',
+            '<h2>Revenue grew everywhere</h2><p>No limitations.</p>',
+        );
+        $candidates = [];
+        $decisions  = $this->createMock(DecisionServiceInterface::class);
+        $decisions->expects(self::exactly(3))->method('evaluate')->willReturnCallback(
+            static function (DecisionRequest $request) use (&$candidates, $renderer, $images): DecisionResult {
+                self::assertSame(0, $images->calls);
+                self::assertCount($candidates === [] ? 0 : 1, $renderer->outputs);
+                $candidates[] = $request->subject->candidate;
+
+                return SourceReviewFixture::result(count($candidates) !== 2);
+            },
+        );
+        $ctx       = SourceReviewFixture::attach($this->context(), $jobs, $decisions);
+        $generator = $this->generator($renderer, $compositor, $images, $this->storage(), $jobs, $this->allowingBudget(), $completion);
+
+        try {
+            self::assertTrue($generator->generate($ctx));
+            self::assertCount(3, $candidates);
+            self::assertStringContainsString('Only in the trial.', $candidates[0]);
+            self::assertStringNotContainsString('No limitations.', $candidates[0]);
+            self::assertStringContainsString('Revenue grew everywhere', $candidates[1]);
+            self::assertStringContainsString('No limitations.', $candidates[1]);
+            self::assertSame($images->prompts[0], $candidates[2]);
+            self::assertSame(1, $images->calls);
+            self::assertSame(0, $compositor->overlayCalls);
+            $overlay = $jobs->updates[$jobs->uidForVariant('html_bg')];
+            $review  = json_decode($overlay['source_review'], true);
+            self::assertSame('flagged', $review['status']);
+            self::assertSame(hash('sha256', $candidates[1]), $review['candidateHash']);
+            self::assertSame('failed', $overlay['status']);
+            self::assertSame('done', $jobs->updates[$jobs->uidForVariant('html')]['status']);
+            self::assertSame('done', $jobs->updates[$jobs->uidForVariant('ki_image')]['status']);
+        } finally {
+            $generator->removeTempDirs();
+        }
+    }
+
+    public function testRejectedDiagramAndImagePromptNeverReachAMediaService(): void
+    {
+        $jobs      = $this->jobs();
+        $renderer  = $this->renderer();
+        $images    = $this->imageGenerator();
+        $storage   = $this->storage();
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions->expects(self::exactly(3))->method('evaluate')->willReturn(SourceReviewFixture::result(false));
+        $ctx       = SourceReviewFixture::attach($this->context(), $jobs, $decisions);
+        $generator = $this->generator($renderer, $this->compositor(), $images, $storage, $jobs, $this->allowingBudget());
+
+        try {
+            self::assertFalse($generator->generate($ctx));
+            self::assertSame([], $renderer->outputs);
+            self::assertSame(0, $images->calls);
+            self::assertSame([], $storage->provenanceByName);
+            foreach (['html', 'html_bg', 'ki_image'] as $variant) {
+                self::assertSame('source_review', $jobs->updates[$jobs->uidForVariant($variant)]['failure_reason']);
+            }
+        } finally {
+            $generator->removeTempDirs();
+        }
     }
 
     /** The template outputs the body unescaped, so only static, styled markup may reach it. */
@@ -639,7 +714,7 @@ final class SchaubildGeneratorTest extends TestCase
 
             public function updateArtifact(int $artifactUid, array $fields): void
             {
-                $this->updates[$artifactUid] = $fields;
+                $this->updates[$artifactUid] = array_merge($this->updates[$artifactUid] ?? [], $fields);
             }
 
             public function uidForVariant(string $variant): int

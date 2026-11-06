@@ -1,0 +1,11 @@
+{
+    "name": "netresearch/nrrepurpose-source-review-fixture",
+    "description": "Deterministic source and decision services for the compiled pipeline container test. Not shipped.",
+    "type": "typo3-cms-extension",
+    "license": "GPL-2.0-or-later",
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nrrepurpose_source_review_fixture"
+        }
+    }
+}

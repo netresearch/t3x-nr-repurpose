@@ -120,6 +120,7 @@ return [
                 'foreign_field' => 'job',
             ],
         ],
+        'source_review' => ['config' => ['type' => 'passthrough']],
     ],
     'types' => [
         '0' => ['showitem' => 'source_type, source_value, source_pdf, pdf_mode, theme, want_podcast, want_schaubild, want_story, want_exec_summary, want_faq, want_social_post, want_newsletter, want_slide_deck, want_handout, want_video, status, progress, current_step, error_message, language_detected, artifacts'],
