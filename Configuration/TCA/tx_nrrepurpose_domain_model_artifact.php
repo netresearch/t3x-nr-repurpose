@@ -37,6 +37,7 @@ return [
         'publish_status' => ['label' => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_artifact.publish_status', 'config' => ['type' => 'input', 'readOnly' => true]],
         'published_at'   => ['config' => ['type' => 'passthrough']],
         'publish_error'  => ['config' => ['type' => 'passthrough']],
+        'source_review'  => ['config' => ['type' => 'passthrough']],
     ],
     'types' => [
         '0' => ['showitem' => 'type, variant, status, error_message, review_status, publish_status'],

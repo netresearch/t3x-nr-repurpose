@@ -30,3 +30,15 @@ socialWebhookSecretIdentifier =
 
 # cat=social; type=string; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:socialWebhookSecret
 socialWebhookSecret =
+
+# cat=sourceReview; type=options[Disabled=off,Observe=observe,Enforce=enforce]; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:sourceReviewMode
+sourceReviewMode = off
+
+# cat=sourceReview; type=string; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:sourceReviewConfiguration
+sourceReviewConfiguration =
+
+# cat=sourceReview; type=string; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:sourceReviewMinimumScore
+sourceReviewMinimumScore = 0.8
+
+# cat=sourceReview; type=options[Editorial content=editorContent,Source code=sourceCode,Internal configuration=internalConfiguration,System diagnostics=systemDiagnostics,Secret adjacent=secretAdjacent]; label=LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_em.xlf:sourceReviewDataClass
+sourceReviewDataClass = editorContent

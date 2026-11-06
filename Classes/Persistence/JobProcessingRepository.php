@@ -108,7 +108,16 @@ class JobProcessingRepository
     {
         return $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
             self::JOB_TABLE,
-            ['status' => JobStatus::Queued->value, 'current_step' => '', 'progress' => 0, 'error_message' => '', 'failure_reason' => '', 'source_report' => '', 'language_detected' => '', 'tstamp' => time()],
+            [
+                'status'            => JobStatus::Queued->value,
+                'current_step'      => '',
+                'progress'          => 0,
+                'error_message'     => '',
+                'failure_reason'    => '',
+                'source_report'     => '',
+                'language_detected' => '',
+                'tstamp'            => time(),
+            ],
             ['uid' => $jobUid, 'status' => JobStatus::Failed->value],
         ) === 1;
     }
@@ -257,8 +266,16 @@ class JobProcessingRepository
     public function updateArtifact(int $artifactUid, array $fields): void
     {
         $allowed = [
-            'file_uid', 'subtitle_file_uid', 'source_html',
-            'script_text', 'metadata', 'status', 'variant', 'error_message', 'failure_reason',
+            'file_uid',
+            'subtitle_file_uid',
+            'source_html',
+            'script_text',
+            'metadata',
+            'source_review',
+            'status',
+            'variant',
+            'error_message',
+            'failure_reason',
         ];
         $update = [];
         foreach ($allowed as $column) {
@@ -275,5 +292,23 @@ class JobProcessingRepository
 
         $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)
             ->update(self::ARTIFACT_TABLE, $update, ['uid' => $artifactUid]);
+    }
+
+    /** @param array<string, mixed> $review */
+    public function setSourceReview(int $jobUid, array $review): void
+    {
+        $this->connectionPool
+            ->getConnectionForTable(self::JOB_TABLE)
+            ->update(
+                self::JOB_TABLE,
+                [
+                    'source_review' => json_encode(
+                        $review,
+                        JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
+                    ),
+                    'tstamp' => time(),
+                ],
+                ['uid' => $jobUid],
+            );
     }
 }
