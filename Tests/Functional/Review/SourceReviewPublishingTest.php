@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Review;
 
+use Closure;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
 use Netresearch\NrRepurpose\Review\ArtifactReviewService;
 use Netresearch\NrRepurpose\Review\ReviewRefusedException;
@@ -745,5 +746,119 @@ final class SourceReviewPublishingTest extends AbstractFunctionalTestCase
         self::assertSame('approved', $this->artifact($uid)['review_status']);
         self::assertNull($this->artifact($uid)['script_text']);
         self::assertNull($this->artifact($uid)['source_review']);
+    }
+
+    #[DataProvider('editorialChanges')]
+    public function testAnEditorialWriteCannotOverwriteAConcurrentReschedule(
+        string $action,
+    ): void {
+        [$uid]   = $this->seed($this->reviewRecord('passed'));
+        $real    = $this->pool()->getConnectionForTable(self::ARTIFACT);
+        $service = $this->serviceWithUpdateCallback(
+            static function (
+                string $table,
+                array $fields,
+                array $criteria,
+            ) use ($real, $uid): int {
+                // Another editor changes only the time, keeping the scheduled status.
+                $real->update(
+                    $table,
+                    ['publish_at' => self::NOW + 3600],
+                    ['uid' => $uid],
+                );
+
+                return $real->update($table, $fields, $criteria);
+            },
+        );
+        try {
+            $this->runEditorialAction($service, $uid, $action, self::NOW + 60);
+            self::fail(
+                "A stale editorial action must not overwrite another editor's schedule.",
+            );
+        } catch (ReviewRefusedException $exception) {
+            self::assertSame('review.refused.changed', $exception->getMessage());
+        }
+
+        self::assertSame(
+            self::NOW + 3600,
+            (int) $this->artifact($uid)['publish_at'],
+        );
+        self::assertSame('scheduled', $this->artifact($uid)['publish_status']);
+    }
+
+    #[DataProvider('editorialChanges')]
+    public function testAnUnchangedEditorialActionAcceptsZeroChangedRows(
+        string $action,
+    ): void {
+        [$uid, $job] = $this->seed($this->reviewRecord('passed'));
+        $real        = $this->pool()->getConnectionForTable(self::ARTIFACT);
+        $fields      = ['reviewed_by' => 9, 'reviewed_at' => self::NOW, 'publish_error' => ''];
+        if ($action === 'reject') {
+            $fields += [
+                'review_status'  => 'rejected',
+                'publish_status' => '',
+                'publish_at'     => 0,
+            ];
+        } elseif ($action === 'unschedule') {
+            $fields += ['publish_status' => '', 'publish_at' => 0];
+        }
+
+        $real->update(self::ARTIFACT, $fields, ['uid' => $uid]);
+        $before  = $this->artifact($uid);
+        $service = $this->serviceWithUpdateCallback(
+            static function (
+                string $table,
+                array $fields,
+                array $criteria,
+            ) use ($real): int {
+                $real->update($table, $fields, $criteria);
+
+                // Emulate MySQL's changed-row count even when the SQLite runner reports matched rows.
+                return 0;
+            },
+        );
+        self::assertSame(
+            $job,
+            $this->runEditorialAction($service, $uid, $action, self::NOW),
+        );
+        self::assertSame($before, $this->artifact($uid));
+    }
+
+    private function serviceWithUpdateCallback(
+        Closure $update,
+    ): ArtifactReviewService {
+        $realPool   = $this->pool();
+        $real       = $realPool->getConnectionForTable(self::ARTIFACT);
+        $connection = $this->createStub(Connection::class);
+        $connection->method('select')->willReturnCallback($real->select(...));
+        $connection->method('update')->willReturnCallback($update);
+        $pool = $this->createStub(ConnectionPool::class);
+        $pool
+            ->method('getConnectionForTable')
+            ->willReturnCallback(
+                static fn (
+                    string $table,
+                ): Connection => $table === self::ARTIFACT ? $connection : $realPool->getConnectionForTable($table),
+            );
+
+        return new ArtifactReviewService(
+            $pool,
+            $this->policy('enforce'),
+            new SourceReviewPointer($realPool),
+        );
+    }
+
+    private function runEditorialAction(
+        ArtifactReviewService $service,
+        int $uid,
+        string $action,
+        int $publishAt,
+    ): int {
+        return match ($action) {
+            'approve'  => $service->review($uid, ReviewStatus::Approved, 9, self::NOW),
+            'reject'   => $service->review($uid, ReviewStatus::Rejected, 9, self::NOW),
+            'schedule' => $service->schedule($uid, $publishAt),
+            default    => $service->unschedule($uid),
+        };
     }
 }

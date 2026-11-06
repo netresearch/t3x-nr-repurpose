@@ -367,7 +367,7 @@
       <trans-unit id="sourceReview.status.error"><source>Review unavailable or outdated</source></trans-unit>
       <trans-unit id="sourceReview.scope"><source>Checks the text or script against the source. This is separate from editorial approval; generated audio and images still need their own review.</source></trans-unit>
       <trans-unit id="sourceReview.changed"><source>The text has changed since this assessment. A new source review is required.</source></trans-unit>
-      <trans-unit id="sourceReview.observe"><source>Observation mode: issues are shown but do not block the next step. Editorial approval is still required.</source></trans-unit>
+      <trans-unit id="sourceReview.observe"><source>This assessment was recorded in observation mode. Current review settings still apply to approval and publication.</source></trans-unit>
       <trans-unit id="sourceReview.details"><source>Review details</source></trans-unit>
       <trans-unit id="sourceReview.checkedAt"><source>Reviewed at</source></trans-unit>
       <trans-unit id="sourceReview.model"><source>Review model</source></trans-unit>

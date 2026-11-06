@@ -73,10 +73,23 @@ claim also compares the scheduled content and assessment with its current row.
 This binds publication to the ingested snapshot. It does not fetch a live website
 again, so later changes at an unchanged external URL are not detected.
 
+The final source/text check is the authorization point for the external publish
+call. The publisher sends that unchanged, checked snapshot with its matching
+source URL. It does not hold a database lock across the external call. A source
+edit after the check cannot atomically revoke a delivery already in progress.
+
 An enforced run stays enforced when retried, even if the global setting has since
 been switched off or to observe. Its previous assessment is retained until the
-new check replaces it. Requeue the job to regenerate and reassess its content;
-there is no automatic repair loop and no UI override of a failed machine check.
+new check replaces it. Jobs can be requeued only with status ``failed`` and no
+completed artifacts. Jobs with status ``partially_done`` have some successful
+artifacts and cannot be requeued; create a new job to regenerate and reassess
+the content in that case.
+
+If an interrupted job resumes and its brief review fails, previously completed
+or approved artifacts are retained, just as after ingestion or analysis failures.
+Those retained completed artifacts also prevent requeueing; recovery requires a
+new job. There is no automatic repair loop and no UI override of a failed machine
+check.
 Existing artifacts without an assessment remain visibly **not checked**; enabling
 enforce blocks their approval/publication until regenerated. Apply the normal
 TYPO3 database schema update to add the two ``source_review`` text fields, and
@@ -90,7 +103,10 @@ have been applied, before file rendering. Each story slide's final headline and
 subline are checked before the shared background is produced. A story video checks
 the combined copy of only the slides actually rendered. Diagram HTML variants are
 checked separately, since their opaque and transparent copy may come from different
-completions. Full AI image generation checks its actual input prompt.
+completions. For ``html_bg``, the checked candidate combines the visible overlay
+copy with the complete background image prompt, including its configured preamble
+and selected style/audience snippets. Full AI image generation checks its actual
+input prompt.
 
 The podcast checks the shortened dialogue before TTS. If synthesis loses a turn,
 the remaining transcript is checked again before stitching, because the omission

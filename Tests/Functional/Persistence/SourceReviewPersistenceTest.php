@@ -17,6 +17,7 @@ use Netresearch\NrRepurpose\Domain\Repository\ArtifactRepository;
 use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -128,6 +129,115 @@ final class SourceReviewPersistenceTest extends AbstractFunctionalTestCase
         self::assertSame(
             'passed',
             $loaded->getSourceReviewResult()->getStatus(),
+        );
+    }
+
+    private function seedReviewSnapshot(?string $snapshot): int
+    {
+        $connection = $this
+            ->get(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_job');
+        $connection->insert(
+            'tx_nrrepurpose_domain_model_job',
+            [
+                'source_type'   => 'url',
+                'source_review' => $snapshot,
+                'tstamp'        => time(),
+            ],
+        );
+
+        return (int) $connection->lastInsertId();
+    }
+
+    public function testReviewCompareAndSetDistinguishesSqlNullFromEmptyString(): void
+    {
+        $uid        = $this->seedReviewSnapshot(null);
+        $repository = $this->get(JobProcessingRepository::class);
+        $review     = ['mode' => 'enforce', 'status' => 'passed'];
+
+        self::assertFalse(
+            $repository->compareAndSetSourceReview($uid, $review, ''),
+        );
+        self::assertNull($repository->findRow($uid)['source_review']);
+        self::assertTrue(
+            $repository->compareAndSetSourceReview($uid, $review, null),
+        );
+        self::assertSame(
+            $review,
+            json_decode($repository->findRow($uid)['source_review'], true),
+        );
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function olderReviewModes(): iterable
+    {
+        yield 'off' => ['off'];
+        yield 'observe' => ['observe'];
+    }
+
+    #[DataProvider('olderReviewModes')]
+    public function testReviewCompareAndSetPreservesAConcurrentEnforcedVerdict(
+        string $olderMode,
+    ): void {
+        $previous   = '{"mode":"observe","status":"passed"}';
+        $uid        = $this->seedReviewSnapshot($previous);
+        $repository = $this->get(JobProcessingRepository::class);
+        $repository->setSourceReview(
+            $uid,
+            [
+                'mode'   => 'enforce',
+                'status' => 'flagged',
+                'model'  => 'newer reviewer',
+            ],
+        );
+        $current = $repository->findRow($uid);
+
+        self::assertFalse(
+            $repository->compareAndSetSourceReview(
+                $uid,
+                ['mode' => $olderMode, 'status' => 'not_run'],
+                $previous,
+            ),
+        );
+        self::assertSame(
+            $current['source_review'],
+            $repository->findRow($uid)['source_review'],
+        );
+        self::assertSame(
+            $current['tstamp'],
+            $repository->findRow($uid)['tstamp'],
+        );
+    }
+
+    public function testReviewCompareAndSetUsesByteExactSnapshotOnEveryDatabase(): void
+    {
+        $current    = '{"mode":"observe","marker":"New Claim"}';
+        $uid        = $this->seedReviewSnapshot($current);
+        $repository = $this->get(JobProcessingRepository::class);
+
+        self::assertFalse(
+            $repository->compareAndSetSourceReview(
+                $uid,
+                ['mode' => 'off'],
+                '{"mode":"observe","marker":"new claim"}',
+            ),
+        );
+        self::assertSame($current, $repository->findRow($uid)['source_review']);
+    }
+
+    public function testReviewCompareAndSetAcceptsAnUnchangedSnapshotButNeverAMissingJob(): void
+    {
+        $review     = ['mode' => 'off', 'status' => 'not_run'];
+        $json       = json_encode($review, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $uid        = $this->seedReviewSnapshot($json);
+        $repository = $this->get(JobProcessingRepository::class);
+
+        self::assertTrue(
+            $repository->compareAndSetSourceReview($uid, $review, $json),
+        );
+        self::assertSame($json, $repository->findRow($uid)['source_review']);
+        self::assertFalse(
+            $repository->compareAndSetSourceReview($uid + 1, $review, null),
         );
     }
 }

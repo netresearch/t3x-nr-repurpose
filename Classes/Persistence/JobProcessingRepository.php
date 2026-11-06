@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Persistence;
 
+use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
@@ -16,6 +17,7 @@ use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
 use Throwable;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\ReferenceIndex;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -310,5 +312,52 @@ class JobProcessingRepository
                 ],
                 ['uid' => $jobUid],
             );
+    }
+
+    /**
+     * Store only against the exact review read before the potentially slow evaluation.
+     * SQL NULL is a distinct snapshot; concurrent stronger verdicts must survive.
+     *
+     * @param array<string, mixed> $review
+     */
+    public function compareAndSetSourceReview(
+        int $jobUid,
+        array $review,
+        ?string $expected,
+    ): bool {
+        $encoded      = json_encode($review, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::JOB_TABLE);
+        $queryBuilder
+            ->update(self::JOB_TABLE)
+            ->set('source_review', $encoded)
+            ->set('tstamp', time())
+            ->where(
+                $queryBuilder->expr()->eq(
+                    'uid',
+                    $queryBuilder->createNamedParameter(
+                        $jobUid,
+                        Connection::PARAM_INT,
+                    ),
+                ),
+            );
+        if ($expected === null) {
+            $queryBuilder->andWhere(
+                $queryBuilder->expr()->isNull('source_review'),
+            );
+        } else {
+            $parameter = $queryBuilder->createNamedParameter($expected);
+            // MySQL's default text collation ignores case. Compare the raw snapshot bytes.
+            $condition = $this->connectionPool
+                ->getConnectionForTable(self::JOB_TABLE)
+                ->getDatabasePlatform() instanceof AbstractMySQLPlatform ? 'BINARY ' . $queryBuilder->quoteIdentifier('source_review') . ' = BINARY ' . $parameter : $queryBuilder->expr()->eq('source_review', $parameter);
+            $queryBuilder->andWhere($condition);
+        }
+
+        if ($queryBuilder->executeStatement() > 0) {
+            return true;
+        }
+
+        // Some drivers report changed rather than matched rows for an identical write.
+        return $encoded === $expected && ($this->findRow($jobUid)['source_review'] ?? null) === $expected;
     }
 }

@@ -54,8 +54,10 @@ final class SourceReviewServiceTest extends TestCase
 
     public function testOriginalTitleAndEntireEvidenceReachIndependentReviewerWithAttribution(): void
     {
-        $document  = $this->document(str_repeat('Original source passage. ', 12000));
-        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $originalText     = str_repeat('Original source passage. ', 12000) . 'Final original qualifier.';
+        $document         = $this->document($originalText);
+        $expectedEvidence = "Source title: Forecast\nSource attribution: source\n\nOriginal text:\n" . $originalText;
+        $decisions        = $this->createMock(DecisionServiceInterface::class);
         $decisions
             ->expects(self::once())
             ->method('assertAvailable')
@@ -66,13 +68,13 @@ final class SourceReviewServiceTest extends TestCase
             ->willReturnCallback(
                 static function (
                     DecisionRequest $request,
-                ) use ($document): DecisionResult {
+                ) use ($expectedEvidence): DecisionResult {
                     self::assertSame(
                         'Final shortened copy',
                         $request->subject->candidate,
                     );
                     self::assertSame(
-                        [SourceReviewService::sourceEvidence($document)],
+                        [$expectedEvidence],
                         $request->subject->evidence,
                     );
                     self::assertSame(
@@ -99,7 +101,7 @@ final class SourceReviewServiceTest extends TestCase
         self::assertSame('passed', $result['status']);
         self::assertSame('independent-reviewer', $result['model']);
         self::assertSame(
-            hash('sha256', SourceReviewService::sourceEvidence($document)),
+            hash('sha256', $expectedEvidence),
             $result['sourceHash'],
         );
         self::assertSame(

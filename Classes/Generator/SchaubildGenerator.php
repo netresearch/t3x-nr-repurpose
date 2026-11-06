@@ -255,15 +255,16 @@ class SchaubildGenerator extends AbstractGenerator
         $tmpDir = null;
         $fgPath = null;
         try {
+            $bgPrompt  = $this->backgroundPrompt($ctx);
+            $candidate = "Diagram overlay text:\n" . SourceReviewGate::htmlText($transparentHtml) . "\n\nBackground image prompt:\n" . $bgPrompt;
             $this->reviewArtifact(
                 $ctx,
                 $artifactUid,
-                SourceReviewGate::htmlText($transparentHtml),
-                'diagram overlay text (background image not inspected)',
+                $candidate,
+                'diagram overlay text and background image prompt (rendered image not inspected)',
             );
-            $tmpDir   = $this->makeTempDir();
-            $bgPath   = $tmpDir . '/bg.png';
-            $bgPrompt = $this->backgroundPrompt($ctx);
+            $tmpDir = $this->makeTempDir();
+            $bgPath = $tmpDir . '/bg.png';
             $ctx->progress?->step(
                 'Schaubild: generating background image',
                 0.65,
