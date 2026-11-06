@@ -26,6 +26,7 @@ use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewRejectedException;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewSupersededException;
 use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
@@ -174,6 +175,9 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
                 $brief,
                 $sourcePointerHash,
             ) ?? [];
+        } catch (SourceReviewSupersededException) {
+            // The winning run owns the job state and artifacts; leave both untouched.
+            return;
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Source fidelity check', $e);
 
