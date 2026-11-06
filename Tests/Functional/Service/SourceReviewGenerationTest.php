@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
 use Netresearch\NrRepurpose\Domain\Model\Job;
@@ -40,6 +41,7 @@ use Netresearch\NrRepurpose\Tests\Functional\Fixtures\SourceReviewPipelineFixtur
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -379,14 +381,21 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
             'candidateHash' => hash('sha256', 'newer brief'),
         ];
         $newerJson = json_encode($newerReview, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $winner    = null;
         $decisions = $this->createMock(DecisionServiceInterface::class);
         $decisions
             ->expects(self::once())
             ->method('evaluate')
             ->willReturnCallback(
-                static function () use ($jobs, $uid, $newerReview): DecisionResult {
+                static function () use ($jobs, $uid, $newerReview, &$winner): DecisionResult {
                     // A second worker finishes its mandatory review while this call is pending.
                     $jobs->setSourceReview($uid, $newerReview);
+                    $jobs->markFailed(
+                        $uid,
+                        'Winning review rejected the brief.',
+                        FailureReason::SourceReview,
+                    );
+                    $winner = $jobs->findRow($uid);
 
                     return SourceReviewFixture::result();
                 },
@@ -401,5 +410,108 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
         self::assertSame($newerJson, $row['source_review']);
         self::assertSame('failed', $row['status']);
         self::assertSame('source_review', $row['failure_reason']);
+        self::assertSame($winner, $row);
+    }
+
+    /** @return iterable<string, array{JobStatus}> */
+    public static function completedWinningStatuses(): iterable
+    {
+        yield 'completed' => [JobStatus::Done];
+        yield 'partially completed' => [JobStatus::PartiallyDone];
+    }
+
+    #[DataProvider('completedWinningStatuses')]
+    public function testSupersededBriefReviewPreservesTheWinningJobAndArtifacts(
+        JobStatus $winningStatus,
+    ): void {
+        $uid       = $this->seed();
+        $jobs      = $this->get(JobProcessingRepository::class);
+        $artifacts = $this
+            ->get(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_artifact');
+        $newerReview = [
+            'mode'          => 'enforce',
+            'status'        => 'passed',
+            'candidateHash' => hash('sha256', 'Winning brief'),
+            'model'         => 'winning reviewer',
+        ];
+        $winner           = null;
+        $winningArtifacts = [];
+        $decisions        = $this->createMock(DecisionServiceInterface::class);
+        $decisions
+            ->expects(self::once())
+            ->method('evaluate')
+            ->willReturnCallback(
+                static function () use ($jobs, $uid, $newerReview, $winningStatus, $artifacts, &$winner, &$winningArtifacts): DecisionResult {
+                    // The other worker completes while this worker's external review is pending.
+                    $jobs->setSourceReview($uid, $newerReview);
+                    $artifactUid = $jobs->insertArtifact(
+                        $uid,
+                        ArtifactType::SocialPost,
+                        'linkedin',
+                        0,
+                        ArtifactStatus::Done,
+                    );
+                    $jobs->updateArtifact(
+                        $artifactUid,
+                        [
+                            'script_text'   => 'Winning final copy',
+                            'source_review' => json_encode(
+                                $newerReview + ['scope' => 'winning artifact'],
+                                JSON_THROW_ON_ERROR,
+                            ),
+                        ],
+                    );
+                    $artifacts->update(
+                        'tx_nrrepurpose_domain_model_artifact',
+                        [
+                            'review_status' => ReviewStatus::Approved->value,
+                            'reviewed_by'   => 9,
+                            'reviewed_at'   => 1794000000,
+                        ],
+                        ['uid' => $artifactUid],
+                    );
+                    if ($winningStatus === JobStatus::PartiallyDone) {
+                        $jobs->insertArtifact(
+                            $uid,
+                            ArtifactType::Handout,
+                            'default',
+                            0,
+                            ArtifactStatus::Failed,
+                        );
+                    }
+
+                    $jobs->finishJob($uid, $winningStatus, '');
+                    $winner           = $jobs->findRow($uid);
+                    $winningArtifacts = $artifacts->select(
+                        ['*'],
+                        'tx_nrrepurpose_domain_model_artifact',
+                        ['job' => $uid],
+                        orderBy: ['uid' => 'ASC'],
+                    )->fetchAllAssociative();
+
+                    return SourceReviewFixture::result();
+                },
+            );
+        $generator = $this->createMock(ArtifactGeneratorInterface::class);
+        $generator->expects(self::never())->method('generate');
+
+        $this->runJob($uid, 'observe', $decisions, $generator);
+
+        self::assertIsArray($winner);
+        self::assertSame($winningStatus->value, $winner['status']);
+        self::assertSame($winner, $jobs->findRow($uid));
+        self::assertNotEmpty($winningArtifacts);
+        self::assertSame(
+            $winningArtifacts,
+            $artifacts
+                ->select(
+                    ['*'],
+                    'tx_nrrepurpose_domain_model_artifact',
+                    ['job' => $uid],
+                    orderBy: ['uid' => 'ASC'],
+                )
+                ->fetchAllAssociative(),
+        );
     }
 }

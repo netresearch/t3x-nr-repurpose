@@ -64,7 +64,7 @@ final readonly class SourceReviewGate
         );
         $review['sourcePointerHash'] = $sourcePointerHash ?? $this->captureSource($row);
         if (!$this->jobs->compareAndSetSourceReview($job->uid, $review, $previous)) {
-            throw new SourceReviewRejectedException();
+            throw new SourceReviewSupersededException();
         }
 
         if (!$this->policy->allowsBrief($review)) {
