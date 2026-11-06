@@ -529,12 +529,12 @@ final class SourceReviewPublishingTest extends AbstractFunctionalTestCase
         $files = $this->pool()->getConnectionForTable('sys_file');
         $files->insert(
             'sys_file',
-            ['identifier' => '/original.pdf', 'sha1' => sha1('original')],
+            ['identifier' => '/original.pdf', 'sha1' => '1111111111111111111111111111111111111111'],
         );
         $original = (int) $files->lastInsertId();
         $files->insert(
             'sys_file',
-            ['identifier' => '/replacement.pdf', 'sha1' => sha1('replacement')],
+            ['identifier' => '/replacement.pdf', 'sha1' => '2222222222222222222222222222222222222222'],
         );
         $replacement = (int) $files->lastInsertId();
         $references  = $this->pool()->getConnectionForTable('sys_file_reference');
