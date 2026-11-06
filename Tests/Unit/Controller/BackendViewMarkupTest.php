@@ -49,6 +49,7 @@ final class BackendViewMarkupTest extends TestCase
             'new job'               => ['Private/Templates/Job/New.html'],
             'job detail'            => ['Private/Templates/Job/Show.html'],
             'social planning'       => ['Private/Templates/Job/Plan.html'],
+            'source review partial' => ['Private/Partials/Job/SourceReview.html'],
             'review partial'        => ['Private/Partials/Job/Review.html'],
             'text artifact partial' => ['Private/Partials/Job/TextArtifact.html'],
             'parameters partial'    => ['Private/Partials/Job/GenerationParameters.html'],

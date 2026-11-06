@@ -19,6 +19,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewResult;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
 use TYPO3\CMS\Extbase\Attribute\ORM\Lazy;
 use TYPO3\CMS\Extbase\Domain\Model\FileReference;
@@ -595,5 +596,18 @@ class Job extends AbstractEntity
         }
 
         return null;
+    }
+
+    protected string $sourceReview = '';
+
+    public function getSourceReview(): string
+    {
+        return $this->sourceReview;
+    }
+
+    /** Computed view data; the persisted property remains a JSON string. */
+    public function getSourceReviewResult(): SourceReviewResult
+    {
+        return SourceReviewResult::fromJson($this->sourceReview);
     }
 }

@@ -101,24 +101,42 @@ abstract class AbstractTextGenerator extends AbstractGenerator
 
         try {
             $ctx->progress?->step($this->label() . ': writing text', 0.1);
-            $options = JobLlmOptions::forJob((new ChatOptions(
-                temperature: 0.4,
-                responseFormat: 'json',
-                systemPrompt: $system,
-                beUserUid: $ctx->beUser,
-                plannedCost: self::PLANNED_COST,
-            ))->withCallerSource(CallerSource::EXTENSION, $this->operation()), $ctx->job);
+            $options = JobLlmOptions::forJob(
+                (new ChatOptions(
+                    temperature: 0.4,
+                    responseFormat: 'json',
+                    systemPrompt: $system,
+                    beUserUid: $ctx->beUser,
+                    plannedCost: self::PLANNED_COST,
+                ))->withCallerSource(CallerSource::EXTENSION, $this->operation()),
+                $ctx->job,
+            );
 
             $artifacts = $this->withClosingLine(
                 $this->parse(
-                    $this->completion->completeStructured($prompt, $this->responseSchema(), $options),
+                    $this->completion->completeStructured(
+                        $prompt,
+                        $this->responseSchema(),
+                        $options,
+                    ),
                     $ctx,
                 ),
                 $ctx->aiLabel->textLine ?? '',
             );
         } catch (Throwable $e) {
-            $artifactUid = $this->jobs->insertArtifact($jobUid, $this->artifactType(), 'default', 0, ArtifactStatus::Pending);
-            $this->failArtifactFrom($artifactUid, $jobUid, $this->label() . ' generation', $e);
+            $artifactUid = $this->jobs->insertArtifact(
+                $jobUid,
+                $this->artifactType(),
+                'default',
+                0,
+                ArtifactStatus::Pending,
+            );
+            $this->failArtifactFrom(
+                $artifactUid,
+                $jobUid,
+                $this->label() . ' generation',
+                $e,
+            );
 
             return false;
         }
@@ -130,23 +148,54 @@ abstract class AbstractTextGenerator extends AbstractGenerator
         $aiLabel    = $provenance->toArray();
         $ok         = false;
         foreach ($artifacts as $artifact) {
-            $artifactUid = $this->jobs->insertArtifact($jobUid, $this->artifactType(), $artifact->variant, 0, ArtifactStatus::Pending);
+            $artifactUid = $this->jobs->insertArtifact(
+                $jobUid,
+                $this->artifactType(),
+                $artifact->variant,
+                0,
+                ArtifactStatus::Pending,
+            );
             try {
+                $this->reviewArtifact($ctx, $artifactUid, $artifact->plainText);
                 $fileFields = $this->fileFields($artifact, $ctx, $provenance);
             } catch (Throwable $e) {
-                $this->failArtifactFrom($artifactUid, $jobUid, sprintf('%s (%s) file', $this->label(), $artifact->variant), $e);
+                $this->failArtifactFrom(
+                    $artifactUid,
+                    $jobUid,
+                    sprintf('%s (%s) file', $this->label(), $artifact->variant),
+                    $e,
+                );
                 continue;
             }
 
             try {
-                $this->jobs->updateArtifact($artifactUid, [
-                    'script_text' => $artifact->plainText,
-                    'metadata'    => json_encode(['content' => $artifact->content, 'prompts' => $prompts, 'aiLabel' => $aiLabel], JSON_THROW_ON_ERROR),
-                    'status'      => ArtifactStatus::Done->value,
-                ] + $fileFields);
+                $this->jobs->updateArtifact(
+                    $artifactUid,
+                    [
+                        'script_text' => $artifact->plainText,
+                        'metadata'    => json_encode(
+                            [
+                                'content' => $artifact->content,
+                                'prompts' => $prompts,
+                                'aiLabel' => $aiLabel,
+                            ],
+                            JSON_THROW_ON_ERROR,
+                        ),
+                        'status' => ArtifactStatus::Done->value,
+                    ] + $fileFields,
+                );
                 $ok = true;
             } catch (Throwable $e) {
-                $this->failArtifactFrom($artifactUid, $jobUid, sprintf('%s (%s) storage', $this->label(), $artifact->variant), $e);
+                $this->failArtifactFrom(
+                    $artifactUid,
+                    $jobUid,
+                    sprintf(
+                        '%s (%s) storage',
+                        $this->label(),
+                        $artifact->variant,
+                    ),
+                    $e,
+                );
             }
         }
 

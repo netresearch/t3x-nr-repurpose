@@ -12,6 +12,9 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Service\Decision\DecisionRequest;
+use Netresearch\NrLlm\Service\Decision\DecisionResult;
+use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -38,6 +41,7 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -188,7 +192,7 @@ final class PodcastGeneratorTest extends TestCase
 
             public function updateArtifact(int $artifactUid, array $fields): void
             {
-                $this->updates[$artifactUid] = $fields;
+                $this->updates[$artifactUid] = array_merge($this->updates[$artifactUid] ?? [], $fields);
             }
         };
     }
@@ -204,6 +208,90 @@ final class PodcastGeneratorTest extends TestCase
         $budget->checkResult = BudgetCheckResult::denied('LIMIT_DAILY', 10.0, 10.0, 'exhausted');
 
         return $budget;
+    }
+
+    public function testRejectedFinalScriptStopsBeforeAnySpeechOrStorage(): void
+    {
+        $jobs      = $this->jobs();
+        $speech    = $this->speech();
+        $stitcher  = $this->stitcher();
+        $storage   = $this->storage();
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions->expects(self::once())->method('evaluate')->willReturnCallback(
+            static function (DecisionRequest $request) use ($speech): DecisionResult {
+                self::assertSame([], $speech->calls);
+                self::assertStringStartsWith('Host A: ', $request->subject->candidate);
+                self::assertSame(["Source title: Quarterly Report\nSource attribution: https://example.com/report\n\nOriginal text:\nRevenue grew. Costs fell."], $request->subject->evidence);
+
+                return SourceReviewFixture::result(false);
+            },
+        );
+        $ctx       = SourceReviewFixture::attach($this->context(), $jobs, $decisions);
+        $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new NullLogger(), $this->completion(), $speech, $stitcher, $storage, new WebVttBuilder());
+
+        self::assertFalse($generator->generate($ctx));
+        self::assertSame([], $speech->calls);
+        self::assertSame([], $stitcher->concatInput);
+        self::assertSame([], $storage->order);
+        self::assertSame('flagged', json_decode($jobs->updates[100]['source_review'], true)['status']);
+        self::assertSame('source_review', $jobs->updates[100]['failure_reason']);
+    }
+
+    /** @return array<string, array{bool}> */
+    public static function remainingScriptVerdicts(): array
+    {
+        return ['supported remainder' => [true], 'lost qualification' => [false]];
+    }
+
+    #[DataProvider('remainingScriptVerdicts')]
+    public function testFailedSpeechTurnRequiresANewReviewOfTheExactRemainingScript(bool $remainderPasses): void
+    {
+        $jobs     = $this->jobs();
+        $stitcher = $this->stitcher();
+        $storage  = $this->storage();
+        $speech   = $this->createMock(SpeechSynthesizerInterface::class);
+        $speech->method('isAvailable')->willReturn(true);
+        $speech->method('getModel')->willReturn('test-tts');
+        $speech->expects(self::exactly(3))->method('synthesizeToFile')->willReturnCallback(
+            static function (string $text, string $voice, string $path): void {
+                if ($text === 'Only in the trial.') {
+                    throw new RuntimeException('temporary synthesis failure');
+                }
+
+                file_put_contents($path, 'audio');
+            },
+        );
+        $seen      = [];
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions->expects(self::exactly(2))->method('evaluate')->willReturnCallback(
+            static function (DecisionRequest $request) use (&$seen, $stitcher, $storage, $remainderPasses): DecisionResult {
+                self::assertSame([], $stitcher->concatInput);
+                self::assertSame([], $storage->order);
+                $seen[] = $request->subject->candidate;
+
+                return SourceReviewFixture::result(count($seen) === 1 || $remainderPasses);
+            },
+        );
+        $ctx        = SourceReviewFixture::attach($this->context(), $jobs, $decisions);
+        $completion = $this->completion([
+            ['speaker' => 'Host A', 'text' => 'Revenue grew.'],
+            ['speaker' => 'Host B', 'text' => 'Only in the trial.'],
+        ]);
+        $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new NullLogger(), $completion, $speech, $stitcher, $storage, new WebVttBuilder());
+
+        try {
+            self::assertSame($remainderPasses, $generator->generate($ctx));
+            self::assertSame(["Host A: Revenue grew.\nHost B: Only in the trial.", 'Host A: Revenue grew.'], $seen);
+            $update = $jobs->updates[100];
+            $review = json_decode($update['source_review'], true);
+            self::assertSame('Host A: Revenue grew.', $update['script_text']);
+            self::assertSame(hash('sha256', $update['script_text']), $review['candidateHash']);
+            self::assertSame($remainderPasses ? 'passed' : 'flagged', $review['status']);
+            self::assertCount($remainderPasses ? 1 : 0, $stitcher->concatInput);
+            self::assertCount($remainderPasses ? 2 : 0, $storage->order);
+        } finally {
+            $generator->removeTempDirs();
+        }
     }
 
     public function testHappyPathSynthesizesAlternatingVoicesStitchesAndRecordsArtifact(): void

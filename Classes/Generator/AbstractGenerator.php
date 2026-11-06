@@ -20,6 +20,7 @@ use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Service\FailureClassifier;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewRejectedException;
 use Psr\Log\LoggerInterface;
 use Random\Randomizer;
 use Throwable;
@@ -233,26 +234,64 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
      * can carry provider detail, paths or SQL: the row gets "<step> failed" and the
      * exception goes to the server log.
      */
-    protected function failArtifactFrom(int $artifactUid, int $jobUid, string $step, Throwable $e): void
-    {
+    protected function failArtifactFrom(
+        int $artifactUid,
+        int $jobUid,
+        string $step,
+        Throwable $e,
+    ): void {
         // A guardrail's message is written for the person who started the job. An image or speech
         // call wraps every failure, so the guardrail can sit below a RenderingException.
         for ($cause = $e; $cause instanceof Throwable; $cause = $cause->getPrevious()) {
             if ($cause instanceof GuardrailPolicyException) {
-                $this->logger->warning($step . ' stopped by a guardrail', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
-                $this->failArtifact($artifactUid, $jobUid, $cause->getMessage(), FailureReason::Guardrail);
+                $this->logger->warning(
+                    $step . ' stopped by a guardrail',
+                    [
+                        'job'       => $jobUid,
+                        'artifact'  => $artifactUid,
+                        'exception' => $e,
+                    ],
+                );
+                $this->failArtifact(
+                    $artifactUid,
+                    $jobUid,
+                    $cause->getMessage(),
+                    FailureReason::Guardrail,
+                );
 
                 return;
             }
         }
 
-        if ($e instanceof InvalidLlmOutputException || $e instanceof RenderingException) {
-            $this->failArtifact($artifactUid, $jobUid, $step . ' error: ' . $e->getMessage(), FailureClassifier::reasonFor($e));
+        if ($e instanceof InvalidLlmOutputException || $e instanceof RenderingException || $e instanceof SourceReviewRejectedException) {
+            $this->failArtifact(
+                $artifactUid,
+                $jobUid,
+                $step . ' error: ' . $e->getMessage(),
+                FailureClassifier::reasonFor($e),
+            );
 
             return;
         }
 
-        $this->logger->error($step . ' failed', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
-        $this->failArtifact($artifactUid, $jobUid, $step . ' failed', FailureClassifier::reasonFor($e));
+        $this->logger->error(
+            $step . ' failed',
+            ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e],
+        );
+        $this->failArtifact(
+            $artifactUid,
+            $jobUid,
+            $step . ' failed',
+            FailureClassifier::reasonFor($e),
+        );
+    }
+
+    protected function reviewArtifact(
+        GenerationContext $ctx,
+        int $artifactUid,
+        string $candidate,
+        string $scope = 'final text',
+    ): void {
+        $ctx->sourceReview?->artifact($ctx, $artifactUid, $candidate, $scope);
     }
 }
