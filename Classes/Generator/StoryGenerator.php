@@ -293,8 +293,7 @@ class StoryGenerator extends AbstractGenerator
                 // Also when the FAL write fails: the worker runs long.
                 if (is_file($video)) {
                     // $video is the slideshow renderer's own temp file, never user input.
-                    unlink($video);
-                    // nosemgrep: php.lang.security.unlink-use.unlink-use
+                    unlink($video); // nosemgrep: php.lang.security.unlink-use.unlink-use
                 }
             }
 
