@@ -107,7 +107,7 @@ Shared helpers — generator base methods, `Classes/Generator/Support/*` (text l
 ## Boundaries
 
 ### Always Do
-- Run pre-commit checks before committing; add tests for new code paths
+- Run pre-commit checks before committing; add tests for new code paths. **Changelog:** a change a user or integrator can notice gets its entry under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog 1.1.0; CONTRIBUTING.md, "Pull Requests"); the release PR `chore(release): X.Y.Z` moves the entries below `## [X.Y.Z] - YYYY-MM-DD`, adds the compare links and adds the version to `Documentation/Changelog.rst`. That section is the TER upload comment, cut at 1,900 characters, so upgrade notes go first
 - Use conventional commit format (`type(scope): subject`) and **atomic commits** (one logical change per commit); preserve signatures, keep bisection useful
 - Before any edit, verify `pwd` resolves inside the intended repo worktree — not `.bare/`, not `~/.claude/skills/…`, not `~/.claude/plugins/cache/…` (those are read-only caches that get clobbered on update)
 - For upstream dependency fixes: run **full** test suite, not just affected tests
