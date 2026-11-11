@@ -36,7 +36,7 @@ final class StubArtifactGeneratorTest extends TestCase
         $storage = new class ($cause) extends JobFileStorage {
             public function __construct(private readonly RuntimeException $cause) {}
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
                 throw $this->cause;
             }
@@ -70,7 +70,7 @@ final class StubArtifactGeneratorTest extends TestCase
 
             public function __construct() {}
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
                 $this->content = $content;
 

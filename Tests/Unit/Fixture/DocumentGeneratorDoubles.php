@@ -49,7 +49,7 @@ trait DocumentGeneratorDoubles
 
             public function __construct(private readonly File $file) {}
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
                 $this->stored[] = ['content' => $content, 'fileName' => $fileName, 'provenance' => $provenance];
 

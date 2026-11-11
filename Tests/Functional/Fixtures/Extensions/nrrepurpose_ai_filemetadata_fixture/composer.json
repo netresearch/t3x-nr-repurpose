@@ -1,0 +1,11 @@
+{
+    "name": "netresearch/nrrepurpose-ai-filemetadata-fixture",
+    "description": "A stand-in for the upload listener of EXT:ai_filemetadata, for the functional tests of JobFileStorage. Not shipped.",
+    "type": "typo3-cms-extension",
+    "license": "GPL-2.0-or-later",
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nrrepurpose_ai_filemetadata_fixture"
+        }
+    }
+}

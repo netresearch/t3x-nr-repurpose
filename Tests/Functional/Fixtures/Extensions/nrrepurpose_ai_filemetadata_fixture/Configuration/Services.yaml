@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
+services:
+  # Registered under the service id of the real EXT:ai_filemetadata upload listener,
+  # without any ordering of its own, as the real one is. Idle until a test switches it on.
+  Netresearch\NrRepurpose\Tests\Functional\Fixtures\AltTextGeneratorStandInListener:
+    public: false
+    tags:
+      - name: event.listener
+        identifier: 'Mfd\Ai\FileMetadata\EventListener\EnrichFileMetadataAfterCreation'
+        event: TYPO3\CMS\Core\Resource\Event\AfterFileMetaDataCreatedEvent
