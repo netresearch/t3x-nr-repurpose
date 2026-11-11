@@ -64,6 +64,19 @@ final class JobFileStorageAltTextTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * FAL sanitises the name inside addFile(): the alt text must be registered under the
+     * name the file is indexed with, not the one passed in.
+     */
+    public function testAnImageWhoseNameFalSanitisesKeepsItsAltText(): void
+    {
+        $file = $this->get(JobFileStorage::class)->store($this->png(), 'my diagram.png', null, self::ALT_TEXT);
+
+        self::assertStringNotContainsString(' ', $file->getName(), 'FAL sanitised the name.');
+        self::assertSame([], AltTextGeneratorStandInListener::$modelCalls);
+        self::assertSame(self::ALT_TEXT, $this->metadataRow($file->getUid())['alternative']);
+    }
+
+    /**
      * Control: the stand-in is wired and runs for a file without an alt text.
      */
     public function testAFileStoredWithoutAltTextStillReachesTheGenerator(): void

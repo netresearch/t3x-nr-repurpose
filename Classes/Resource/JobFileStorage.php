@@ -135,6 +135,9 @@ class JobFileStorage
      */
     private function addWithContent(ResourceStorage $storage, Folder $folder, string $name, string $content, string $alternative): File
     {
+        // The name addFile() stores the file under: the pending metadata and the cleanup
+        // below must use the same one ("my diagram.png" becomes "my_diagram.png").
+        $name               = $storage->sanitizeFileName($name, $folder);
         $tempPath           = GeneralUtility::tempnam('nrrepurpose_');
         $combinedIdentifier = $storage->getUid() . ':' . $folder->getIdentifier() . $name;
         if ($alternative !== '') {
