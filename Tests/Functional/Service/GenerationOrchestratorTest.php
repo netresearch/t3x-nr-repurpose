@@ -49,6 +49,7 @@ use Netresearch\NrRepurpose\Service\UnusableAnswerException;
 use Netresearch\NrRepurpose\Source\PageSourceReader;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\PassageQuotingRefusal;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
@@ -466,6 +467,7 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
             'analysis, text model exception' => ['analysis', new RuntimeException($foreign), 'Analysis failed', 'internal'],
             'analysis, unusable answer'      => ['analysis', new UnusableAnswerException($foreign), 'Analysis failed', 'answer_unusable'],
             'analysis, guardrail stop'       => ['analysis', new GuardrailViolationException('Guardrail', 'Es enthält Rabatt.'), 'Es enthält Rabatt.', 'guardrail'],
+            'analysis, quoting guardrail'    => ['analysis', new PassageQuotingRefusal(), PassageQuotingRefusal::STORABLE, 'guardrail'],
         ];
     }
 

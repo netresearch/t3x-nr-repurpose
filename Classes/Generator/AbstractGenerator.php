@@ -20,6 +20,7 @@ use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Service\FailureClassifier;
+use Netresearch\NrRepurpose\Service\GuardrailRefusal;
 use Psr\Log\LoggerInterface;
 use Random\Randomizer;
 use Throwable;
@@ -236,11 +237,12 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     protected function failArtifactFrom(int $artifactUid, int $jobUid, string $step, Throwable $e): void
     {
         // A guardrail's message is written for the person who started the job. An image or speech
-        // call wraps every failure, so the guardrail can sit below a RenderingException.
+        // call wraps every failure, so the guardrail can sit below a RenderingException. The row
+        // keeps the refusal without any quoted passage of the generated text (nr-llm ADR-288).
         for ($cause = $e; $cause instanceof Throwable; $cause = $cause->getPrevious()) {
             if ($cause instanceof GuardrailPolicyException) {
                 $this->logger->warning($step . ' stopped by a guardrail', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
-                $this->failArtifact($artifactUid, $jobUid, $cause->getMessage(), FailureReason::Guardrail);
+                $this->failArtifact($artifactUid, $jobUid, GuardrailRefusal::storableMessage($cause), FailureReason::Guardrail);
 
                 return;
             }

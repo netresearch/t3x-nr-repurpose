@@ -242,13 +242,18 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
      * URL without user name, password, query and fragment (SourceUrlRedactor). Any other exception (the text model, Guzzle, poppler, the database) can carry
      * provider detail, paths or SQL: the row gets "<step> failed". The exception goes to the
      * log either way. What the editor reads comes from the stored reason (FailureReason, ADR-011).
+     * A guardrail's refusal is stored without any quoted passage of the generated text (nr-llm ADR-288).
      */
     private function failJob(int $jobUid, string $step, Throwable $e): void
     {
         $this->logger->error($step . ' failed', ['job' => $jobUid, 'exception' => $e]);
         $this->jobs->markFailed(
             $jobUid,
-            $e instanceof IngestionException || $e instanceof AnalysisException || $e instanceof GuardrailPolicyException ? $e->getMessage() : $step . ' failed',
+            match (true) {
+                $e instanceof GuardrailPolicyException                              => GuardrailRefusal::storableMessage($e),
+                $e instanceof IngestionException || $e instanceof AnalysisException => $e->getMessage(),
+                default                                                             => $step . ' failed',
+            },
             FailureClassifier::reasonFor($e),
         );
     }

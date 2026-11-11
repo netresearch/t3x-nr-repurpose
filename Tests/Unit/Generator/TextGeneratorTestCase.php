@@ -25,6 +25,7 @@ use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\ArtifactRecordingJobRepository;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\PassageQuotingRefusal;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
@@ -279,6 +280,18 @@ abstract class TextGeneratorTestCase extends TestCase
             self::assertStringNotContainsString('mit KI erstellt', (string) $update['script_text']);
             self::assertArrayNotHasKey('closingLine', json_decode((string) $update['metadata'], true)['content']);
         }
+    }
+
+    /** The stored reason is read by everyone who can open the module, so it quotes no generated text. */
+    public function testAGuardrailStopStoresItsReasonWithoutThePassage(): void
+    {
+        $this->completion->throwable = new RenderingException('wrapped', 1, new PassageQuotingRefusal());
+
+        self::assertFalse($this->generatorWithAnswer()->generate($this->context()));
+
+        $row = $this->jobs->row('default');
+        self::assertSame(PassageQuotingRefusal::STORABLE, $row['error_message']);
+        self::assertSame('guardrail', $row['failure_reason']);
     }
 
     /** A generator wraps an image or speech failure; the guardrail below it keeps its words. */

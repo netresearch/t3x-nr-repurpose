@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- A job or an artifact stopped by a guardrail stores the refusal without a quoted passage of the generated text, where nr-llm provides that form. The person who started the job still reads which rule stopped it.
+
 ### Fixed
 
 - The images of a job get their alt text on creation: a story slide its headline and subline, every Schaubild variant the title of the source. An alt-text generator that sends new images to a vision model, such as the upload listener of EXT:ai_filemetadata, skips them now, so the worker no longer causes one paid model call per image. nr-repurpose writes the alt text before that extension's listener runs; the extension does not have to be installed.

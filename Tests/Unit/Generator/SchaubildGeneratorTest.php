@@ -35,6 +35,7 @@ use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\PassageQuotingRefusal;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
 use PHPUnit\Framework\TestCase;
@@ -196,6 +197,18 @@ final class SchaubildGeneratorTest extends TestCase
         self::assertSame('done', $jobs->updates[$jobs->uidForVariant('html')]['status']);
         self::assertSame('Es enthält Rabatt.', $jobs->updates[$jobs->uidForVariant('html_bg')]['error_message']);
         self::assertSame('done', $jobs->updates[$jobs->uidForVariant('ki_image')]['status']);
+    }
+
+    public function testAGuardrailStopStoresItsReasonWithoutThePassage(): void
+    {
+        $jobs                  = $this->jobs();
+        $completion            = $this->completion();
+        $completion->throwable = new PassageQuotingRefusal();
+
+        $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $this->storage(), $jobs, $this->allowingBudget(), $completion);
+
+        self::assertFalse($generator->generate($this->context()));
+        self::assertSame(PassageQuotingRefusal::STORABLE, $jobs->updates[$jobs->uidForVariant('html')]['error_message']);
     }
 
     public function testAProviderFailureOnTheTextFailsTheArtifactNotTheJob(): void
