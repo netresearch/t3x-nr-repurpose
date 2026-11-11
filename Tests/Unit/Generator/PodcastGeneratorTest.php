@@ -155,7 +155,7 @@ final class PodcastGeneratorTest extends TestCase
             /** @var array<string, ?AiProvenance> file name => provenance passed to store() */
             public array $provenanceByName = [];
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
                 $this->provenanceByName[$fileName] = $provenance;
                 $this->contentByName[$fileName]    = $content;

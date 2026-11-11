@@ -145,7 +145,7 @@ class SchaubildGenerator extends AbstractGenerator
             // AI-written copy set into the human-made branded template.
             $provenance = $this->provenance($ctx, DigitalSourceType::CompositeWithTrainedAlgorithmicMedia);
             $pngPath    = $this->renderer->render($html, self::WIDTH, null, 2.0, false);
-            $file       = $this->fileStorage->store((string) file_get_contents($pngPath), 'schaubild-html.png', $provenance);
+            $file       = $this->fileStorage->store((string) file_get_contents($pngPath), 'schaubild-html.png', $provenance, $ctx->brief->title);
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid'    => $file->getUid(),
                 'source_html' => $html,
@@ -203,7 +203,7 @@ class SchaubildGenerator extends AbstractGenerator
             $this->compositor->overlay($bgPath, $fgPath, $outPath);
 
             $provenance = $this->provenance($ctx, DigitalSourceType::CompositeWithTrainedAlgorithmicMedia, ['image' => $this->imageGenerator->getModel()]);
-            $file       = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-html-bg.png', $provenance);
+            $file       = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-html-bg.png', $provenance, $ctx->brief->title);
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid'    => $file->getUid(),
                 'source_html' => $transparentHtml,
@@ -259,7 +259,7 @@ class SchaubildGenerator extends AbstractGenerator
             // Fully model-rendered. The visible corner label is not applied here: this
             // variant never passes the HTML renderer (ADR-005).
             $provenance = $this->provenance($ctx, DigitalSourceType::TrainedAlgorithmicMedia, ['image' => $this->imageGenerator->getModel()]);
-            $file       = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-ki.png', $provenance);
+            $file       = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-ki.png', $provenance, $ctx->brief->title);
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid'    => $file->getUid(),
                 'source_html' => $referenceHtml,

@@ -132,14 +132,39 @@ final class StoryGeneratorTest extends TestCase
             /** @var array<string, ?AiProvenance> file name => provenance passed to store() */
             public array $provenanceByName = [];
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            /** @var array<string, ?string> file name => alt text passed to store() */
+            public array $alternativeByName = [];
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
-                $this->provenanceByName[$fileName] = $provenance;
+                $this->provenanceByName[$fileName]  = $provenance;
+                $this->alternativeByName[$fileName] = $alternative;
                 ++$this->uid;
 
                 return new File(['uid' => $this->uid], $this->falStorage);
             }
         };
+    }
+
+    /**
+     * The alt text keeps an alt-text generator such as EXT:ai_filemetadata from sending
+     * the slide to a vision model (JobFileStorage, ApplyPendingFileMetadata).
+     */
+    public function testEverySlideIsStoredWithItsCopyAsAltText(): void
+    {
+        $response = ['slides' => [
+            ['role' => 'cover', 'headline' => 'Big News', 'subline' => 'Details inside'],
+            ['role' => 'outro', 'headline' => 'Takeaway', 'subline' => ''],
+        ]];
+
+        $generator = $this->generator($response, $this->renderer(), $this->imageGenerator(false), $this->jobs(), $this->allowingBudget(), $this->compositor());
+        $storage   = $this->lastStorage;
+        self::assertTrue($generator->generate($this->context()));
+
+        self::assertSame(
+            ['story-slide-1.png' => 'Big News – Details inside', 'story-slide-2.png' => 'Takeaway'],
+            $storage?->alternativeByName,
+        );
     }
 
     public function testCreatesOneArtifactPerSlideWithRoleIndexAndTotalMetadata(): void
@@ -503,7 +528,7 @@ final class StoryGeneratorTest extends TestCase
         $storage = new class ($this->createStub(ResourceStorage::class)) extends JobFileStorage {
             public function __construct(private readonly ResourceStorage $falStorage) {}
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
                 if ($fileName === 'story-video.mp4') {
                     throw new RuntimeException('Could not write /var/www/html/fileadmin/_temp_/x.mp4');
@@ -532,7 +557,7 @@ final class StoryGeneratorTest extends TestCase
         $storage = new class ($this->createStub(ResourceStorage::class), $cause) extends JobFileStorage {
             public function __construct(private readonly ResourceStorage $falStorage, private readonly RuntimeException $cause) {}
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
                 if ($fileName === 'story-slide-2.png') {
                     throw $this->cause;
@@ -832,7 +857,7 @@ final class StoryGeneratorTest extends TestCase
         $storage  = new class extends JobFileStorage {
             public function __construct() {}
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
                 throw new RuntimeException('FAL write failed');
             }

@@ -390,7 +390,9 @@ class StoryGenerator extends AbstractGenerator
                 $pngPath = $this->renderer->render($html, self::WIDTH, self::HEIGHT, 1.0, false);
             }
 
-            $file = $this->fileStorage->store((string) file_get_contents($pngPath), sprintf('story-slide-%d.png', $index), $provenance);
+            // The slide's own copy is its alt text.
+            $alternative = $slide->subline === '' ? $slide->headline : $slide->headline . ' – ' . $slide->subline;
+            $file        = $this->fileStorage->store((string) file_get_contents($pngPath), sprintf('story-slide-%d.png', $index), $provenance, $alternative);
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid'    => $file->getUid(),
                 'source_html' => $html,

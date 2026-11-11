@@ -40,6 +40,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * an alt-text generator sends it to a vision model. Created empty and filled afterwards,
  * the file was still 0 bytes at that moment, and the vision call failed with
  * "Invalid base64 image_url." (issue #78). Empty content is refused outright.
+ *
+ * An image gets its alt text from the generator ($alternative), written into that same
+ * metadata record as it is created (ApplyPendingFileMetadata). An alt-text generator
+ * that skips files which already have one, as EXT:ai_filemetadata does, then makes no
+ * model call for it.
  */
 class JobFileStorage
 {
@@ -48,9 +53,10 @@ class JobFileStorage
     public function __construct(
         private readonly StorageRepository $storageRepository,
         private readonly AiContentMarker $marker = new AiContentMarker(),
+        private readonly PendingFileMetadata $pendingMetadata = new PendingFileMetadata(),
     ) {}
 
-    public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+    public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
     {
         if ($content === '') {
             throw new EmptyArtifactContentException(
@@ -88,7 +94,7 @@ class JobFileStorage
                 . '-' . bin2hex((new Randomizer())->getBytes(4))
                 . ($extension !== '' ? '.' . $extension : '');
 
-            $file = $this->addWithContent($storage, $folder, $unique, $content);
+            $file = $this->addWithContent($storage, $folder, $unique, $content, trim((string) $alternative));
 
             try {
                 if ($provenance instanceof AiProvenance) {
@@ -127,9 +133,13 @@ class JobFileStorage
      * check as an uploaded file. ext_localconf.php declares "vtt" for it (the podcast
      * subtitles), which a fresh TYPO3 14 installation does not allow otherwise.
      */
-    private function addWithContent(ResourceStorage $storage, Folder $folder, string $name, string $content): File
+    private function addWithContent(ResourceStorage $storage, Folder $folder, string $name, string $content, string $alternative): File
     {
-        $tempPath = GeneralUtility::tempnam('nrrepurpose_');
+        $tempPath           = GeneralUtility::tempnam('nrrepurpose_');
+        $combinedIdentifier = $storage->getUid() . ':' . $folder->getIdentifier() . $name;
+        if ($alternative !== '') {
+            $this->pendingMetadata->expect($combinedIdentifier, ['alternative' => $alternative]);
+        }
 
         try {
             if (file_put_contents($tempPath, $content) !== strlen($content)) {
@@ -148,6 +158,8 @@ class JobFileStorage
                 throw $e;
             }
         } finally {
+            // Applied while addFile() indexed the file, or never: either way it is done.
+            $this->pendingMetadata->forget($combinedIdentifier);
             if (is_file($tempPath)) {
                 GeneralUtility::unlink_tempfile($tempPath);
             }

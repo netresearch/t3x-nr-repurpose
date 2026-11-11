@@ -200,6 +200,13 @@ upload; the extension adds ``vtt`` to
 subtitles, because TYPO3 14 enforces that list on a new installation and does
 not contain it.
 
+Images get their alt text in that same metadata record as it is created: a story
+slide its headline and subline, a Schaubild the title of the source.
+:php:`ApplyPendingFileMetadata` writes it before the upload listener of
+EXT:ai_filemetadata runs, which skips a file that already has an alt text, so
+the worker causes no vision-model call for its own images. The extension is not
+required; without it the ordering has no effect.
+
 .. _architecture-nr-llm:
 
 How nr-llm capabilities are composed

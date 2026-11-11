@@ -158,7 +158,7 @@ final class SlideDeckGeneratorTest extends TextGeneratorTestCase
         $this->storage = new class extends JobFileStorage {
             public function __construct() {}
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
                 throw RenderingException::because('Cannot AI-label the file: it is not a complete PDF', 1790000505);
             }

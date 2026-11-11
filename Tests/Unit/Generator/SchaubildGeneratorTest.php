@@ -394,6 +394,23 @@ final class SchaubildGeneratorTest extends TestCase
         }
     }
 
+    /**
+     * The alt text keeps an alt-text generator such as EXT:ai_filemetadata from sending
+     * the diagram to a vision model (JobFileStorage, ApplyPendingFileMetadata).
+     */
+    public function testEveryVariantIsStoredWithTheBriefTitleAsAltText(): void
+    {
+        $storage = $this->storage();
+
+        $generator = $this->generator($this->renderer(), $this->compositor(), $this->imageGenerator(), $storage, $this->jobs(), $this->allowingBudget());
+        self::assertTrue($generator->generate($this->context()));
+
+        self::assertSame(
+            ['schaubild-html.png' => 'Report', 'schaubild-html-bg.png' => 'Report', 'schaubild-ki.png' => 'Report'],
+            $storage->alternativeByName,
+        );
+    }
+
     public function testTheVisibleLabelSettingReachesEveryDiagramRender(): void
     {
         foreach (['KI-generiert', null] as $label) {
@@ -507,7 +524,7 @@ final class SchaubildGeneratorTest extends TestCase
         $storage  = new class extends JobFileStorage {
             public function __construct() {}
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
                 throw new RuntimeException('FAL write failed: /var/www/html/fileadmin/repurpose/x.png');
             }
@@ -602,9 +619,13 @@ final class SchaubildGeneratorTest extends TestCase
             /** @var array<string, ?AiProvenance> file name => provenance passed to store() */
             public array $provenanceByName = [];
 
-            public function store(string $content, string $fileName, ?AiProvenance $provenance = null): File
+            /** @var array<string, ?string> file name => alt text passed to store() */
+            public array $alternativeByName = [];
+
+            public function store(string $content, string $fileName, ?AiProvenance $provenance = null, ?string $alternative = null): File
             {
-                $this->provenanceByName[$fileName] = $provenance;
+                $this->provenanceByName[$fileName]  = $provenance;
+                $this->alternativeByName[$fileName] = $alternative;
                 ++$this->uid;
 
                 return new File(['uid' => $this->uid], $this->falStorage);
