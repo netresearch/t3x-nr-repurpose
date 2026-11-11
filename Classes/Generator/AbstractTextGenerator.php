@@ -109,13 +109,10 @@ abstract class AbstractTextGenerator extends AbstractGenerator
                 plannedCost: self::PLANNED_COST,
             ))->withCallerSource(CallerSource::EXTENSION, $this->operation()), $ctx->job);
 
-            $artifacts = $this->withClosingLine(
-                $this->parse(
-                    $this->completion->completeStructured($prompt, $this->responseSchema(), $options),
-                    $ctx,
-                ),
-                $ctx->aiLabel->textLine ?? '',
-            );
+            $data = $this->completion->completeStructured($prompt, $this->responseSchema(), $options);
+            // Every result of this format comes from this one answer, so each carries its hints.
+            $hints     = $this->completion->lastGuardrailHints();
+            $artifacts = $this->withClosingLine($this->parse($data, $ctx), $ctx->aiLabel->textLine ?? '');
         } catch (Throwable $e) {
             $artifactUid = $this->jobs->insertArtifact($jobUid, $this->artifactType(), 'default', 0, ArtifactStatus::Pending);
             $this->failArtifactFrom($artifactUid, $jobUid, $this->label() . ' generation', $e);
@@ -141,7 +138,7 @@ abstract class AbstractTextGenerator extends AbstractGenerator
             try {
                 $this->jobs->updateArtifact($artifactUid, [
                     'script_text' => $artifact->plainText,
-                    'metadata'    => json_encode(['content' => $artifact->content, 'prompts' => $prompts, 'aiLabel' => $aiLabel], JSON_THROW_ON_ERROR),
+                    'metadata'    => json_encode(['content' => $artifact->content, 'prompts' => $prompts, 'aiLabel' => $aiLabel] + $this->guardrailHintsMetadata($hints), JSON_THROW_ON_ERROR),
                     'status'      => ArtifactStatus::Done->value,
                 ] + $fileFields);
                 $ok = true;

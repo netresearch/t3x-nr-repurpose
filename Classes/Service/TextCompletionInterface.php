@@ -38,4 +38,14 @@ interface TextCompletionInterface
     public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array;
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string;
+
+    /**
+     * The hints nr-llm's guardrails reported on the text of the most recent call that
+     * returned, such as a broken rule of the rule-set judge in report mode (nr-llm
+     * ADR-288). Every call resets them, so a call that threw leaves none. A caller
+     * reads them right after its call. Empty with an nr-llm that reports no hints.
+     *
+     * @return list<array{kind: string, message: string}>
+     */
+    public function lastGuardrailHints(): array;
 }

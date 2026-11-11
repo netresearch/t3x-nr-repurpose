@@ -57,6 +57,7 @@ final class BackendViewMarkupTest extends TestCase
             'pagination partial'    => ['Private/Partials/Job/Pagination.html'],
             'failure notice'        => ['Private/Partials/Job/FailureNotice.html'],
             'artifact failure'      => ['Private/Partials/Job/ArtifactFailure.html'],
+            'guardrail hints'       => ['Private/Partials/Job/GuardrailHints.html'],
         ];
     }
 

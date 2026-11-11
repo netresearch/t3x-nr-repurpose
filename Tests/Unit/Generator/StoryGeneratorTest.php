@@ -167,6 +167,22 @@ final class StoryGeneratorTest extends TestCase
         );
     }
 
+    /** All slides come from one carousel answer, so each slide carries the hints on it. */
+    public function testEverySlideCarriesTheGuardrailHintsOnTheCopy(): void
+    {
+        $jobs                       = $this->jobs();
+        $hints                      = [['kind' => 'violation', 'message' => 'Breaks "No discounts"']];
+        $completion                 = $this->completion(self::THREE_SLIDES);
+        $completion->guardrailHints = $hints;
+
+        $generator = $this->generator(self::THREE_SLIDES, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), $completion);
+
+        self::assertTrue($generator->generate($this->context()));
+        foreach (['slide-1', 'slide-2', 'slide-3'] as $variant) {
+            self::assertSame($hints, json_decode((string) $jobs->updates[$jobs->uidForVariant($variant)]['metadata'], true)['guardrailHints'] ?? null);
+        }
+    }
+
     public function testCreatesOneArtifactPerSlideWithRoleIndexAndTotalMetadata(): void
     {
         $renderer = $this->renderer();

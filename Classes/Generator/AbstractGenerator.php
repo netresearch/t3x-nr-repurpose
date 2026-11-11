@@ -159,6 +159,27 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     }
 
     /**
+     * The `guardrailHints` block of an artifact's metadata: what nr-llm's guardrails
+     * reported on the text the artifact was made from, as TextCompletionInterface::
+     * lastGuardrailHints() returns it. No hints, no block. The Show view renders it
+     * as a warning next to the artifact.
+     *
+     * A hint of the rule-set judge quotes a passage of that text. The artifact stores
+     * the text itself (metadata.content, script_text or source_html), and only the
+     * job view reads the hints, as it reads that text. A passage can also come from
+     * the part of the same answer the row does not keep: a cut, sanitised or unvoiced
+     * part, another variant of the answer, or nr-llm's discarded repair answer.
+     *
+     * @param list<array{kind: string, message: string}> $hints
+     *
+     * @return array{guardrailHints?: non-empty-list<array{kind: string, message: string}>}
+     */
+    protected function guardrailHintsMetadata(array $hints): array
+    {
+        return $hints === [] ? [] : ['guardrailHints' => $hints];
+    }
+
+    /**
      * The AI-origin statement of an artifact (ADR-005). Its toArray() is stored as the
      * `aiLabel` block of every done artifact's metadata; passed to JobFileStorage::store()
      * it also marks the stored file itself. $models names only models that are known.

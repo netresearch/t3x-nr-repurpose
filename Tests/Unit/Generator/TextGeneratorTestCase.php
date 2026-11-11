@@ -282,6 +282,29 @@ abstract class TextGeneratorTestCase extends TestCase
         }
     }
 
+    /** Every result is made from the one answer, so every row carries the hints on it. */
+    public function testEveryDoneRowCarriesTheGuardrailHintsOnTheAnswer(): void
+    {
+        $hints                            = [['kind' => 'violation', 'message' => 'Breaks "No discounts": "50 % Rabatt"']];
+        $this->completion->guardrailHints = $hints;
+
+        self::assertTrue($this->generatorWithAnswer()->generate($this->context()));
+
+        self::assertNotSame([], $this->jobs->updates);
+        foreach ($this->jobs->updates as $update) {
+            self::assertSame($hints, json_decode((string) $update['metadata'], true)['guardrailHints'] ?? null);
+        }
+    }
+
+    public function testWithoutHintsTheMetadataHasNoHintBlock(): void
+    {
+        self::assertTrue($this->generatorWithAnswer()->generate($this->context()));
+
+        foreach ($this->jobs->updates as $update) {
+            self::assertArrayNotHasKey('guardrailHints', json_decode((string) $update['metadata'], true));
+        }
+    }
+
     /** The stored reason is read by everyone who can open the module, so it quotes no generated text. */
     public function testAGuardrailStopStoresItsReasonWithoutThePassage(): void
     {

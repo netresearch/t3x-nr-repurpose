@@ -61,6 +61,11 @@ final class ScriptedJsonCompletion implements TextCompletionInterface
     {
         throw new BadMethodCallException(self::NOT_USED);
     }
+
+    public function lastGuardrailHints(): array
+    {
+        return [];
+    }
 }
 
 final class DocumentAnalyzerTest extends TestCase

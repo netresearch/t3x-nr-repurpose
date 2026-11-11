@@ -412,6 +412,20 @@ final class PodcastGeneratorTest extends TestCase
         self::assertSame(PassageQuotingRefusal::STORABLE, $jobs->updates[100]['error_message']);
     }
 
+    public function testTheEpisodeCarriesTheGuardrailHintsOnItsScript(): void
+    {
+        $hints                      = [['kind' => 'violation', 'message' => 'Breaks "No discounts"']];
+        $completion                 = $this->completion();
+        $completion->guardrailHints = $hints;
+
+        $jobs = $this->jobs();
+
+        $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new RecordingLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder());
+
+        self::assertTrue($generator->generate($this->context()));
+        self::assertSame($hints, json_decode((string) $jobs->updates[100]['metadata'], true)['guardrailHints'] ?? null);
+    }
+
     public function testPersonaDialogueUsesPersonaNamesMetadataVoicesAndRoundRobinFallback(): void
     {
         $personas = [

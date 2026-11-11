@@ -200,6 +200,15 @@ For transparency, every artifact lists its complete creation parameters: the
 exact system, user and image prompts that produced it, the models, the image
 sizes and the voices used.
 
+When the text configuration has nr-llm's rule-set judge on in *report* mode,
+a finished artifact whose text the judge reported on shows a warning above
+its content: the rule the text breaks, with the passage, or that the text
+could not be checked. The text was created anyway, so check those points
+before you use it. The story shows the warning once for all slides. In
+*block* mode a broken rule fails the artifact instead; its error names the
+rule, without the passage. Both need the nr-llm version that brings the
+judge.
+
 .. figure:: /Images/Usage/JobResult.png
    :alt: Result view of job 30 with source, status and creation parameters, the
        podcast card with audio player, download buttons and the expanded

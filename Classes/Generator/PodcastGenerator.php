@@ -107,6 +107,7 @@ final class PodcastGenerator extends AbstractGenerator
             $ctx->progress?->step('Podcast: writing script', 0.05);
             $personaVoices = $this->personaVoices($ctx->snippets->personas);
             $dialogue      = $this->buildDialogue($ctx, $personaVoices);
+            $hints         = $this->completion->lastGuardrailHints();
             $turns         = $dialogue->turns;
             if ($turns === []) {
                 $this->failArtifact($artifactUid, $jobUid, 'LLM produced no dialogue turns', FailureReason::AnswerUnusable);
@@ -164,6 +165,7 @@ final class PodcastGenerator extends AbstractGenerator
             $vttFile             = $this->fileStorage->store($vtt, 'podcast.vtt', $provenance);
             $metadata            = $this->buildMetadata($personaVoices, count($turns), $dialogue->systemPrompt, $dialogue->userPrompt);
             $metadata['aiLabel'] = $provenance->toArray();
+            $metadata += $this->guardrailHintsMetadata($hints);
 
             $this->jobs->updateArtifact($artifactUid, [
                 'file_uid'          => $mp3File->getUid(),

@@ -114,6 +114,8 @@ class StoryGenerator extends AbstractGenerator
         try {
             $ctx->progress?->step('Story: writing copy', 0.05);
             $slides = $this->buildSlides($ctx);
+            // Every slide's copy comes from this one answer, so each slide carries its hints.
+            $hints = $this->completion->lastGuardrailHints();
         } catch (Throwable $e) {
             $this->failStoryUpfront($jobUid, $e);
 
@@ -137,7 +139,7 @@ class StoryGenerator extends AbstractGenerator
         try {
             foreach ($slides as $i => $slide) {
                 $ctx->progress?->step(sprintf('Story: slide %d/%d', $i + 1, $total), 0.4 + 0.6 * $i / $total);
-                $image = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize);
+                $image = $this->generateSlideArtifact($ctx, $jobUid, $slide, $i + 1, $total, $backgroundPath, $imageSize, $hints);
                 if ($image !== null) {
                     $images[] = $image;
                 }
@@ -340,6 +342,8 @@ class StoryGenerator extends AbstractGenerator
      * Render one slide into its own artifact row; a failure fails only this slide.
      * Returns the rendered PNG for the video, or null when the slide failed. The caller
      * removes the returned PNG; every other render is removed here.
+     *
+     * @param list<array{kind: string, message: string}> $hints the guardrail hints on the carousel copy
      */
     private function generateSlideArtifact(
         GenerationContext $ctx,
@@ -349,6 +353,7 @@ class StoryGenerator extends AbstractGenerator
         int $total,
         ?string $backgroundPath,
         string $imageSize,
+        array $hints,
     ): ?string {
         $artifactUid   = $this->jobs->insertArtifact($jobUid, ArtifactType::Story, 'slide-' . $index, 0, ArtifactStatus::Pending);
         $hasBackground = $backgroundPath !== null;
@@ -375,7 +380,7 @@ class StoryGenerator extends AbstractGenerator
                 imageSize: $hasBackground ? $imageSize : null,
             ),
             'aiLabel' => $provenance->toArray(),
-        ];
+        ] + $this->guardrailHintsMetadata($hints);
 
         $fgPath  = null;
         $pngPath = null;
