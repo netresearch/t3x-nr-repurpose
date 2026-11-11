@@ -140,4 +140,13 @@ final class HandoutGeneratorTest extends TextGeneratorTestCase
 
         self::assertSame('Handout generation error: the handout has no title or no lead', $this->jobs->row()['error_message']);
     }
+
+    /** Rejection must precede templating, PDF rendering and file storage. */
+    public function testRejectedFinalTextNeverBecomesADoneArtifact(): void
+    {
+        parent::testRejectedFinalTextNeverBecomesADoneArtifact();
+        self::assertSame([], $this->templateCalls);
+        self::assertSame([], $this->printer->calls);
+        self::assertSame([], $this->storage->stored);
+    }
 }

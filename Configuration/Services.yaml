@@ -144,3 +144,11 @@ services:
 
   Netresearch\NrRepurpose\Social\SocialPublisherInterface:
     alias: Netresearch\NrRepurpose\Social\WebhookSocialPublisher
+
+  # Public for functional tests of the real policy and persistence boundaries.
+  Netresearch\NrRepurpose\SourceReview\SourceReviewGate:
+    public: true
+  Netresearch\NrRepurpose\SourceReview\SourceReviewPolicy:
+    public: true
+  Netresearch\NrRepurpose\SourceReview\SourceReviewProfileProvider:
+    public: true

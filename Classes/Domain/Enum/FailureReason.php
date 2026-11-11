@@ -21,6 +21,7 @@ enum FailureReason: string
     case SourceEmpty         = 'source_empty';
     case SourceTooLong       = 'source_too_long';
     case AnswerUnusable      = 'answer_unusable';
+    case SourceReview        = 'source_review';
     case ProviderTimeout     = 'provider_timeout';
     case ProviderRateLimited = 'provider_rate_limited';
     case ProviderUnavailable = 'provider_unavailable';

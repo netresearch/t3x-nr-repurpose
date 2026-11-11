@@ -86,10 +86,21 @@ final class PodcastGenerator extends AbstractGenerator
     public function generate(GenerationContext $ctx): bool
     {
         $jobUid      = $ctx->jobUid();
-        $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Podcast, 'default', 0, ArtifactStatus::Pending);
+        $artifactUid = $this->jobs->insertArtifact(
+            $jobUid,
+            ArtifactType::Podcast,
+            'default',
+            0,
+            ArtifactStatus::Pending,
+        );
 
         if (!$ctx->grants->audio) {
-            $this->failArtifact($artifactUid, $jobUid, self::DENIED_AUDIO, FailureReason::NotPermitted);
+            $this->failArtifact(
+                $artifactUid,
+                $jobUid,
+                self::DENIED_AUDIO,
+                FailureReason::NotPermitted,
+            );
 
             return false;
         }
@@ -97,8 +108,17 @@ final class PodcastGenerator extends AbstractGenerator
         // Budget-guarded availability check for the Specialized TTS calls up front.
         $turnCount      = max(1, count($ctx->brief->keyPoints) + count($ctx->brief->sections) + 2);
         $plannedTtsCost = self::TTS_COST_PER_TURN * $turnCount;
-        if (!$this->specializedAllowed($ctx, $plannedTtsCost, $this->speech->isAvailable())) {
-            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or speech synthesis unavailable', FailureReason::BudgetOrService);
+        if (!$this->specializedAllowed(
+            $ctx,
+            $plannedTtsCost,
+            $this->speech->isAvailable(),
+        )) {
+            $this->failArtifact(
+                $artifactUid,
+                $jobUid,
+                'AI budget exhausted or speech synthesis unavailable',
+                FailureReason::BudgetOrService,
+            );
 
             return false;
         }
@@ -109,11 +129,31 @@ final class PodcastGenerator extends AbstractGenerator
             $dialogue      = $this->buildDialogue($ctx, $personaVoices);
             $turns         = $dialogue->turns;
             if ($turns === []) {
-                $this->failArtifact($artifactUid, $jobUid, 'LLM produced no dialogue turns', FailureReason::AnswerUnusable);
+                $this->failArtifact(
+                    $artifactUid,
+                    $jobUid,
+                    'LLM produced no dialogue turns',
+                    FailureReason::AnswerUnusable,
+                );
 
                 return false;
             }
 
+            $checkedTranscript = implode(
+                "\n",
+                array_map(
+                    static fn (
+                        DialogueTurn $turn,
+                    ): string => $turn->speaker . ': ' . $turn->text,
+                    $turns,
+                ),
+            );
+            $this->reviewArtifact(
+                $ctx,
+                $artifactUid,
+                $checkedTranscript,
+                'podcast script (audio not inspected)',
+            );
             $tmpDir          = $this->makeTempDir();
             $segmentPaths    = [];
             $vttSegments     = [];
@@ -123,11 +163,21 @@ final class PodcastGenerator extends AbstractGenerator
             $totalTurns = count($turns);
             foreach ($turns as $i => $turn) {
                 $ctx->progress?->step(
-                    sprintf('Podcast: voicing segment %d/%d', $i + 1, $totalTurns),
+                    sprintf(
+                        'Podcast: voicing segment %d/%d',
+                        $i + 1,
+                        $totalTurns,
+                    ),
                     0.1 + 0.8 * $i / $totalTurns,
                 );
                 $segmentPath = sprintf('%s/turn-%d.mp3', $tmpDir, $i);
-                $failure     = $this->synthesizeWithRetry($turn->text, $turn->voice, $segmentPath, $jobUid, $i);
+                $failure     = $this->synthesizeWithRetry(
+                    $turn->text,
+                    $turn->voice,
+                    $segmentPath,
+                    $jobUid,
+                    $i,
+                );
                 if ($failure instanceof Throwable) {
                     $lastFailure = $failure;
 
@@ -146,36 +196,72 @@ final class PodcastGenerator extends AbstractGenerator
             if ($segmentPaths === []) {
                 // The last failure decides what the editor reads: a wrong key, a used-up quota and
                 // a guardrail are different things to do next.
-                $this->failArtifactFrom($artifactUid, $jobUid, 'Podcast audio', $lastFailure ?? new RuntimeException('No turn was voiced', 1749410001));
+                $this->failArtifactFrom(
+                    $artifactUid,
+                    $jobUid,
+                    'Podcast audio',
+                    $lastFailure ?? new RuntimeException('No turn was voiced', 1749410001),
+                );
 
                 return false;
+            }
+
+            $transcript = implode("\n", $transcriptLines);
+            if ($transcript !== $checkedTranscript) {
+                // Failed TTS turns change the meaning of the remaining script; the original verdict no longer applies.
+                $this->reviewArtifact(
+                    $ctx,
+                    $artifactUid,
+                    $transcript,
+                    'remaining podcast script (audio not inspected)',
+                );
             }
 
             $ctx->progress?->step('Podcast: stitching audio', 0.9);
             $mp3Path = $tmpDir . '/podcast.mp3';
             $this->stitcher->concat($segmentPaths, $mp3Path);
 
-            $transcript = implode("\n", $transcriptLines);
-            $vtt        = $this->vttBuilder->build($vttSegments);
+            $vtt = $this->vttBuilder->build($vttSegments);
 
             // Synthetic voices reading an AI-written script: generated as a whole.
-            $provenance          = $this->provenance($ctx, DigitalSourceType::TrainedAlgorithmicMedia, ['tts' => $this->speech->getModel()]);
-            $mp3File             = $this->fileStorage->store((string) file_get_contents($mp3Path), 'podcast.mp3', $provenance);
-            $vttFile             = $this->fileStorage->store($vtt, 'podcast.vtt', $provenance);
-            $metadata            = $this->buildMetadata($personaVoices, count($turns), $dialogue->systemPrompt, $dialogue->userPrompt);
+            $provenance = $this->provenance(
+                $ctx,
+                DigitalSourceType::TrainedAlgorithmicMedia,
+                ['tts' => $this->speech->getModel()],
+            );
+            $mp3File = $this->fileStorage->store(
+                (string) file_get_contents($mp3Path),
+                'podcast.mp3',
+                $provenance,
+            );
+            $vttFile  = $this->fileStorage->store($vtt, 'podcast.vtt', $provenance);
+            $metadata = $this->buildMetadata(
+                $personaVoices,
+                count($turns),
+                $dialogue->systemPrompt,
+                $dialogue->userPrompt,
+            );
             $metadata['aiLabel'] = $provenance->toArray();
 
-            $this->jobs->updateArtifact($artifactUid, [
-                'file_uid'          => $mp3File->getUid(),
-                'subtitle_file_uid' => $vttFile->getUid(),
-                'script_text'       => $transcript,
-                'metadata'          => json_encode($metadata, JSON_THROW_ON_ERROR),
-                'status'            => ArtifactStatus::Done->value,
-            ]);
+            $this->jobs->updateArtifact(
+                $artifactUid,
+                [
+                    'file_uid'          => $mp3File->getUid(),
+                    'subtitle_file_uid' => $vttFile->getUid(),
+                    'script_text'       => $transcript,
+                    'metadata'          => json_encode($metadata, JSON_THROW_ON_ERROR),
+                    'status'            => ArtifactStatus::Done->value,
+                ],
+            );
 
             return true;
         } catch (Throwable $e) {
-            $this->failArtifactFrom($artifactUid, $jobUid, 'Podcast generation', $e);
+            $this->failArtifactFrom(
+                $artifactUid,
+                $jobUid,
+                'Podcast generation',
+                $e,
+            );
 
             return false;
         }

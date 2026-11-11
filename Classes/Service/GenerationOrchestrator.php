@@ -24,6 +24,9 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewRejectedException;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewSupersededException;
 use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
@@ -56,6 +59,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         private CapabilityGrantResolverInterface $grantResolver,
         private AiLabelSettingsFactory $aiLabelSettings,
         iterable $generators,
+        private ?SourceReviewGate $sourceReview = null,
     ) {
         $this->generators = $generators instanceof Traversable
             ? iterator_to_array($generators, false)
@@ -111,7 +115,10 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
     {
         $row = $this->jobs->findRow($jobUid);
         if ($row === null) {
-            $this->logger->warning('Job not found, skipping', ['job' => $jobUid]);
+            $this->logger->warning(
+                'Job not found, skipping',
+                ['job' => $jobUid],
+            );
 
             return;
         }
@@ -135,7 +142,8 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         // 1) Ingestion — turn the source into a SourceDocument.
         $this->jobs->markStatus($jobUid, JobStatus::Ingesting, 'ingesting', 5);
         try {
-            $document = $this->ingestion->ingest($job);
+            $sourcePointerHash = $this->sourceReview?->captureSource($row);
+            $document          = $this->ingestion->ingest($job);
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Ingestion', $e);
 
@@ -160,6 +168,21 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
 
         // Record the detected language on the job for the BE result view.
         $this->jobs->setLanguageDetected($jobUid, $brief->language);
+        try {
+            $briefReview = $this->sourceReview?->brief(
+                $job,
+                $document,
+                $brief,
+                $sourcePointerHash,
+            ) ?? [];
+        } catch (SourceReviewSupersededException) {
+            // The winning run owns the job state and artifacts; leave both untouched.
+            return;
+        } catch (Throwable $e) {
+            $this->failJob($jobUid, 'Source fidelity check', $e);
+
+            return;
+        }
 
         // 3) Resolve the editor's prompt-snippet selection ONCE for this run (analysis stays
         // snippet-free by design — snippets steer generation only). An empty selection
@@ -183,18 +206,29 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             grants: $this->grantResolver->resolve($job->beUser),
             // Visible labels in the language the artifacts are written in (ADR-005).
             aiLabel: $this->aiLabelSettings->create($brief->language),
+            sourceReview: $this->sourceReview,
+            briefReview: $briefReview,
         );
 
         // 5) Generation — per-artifact isolation; a single failure does not abort siblings.
         // Clear any artifacts from a prior (interrupted or re-queued) run so reprocessing yields
         // a clean set instead of duplicating rows. Terminal jobs never reach here (guarded above).
         $this->jobs->deleteArtifactsForJob($jobUid);
-        $this->jobs->markStatus($jobUid, JobStatus::Generating, 'generating', 30);
+        $this->jobs->markStatus(
+            $jobUid,
+            JobStatus::Generating,
+            'generating',
+            30,
+        );
 
-        $applicable = array_values(array_filter(
-            $this->generators,
-            static fn (ArtifactGeneratorInterface $g): bool => $g->supports($ctx),
-        ));
+        $applicable = array_values(
+            array_filter(
+                $this->generators,
+                static fn (
+                    ArtifactGeneratorInterface $g,
+                ): bool => $g->supports($ctx),
+            ),
+        );
         $count = count($applicable);
         $ok    = 0;
         foreach ($applicable as $i => $generator) {
@@ -222,7 +256,12 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             $progress = $count > 0 ? (int) round(30 + 70 * ($i + 1) / $count) : 100;
             // currentStep null on purpose: keep the generator's last human-readable
             // detail visible instead of overwriting it with the generic slug.
-            $this->jobs->markStatus($jobUid, JobStatus::Generating, null, $progress);
+            $this->jobs->markStatus(
+                $jobUid,
+                JobStatus::Generating,
+                null,
+                $progress,
+            );
         }
 
         // 6) Final status. Each artifact carries its own error; the job names how many
@@ -230,8 +269,23 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         $failed                   = $count - $ok;
         [$final, $error, $reason] = match (true) {
             $failed === 0 => [JobStatus::Done, '', null],
-            $ok > 0       => [JobStatus::PartiallyDone, sprintf('%d of %d formats failed; each failed artifact shows its error', $failed, $count), FailureReason::SomeFormatsFailed],
-            default       => [JobStatus::Failed, sprintf('All %d formats failed; each artifact shows its error', $count), FailureReason::AllFormatsFailed],
+            $ok > 0       => [
+                JobStatus::PartiallyDone,
+                sprintf(
+                    '%d of %d formats failed; each failed artifact shows its error',
+                    $failed,
+                    $count,
+                ),
+                FailureReason::SomeFormatsFailed,
+            ],
+            default => [
+                JobStatus::Failed,
+                sprintf(
+                    'All %d formats failed; each artifact shows its error',
+                    $count,
+                ),
+                FailureReason::AllFormatsFailed,
+            ],
         };
         $this->jobs->finishJob($jobUid, $final, $error, $reason);
     }
@@ -245,10 +299,13 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
      */
     private function failJob(int $jobUid, string $step, Throwable $e): void
     {
-        $this->logger->error($step . ' failed', ['job' => $jobUid, 'exception' => $e]);
+        $this->logger->error(
+            $step . ' failed',
+            ['job' => $jobUid, 'exception' => $e],
+        );
         $this->jobs->markFailed(
             $jobUid,
-            $e instanceof IngestionException || $e instanceof AnalysisException || $e instanceof GuardrailPolicyException ? $e->getMessage() : $step . ' failed',
+            $e instanceof IngestionException || $e instanceof AnalysisException || $e instanceof GuardrailPolicyException || $e instanceof SourceReviewRejectedException ? $e->getMessage() : $step . ' failed',
             FailureClassifier::reasonFor($e),
         );
     }

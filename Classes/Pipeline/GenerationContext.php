@@ -15,6 +15,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
 
 /**
  * Bundled, immutable per-run pipeline state. Built by GenerationOrchestrator after ingestion
@@ -26,6 +27,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
  */
 final readonly class GenerationContext
 {
+    /** @param array<string, mixed> $briefReview */
     public function __construct(
         public JobSnapshot $job,
         public SourceDocument $document,
@@ -38,6 +40,8 @@ final readonly class GenerationContext
         public CapabilityGrants $grants = new CapabilityGrants(false, false),
         // AI-label settings of the run (ADR-005); the default shows no visible labels.
         public AiLabelSettings $aiLabel = new AiLabelSettings(),
+        public ?SourceReviewGate $sourceReview = null,
+        public array $briefReview = [],
     ) {}
 
     public function jobUid(): int
@@ -58,6 +62,8 @@ final readonly class GenerationContext
             $progress,
             $this->grants,
             $this->aiLabel,
+            $this->sourceReview,
+            $this->briefReview,
         );
     }
 }

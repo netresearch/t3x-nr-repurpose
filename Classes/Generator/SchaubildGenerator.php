@@ -26,6 +26,7 @@ use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Service\JobLlmOptions;
 use Netresearch\NrRepurpose\Service\TextCompletionInterface;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\View\ViewFactoryInterface;
@@ -137,30 +138,67 @@ class SchaubildGenerator extends AbstractGenerator
      *
      * @param array{system: string, user: string} $llmPrompts
      */
-    private function generateHtmlVariant(GenerationContext $ctx, int $jobUid, string $html, array $llmPrompts): bool
-    {
-        $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html', 0, ArtifactStatus::Pending);
-        $pngPath     = null;
+    private function generateHtmlVariant(
+        GenerationContext $ctx,
+        int $jobUid,
+        string $html,
+        array $llmPrompts,
+    ): bool {
+        $artifactUid = $this->jobs->insertArtifact(
+            $jobUid,
+            ArtifactType::Schaubild,
+            'html',
+            0,
+            ArtifactStatus::Pending,
+        );
+        $pngPath = null;
         try {
+            $this->reviewArtifact(
+                $ctx,
+                $artifactUid,
+                SourceReviewGate::htmlText($html),
+                'diagram text (rendered image not inspected)',
+            );
             // AI-written copy set into the human-made branded template.
-            $provenance = $this->provenance($ctx, DigitalSourceType::CompositeWithTrainedAlgorithmicMedia);
-            $pngPath    = $this->renderer->render($html, self::WIDTH, null, 2.0, false);
-            $file       = $this->fileStorage->store((string) file_get_contents($pngPath), 'schaubild-html.png', $provenance);
-            $this->jobs->updateArtifact($artifactUid, [
-                'file_uid'    => $file->getUid(),
-                'source_html' => $html,
-                'metadata'    => json_encode([
-                    'variant' => 'html',
-                    'width'   => self::WIDTH,
-                    'prompts' => $this->promptsMetadata(system: $llmPrompts['system'], user: $llmPrompts['user']),
-                    'aiLabel' => $provenance->toArray(),
-                ], JSON_THROW_ON_ERROR),
-                'status' => ArtifactStatus::Done->value,
-            ]);
+            $provenance = $this->provenance(
+                $ctx,
+                DigitalSourceType::CompositeWithTrainedAlgorithmicMedia,
+            );
+            $pngPath = $this->renderer->render($html, self::WIDTH, null, 2.0, false);
+            $file    = $this->fileStorage->store(
+                (string) file_get_contents($pngPath),
+                'schaubild-html.png',
+                $provenance,
+            );
+            $this->jobs->updateArtifact(
+                $artifactUid,
+                [
+                    'file_uid'    => $file->getUid(),
+                    'source_html' => $html,
+                    'metadata'    => json_encode(
+                        [
+                            'variant' => 'html',
+                            'width'   => self::WIDTH,
+                            'prompts' => $this->promptsMetadata(
+                                system: $llmPrompts['system'],
+                                user: $llmPrompts['user'],
+                            ),
+                            'aiLabel' => $provenance->toArray(),
+                        ],
+                        JSON_THROW_ON_ERROR,
+                    ),
+                    'status' => ArtifactStatus::Done->value,
+                ],
+            );
 
             return true;
         } catch (Throwable $e) {
-            $this->failArtifactFrom($artifactUid, $jobUid, 'Schaubild html variant', $e);
+            $this->failArtifactFrom(
+                $artifactUid,
+                $jobUid,
+                'Schaubild html variant',
+                $e,
+            );
 
             return false;
         } finally {
@@ -174,17 +212,42 @@ class SchaubildGenerator extends AbstractGenerator
      *
      * @param array{system: string, user: string} $llmPrompts
      */
-    private function generateHtmlBgVariant(GenerationContext $ctx, int $jobUid, string $transparentHtml, array $llmPrompts, string $imageSize): bool
-    {
-        $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html_bg', 0, ArtifactStatus::Pending);
+    private function generateHtmlBgVariant(
+        GenerationContext $ctx,
+        int $jobUid,
+        string $transparentHtml,
+        array $llmPrompts,
+        string $imageSize,
+    ): bool {
+        $artifactUid = $this->jobs->insertArtifact(
+            $jobUid,
+            ArtifactType::Schaubild,
+            'html_bg',
+            0,
+            ArtifactStatus::Pending,
+        );
         if (!$ctx->grants->vision) {
-            $this->failArtifact($artifactUid, $jobUid, self::DENIED_VISION, FailureReason::NotPermitted);
+            $this->failArtifact(
+                $artifactUid,
+                $jobUid,
+                self::DENIED_VISION,
+                FailureReason::NotPermitted,
+            );
 
             return false;
         }
 
-        if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
-            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or image service unavailable', FailureReason::BudgetOrService);
+        if (!$this->specializedAllowed(
+            $ctx,
+            self::IMAGE_COST,
+            $this->imageGenerator->isAvailable(),
+        )) {
+            $this->failArtifact(
+                $artifactUid,
+                $jobUid,
+                'AI budget exhausted or image service unavailable',
+                FailureReason::BudgetOrService,
+            );
 
             return false;
         }
@@ -192,39 +255,78 @@ class SchaubildGenerator extends AbstractGenerator
         $tmpDir = null;
         $fgPath = null;
         try {
-            $tmpDir   = $this->makeTempDir();
-            $bgPath   = $tmpDir . '/bg.png';
-            $bgPrompt = $this->backgroundPrompt($ctx);
-            $ctx->progress?->step('Schaubild: generating background image', 0.65);
-            $this->imageGenerator->generateToFile($bgPrompt, $imageSize, $bgPath);
+            $bgPrompt  = $this->backgroundPrompt($ctx);
+            $candidate = "Diagram overlay text:\n" . SourceReviewGate::htmlText($transparentHtml) . "\n\nBackground image prompt:\n" . $bgPrompt;
+            $this->reviewArtifact(
+                $ctx,
+                $artifactUid,
+                $candidate,
+                'diagram overlay text and background image prompt (rendered image not inspected)',
+            );
+            $tmpDir = $this->makeTempDir();
+            $bgPath = $tmpDir . '/bg.png';
+            $ctx->progress?->step(
+                'Schaubild: generating background image',
+                0.65,
+            );
+            $this->imageGenerator->generateToFile(
+                $bgPrompt,
+                $imageSize,
+                $bgPath,
+            );
 
-            $fgPath  = $this->renderer->render($transparentHtml, self::WIDTH, null, 2.0, true);
+            $fgPath = $this->renderer->render(
+                $transparentHtml,
+                self::WIDTH,
+                null,
+                2.0,
+                true,
+            );
             $outPath = $tmpDir . '/composited.png';
             $this->compositor->overlay($bgPath, $fgPath, $outPath);
 
-            $provenance = $this->provenance($ctx, DigitalSourceType::CompositeWithTrainedAlgorithmicMedia, ['image' => $this->imageGenerator->getModel()]);
-            $file       = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-html-bg.png', $provenance);
-            $this->jobs->updateArtifact($artifactUid, [
-                'file_uid'    => $file->getUid(),
-                'source_html' => $transparentHtml,
-                'metadata'    => json_encode([
-                    'variant' => 'html_bg',
-                    'bgModel' => $this->imageGenerator->getModel(),
-                    'prompts' => $this->promptsMetadata(
-                        system: $llmPrompts['system'],
-                        user: $llmPrompts['user'],
-                        image: $bgPrompt,
-                        imageModel: $this->imageGenerator->getModel(),
-                        imageSize: $imageSize,
+            $provenance = $this->provenance(
+                $ctx,
+                DigitalSourceType::CompositeWithTrainedAlgorithmicMedia,
+                ['image' => $this->imageGenerator->getModel()],
+            );
+            $file = $this->fileStorage->store(
+                (string) file_get_contents($outPath),
+                'schaubild-html-bg.png',
+                $provenance,
+            );
+            $this->jobs->updateArtifact(
+                $artifactUid,
+                [
+                    'file_uid'    => $file->getUid(),
+                    'source_html' => $transparentHtml,
+                    'metadata'    => json_encode(
+                        [
+                            'variant' => 'html_bg',
+                            'bgModel' => $this->imageGenerator->getModel(),
+                            'prompts' => $this->promptsMetadata(
+                                system: $llmPrompts['system'],
+                                user: $llmPrompts['user'],
+                                image: $bgPrompt,
+                                imageModel: $this->imageGenerator->getModel(),
+                                imageSize: $imageSize,
+                            ),
+                            'aiLabel' => $provenance->toArray(),
+                        ],
+                        JSON_THROW_ON_ERROR,
                     ),
-                    'aiLabel' => $provenance->toArray(),
-                ], JSON_THROW_ON_ERROR),
-                'status' => ArtifactStatus::Done->value,
-            ]);
+                    'status' => ArtifactStatus::Done->value,
+                ],
+            );
 
             return true;
         } catch (Throwable $e) {
-            $this->failArtifactFrom($artifactUid, $jobUid, 'Schaubild html_bg variant', $e);
+            $this->failArtifactFrom(
+                $artifactUid,
+                $jobUid,
+                'Schaubild html_bg variant',
+                $e,
+            );
 
             return false;
         } finally {
@@ -234,17 +336,41 @@ class SchaubildGenerator extends AbstractGenerator
     }
 
     /** Variant 3 — full AI text-to-image from a content-derived prompt (no img2img available). */
-    private function generateKiImageVariant(GenerationContext $ctx, int $jobUid, string $referenceHtml, string $imageSize): bool
-    {
-        $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'ki_image', 0, ArtifactStatus::Pending);
+    private function generateKiImageVariant(
+        GenerationContext $ctx,
+        int $jobUid,
+        string $referenceHtml,
+        string $imageSize,
+    ): bool {
+        $artifactUid = $this->jobs->insertArtifact(
+            $jobUid,
+            ArtifactType::Schaubild,
+            'ki_image',
+            0,
+            ArtifactStatus::Pending,
+        );
         if (!$ctx->grants->vision) {
-            $this->failArtifact($artifactUid, $jobUid, self::DENIED_VISION, FailureReason::NotPermitted);
+            $this->failArtifact(
+                $artifactUid,
+                $jobUid,
+                self::DENIED_VISION,
+                FailureReason::NotPermitted,
+            );
 
             return false;
         }
 
-        if (!$this->specializedAllowed($ctx, self::IMAGE_COST, $this->imageGenerator->isAvailable())) {
-            $this->failArtifact($artifactUid, $jobUid, 'AI budget exhausted or image service unavailable', FailureReason::BudgetOrService);
+        if (!$this->specializedAllowed(
+            $ctx,
+            self::IMAGE_COST,
+            $this->imageGenerator->isAvailable(),
+        )) {
+            $this->failArtifact(
+                $artifactUid,
+                $jobUid,
+                'AI budget exhausted or image service unavailable',
+                FailureReason::BudgetOrService,
+            );
 
             return false;
         }
@@ -254,31 +380,60 @@ class SchaubildGenerator extends AbstractGenerator
             $tmpDir   = $this->makeTempDir();
             $outPath  = $tmpDir . '/ki.png';
             $kiPrompt = $this->kiImagePrompt($ctx);
-            $this->imageGenerator->generateToFile($kiPrompt, $imageSize, $outPath);
+            $this->reviewArtifact(
+                $ctx,
+                $artifactUid,
+                $kiPrompt,
+                'image generation prompt (finished image not inspected)',
+            );
+            $this->imageGenerator->generateToFile(
+                $kiPrompt,
+                $imageSize,
+                $outPath,
+            );
 
             // Fully model-rendered. The visible corner label is not applied here: this
             // variant never passes the HTML renderer (ADR-005).
-            $provenance = $this->provenance($ctx, DigitalSourceType::TrainedAlgorithmicMedia, ['image' => $this->imageGenerator->getModel()]);
-            $file       = $this->fileStorage->store((string) file_get_contents($outPath), 'schaubild-ki.png', $provenance);
-            $this->jobs->updateArtifact($artifactUid, [
-                'file_uid'    => $file->getUid(),
-                'source_html' => $referenceHtml,
-                'metadata'    => json_encode([
-                    'variant' => 'ki_image',
-                    'model'   => $this->imageGenerator->getModel(),
-                    'prompts' => $this->promptsMetadata(
-                        image: $kiPrompt,
-                        imageModel: $this->imageGenerator->getModel(),
-                        imageSize: $imageSize,
+            $provenance = $this->provenance(
+                $ctx,
+                DigitalSourceType::TrainedAlgorithmicMedia,
+                ['image' => $this->imageGenerator->getModel()],
+            );
+            $file = $this->fileStorage->store(
+                (string) file_get_contents($outPath),
+                'schaubild-ki.png',
+                $provenance,
+            );
+            $this->jobs->updateArtifact(
+                $artifactUid,
+                [
+                    'file_uid'    => $file->getUid(),
+                    'source_html' => $referenceHtml,
+                    'metadata'    => json_encode(
+                        [
+                            'variant' => 'ki_image',
+                            'model'   => $this->imageGenerator->getModel(),
+                            'prompts' => $this->promptsMetadata(
+                                image: $kiPrompt,
+                                imageModel: $this->imageGenerator->getModel(),
+                                imageSize: $imageSize,
+                            ),
+                            'aiLabel' => $provenance->toArray(),
+                        ],
+                        JSON_THROW_ON_ERROR,
                     ),
-                    'aiLabel' => $provenance->toArray(),
-                ], JSON_THROW_ON_ERROR),
-                'status' => ArtifactStatus::Done->value,
-            ]);
+                    'status' => ArtifactStatus::Done->value,
+                ],
+            );
 
             return true;
         } catch (Throwable $e) {
-            $this->failArtifactFrom($artifactUid, $jobUid, 'Schaubild ki_image variant', $e);
+            $this->failArtifactFrom(
+                $artifactUid,
+                $jobUid,
+                'Schaubild ki_image variant',
+                $e,
+            );
 
             return false;
         } finally {
