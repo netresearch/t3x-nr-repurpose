@@ -18,7 +18,9 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeCompletionService;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Service\ConfiguredCompletionService;
+use Netresearch\NrRepurpose\Service\GuardrailHintCapture;
 use Netresearch\NrRepurpose\Service\UnusableAnswerException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeGuardrailHintCollector;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -26,6 +28,99 @@ use Psr\Log\NullLogger;
 
 final class ConfiguredCompletionServiceTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        FakeGuardrailHintCollector::reset();
+        parent::tearDown();
+    }
+
+    /** The service with the stand-in for nr-llm's hint collector, on the configuration path. */
+    private function hintingSubject(CompletionServiceInterface $inner): ConfiguredCompletionService
+    {
+        $repository = $this->createStub(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($this->activeConfigurationStub());
+
+        return new ConfiguredCompletionService($inner, new ConfigurationResolver($repository), new NullLogger(), new GuardrailHintCapture(new FakeGuardrailHintCollector()));
+    }
+
+    public function testAReturnedCallReportsTheHintsOnItsText(): void
+    {
+        $inner = $this->createStub(CompletionServiceInterface::class);
+        $inner->method('completeMarkdownForConfiguration')->willReturnCallback(static function (): string {
+            FakeGuardrailHintCollector::record(FakeGuardrailHintCollector::hint('violation', 'Breaks "No discounts"'));
+
+            return 'text';
+        });
+        $subject = $this->hintingSubject($inner);
+
+        self::assertSame([], $subject->lastGuardrailHints());
+        self::assertSame('text', $subject->completeMarkdown('prompt'));
+        self::assertSame([['kind' => 'violation', 'message' => 'Breaks "No discounts"']], $subject->lastGuardrailHints());
+    }
+
+    public function testTheStructuredAnswerReportsItsHints(): void
+    {
+        $answer                   = new FakeCompletionService();
+        $answer->structuredResult = ['summary' => 'text'];
+
+        $inner = $this->createStub(CompletionServiceInterface::class);
+        $inner->method('completeStructuredForConfiguration')->willReturnCallback(static function () use ($answer): mixed {
+            FakeGuardrailHintCollector::record(FakeGuardrailHintCollector::hint('unavailable', 'Not checked'));
+
+            return $answer->completeStructured('prompt', []);
+        });
+        $subject = $this->hintingSubject($inner);
+
+        self::assertSame(['summary' => 'text'], $subject->completeStructured('prompt', []));
+        self::assertSame([['kind' => 'unavailable', 'message' => 'Not checked']], $subject->lastGuardrailHints());
+    }
+
+    /** A call that threw delivered no text, so the hints of the call before it are gone. */
+    public function testACallThatThrowsLeavesNoHints(): void
+    {
+        $calls = 0;
+        $inner = $this->createStub(CompletionServiceInterface::class);
+        $inner->method('completeMarkdownForConfiguration')->willReturnCallback(static function () use (&$calls): string {
+            FakeGuardrailHintCollector::record(FakeGuardrailHintCollector::hint('violation', 'call ' . ++$calls));
+            if ($calls === 2) {
+                throw new ProviderException('down', 1);
+            }
+
+            return 'text';
+        });
+        $subject = $this->hintingSubject($inner);
+        $subject->completeMarkdown('prompt');
+
+        try {
+            $subject->completeMarkdown('prompt');
+            self::fail('The failure must reach the caller');
+        } catch (ProviderException $e) {
+            self::assertSame(1, $e->getCode());
+        }
+
+        self::assertSame([], $subject->lastGuardrailHints());
+    }
+
+    /** The first answer was discarded: what the judge said about it describes no stored text. */
+    public function testOnlyTheAttemptThatReturnedReportsItsHints(): void
+    {
+        $calls = 0;
+        $inner = $this->createStub(CompletionServiceInterface::class);
+        $inner->method('completeJsonForConfiguration')->willReturnCallback(static function () use (&$calls): array {
+            FakeGuardrailHintCollector::record(FakeGuardrailHintCollector::hint('violation', 'attempt ' . ++$calls));
+            if ($calls === 1) {
+                throw new ProviderException('no text', 2041730951);
+            }
+
+            return ['answer' => 'second try'];
+        });
+
+        $subject = $this->hintingSubject($inner);
+
+        self::assertSame(['answer' => 'second try'], $subject->completeJson('prompt'));
+        self::assertSame([['kind' => 'violation', 'message' => 'attempt 2']], $subject->lastGuardrailHints());
+    }
+
     private function activeConfigurationStub(): LlmConfiguration
     {
         $configuration = self::createStub(LlmConfiguration::class);

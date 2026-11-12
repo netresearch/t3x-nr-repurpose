@@ -54,6 +54,7 @@ Attackers considered: a backend user trying to reach internal hosts through the 
 - **Economy of mechanism:** all external programs go through two runner interfaces (`ProcessRunnerInterface`, `PopplerRunnerInterface`).
 - **Defence in depth:** the renderer blocks the network by route and by dead proxy, and runs without JavaScript; the diagram body is sanitised before it is rendered; with `chromiumSandbox` on, Chromium also runs in its sandbox (off by default, because a container with Docker's default seccomp profile cannot provide it; see `Documentation/Configuration/Worker.rst`).
 - **Error hiding:** process, renderer, speech, image, PDF-parser and webhook failures store a fixed message and log the cause (for example `SymfonyProcessRunner.php`, `WebhookSocialPublisher.php`).
+- **No generated text in a stored refusal:** a guardrail's refusal is stored on the job or the artifact without the passage of generated text it may quote, through nr-llm's `storableMessage()` where nr-llm offers it (`GuardrailRefusal.php`, nr-llm ADR-288). The hints of a guardrail that let a text through, which quote the passage, are stored in the metadata of the artifact made from that text and read only by the job view, which shows that text.
 
 ## Countering common weaknesses
 

@@ -20,6 +20,7 @@ use Netresearch\NrRepurpose\Provenance\AiProvenance;
 use Netresearch\NrRepurpose\Provenance\DigitalSourceType;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Service\FailureClassifier;
+use Netresearch\NrRepurpose\Service\GuardrailRefusal;
 use Psr\Log\LoggerInterface;
 use Random\Randomizer;
 use Throwable;
@@ -158,6 +159,27 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     }
 
     /**
+     * The `guardrailHints` block of an artifact's metadata: what nr-llm's guardrails
+     * reported on the text the artifact was made from, as TextCompletionInterface::
+     * lastGuardrailHints() returns it. No hints, no block. The Show view renders it
+     * as a warning next to the artifact.
+     *
+     * A hint of the rule-set judge quotes a passage of that text. The artifact stores
+     * the text itself (metadata.content, script_text or source_html), and only the
+     * job view reads the hints, as it reads that text. A passage can also come from
+     * the part of the same answer the row does not keep: a cut, sanitised or unvoiced
+     * part, another variant of the answer, or nr-llm's discarded repair answer.
+     *
+     * @param list<array{kind: string, message: string}> $hints
+     *
+     * @return array{guardrailHints?: non-empty-list<array{kind: string, message: string}>}
+     */
+    protected function guardrailHintsMetadata(array $hints): array
+    {
+        return $hints === [] ? [] : ['guardrailHints' => $hints];
+    }
+
+    /**
      * The AI-origin statement of an artifact (ADR-005). Its toArray() is stored as the
      * `aiLabel` block of every done artifact's metadata; passed to JobFileStorage::store()
      * it also marks the stored file itself. $models names only models that are known.
@@ -236,11 +258,12 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     protected function failArtifactFrom(int $artifactUid, int $jobUid, string $step, Throwable $e): void
     {
         // A guardrail's message is written for the person who started the job. An image or speech
-        // call wraps every failure, so the guardrail can sit below a RenderingException.
+        // call wraps every failure, so the guardrail can sit below a RenderingException. The row
+        // keeps the refusal without any quoted passage of the generated text (nr-llm ADR-288).
         for ($cause = $e; $cause instanceof Throwable; $cause = $cause->getPrevious()) {
             if ($cause instanceof GuardrailPolicyException) {
                 $this->logger->warning($step . ' stopped by a guardrail', ['job' => $jobUid, 'artifact' => $artifactUid, 'exception' => $e]);
-                $this->failArtifact($artifactUid, $jobUid, $cause->getMessage(), FailureReason::Guardrail);
+                $this->failArtifact($artifactUid, $jobUid, GuardrailRefusal::storableMessage($cause), FailureReason::Guardrail);
 
                 return;
             }

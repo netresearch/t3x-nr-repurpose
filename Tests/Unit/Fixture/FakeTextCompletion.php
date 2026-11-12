@@ -31,6 +31,23 @@ final class FakeTextCompletion implements TextCompletionInterface
 
     public ?Throwable $throwable = null;
 
+    /**
+     * What lastGuardrailHints() reports after a call that returned.
+     *
+     * @var list<array{kind: string, message: string}>
+     */
+    public array $guardrailHints = [];
+
+    /**
+     * Hints per returned call, in call order; when it runs dry, $guardrailHints applies.
+     *
+     * @var list<list<array{kind: string, message: string}>>
+     */
+    public array $guardrailHintsPerCall = [];
+
+    /** @var list<array{kind: string, message: string}> */
+    private array $lastHints = [];
+
     /** Spare this many completeMarkdown() calls before throwing. */
     public int $markdownCallsBeforeThrow = 0;
 
@@ -67,13 +84,21 @@ final class FakeTextCompletion implements TextCompletionInterface
         return $this->markdownResult;
     }
 
+    public function lastGuardrailHints(): array
+    {
+        return $this->lastHints;
+    }
+
     private function guardThrow(): void
     {
+        $this->lastHints = [];
         if ($this->throwable instanceof Throwable && ($this->markdownCallsBeforeThrow === 0 || count($this->completeMarkdownCalls) > $this->markdownCallsBeforeThrow)) {
             $throwable       = $this->throwable;
             $this->throwable = null;
 
             throw $throwable;
         }
+
+        $this->lastHints = array_shift($this->guardrailHintsPerCall) ?? $this->guardrailHints;
     }
 }

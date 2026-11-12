@@ -36,6 +36,7 @@ use Netresearch\NrRepurpose\Resource\JobFileStorage;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\FakeTextCompletion;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\PassageQuotingRefusal;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\PromptBoundaryAssertions;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StatusRecordingJobRepository;
@@ -396,6 +397,33 @@ final class PodcastGeneratorTest extends TestCase
         self::assertFalse($generator->generate($this->context()));
         self::assertSame('failed', $jobs->updates[100]['status']);
         self::assertSame('Es enthält Rabatt.', $jobs->updates[100]['error_message']);
+    }
+
+    public function testAGuardrailStopStoresItsReasonWithoutThePassage(): void
+    {
+        $completion            = $this->completion();
+        $completion->throwable = new PassageQuotingRefusal();
+
+        $jobs = $this->jobs();
+
+        $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new RecordingLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder());
+
+        self::assertFalse($generator->generate($this->context()));
+        self::assertSame(PassageQuotingRefusal::STORABLE, $jobs->updates[100]['error_message']);
+    }
+
+    public function testTheEpisodeCarriesTheGuardrailHintsOnItsScript(): void
+    {
+        $hints                      = [['kind' => 'violation', 'message' => 'Breaks "No discounts"']];
+        $completion                 = $this->completion();
+        $completion->guardrailHints = $hints;
+
+        $jobs = $this->jobs();
+
+        $generator = new PodcastGenerator($jobs, $this->allowingBudget(), new RecordingLogger(), $completion, $this->speech(), $this->stitcher(), $this->storage(), new WebVttBuilder());
+
+        self::assertTrue($generator->generate($this->context()));
+        self::assertSame($hints, json_decode((string) $jobs->updates[100]['metadata'], true)['guardrailHints'] ?? null);
     }
 
     public function testPersonaDialogueUsesPersonaNamesMetadataVoicesAndRoundRobinFallback(): void

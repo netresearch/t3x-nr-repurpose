@@ -74,6 +74,9 @@ final class ConfiguredCompletionService implements TextCompletionInterface
 
     private bool $resolved = false;
 
+    /** @var list<array{kind: string, message: string}> hints of the most recent call that returned */
+    private array $lastHints = [];
+
     /**
      * @param CompletionServiceInterface $inner the real nr-llm completion service
      */
@@ -81,15 +84,22 @@ final class ConfiguredCompletionService implements TextCompletionInterface
         private readonly CompletionServiceInterface $inner,
         private readonly ConfigurationResolver $configurationResolver,
         private readonly LoggerInterface $logger,
+        private readonly GuardrailHintCapture $hintCapture = new GuardrailHintCapture(),
     ) {}
+
+    public function lastGuardrailHints(): array
+    {
+        return $this->lastHints;
+    }
 
     /**
      * @return array<string, mixed>
      */
     public function completeJson(string $prompt, ?ChatOptions $options = null): array
     {
-        $configuration = $this->resolveConfiguration();
-        $options       = $this->withOutputBudget($this->withCallerIdentity($options), $configuration);
+        $this->lastHints = [];
+        $configuration   = $this->resolveConfiguration();
+        $options         = $this->withOutputBudget($this->withCallerIdentity($options), $configuration);
 
         try {
             return $this->json($prompt, $configuration, $options);
@@ -119,30 +129,54 @@ final class ConfiguredCompletionService implements TextCompletionInterface
      */
     public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
     {
-        $configuration = $this->resolveConfiguration();
-        $options       = $this->withOutputBudget($this->withCallerIdentity($options), $configuration);
+        $this->lastHints = [];
+        $configuration   = $this->resolveConfiguration();
+        $options         = $this->withOutputBudget($this->withCallerIdentity($options), $configuration);
 
-        return $this->structuredData($configuration instanceof LlmConfiguration
+        return $this->structuredData($this->captured(fn (): mixed => $configuration instanceof LlmConfiguration
             ? $this->inner->completeStructuredForConfiguration($prompt, $configuration, $schema, $options)
-            : $this->inner->completeStructured($prompt, $schema, $options));
+            : $this->inner->completeStructured($prompt, $schema, $options)));
     }
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
     {
-        $configuration = $this->resolveConfiguration();
-        $options       = $this->withOutputBudget($this->withCallerIdentity($options), $configuration);
+        $this->lastHints = [];
+        $configuration   = $this->resolveConfiguration();
+        $options         = $this->withOutputBudget($this->withCallerIdentity($options), $configuration);
 
-        return $configuration instanceof LlmConfiguration
+        return $this->captured(fn (): string => $configuration instanceof LlmConfiguration
             ? $this->inner->completeMarkdownForConfiguration($prompt, $configuration, $options)
-            : $this->inner->completeMarkdown($prompt, $options);
+            : $this->inner->completeMarkdown($prompt, $options));
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * One attempt of a JSON completion. Its hints replace the last ones only when it
+     * returns, so a discarded attempt of completeJson() leaves none behind.
+     *
+     * @return array<string, mixed>
+     */
     private function json(string $prompt, ?LlmConfiguration $configuration, ChatOptions $options): array
     {
-        return $configuration instanceof LlmConfiguration
+        return $this->captured(fn (): array => $configuration instanceof LlmConfiguration
             ? $this->inner->completeJsonForConfiguration($prompt, $configuration, $options)
-            : $this->inner->completeJson($prompt, $options);
+            : $this->inner->completeJson($prompt, $options));
+    }
+
+    /**
+     * Run one nr-llm call inside the guardrail-hint capture and keep its hints.
+     *
+     * @template T
+     *
+     * @param callable(): T $call
+     *
+     * @return T
+     */
+    private function captured(callable $call): mixed
+    {
+        $captured        = $this->hintCapture->capture($call);
+        $this->lastHints = $captured['hints'];
+
+        return $captured['result'];
     }
 
     private function isUnusableAnswer(InvalidArgumentException|ProviderException $e): bool

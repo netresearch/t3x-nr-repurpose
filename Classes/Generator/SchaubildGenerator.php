@@ -87,7 +87,8 @@ class SchaubildGenerator extends AbstractGenerator
         $ctx->progress?->step('Schaubild: building HTML', 0.05);
 
         try {
-            $htmlOpaque = $this->renderDiagramHtml($ctx, false);
+            $htmlOpaque  = $this->renderDiagramHtml($ctx, false);
+            $opaqueHints = $this->completion->lastGuardrailHints();
         } catch (Throwable $e) {
             // The html and ki_image variants are built from this text, so none can
             // follow. The reason belongs on an artifact: the job's other formats go on.
@@ -99,11 +100,15 @@ class SchaubildGenerator extends AbstractGenerator
         // A second completion, with a text of its own: a stop on it costs the
         // html_bg variant alone.
         $htmlTransparent   = '';
+        $transparentHints  = [];
         $transparentFailed = null;
         try {
             // The transparent render only feeds the html_bg variant, which a missing
             // generate_vision grant refuses anyway: skip its completion call then.
-            $htmlTransparent = $ctx->grants->vision ? $this->renderDiagramHtml($ctx, true) : '';
+            if ($ctx->grants->vision) {
+                $htmlTransparent  = $this->renderDiagramHtml($ctx, true);
+                $transparentHints = $this->completion->lastGuardrailHints();
+            }
         } catch (Throwable $e) {
             $transparentFailed = $e;
         }
@@ -116,12 +121,14 @@ class SchaubildGenerator extends AbstractGenerator
         $imageSize = $this->resolveImageSize($ctx->snippets->schaubildImageSize, self::IMAGE_SIZE);
 
         $ctx->progress?->step('Schaubild: variant html (1/3)', 0.4);
-        $ok = $this->generateHtmlVariant($ctx, $jobUid, $htmlOpaque, $llmPrompts);
+        // Each text variant carries the hints on its own text. The ki_image variant is an
+        // image from a prompt of its own and shows no generated text, so it carries none.
+        $ok = $this->generateHtmlVariant($ctx, $jobUid, $htmlOpaque, $llmPrompts, $opaqueHints);
         $ctx->progress?->step('Schaubild: variant html_bg (2/3)', 0.6);
         if ($transparentFailed instanceof Throwable) {
             $this->failArtifactFrom($this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html_bg', 0, ArtifactStatus::Pending), $jobUid, 'Schaubild', $transparentFailed);
         } else {
-            $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent, $llmPrompts, $imageSize) || $ok;
+            $ok = $this->generateHtmlBgVariant($ctx, $jobUid, $htmlTransparent, $llmPrompts, $imageSize, $transparentHints) || $ok;
         }
 
         $ctx->progress?->step('Schaubild: variant ki_image (3/3)', 0.8);
@@ -135,9 +142,10 @@ class SchaubildGenerator extends AbstractGenerator
     /**
      * Variant 1 — deterministic Chromium screenshot of the branded HTML.
      *
-     * @param array{system: string, user: string} $llmPrompts
+     * @param array{system: string, user: string}        $llmPrompts
+     * @param list<array{kind: string, message: string}> $hints
      */
-    private function generateHtmlVariant(GenerationContext $ctx, int $jobUid, string $html, array $llmPrompts): bool
+    private function generateHtmlVariant(GenerationContext $ctx, int $jobUid, string $html, array $llmPrompts, array $hints): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html', 0, ArtifactStatus::Pending);
         $pngPath     = null;
@@ -154,7 +162,7 @@ class SchaubildGenerator extends AbstractGenerator
                     'width'   => self::WIDTH,
                     'prompts' => $this->promptsMetadata(system: $llmPrompts['system'], user: $llmPrompts['user']),
                     'aiLabel' => $provenance->toArray(),
-                ], JSON_THROW_ON_ERROR),
+                ] + $this->guardrailHintsMetadata($hints), JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,
             ]);
 
@@ -172,9 +180,10 @@ class SchaubildGenerator extends AbstractGenerator
     /**
      * Variant 2 — AI background image, transparent HTML overlay composited on top.
      *
-     * @param array{system: string, user: string} $llmPrompts
+     * @param array{system: string, user: string}        $llmPrompts
+     * @param list<array{kind: string, message: string}> $hints
      */
-    private function generateHtmlBgVariant(GenerationContext $ctx, int $jobUid, string $transparentHtml, array $llmPrompts, string $imageSize): bool
+    private function generateHtmlBgVariant(GenerationContext $ctx, int $jobUid, string $transparentHtml, array $llmPrompts, string $imageSize, array $hints): bool
     {
         $artifactUid = $this->jobs->insertArtifact($jobUid, ArtifactType::Schaubild, 'html_bg', 0, ArtifactStatus::Pending);
         if (!$ctx->grants->vision) {
@@ -218,7 +227,7 @@ class SchaubildGenerator extends AbstractGenerator
                         imageSize: $imageSize,
                     ),
                     'aiLabel' => $provenance->toArray(),
-                ], JSON_THROW_ON_ERROR),
+                ] + $this->guardrailHintsMetadata($hints), JSON_THROW_ON_ERROR),
                 'status' => ArtifactStatus::Done->value,
             ]);
 

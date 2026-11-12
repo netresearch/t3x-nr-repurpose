@@ -1,0 +1,29 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<html data-namespace-typo3-fluid="true"
+      xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers">
+<f:comment><!--
+    What nr-llm's guardrails reported on a text they let through (nr-llm ADR-288): a
+    rule the text breaks, or a check that did not run. Core warning box, like the
+    failure box in ArtifactFailure. A message quotes model output, so it stays escaped.
+    Arguments: hints (metadata.guardrailHints, list of {kind, message}).
+--></f:comment>
+<f:variable name="lll" value="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf" />
+<f:if condition="{hints}">
+    <f:be.infobox state="1">
+        <span class="d-block text-break fw-bold"><f:translate key="{lll}:guardrailHints.title" /></span>
+        <span class="d-block text-break"><f:translate key="{lll}:guardrailHints.what" /></span>
+        <ul class="mb-0">
+            <f:for each="{hints}" as="hint">
+                <li class="text-break">
+                    <f:if condition="{hint.kind} == 'violation'"><strong><f:translate key="{lll}:guardrailHints.kind.violation" /></strong></f:if>
+                    <f:if condition="{hint.kind} == 'unavailable'"><strong><f:translate key="{lll}:guardrailHints.kind.unavailable" /></strong></f:if>
+                    {hint.message}
+                </li>
+            </f:for>
+        </ul>
+    </f:be.infobox>
+</f:if>
+</html>

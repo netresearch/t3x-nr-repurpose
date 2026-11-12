@@ -1,0 +1,11 @@
+{
+    "name": "netresearch/nrrepurpose-hint-collector-fixture",
+    "description": "A stand-in for nr-llm's GuardrailHintCollector service, for the functional test of its injection into GuardrailHintCapture. Not shipped.",
+    "type": "typo3-cms-extension",
+    "license": "GPL-2.0-or-later",
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nrrepurpose_hint_collector_fixture"
+        }
+    }
+}

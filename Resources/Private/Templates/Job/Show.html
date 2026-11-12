@@ -134,6 +134,8 @@
                         <f:render partial="Job/ArtifactFailure" arguments="{artifact: artifact}" />
 
                         <f:if condition="{artifact.status} == 'done'">
+                            <f:render partial="Job/GuardrailHints" arguments="{hints: artifact.metadataArray.guardrailHints}" />
+
                             <f:comment><!-- Podcast: audio player + subtitles + transcript --></f:comment>
                             <f:if condition="{artifact.type} == 'podcast'">
                                 <f:variable name="mp3" value="{nr:publicUrl(fileUid: artifact.fileUid)}" />
@@ -234,6 +236,8 @@
                         <f:render partial="Job/AiLabel" arguments="{status: job.doneStoryArtifact.status, label: job.doneStoryArtifact.metadataArray.aiLabel}" />
                     </div>
                     <div class="card-body">
+                        <f:comment><!-- All slides come from one copy, so they carry the same hints: show them once, from the first finished slide --></f:comment>
+                        <f:render partial="Job/GuardrailHints" arguments="{hints: job.doneStoryArtifact.metadataArray.guardrailHints}" />
                         <div class="nrrepurpose-story-strip">
                             <f:for each="{job.storyArtifacts}" as="slide">
                                 <div class="nrrepurpose-story-slide">

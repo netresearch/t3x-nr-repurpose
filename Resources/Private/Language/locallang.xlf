@@ -308,6 +308,10 @@
       <trans-unit id="failure.guardrail.result"><source>No results were created, and nothing was published.</source></trans-unit>
       <trans-unit id="failure.guardrail.action"><source>Change the source so that it meets the rule, and create a new job.</source></trans-unit>
       <trans-unit id="failure.guardrail.admin"><source>If you think the rule is wrong for this text, ask your administrator. The rules are set in the AI configuration.</source></trans-unit>
+      <trans-unit id="guardrailHints.title"><source>A content rule reported something on this text</source></trans-unit>
+      <trans-unit id="guardrailHints.what"><source>The text was created anyway. Check the points below before you use it.</source></trans-unit>
+      <trans-unit id="guardrailHints.kind.violation"><source>Rule broken:</source></trans-unit>
+      <trans-unit id="guardrailHints.kind.unavailable"><source>Not checked:</source></trans-unit>
       <trans-unit id="failure.not_permitted.short"><source>Your user group may not create this format</source></trans-unit>
       <trans-unit id="failure.not_permitted.what"><source>Podcast audio and AI images need a permission that the backend groups of the job's creator do not grant.</source></trans-unit>
       <trans-unit id="failure.not_permitted.result"><source>Only this format is affected. Other formats of the job are not.</source></trans-unit>
