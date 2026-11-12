@@ -24,16 +24,11 @@ final class GuardrailHintCaptureTest extends TestCase
         parent::tearDown();
     }
 
-    public function testItResolvesNrLlmsCollectorByName(): void
-    {
-        self::assertSame('Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector', GuardrailHintCapture::COLLECTOR);
-    }
-
     /** The released nr-llm has no collector: the call runs as before and reports nothing. */
     public function testWithoutTheCollectorTheCallRunsAndReportsNoHints(): void
     {
         $calls   = 0;
-        $capture = new GuardrailHintCapture('Netresearch\NrLlm\Service\Guardrail\NoSuchCollector');
+        $capture = new GuardrailHintCapture();
 
         $captured = $capture->capture(static function () use (&$calls): string {
             ++$calls;
@@ -50,7 +45,7 @@ final class GuardrailHintCaptureTest extends TestCase
     public function testAClassWithoutCaptureIsNoCollector(): void
     {
         $calls   = 0;
-        $capture = new GuardrailHintCapture(stdClass::class);
+        $capture = new GuardrailHintCapture(new stdClass());
 
         $captured = $capture->capture(static function () use (&$calls): string {
             ++$calls;
@@ -66,7 +61,7 @@ final class GuardrailHintCaptureTest extends TestCase
     public function testAnAnswerOfAnotherShapeKeepsTheResultAndReportsNoHints(): void
     {
         $calls   = 0;
-        $capture = new GuardrailHintCapture(ShapelessGuardrailHintCollector::class);
+        $capture = new GuardrailHintCapture(new ShapelessGuardrailHintCollector());
 
         $captured = $capture->capture(static function () use (&$calls): array {
             ++$calls;
@@ -80,7 +75,7 @@ final class GuardrailHintCaptureTest extends TestCase
 
     public function testTheCollectorsHintsAreReadByShape(): void
     {
-        $capture = new GuardrailHintCapture(FakeGuardrailHintCollector::class);
+        $capture = new GuardrailHintCapture(new FakeGuardrailHintCollector());
 
         $captured = $capture->capture(static function (): string {
             FakeGuardrailHintCollector::record(
@@ -104,7 +99,7 @@ final class GuardrailHintCaptureTest extends TestCase
 
     public function testAThrowingCallThrowsOn(): void
     {
-        $capture = new GuardrailHintCapture(FakeGuardrailHintCollector::class);
+        $capture = new GuardrailHintCapture(new FakeGuardrailHintCollector());
 
         $this->expectExceptionObject($failure = new RuntimeException('stopped'));
 

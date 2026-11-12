@@ -9,9 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Service;
 
-use TYPO3\CMS\Core\Utility\GeneralUtility;
-
-use function class_exists;
 use function get_object_vars;
 use function is_array;
 use function is_callable;
@@ -25,21 +22,21 @@ use function is_string;
  * The extension's completions return a decoded array or a string, which carries no
  * response metadata, so the hints come from nr-llm's GuardrailHintCollector: the
  * call runs inside its capture(). The collector exists from the nr-llm release that
- * brings the judge on. It is resolved by its name and used by its shape, so with an
- * older nr-llm the call simply runs and reports no hints.
+ * brings the judge on. Configuration/Services.yaml injects it as an optional service
+ * (`@?`), so with an older nr-llm it is null, the call simply runs and reports no
+ * hints. It is used by its shape, without type checks against nr-llm classes.
  *
  * @internal
  */
 final readonly class GuardrailHintCapture
 {
-    /** nr-llm's collector; a public, shared service, so makeInstance() returns the instance its middleware records into. */
-    public const string COLLECTOR = 'Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector';
-
     /**
-     * @param string $collectorClass the collector to resolve; another name only in tests
+     * @param object|null $collector nr-llm's GuardrailHintCollector, a shared service, so it
+     *                               is the instance its middleware records into; null when
+     *                               this nr-llm has none
      */
     public function __construct(
-        private string $collectorClass = self::COLLECTOR,
+        private ?object $collector = null,
     ) {}
 
     /**
@@ -77,12 +74,11 @@ final readonly class GuardrailHintCapture
      */
     private function collectorCapture(): ?callable
     {
-        $class = $this->collectorClass;
-        if (!class_exists($class)) {
+        if ($this->collector === null) {
             return null;
         }
 
-        $capture = [GeneralUtility::makeInstance($class), 'capture'];
+        $capture = [$this->collector, 'capture'];
 
         return is_callable($capture) ? $capture : null;
     }

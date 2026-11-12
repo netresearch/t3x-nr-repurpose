@@ -14,9 +14,9 @@ use stdClass;
 /**
  * Stands in for nr-llm's GuardrailHintCollector (nr-llm ADR-288), which the released
  * nr-llm does not have yet: same capture() shape, and record() adds to every open
- * capture while the call runs, as nr-llm's middleware does. GuardrailHintCapture
- * resolves it with makeInstance(), which builds a new instance each time, so the open
- * captures are static; reset() in tearDown.
+ * capture while the call runs, as nr-llm's middleware does. The code under test
+ * records through the static record(), with no handle on the instance the capture got,
+ * so the open captures are static; reset() in tearDown.
  */
 final class FakeGuardrailHintCollector
 {

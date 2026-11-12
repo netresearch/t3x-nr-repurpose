@@ -40,7 +40,7 @@ final class ConfiguredCompletionServiceTest extends TestCase
         $repository = $this->createStub(LlmConfigurationRepository::class);
         $repository->method('findOneByIdentifier')->willReturn($this->activeConfigurationStub());
 
-        return new ConfiguredCompletionService($inner, new ConfigurationResolver($repository), new NullLogger(), new GuardrailHintCapture(FakeGuardrailHintCollector::class));
+        return new ConfiguredCompletionService($inner, new ConfigurationResolver($repository), new NullLogger(), new GuardrailHintCapture(new FakeGuardrailHintCollector()));
     }
 
     public function testAReturnedCallReportsTheHintsOnItsText(): void

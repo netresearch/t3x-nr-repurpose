@@ -48,6 +48,16 @@ services:
   Netresearch\NrRepurpose\Service\TextCompletionInterface:
     alias: Netresearch\NrRepurpose\Service\ConfiguredCompletionService
 
+  # Public so functional tests can fetch the real service via $this->get().
+  Netresearch\NrRepurpose\Service\ConfiguredCompletionService:
+    public: true
+
+  # nr-llm's guardrail-hint collector (nr-llm ADR-288) exists only from the nr-llm
+  # release that brings the rule-set judge: "@?" injects null without it.
+  Netresearch\NrRepurpose\Service\GuardrailHintCapture:
+    arguments:
+      $collector: '@?Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector'
+
   Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface:
     alias: Netresearch\NrRepurpose\Understanding\DocumentAnalyzer
 
