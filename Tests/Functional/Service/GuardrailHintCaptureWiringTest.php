@@ -18,11 +18,13 @@ use ReflectionProperty;
 /**
  * The container hands nr-llm's guardrail-hint collector to the completion service:
  * Configuration/Services.yaml injects it into GuardrailHintCapture as an optional
- * service, and the completion service gets that capture. A fixture extension registers
- * a stand-in under the collector's service id, which the released nr-llm lacks.
+ * service, and the completion service gets that capture. While the installed nr-llm
+ * lacks the collector, a fixture extension registers a stand-in under its service id.
  */
 final class GuardrailHintCaptureWiringTest extends AbstractFunctionalTestCase
 {
+    private const string COLLECTOR = 'Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector';
+
     protected array $testExtensionsToLoad = [
         'netresearch/nr-vault',
         'netresearch/nr-llm',
@@ -42,12 +44,8 @@ final class GuardrailHintCaptureWiringTest extends AbstractFunctionalTestCase
             ->getValue($this->get(ConfiguredCompletionService::class));
         self::assertInstanceOf(GuardrailHintCapture::class, $capture);
 
-        $captured = $capture->capture(static function (): string {
-            FakeGuardrailHintCollector::record(FakeGuardrailHintCollector::hint('violation', 'Breaks "No discounts"'));
-
-            return 'text';
-        });
-
-        self::assertSame(['result' => 'text', 'hints' => [['kind' => 'violation', 'message' => 'Breaks "No discounts"']]], $captured);
+        $collector = (new ReflectionProperty(GuardrailHintCapture::class, 'collector'))->getValue($capture);
+        self::assertNotNull($collector, 'The collector service is injected.');
+        self::assertSame($this->get(self::COLLECTOR), $collector, 'It is the shared instance nr-llm records into.');
     }
 }
