@@ -17,6 +17,35 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-15-0:
+
+Version 0.15.0 (2026-11-12)
+===========================
+
+Added
+-----
+
+-   With nr-llm's rule-set judge in report mode, the result view shows a
+    warning next to each artifact whose text the judge reported on: the rule
+    the text breaks, with the passage, or that the text could not be checked.
+    The story shows it once for all slides. This needs the nr-llm release
+    that brings the judge; with an earlier nr-llm nothing changes.
+
+Changed
+-------
+
+-   A job or an artifact stopped by a guardrail stores the refusal without a
+    quoted passage of the generated text, where nr-llm provides that form.
+
+Fixed
+-----
+
+-   The images of a job get their alt text on creation: a story slide its
+    headline and subline, every Schaubild variant the title of the source.
+    An alt-text generator such as the upload listener of EXT:ai_filemetadata
+    skips them, so the worker no longer causes one paid vision-model call per
+    image.
+
 .. _version-0-14-0:
 
 Version 0.14.0 (2026-11-02)
