@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- nr-llm 0.44 is accepted beside 0.43 (`^0.43.4 || ^0.44`), so the extension installs together with nr-llm 0.44.0 and the nr-vault 1.5 it requires.
+
 ## [0.15.0] - 2026-11-12
 
 ### Added
