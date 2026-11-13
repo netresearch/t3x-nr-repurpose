@@ -106,7 +106,7 @@
                 }
             },
             "extension-key": "nr_repurpose",
-            "version": "0.15.1",
+            "version": "0.15.2",
             "web-dir": ".Build/Web"
         }
     }
