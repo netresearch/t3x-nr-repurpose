@@ -209,7 +209,7 @@ final class ConfiguredCompletionService implements TextCompletionInterface
      * The decoded answer of a structured completion. nr-llm 0.39 and later return
      * a StructuredCompletionResponse whose `data` it is (ADR-211); nr-llm up to
      * 0.38 returned the array itself, which this still accepts although the
-     * required versions (^0.43.4 || ^0.44 || ^0.45) no longer installs such a version.
+     * required versions (^0.43.4 || ^0.44 || ^0.45 || ^0.46) no longer installs such a version.
      *
      * @return array<string, mixed>
      */
