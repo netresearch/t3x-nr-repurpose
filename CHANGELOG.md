@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.15.3] - 2026-11-13
+
+### Changed
+
+- nr-llm 0.46 is accepted beside 0.43, 0.44 and 0.45 (`^0.43.4 || ^0.44 || ^0.45 || ^0.46`), so the extension installs together with nr-llm 0.46.0.
+
 ## [0.15.2] - 2026-11-13
 
 ### Changed
@@ -617,7 +623,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.2...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.3...HEAD
+[0.15.3]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.2...v0.15.3
 [0.15.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.14.0...v0.15.0
