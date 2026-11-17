@@ -17,6 +17,17 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-15-7:
+
+Version 0.15.7 (2026-11-17)
+===========================
+
+Changed
+-------
+
+-   nr-llm 0.50 is accepted beside 0.43 to 0.49, so the extension
+    installs together with nr-llm 0.50.0.
+
 .. _version-0-15-6:
 
 Version 0.15.6 (2026-11-16)
