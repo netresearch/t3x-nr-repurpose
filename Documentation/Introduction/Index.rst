@@ -27,8 +27,8 @@ PDF — into AI-generated media artifacts and texts, all from the TYPO3 backend:
 
 It is a thin orchestration layer on top of :composer:`netresearch/nr-llm`: the
 LLM access (chat/vision completions, text-to-speech, image generation) and the
-per-user budget enforcement all come from nr-llm — any provider nr-llm supports
-can be used, selected in nr-llm's backend module rather than in code. The
+per-user budget checks come from nr-llm. The available providers depend on
+the operation and the adapter that Repurpose uses. The
 provider API keys belong to nr-llm and are referenced only by identifier, so no
 plaintext key lives in this extension. nr_repurpose adds the
 ingestion, the prompting, the local rendering toolchain, and the backend module
@@ -153,17 +153,20 @@ nr_repurpose never talks to an AI provider directly. Every AI call goes through
 nr-llm:
 
 -   **Analysis and copy** (the brief, the podcast script, the diagram body, the
-    story copy, the text formats) use nr-llm's :php:`CompletionService`, which resolves the
-    instance's default nr-llm Configuration — and with it any chat provider
-    nr-llm supports (OpenAI, Anthropic Claude, Google Gemini, Groq, Mistral,
-    Ollama, OpenRouter) — and is guarded by nr-llm's budget middleware via a
-    backend-user uid.
+    story copy and the text formats) use the ``nr_repurpose_text`` configuration.
+    If the worker cannot resolve that record, page jobs follow the site
+    setting and jobs without a site override use the instance default. An
+    invalid site override fails the job. Check the effective endpoints and
+    fallback providers before processing sensitive source material
+    (see :ref:`configuration-site`).
+    The text service supports nr-llm chat providers and passes the backend
+    user ID to nr-llm's budget middleware.
 -   **Text-to-speech and image generation** use nr-llm's specialized services
     (:php:`TextToSpeechService`, :php:`DallEImageService`), with the model
     resolved through the nr-llm Configuration records ``nr_repurpose_tts`` and
-    ``nr_repurpose_image``. These are not middleware-guarded, so nr_repurpose
-    gates them manually with nr-llm's :php:`BudgetService` and each service's
-    ``isAvailable()`` check before spending.
+    ``nr_repurpose_image``. Before starting generation, nr_repurpose checks the
+    job creator's budget with nr-llm's :php:`BudgetService` and checks that
+    the relevant service is available.
 
 The provider keys belong to nr-llm, which resolves them by identifier (e.g.
 ``nr_repurpose_openai``) and injects them into the outbound call. No secret
@@ -171,27 +174,29 @@ surfaces in nr_repurpose. See :ref:`adr-003`.
 
 .. _introduction-control:
 
-Full control — no black box
-===========================
+Where content is processed
+==========================
 
-nr_repurpose is not a SaaS pipeline you feed content into: it runs entirely
-inside the TYPO3 instance, and through nr-llm every aspect of the AI usage
-stays under the operator's control —
+The TYPO3 worker runs the job, renders files and stores the results. Analysis
+and copy send source material to the configured chat endpoint, which can be
+self-hosted. Generated artwork sends image prompts to the image service. A
+podcast sends the speaker text to the speech service. A scanned PDF can also
+require a vision request.
 
--   **Provider sovereignty.** Decide per use case which provider serves it: a
-    US cloud, an EU provider (e.g. Mistral), or fully self-hosted models via
-    Ollama, where content never leaves your infrastructure. Switching is a
-    backend record edit, not a deployment.
--   **Costs.** Per-user budgets are enforced by nr-llm's middleware; every call
-    is metered and attributed per model and per configuration in nr-llm's
-    analytics module; image and speech calls are pre-gated against the budget
-    with a planned cost before any spend.
+The bundled adapters use nr-llm's OpenAI image and text-to-speech services.
+Selecting a local chat model leaves those adapters in place. For an endpoint
+supporting the same image or speech API, set ``image.dalle.baseUrl`` or
+``speech.tts.baseUrl`` in nr-llm. Services using a different protocol need a
+corresponding adapter in :file:`Configuration/Services.yaml`.
+
+-   **Costs.** The generator checks the job creator's budget against an estimated
+    cost before starting speech or image generation. Running jobs can overlap.
+    Use the provider invoice to check actual spend.
 -   **Prompts.** System prompts live centrally on Configuration records,
     editorial steering on reviewable prompt snippets, and every artifact stores
     the exact prompts, models, sizes and voices that produced it.
--   **Auditing.** nr-llm keeps the provider keys encrypted and routes every
-    outbound AI call through an audited client — a who/what/when trail for
-    each one.
+-   **Usage records.** nr-llm records usage after the provider call. A provider
+    response can succeed even if writing its usage record fails.
 -   **Permissions.** Backend group permissions gate who may spend on audio and
     AI imagery (see :ref:`configuration-permissions`).
 
@@ -207,9 +212,8 @@ Requirements
 -   An **API key for at least one nr-llm-supported provider**. The tested
     default stack uses a single OpenAI key for everything (chat/vision
     analysis, TTS, ``gpt-image-2`` images); text generation can equally use any
-    other nr-llm chat provider, while image and speech currently require a
-    provider covered by nr-llm's specialized services (OpenAI; fal.ai for
-    images).
+    other compatible chat providers. The bundled adapters for AI images and
+    speech use nr-llm's OpenAI services.
 -   The system binaries ``poppler-utils`` (PDF), ``ffmpeg`` / ``ffprobe``
     (audio), and ``chromium`` (rendering), plus a Node.js runtime for the
     renderer.

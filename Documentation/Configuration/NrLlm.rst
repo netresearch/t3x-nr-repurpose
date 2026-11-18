@@ -22,12 +22,12 @@ attribution. Set everything up in nr-llm's backend module
 #.  Import the **Configuration** records nr_repurpose declares as presets.
     nr_repurpose ships the three records below as *configuration presets*
     (nr-llm ADR-056): open nr-llm's :guilabel:`Configurations` module and each
-    appears as a *pending preset* with its required capabilities — import it with
-    a single click. Each imports as a criteria-mode configuration that resolves
-    against the models you created; no provider, model or key is baked into the
-    preset. Mark the imported ``nr_repurpose_text`` record as the instance
-    default. (You may still create the records by hand instead — the identifiers
-    below are what the extension looks up.)
+    appears as a *pending preset* with its required capabilities. Import each
+    preset. The text preset can select a chat model by its criteria. To select
+    a specific image or speech model, assign an active, supported model directly
+    on the corresponding configuration. Without that assignment, these services
+    consult the model registry and then use the defaults below. You can also
+    create records with these identifiers by hand.
 
 .. list-table::
    :header-rows: 1
@@ -36,30 +36,34 @@ attribution. Set everything up in nr-llm's backend module
    * - Configuration identifier
      - Used for
      - Model choice
-   * - ``nr_repurpose_text`` *(mark as default)*
+   * - ``nr_repurpose_text``
      - Analysis and copy: the brief, the podcast script, the diagram body, the
-       story copy. The pipeline resolves the instance-default Configuration.
+       story copy. If the worker cannot resolve this record, the site and
+       instance settings determine routing (see :ref:`configuration-site`).
      - Any chat model of any nr-llm provider — OpenAI, Anthropic Claude,
        Google Gemini, Groq, Mistral, Ollama, OpenRouter.
    * - ``nr_repurpose_image``
      - AI imagery (Schaubild backgrounds and full images, story backgrounds).
-     - Any model accepted by nr-llm's image services; falls back to
-       ``gpt-image-2`` when the record is absent. The record's system prompt
+     - A model supported by the bundled OpenAI image adapter. Without a
+       usable configured model, nr-llm checks the model registry before
+       using ``gpt-image-2``. The record's system prompt
        acts as a style preamble for every image prompt.
    * - ``nr_repurpose_tts``
      - Podcast speech synthesis.
      - Any model of nr-llm's text-to-speech service (currently OpenAI ``tts-1``
-       / ``tts-1-hd``); falls back to ``tts-1``.
+       / ``tts-1-hd``). Without a usable configured model, nr-llm checks
+       the model registry before using ``tts-1``.
 
 Swapping a model — or, for text, the provider — is a backend-only change: edit
 the Configuration record, no code or deployment involved. Per-model and
 per-configuration usage and cost appear in nr-llm's analytics module.
 
-Image and speech calls go through nr-llm's *specialized* services, which
-currently cover OpenAI (images, TTS) and fal.ai (images). The extension-side
-seam for additional backends is the
-:php:`ImageGeneratorInterface` / :php:`SpeechSynthesizerInterface` DI alias in
-:path:`Configuration/Services.yaml`.
+The bundled image and speech adapters use OpenAI endpoints by default. To
+use an endpoint that supports the same image or speech API, set
+``image.dalle.baseUrl`` or ``speech.tts.baseUrl`` in the nr-llm extension
+configuration. For a service using a different protocol, supply an adapter
+for :php:`ImageGeneratorInterface` or :php:`SpeechSynthesizerInterface` and
+update the corresponding alias in :path:`Configuration/Services.yaml`.
 
 Keys are always referenced by identifier: both the chat providers and the
 specialized services let nr-llm resolve and inject the key — no plaintext key
@@ -85,7 +89,8 @@ created, so the worker and a later retry use it.
     replaces it with the configuration the site names. A site that names a
     configuration that does not exist, is disabled or is restricted to backend
     groups fails the job; there is no fallback to the default.
-*   A job from a URL or a PDF has no site and keeps the instance default.
+*   A job from a URL or a PDF has no site override. When the worker cannot
+    resolve ``nr_repurpose_text``, the job uses the instance default.
 *   Images (``nr_repurpose_image``), speech (``nr_repurpose_tts``) and the
     OCR of PDF pages do not use the site's configuration.
 *   A page tree whose pages belong to several sites uses the site of the

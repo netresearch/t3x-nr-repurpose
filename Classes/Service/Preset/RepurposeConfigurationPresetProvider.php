@@ -23,25 +23,14 @@ use Netresearch\NrRepurpose\Service\UseCase\RepurposeStarterPackProvider;
  * administrator imports them with one click from the nr_llm Configurations backend
  * module instead of hand-creating each record.
  *
- * Presets carry model REQUIREMENTS (capabilities) only — never a concrete provider,
- * model, or API key. nr_llm resolves an imported criteria-mode record at runtime
- * against whatever providers and models the instance has configured.
- *
- * The image and speech presets are looked up by identifier by the specialized
- * generators ({@see DallEImageGenerator::CONFIGURATION}, {@see OpenAiSpeechSynthesizer::CONFIGURATION}).
- * The text preset ({@see self::TEXT_CONFIGURATION}) is a ready-made default for the
- * completion pipeline (briefs, podcast scripts, diagram data, story slides), which
- * resolves the instance-default configuration — import it and mark it default.
+ * The text configuration supports selection by criteria. For image and speech
+ * the specialized services look for a directly assigned model on the matching
+ * configuration before consulting the model registry.
  *
  * Discovered automatically via the `nr_llm.configuration_preset` DI tag (autoconfigured).
  */
 final class RepurposeConfigurationPresetProvider implements ConfigurationPresetProviderInterface
 {
-    /**
-     * Identifier of the completion (text) configuration. Unlike the image and speech
-     * records this is not referenced by name in code — the text pipeline uses the
-     * instance-default configuration — so this preset is imported and marked default.
-     */
     public const string TEXT_CONFIGURATION = 'nr_repurpose_text';
 
     /**
@@ -58,8 +47,7 @@ final class RepurposeConfigurationPresetProvider implements ConfigurationPresetP
             identifier: self::TEXT_CONFIGURATION,
             name: 'Content Repurpose: Text',
             description: 'Chat model for content briefs, podcast scripts, diagram data and '
-                . 'story slides — the pipeline asks for JSON per call. Import it and mark it '
-                . 'as the default configuration; the text pipeline uses the instance default.',
+                . 'story slides. Import this configuration to select the model used for text generation.',
             // CHAT only, deliberately. The pipeline does request JSON — every
             // completion passes `responseFormat: 'json'` — but requiring
             // ModelCapability::JSON_MODE here makes this preset unimportable
@@ -97,8 +85,8 @@ final class RepurposeConfigurationPresetProvider implements ConfigurationPresetP
             new ConfigurationPreset(
                 identifier: DallEImageGenerator::CONFIGURATION,
                 name: 'Content Repurpose: Images',
-                description: 'Text-to-image model for the diagram and Instagram-story visuals. '
-                    . 'Set a system prompt on the imported record to steer the visual style.',
+                description: 'Assign a supported image model directly to use it for diagrams and '
+                    . 'Instagram stories. Set a system prompt to steer the visual style.',
                 criteria: new ModelSelectionCriteria(
                     capabilities: [ModelCapability::IMAGE->value],
                 ),
@@ -106,7 +94,7 @@ final class RepurposeConfigurationPresetProvider implements ConfigurationPresetP
             new ConfigurationPreset(
                 identifier: OpenAiSpeechSynthesizer::CONFIGURATION,
                 name: 'Content Repurpose: Speech',
-                description: 'Text-to-speech model for podcast narration.',
+                description: 'Assign a supported speech model directly to use it for podcast narration.',
                 criteria: new ModelSelectionCriteria(
                     capabilities: [ModelCapability::TEXT_TO_SPEECH->value],
                 ),
