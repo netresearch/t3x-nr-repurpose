@@ -164,9 +164,9 @@ nr-llm:
 -   **Text-to-speech and image generation** use nr-llm's specialized services
     (:php:`TextToSpeechService`, :php:`DallEImageService`), with the model
     resolved through the nr-llm Configuration records ``nr_repurpose_tts`` and
-    ``nr_repurpose_image``. These are not middleware-guarded, so nr_repurpose
-    gates them manually with nr-llm's :php:`BudgetService` and each service's
-    ``isAvailable()`` check before spending.
+    ``nr_repurpose_image``. Before starting generation, nr_repurpose checks the
+    job creator's budget with nr-llm's :php:`BudgetService` and checks that
+    the relevant service is available.
 
 The provider keys belong to nr-llm, which resolves them by identifier (e.g.
 ``nr_repurpose_openai``) and injects them into the outbound call. No secret
@@ -195,9 +195,8 @@ corresponding adapter in :file:`Configuration/Services.yaml`.
 -   **Prompts.** System prompts live centrally on Configuration records,
     editorial steering on reviewable prompt snippets, and every artifact stores
     the exact prompts, models, sizes and voices that produced it.
--   **Auditing.** nr-llm keeps the provider keys encrypted and routes every
-    outbound AI call through an audited client — a who/what/when trail for
-    each one.
+-   **Usage records.** nr-llm records usage after the provider call. A provider
+    response can succeed even if writing its usage record fails.
 -   **Permissions.** Backend group permissions gate who may spend on audio and
     AI imagery (see :ref:`configuration-permissions`).
 

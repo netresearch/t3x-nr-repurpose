@@ -134,8 +134,8 @@ image adapter to it.
   editorial steering on reviewable prompt snippets, and every artifact stores the
   exact prompts, models, sizes and voices that produced it — reproducible and
   reviewable after the fact.
-- **Auditing** — nr-llm keeps the API keys encrypted and routes every outbound
-  AI call through an audited client: a who/what/when trail exists for each one.
+- **Usage records.** nr-llm records usage after the provider call. A provider
+  response can succeed even if writing its usage record fails.
 - **Permissions** — backend group permissions gate which editors may spend on
   audio (`generate_audio`) and AI imagery (`generate_vision`).
 
