@@ -27,8 +27,7 @@ posts, newsletter) and two **PDF documents** (slide deck, handout), from the TYP
 backend.
 
 Every AI call goes through [`netresearch/nr-llm`](https://github.com/netresearch/t3x-nr-llm):
-nr_repurpose contains no provider code. Any LLM, image or TTS provider works — if
-nr-llm supports it (see [Providers, models and prompts](#providers-models-and-prompts)).
+nr_repurpose contains no provider code. Text, image and speech generation use different nr-llm services (see [Providers, models and prompts](#providers-models-and-prompts)).
 
 ## What it produces
 
@@ -93,7 +92,7 @@ prompt and cost tracking:
 | Call | nr-llm Configuration | What you can swap in the backend |
 |------|----------------------|----------------------------------|
 | Analysis + copy (brief, podcast script, diagram body, story copy, text formats) | the instance **default** Configuration (import the `nr_repurpose_text` preset and mark it default) | any chat model of any nr-llm provider: OpenAI, Anthropic Claude, Google Gemini, Groq, Mistral, Ollama, OpenRouter |
-| Image generation | `nr_repurpose_image` (fallback `gpt-image-2`) | any model of nr-llm's image services (OpenAI `gpt-image-*` / `dall-e-*`; nr-llm also ships a fal.ai service — see below) |
+| Image generation | `nr_repurpose_image` (fallback `gpt-image-2`) | a model supported by the bundled OpenAI image adapter |
 | Text-to-speech | `nr_repurpose_tts` (fallback `tts-1`; default voices `nova` + `onyx`, persona snippets can set their own voice per speaker) | any model of nr-llm's TTS service (currently OpenAI `tts-1`/`tts-1-hd`) |
 
 You do not create these records by hand: nr_repurpose **declares them as
@@ -109,27 +108,23 @@ analytics module. API keys belong to **nr-llm** and are referenced by identifier
 (e.g. `nr_repurpose_openai`) — no plaintext key ever lives in extension
 configuration (nr-llm ADR-030).
 
-Honest limits today: text generation is fully provider-agnostic; image and speech
-go through nr-llm's *specialized* services, which currently cover OpenAI (images,
-TTS) and fal.ai (images). The extension-side seam is in place —
-`ImageGeneratorInterface` / `SpeechSynthesizerInterface` with a DI alias in
-`Configuration/Services.yaml` — so a fal.ai image backend is a small adapter class
-away, and additional providers become available as nr-llm grows them.
+## Where content is processed
 
-## Full control — no black box
+The TYPO3 worker runs the job, renders files and stores the results. The configured
+chat endpoint receives the source material used for analysis and copy. A local
+chat model can handle that step. Jobs that generate AI artwork send image prompts
+to the image service. Podcasts send the speaker text to the speech service.
 
-nr_repurpose is not a SaaS pipeline you feed content into and hope for the best.
-It runs entirely inside your TYPO3 instance, and through nr-llm every aspect of
-the AI usage stays under the operator's control:
+The bundled image and speech adapters use nr-llm's OpenAI image and
+text-to-speech services. Selecting Ollama for chat changes neither adapter.
+Check the endpoints for every format you enable, including any vision calls
+used to read a scanned PDF. A different image or speech backend requires a
+compatible adapter bound in [Configuration/Services.yaml](Configuration/Services.yaml).
+For example, nr-llm includes a fal.ai service, but Repurpose does not bind an
+image adapter to it.
 
-- **Provider sovereignty** — decide per use case which provider serves it: a US
-  cloud, an EU provider (e.g. Mistral), or fully self-hosted models via Ollama,
-  where content never leaves your infrastructure. Switching is a backend record
-  edit, not a deployment.
-- **Costs** — per-user budgets are enforced by nr-llm's middleware; every call is
-  metered and attributed per model and per configuration in nr-llm's analytics
-  module; image and speech calls are additionally pre-gated against the budget
-  with a planned cost before any money is spent.
+- **Costs.** The generator checks the job creator’s budget against an estimated cost
+  before starting speech or image generation. Running jobs can overlap. Use the provider invoice to check actual spend.
 - **Prompts** — system prompts are maintained centrally on Configuration records,
   editorial steering on reviewable prompt snippets, and every artifact stores the
   exact prompts, models, sizes and voices that produced it — reproducible and

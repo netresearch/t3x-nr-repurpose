@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation
+
+- Document where source material, image prompts and podcast scripts are processed when using the bundled adapters.
+
 ## [0.15.7] - 2026-11-17
 
 ### Changed
