@@ -97,9 +97,11 @@ prompt and cost tracking:
 
 You do not create these records by hand: nr_repurpose **declares them as
 configuration presets** (nr-llm ADR-056). Open nr-llm's **Configurations** backend
-module — the three `nr_repurpose_*` records appear as *pending presets* with their
-required capabilities, and a single click imports each as a criteria-mode
-configuration that resolves against the models you have. When the worker cannot
+module and import the three pending `nr_repurpose_*` presets. The text preset
+can select a chat model by its criteria. To select a specific image or speech
+model, assign an active, supported model directly on the corresponding
+configuration. Without that assignment, the media services use the model
+registry and then the defaults in the table above. When the worker cannot
 resolve `nr_repurpose_text`, a page job can use the
 configuration named by its site in `nrllm.configuration`. Without a site override,
 including URL and PDF jobs, nr-llm uses the instance default. An invalid site

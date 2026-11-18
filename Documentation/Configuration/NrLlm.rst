@@ -22,11 +22,12 @@ attribution. Set everything up in nr-llm's backend module
 #.  Import the **Configuration** records nr_repurpose declares as presets.
     nr_repurpose ships the three records below as *configuration presets*
     (nr-llm ADR-056): open nr-llm's :guilabel:`Configurations` module and each
-    appears as a *pending preset* with its required capabilities — import it with
-    a single click. Each imports as a criteria-mode configuration that resolves
-    against the models you created; no provider, model or key is baked into the
-    preset. The worker looks up the identifiers below. You can also create
-    these records by hand.
+    appears as a *pending preset* with its required capabilities. Import each
+    preset. The text preset can select a chat model by its criteria. To select
+    a specific image or speech model, assign an active, supported model directly
+    on the corresponding configuration. Without that assignment, these services
+    consult the model registry and then use the defaults below. You can also
+    create records with these identifiers by hand.
 
 .. list-table::
    :header-rows: 1
