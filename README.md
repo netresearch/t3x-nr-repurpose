@@ -91,16 +91,18 @@ prompt and cost tracking:
 
 | Call | nr-llm Configuration | What you can swap in the backend |
 |------|----------------------|----------------------------------|
-| Analysis + copy (brief, podcast script, diagram body, story copy, text formats) | the instance **default** Configuration (import the `nr_repurpose_text` preset and mark it default) | any chat model of any nr-llm provider: OpenAI, Anthropic Claude, Google Gemini, Groq, Mistral, Ollama, OpenRouter |
-| Image generation | `nr_repurpose_image` (fallback `gpt-image-2`) | a model supported by the bundled OpenAI image adapter |
-| Text-to-speech | `nr_repurpose_tts` (fallback `tts-1`; default voices `nova` + `onyx`, persona snippets can set their own voice per speaker) | any model of nr-llm's TTS service (currently OpenAI `tts-1`/`tts-1-hd`) |
+| Analysis + copy (brief, podcast script, diagram body, story copy, text formats) | `nr_repurpose_text`, then site or instance routing if the worker cannot resolve it | any chat model of any nr-llm provider: OpenAI, Anthropic Claude, Google Gemini, Groq, Mistral, Ollama, OpenRouter |
+| Image generation | `nr_repurpose_image` (model registry, then `gpt-image-2`) | a model supported by the bundled OpenAI image adapter |
+| Text-to-speech | `nr_repurpose_tts` (model registry, then `tts-1`; default voices `nova` + `onyx`, persona snippets can set their own voice per speaker) | any model of nr-llm's TTS service (currently OpenAI `tts-1`/`tts-1-hd`) |
 
 You do not create these records by hand: nr_repurpose **declares them as
 configuration presets** (nr-llm ADR-056). Open nr-llm's **Configurations** backend
 module — the three `nr_repurpose_*` records appear as *pending presets* with their
 required capabilities, and a single click imports each as a criteria-mode
-configuration that resolves against the models you have. Mark the imported
-`nr_repurpose_text` record as the instance default for the analysis/copy calls.
+configuration that resolves against the models you have. When the worker cannot resolve `nr_repurpose_text`, a page job can use the
+configuration named by its site in `nrllm.configuration`. Without a site override,
+including URL and PDF jobs, nr-llm uses the instance default. An invalid site
+override fails the job. Review the effective endpoints and their fallback providers.
 
 System prompts (e.g. the image-style preamble) are maintained on the Configuration
 records; per-model and per-configuration usage and cost show up in nr-llm's
@@ -137,7 +139,7 @@ image adapter to it.
 ## Requirements
 
 - TYPO3 v14.3 LTS, PHP 8.3+
-- nr-llm `^0.43.4 || ^0.44 || ^0.45 || ^0.46 || ^0.47 || ^0.48 || ^0.49 || ^0.50` (installed automatically via Composer; it owns the provider
+- nr-llm `^0.43.4 || ^0.44 || ^0.45 || ^0.46 || ^0.47 || ^0.48 || ^0.49 || ^0.50 || ^0.51` (installed automatically via Composer; it owns the provider
   credentials)
 - An API key for at least one nr-llm-supported provider. The tested default stack
   uses a single OpenAI key for everything (analysis, TTS, images).

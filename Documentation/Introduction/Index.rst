@@ -153,11 +153,14 @@ nr_repurpose never talks to an AI provider directly. Every AI call goes through
 nr-llm:
 
 -   **Analysis and copy** (the brief, the podcast script, the diagram body, the
-    story copy, the text formats) use nr-llm's :php:`CompletionService`, which resolves the
-    instance's default nr-llm Configuration — and with it any chat provider
-    nr-llm supports (OpenAI, Anthropic Claude, Google Gemini, Groq, Mistral,
-    Ollama, OpenRouter) — and is guarded by nr-llm's budget middleware via a
-    backend-user uid.
+    story copy and the text formats) use the ``nr_repurpose_text`` configuration.
+    If the worker cannot resolve that record, page jobs follow the site
+    setting and jobs without a site override use the instance default. An
+    invalid site override fails the job. Check the effective endpoints and
+    fallback providers before processing sensitive source material
+    (see :ref:`configuration-site`).
+    The text service supports nr-llm chat providers and passes the backend
+    user ID to nr-llm's budget middleware.
 -   **Text-to-speech and image generation** use nr-llm's specialized services
     (:php:`TextToSpeechService`, :php:`DallEImageService`), with the model
     resolved through the nr-llm Configuration records ``nr_repurpose_tts`` and

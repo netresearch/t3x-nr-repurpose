@@ -12,6 +12,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Document where source material, image prompts and podcast scripts are processed when using the bundled adapters.
 
+## [0.15.8] - 2026-11-18
+
+### Changed
+
+- nr-llm 0.51 is accepted beside 0.43 to 0.50 (`^0.43.4 || ^0.44 || ^0.45 || ^0.46 || ^0.47 || ^0.48 || ^0.49 || ^0.50 || ^0.51`), so the extension installs together with nr-llm 0.51.0 ([#232](https://github.com/netresearch/t3x-nr-repurpose/pull/232)).
+
 ## [0.15.7] - 2026-11-17
 
 ### Changed
@@ -651,7 +657,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.7...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.8...HEAD
+[0.15.8]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.7...v0.15.8
 [0.15.7]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.6...v0.15.7
 [0.15.6]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.5...v0.15.6
 [0.15.5]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.4...v0.15.5
