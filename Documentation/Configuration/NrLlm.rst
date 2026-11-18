@@ -57,10 +57,12 @@ Swapping a model — or, for text, the provider — is a backend-only change: ed
 the Configuration record, no code or deployment involved. Per-model and
 per-configuration usage and cost appear in nr-llm's analytics module.
 
-The extension binds OpenAI image and speech adapters in
-:path:`Configuration/Services.yaml`. To use another backend, supply an
-adapter for :php:`ImageGeneratorInterface` or :php:`SpeechSynthesizerInterface`
-and update the corresponding service alias.
+The bundled image and speech adapters use OpenAI endpoints by default. To
+use an endpoint that supports the same image or speech API, set
+``image.dalle.baseUrl`` or ``speech.tts.baseUrl`` in the nr-llm extension
+configuration. For a service using a different protocol, supply an adapter
+for :php:`ImageGeneratorInterface` or :php:`SpeechSynthesizerInterface` and
+update the corresponding alias in :path:`Configuration/Services.yaml`.
 
 Keys are always referenced by identifier: both the chat providers and the
 specialized services let nr-llm resolve and inject the key — no plaintext key
@@ -86,7 +88,8 @@ created, so the worker and a later retry use it.
     replaces it with the configuration the site names. A site that names a
     configuration that does not exist, is disabled or is restricted to backend
     groups fails the job; there is no fallback to the default.
-*   A job from a URL or a PDF has no site and keeps the instance default.
+*   A job from a URL or a PDF has no site override. When the worker cannot
+    resolve ``nr_repurpose_text``, the job uses the instance default.
 *   Images (``nr_repurpose_image``), speech (``nr_repurpose_tts``) and the
     OCR of PDF pages do not use the site's configuration.
 *   A page tree whose pages belong to several sites uses the site of the

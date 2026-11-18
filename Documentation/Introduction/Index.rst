@@ -184,9 +184,10 @@ podcast sends the speaker text to the speech service. A scanned PDF can also
 require a vision request.
 
 The bundled adapters use nr-llm's OpenAI image and text-to-speech services.
-Selecting a local chat model leaves those adapters in place. Check the endpoints
-for the formats you enable. To use a different image or speech backend, bind a
-compatible adapter in :file:`Configuration/Services.yaml`.
+Selecting a local chat model leaves those adapters in place. For an endpoint
+supporting the same image or speech API, set ``image.dalle.baseUrl`` or
+``speech.tts.baseUrl`` in nr-llm. Services using a different protocol need a
+corresponding adapter in :file:`Configuration/Services.yaml`.
 
 -   **Costs.** The generator checks the job creator's budget against an estimated
     cost before starting speech or image generation. Running jobs can overlap.

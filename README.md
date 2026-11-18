@@ -99,7 +99,8 @@ You do not create these records by hand: nr_repurpose **declares them as
 configuration presets** (nr-llm ADR-056). Open nr-llm's **Configurations** backend
 module — the three `nr_repurpose_*` records appear as *pending presets* with their
 required capabilities, and a single click imports each as a criteria-mode
-configuration that resolves against the models you have. When the worker cannot resolve `nr_repurpose_text`, a page job can use the
+configuration that resolves against the models you have. When the worker cannot
+resolve `nr_repurpose_text`, a page job can use the
 configuration named by its site in `nrllm.configuration`. Without a site override,
 including URL and PDF jobs, nr-llm uses the instance default. An invalid site
 override fails the job. Review the effective endpoints and their fallback providers.
@@ -120,8 +121,10 @@ to the image service. Podcasts send the speaker text to the speech service.
 The bundled image and speech adapters use nr-llm's OpenAI image and
 text-to-speech services. Selecting Ollama for chat changes neither adapter.
 Check the endpoints for every format you enable, including any vision calls
-used to read a scanned PDF. A different image or speech backend requires a
-compatible adapter bound in [Configuration/Services.yaml](Configuration/Services.yaml).
+used to read a scanned PDF. To send prompts or speech text to a service with a
+compatible API, set `image.dalle.baseUrl` or `speech.tts.baseUrl` in nr-llm.
+Services using a different protocol need a corresponding adapter in
+[Configuration/Services.yaml](Configuration/Services.yaml).
 For example, nr-llm includes a fal.ai service, but Repurpose does not bind an
 image adapter to it.
 
