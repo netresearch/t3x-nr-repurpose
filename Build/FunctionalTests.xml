@@ -7,7 +7,8 @@
     #108345 for nr_vault (its composer.json lacks extra.typo3/cms.version and
     Package.providesPackages) and the ctrl.searchFields TCA migration for the
     tx_nrllm_* and tx_nrvault_* tables. ../phpunit-baseline.xml lists exactly
-    those two messages; it sits in the repository root because PHPUnit 11.5
+    those two messages, plus the spl_object_hash() deprecation PHP 8.6 raises
+    in smalot/pdfparser; it sits in the repository root because PHPUnit 11.5
     does not normalise the Build/../.Build/ paths a baseline under Build/ would
     record, so such a baseline never matches. Delete the entries once nr-vault
     and nr-llm release their fixes. A new deprecation, or a changed message

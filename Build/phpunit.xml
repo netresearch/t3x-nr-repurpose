@@ -1,6 +1,12 @@
 <?xml version="1.0"?>
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<!--
+    ../phpunit-baseline.xml is shared with FunctionalTests.xml; see the comment
+    there. For the unit suite it holds the spl_object_hash() deprecation PHP 8.6
+    raises in smalot/pdfparser (PDFObject.php). Delete that entry once
+    pdfparser stops calling spl_object_hash().
+-->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.5/phpunit.xsd"
          bootstrap="../.Build/vendor/typo3/testing-framework/Resources/Core/Build/UnitTestsBootstrap.php"
@@ -14,7 +20,7 @@
             <directory>../Tests/Unit/</directory>
         </testsuite>
     </testsuites>
-    <source>
+    <source baseline="../phpunit-baseline.xml">
         <include>
             <directory>../Classes</directory>
         </include>

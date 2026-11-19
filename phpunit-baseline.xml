@@ -48,4 +48,9 @@ Because the field 'last_read_at' of 'tx_nrvault_secret' is considered searchable
 Because the field 'adapter' of 'tx_nrvault_secret' is considered searchable based on it's TCA type 'input' but is not included in still existing but no longer evaluated 'searchFields' TCA 'ctrl' option, it was automatically set to searchable => false, to be excluded in searches. Please consider this when adjusting your TCA towards proper usage of searchable fields.]]></issue>
   </line>
  </file>
+ <file path=".Build/vendor/smalot/pdfparser/src/Smalot/PdfParser/PDFObject.php">
+  <line number="1266" hash="40ca9e8ec44e57cfff10265e3bdc089d9cf7f2bb">
+   <issue><![CDATA[Function spl_object_hash() is deprecated since 8.6, consider using spl_object_id() instead]]></issue>
+  </line>
+ </file>
 </files>
