@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- nr-llm 0.52 is accepted beside 0.43 to 0.51 (`^0.43.4 || ^0.44 || ^0.45 || ^0.46 || ^0.47 || ^0.48 || ^0.49 || ^0.50 || ^0.51 || ^0.52`), so the extension installs together with nr-llm 0.52.0 ([#235](https://github.com/netresearch/t3x-nr-repurpose/pull/235)).
+
 ### Documentation
 
 - Document where source material, image prompts and podcast scripts are processed when using the bundled adapters.
