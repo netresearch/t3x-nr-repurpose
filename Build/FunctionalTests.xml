@@ -17,7 +17,11 @@
     file, line and message together. To regenerate, run
     ./Build/Scripts/runTests.sh -s functional with PHPUnit's generate-baseline
     option set to phpunit-baseline.xml (a double dash cannot appear in an XML
-    comment); it writes the file in the repository root.
+    comment); it writes the file in the repository root. That run overwrites
+    the whole file with what the functional suite raised on its PHP version,
+    so it drops the unit-suite entry for smalot/pdfparser, which only PHP 8.6
+    raises: copy that file entry back from the previous baseline before
+    committing, and check with the unit suite on PHP 8.6.
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.5/phpunit.xsd"
