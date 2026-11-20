@@ -96,7 +96,7 @@ Shared helpers — generator base methods, `Classes/Generator/Support/*` (text l
 
 <!-- AGENTS-GENERATED:START ci-rules -->
 ## CI (reusable netresearch/typo3-ci-workflows)
-- `ci.yml` sets `run-cgl`, `run-phpstan`, `run-rector`, `run-fractor`, `run-unit-tests`, `run-functional-tests` and `upload-coverage: true`; matrix PHP 8.3 / 8.4 / 8.5 × TYPO3 ^14.3
+- `ci.yml` sets `run-cgl`, `run-phpstan`, `run-rector`, `run-fractor`, `run-unit-tests`, `run-functional-tests` and `upload-coverage: true`; matrix PHP 8.3 / 8.4 / 8.5 / 8.6 × TYPO3 ^14.3
 - Per PHP version: lint, PHPStan (with the phpat rules), unit, functional (SQLite, the reusable default); once on PHP 8.3 (first matrix entry): cgl, rector, fractor; one advisory PHPStan pass against the unpinned PHPUnit (warns, does not fail); unit and functional coverage go to Codecov. The functional command installs ffmpeg, poppler-utils, a Chromium at `/usr/bin/chromium` and the NodeRenderer's `node_modules`, and runs with `--fail-on-skipped`: a real-binary test that skips for a missing binary fails the job
 - `lowest-dependencies` job (PHP 8.3): `composer update --prefer-lowest` of every declared package except `netresearch/typo3-ci-workflows` and `phpunit/*`, then unit tests and PHPStan. `mutation` job: Infection (`infection.json.dist`) through the shared `fuzz.yml`, on pull requests and the weekly schedule; reports only (continue-on-error), thresholds 65 % MSI and covered MSI. `docs.yml` renders `Documentation/` through the shared docs workflow
 - `checks.yml` (drift-enforced): security (Opengrep SAST, composer audit), betterleaks, zizmor, fuzz, license-check, CodeQL, Scorecard, dependency-review, pr-quality — all behind one required `All security checks` gate; SonarCloud + DCO run as apps
