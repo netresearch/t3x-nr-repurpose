@@ -12,7 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Upgrading
 
-- Run the database schema update: jobs and artifacts get a `source_review` column. Then flush the caches. The source review stays off (`sourceReviewMode = off`) until an administrator selects `observe` or `enforce` and, if wanted, a separate nr-llm configuration for the reviewer.
+- Run the database schema update: jobs and artifacts get a `source_review` column. Then flush the caches. The source review stays disabled until an administrator sets the extension setting `sourceReviewMode` to `observe` or `enforce` and, if wanted, names a separate nr-llm configuration for the reviewer.
 
 ### Added
 
