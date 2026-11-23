@@ -187,4 +187,13 @@ final class SlideDeckGeneratorTest extends TextGeneratorTestCase
         self::assertSame('Slide deck (default) file error: HTML render failed (exit 1): no chromium', $row['error_message']);
         self::assertSame([], $this->storage->stored);
     }
+
+    /** Rejection must precede templating, PDF rendering and file storage. */
+    public function testRejectedFinalTextNeverBecomesADoneArtifact(): void
+    {
+        parent::testRejectedFinalTextNeverBecomesADoneArtifact();
+        self::assertSame([], $this->templateCalls);
+        self::assertSame([], $this->printer->calls);
+        self::assertSame([], $this->storage->stored);
+    }
 }

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+services:
+  Netresearch\NrRepurpose\Tests\Functional\Fixtures\SourceReviewPipelineFixture:
+    public: true
+    autowire: true
+    tags: ['nr_repurpose.artifact_generator']
+  Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface:
+    alias: Netresearch\NrRepurpose\Tests\Functional\Fixtures\SourceReviewPipelineFixture
+  Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface:
+    alias: Netresearch\NrRepurpose\Tests\Functional\Fixtures\SourceReviewPipelineFixture
+  Netresearch\NrLlm\Service\Decision\DecisionServiceInterface:
+    alias: Netresearch\NrRepurpose\Tests\Functional\Fixtures\SourceReviewPipelineFixture

@@ -1,0 +1,26 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<div class="my-2" data-role="source-review" data-status="{review.status}">
+    <strong><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceReview.title" />:</strong>
+    <span class="badge badge-{review.severity}"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{review.labelKey}" /></span>
+    <p class="small text-muted mb-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceReview.scope" /></p>
+    <f:if condition="{review.reasonLabelKey}">
+        <p class="small mb-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:{review.reasonLabelKey}" /></p>
+    </f:if>
+    <f:if condition="{review.mode} == 'observe'">
+        <p class="small mb-1"><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceReview.observe" /></p>
+    </f:if>
+    <f:if condition="{review.evaluatedAt}">
+        <details class="small">
+            <summary><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceReview.details" /></summary>
+            <dl class="mb-1">
+                <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceReview.checkedAt" /></dt>
+                <dd>{review.evaluatedAt -> f:format.date(format: 'Y-m-d H:i')}</dd>
+                <dt><f:translate key="LLL:EXT:nr_repurpose/Resources/Private/Language/locallang.xlf:sourceReview.model" /></dt>
+                <dd>{review.model}</dd>
+            </dl>
+        </details>
+    </f:if>
+</div>

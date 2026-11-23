@@ -9,7 +9,7 @@
 Configuration
 =============
 
-nr_repurpose has five extension settings of its own (see
+nr_repurpose has extension settings of its own (see
 :ref:`configuration-extension-settings`). Everything else it needs is wiring it
 shares with the host instance: the nr-llm provider, model and Configuration
 records, the Symfony Messenger routing, and the outbound HTTP timeouts. In the
@@ -28,6 +28,7 @@ have their own pages:
    NrLlm
    Worker
    AiLabelAndPublishing
+   SourceReview
 
 .. _configuration-extension-settings:
 
@@ -57,6 +58,14 @@ Configuration > nr_repurpose`:
    * - ``socialWebhookUrl``, ``socialWebhookSecretIdentifier``,
        ``socialWebhookSecret``
      - :ref:`configuration-social`
+   * - ``sourceReviewMode``
+     - :ref:`configuration-source-review`
+   * - ``sourceReviewConfiguration``
+     - :ref:`configuration-source-review`
+   * - ``sourceReviewMinimumScore``
+     - :ref:`configuration-source-review`
+   * - ``sourceReviewDataClass``
+     - :ref:`configuration-source-review`
 
 .. confval:: technicalBeUserUid
    :name: technicalbeuseruid

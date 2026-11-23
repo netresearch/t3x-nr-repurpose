@@ -17,9 +17,12 @@ use Netresearch\NrRepurpose\Social\DuePostPublisher;
 use Netresearch\NrRepurpose\Social\SocialPost;
 use Netresearch\NrRepurpose\Social\SocialPublisherInterface;
 use Netresearch\NrRepurpose\Social\SocialPublishException;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewPointer;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewPolicy;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Component\Console\Tester\CommandTester;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -117,7 +120,14 @@ final class ReviewAndPublishingTest extends AbstractFunctionalTestCase
         $rejected = $this->artifact('social_post', variant: 'linkedin', review: 'rejected', publishAt: self::NOW - 60, publishStatus: 'scheduled');
         $channel  = $this->channel(refuse: 'x');
 
-        $report = (new DuePostPublisher(GeneralUtility::makeInstance(ConnectionPool::class), $channel))->publishDue(self::NOW);
+        $report = (new DuePostPublisher(
+            GeneralUtility::makeInstance(ConnectionPool::class),
+            $channel,
+            new SourceReviewPolicy($this->get(ExtensionConfiguration::class)),
+            new SourceReviewPointer(
+                GeneralUtility::makeInstance(ConnectionPool::class),
+            ),
+        ))->publishDue(self::NOW);
 
         self::assertSame([2, 1, 1], [$report->due, $report->published, $report->failed]);
         self::assertSame([$due, $refused], array_map(static fn (SocialPost $post): int => $post->artifactUid, $channel->sent));
@@ -129,7 +139,14 @@ final class ReviewAndPublishingTest extends AbstractFunctionalTestCase
         self::assertSame('scheduled', $this->fields($future, 'publish_status')[0]);
         self::assertSame('scheduled', $this->fields($rejected, 'publish_status')[0]);
 
-        $again = (new DuePostPublisher(GeneralUtility::makeInstance(ConnectionPool::class), $channel))->publishDue(self::NOW);
+        $again = (new DuePostPublisher(
+            GeneralUtility::makeInstance(ConnectionPool::class),
+            $channel,
+            new SourceReviewPolicy($this->get(ExtensionConfiguration::class)),
+            new SourceReviewPointer(
+                GeneralUtility::makeInstance(ConnectionPool::class),
+            ),
+        ))->publishDue(self::NOW);
         self::assertSame(0, $again->due);
         self::assertCount(2, $channel->sent);
     }
@@ -146,7 +163,14 @@ final class ReviewAndPublishingTest extends AbstractFunctionalTestCase
         $this->artifact('social_post', review: 'approved', publishAt: self::NOW, publishStatus: 'scheduled');
         $channel = $this->channel();
 
-        (new DuePostPublisher(GeneralUtility::makeInstance(ConnectionPool::class), $channel))->publishDue(self::NOW);
+        (new DuePostPublisher(
+            GeneralUtility::makeInstance(ConnectionPool::class),
+            $channel,
+            new SourceReviewPolicy($this->get(ExtensionConfiguration::class)),
+            new SourceReviewPointer(
+                GeneralUtility::makeInstance(ConnectionPool::class),
+            ),
+        ))->publishDue(self::NOW);
 
         self::assertCount(1, $channel->sent);
         self::assertSame('https://example.com/a?id=5#top', $channel->sent[0]->sourceUrl);
@@ -165,7 +189,14 @@ final class ReviewAndPublishingTest extends AbstractFunctionalTestCase
 
         self::assertSame('https://www.example.org/about', $this->service()->planned()[0]['source_value']);
 
-        (new DuePostPublisher(GeneralUtility::makeInstance(ConnectionPool::class), $channel))->publishDue(self::NOW);
+        (new DuePostPublisher(
+            GeneralUtility::makeInstance(ConnectionPool::class),
+            $channel,
+            new SourceReviewPolicy($this->get(ExtensionConfiguration::class)),
+            new SourceReviewPointer(
+                GeneralUtility::makeInstance(ConnectionPool::class),
+            ),
+        ))->publishDue(self::NOW);
 
         self::assertSame('https://www.example.org/about', $channel->sent[0]->sourceUrl);
     }
@@ -175,7 +206,14 @@ final class ReviewAndPublishingTest extends AbstractFunctionalTestCase
         $this->artifact('social_post', review: 'approved', publishAt: self::NOW, publishStatus: 'publishing');
         $channel = $this->channel();
 
-        $report = (new DuePostPublisher(GeneralUtility::makeInstance(ConnectionPool::class), $channel))->publishDue(self::NOW);
+        $report = (new DuePostPublisher(
+            GeneralUtility::makeInstance(ConnectionPool::class),
+            $channel,
+            new SourceReviewPolicy($this->get(ExtensionConfiguration::class)),
+            new SourceReviewPointer(
+                GeneralUtility::makeInstance(ConnectionPool::class),
+            ),
+        ))->publishDue(self::NOW);
 
         self::assertSame(0, $report->due);
         self::assertSame([], $channel->sent);
@@ -195,7 +233,13 @@ final class ReviewAndPublishingTest extends AbstractFunctionalTestCase
 
     private function service(): ArtifactReviewService
     {
-        return new ArtifactReviewService(GeneralUtility::makeInstance(ConnectionPool::class));
+        return new ArtifactReviewService(
+            GeneralUtility::makeInstance(ConnectionPool::class),
+            new SourceReviewPolicy($this->get(ExtensionConfiguration::class)),
+            new SourceReviewPointer(
+                GeneralUtility::makeInstance(ConnectionPool::class),
+            ),
+        );
     }
 
     private function artifact(

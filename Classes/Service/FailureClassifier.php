@@ -30,6 +30,7 @@ use Netresearch\NrRepurpose\Exception\PopplerProcessFailedException;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewRejectedException;
 use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrVault\Exception\VaultException;
 use Throwable;
@@ -78,40 +79,30 @@ final class FailureClassifier
     private static function reasonOf(Throwable $e): ?FailureReason
     {
         return match (true) {
-            $e instanceof GuardrailPolicyException => FailureReason::Guardrail,
-            $e instanceof BudgetExceededException  => FailureReason::BudgetExhausted,
-            $e instanceof AnalysisException        => match ($e->getCode()) {
+            $e instanceof SourceReviewRejectedException => FailureReason::SourceReview,
+            $e instanceof GuardrailPolicyException      => FailureReason::Guardrail,
+            $e instanceof BudgetExceededException       => FailureReason::BudgetExhausted,
+            $e instanceof AnalysisException             => match ($e->getCode()) {
                 self::ANALYSIS_EMPTY_SOURCE => FailureReason::SourceEmpty,
                 self::ANALYSIS_TOO_LONG     => FailureReason::SourceTooLong,
                 default                     => FailureReason::AnswerUnusable,
             },
-            $e instanceof UnusableAnswerException,
-            $e instanceof InvalidLlmOutputException => FailureReason::AnswerUnusable,
-            $e instanceof InvalidArgumentException && in_array($e->getCode(), self::UNUSABLE_ANSWER_CODES, true),
-            $e instanceof ProviderException && $e->getCode() === self::OUTPUT_BUDGET_EXHAUSTED => FailureReason::AnswerUnusable,
-            $e instanceof IngestionException                                                   => match ($e->getCode()) {
+            $e instanceof UnusableAnswerException, $e instanceof InvalidLlmOutputException                                                                                                           => FailureReason::AnswerUnusable,
+            $e instanceof InvalidArgumentException && in_array($e->getCode(), self::UNUSABLE_ANSWER_CODES, true), $e instanceof ProviderException && $e->getCode() === self::OUTPUT_BUDGET_EXHAUSTED => FailureReason::AnswerUnusable,
+            $e instanceof IngestionException                                                                                                                                                         => match ($e->getCode()) {
                 self::INGESTION_NO_TEXT, self::INGESTION_IMAGES_REFUSED => FailureReason::SourceEmpty,
                 self::INGESTION_TOO_MANY_PAGES                          => FailureReason::SourceTooLong,
                 default                                                 => FailureReason::SourceUnreadable,
             },
-            $e instanceof PopplerEmptyOutputException,
-            $e instanceof PopplerProcessFailedException => FailureReason::SourceUnreadable,
-            $e instanceof RenderingException            => FailureReason::Rendering,
-            $e instanceof ProviderRateLimitException    => FailureReason::ProviderRateLimited,
-            $e instanceof ProviderConnectionException   => FailureReason::ProviderTimeout,
-            $e instanceof ProviderAuthenticationException,
-            $e instanceof ProviderConfigurationException,
-            $e instanceof UnsupportedFeatureException,
-            $e instanceof ConfigurationNotFoundException,
-            $e instanceof ConfigurationInactiveException,
-            $e instanceof AccessDeniedException,
-            $e instanceof ServiceConfigurationException,
-            $e instanceof VaultException                => FailureReason::ProviderSetup,
-            $e instanceof ServiceQuotaExceededException => FailureReason::ProviderRateLimited,
+            $e instanceof PopplerEmptyOutputException, $e instanceof PopplerProcessFailedException                                                                                                                                                                                                                                                             => FailureReason::SourceUnreadable,
+            $e instanceof RenderingException                                                                                                                                                                                                                                                                                                                   => FailureReason::Rendering,
+            $e instanceof ProviderRateLimitException                                                                                                                                                                                                                                                                                                           => FailureReason::ProviderRateLimited,
+            $e instanceof ProviderConnectionException                                                                                                                                                                                                                                                                                                          => FailureReason::ProviderTimeout,
+            $e instanceof ProviderAuthenticationException, $e instanceof ProviderConfigurationException, $e instanceof UnsupportedFeatureException, $e instanceof ConfigurationNotFoundException, $e instanceof ConfigurationInactiveException, $e instanceof AccessDeniedException, $e instanceof ServiceConfigurationException, $e instanceof VaultException => FailureReason::ProviderSetup,
+            $e instanceof ServiceQuotaExceededException                                                                                                                                                                                                                                                                                                        => FailureReason::ProviderRateLimited,
             // Last among the provider classes: the ones above extend it.
-            $e instanceof ProviderException,
-            $e instanceof SpecializedServiceException => FailureReason::ProviderUnavailable,
-            default                                   => null,
+            $e instanceof ProviderException, $e instanceof SpecializedServiceException => FailureReason::ProviderUnavailable,
+            default                                                                    => null,
         };
     }
 }

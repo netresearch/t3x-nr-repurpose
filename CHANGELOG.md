@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Optional independent source fidelity checks for content briefs and final format text, with persisted verdicts and publication guards.
+
 ## [0.15.9] - 2026-11-21
 
 ### Changed

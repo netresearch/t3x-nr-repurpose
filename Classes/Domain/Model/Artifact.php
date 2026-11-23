@@ -14,6 +14,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\PublishStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ReviewStatus;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewResult;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
 class Artifact extends AbstractEntity
@@ -187,5 +188,18 @@ class Artifact extends AbstractEntity
         $decoded = json_decode($this->metadata, true);
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    protected string $sourceReview = '';
+
+    public function getSourceReview(): string
+    {
+        return $this->sourceReview;
+    }
+
+    /** Computed view data; the persisted property remains a JSON string. */
+    public function getSourceReviewResult(): SourceReviewResult
+    {
+        return SourceReviewResult::fromJson($this->sourceReview, $this->scriptText);
     }
 }

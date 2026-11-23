@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Persistence;
 
+use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
@@ -16,6 +17,7 @@ use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
 use Throwable;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\ReferenceIndex;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -108,7 +110,16 @@ class JobProcessingRepository
     {
         return $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
             self::JOB_TABLE,
-            ['status' => JobStatus::Queued->value, 'current_step' => '', 'progress' => 0, 'error_message' => '', 'failure_reason' => '', 'source_report' => '', 'language_detected' => '', 'tstamp' => time()],
+            [
+                'status'            => JobStatus::Queued->value,
+                'current_step'      => '',
+                'progress'          => 0,
+                'error_message'     => '',
+                'failure_reason'    => '',
+                'source_report'     => '',
+                'language_detected' => '',
+                'tstamp'            => time(),
+            ],
             ['uid' => $jobUid, 'status' => JobStatus::Failed->value],
         ) === 1;
     }
@@ -257,8 +268,16 @@ class JobProcessingRepository
     public function updateArtifact(int $artifactUid, array $fields): void
     {
         $allowed = [
-            'file_uid', 'subtitle_file_uid', 'source_html',
-            'script_text', 'metadata', 'status', 'variant', 'error_message', 'failure_reason',
+            'file_uid',
+            'subtitle_file_uid',
+            'source_html',
+            'script_text',
+            'metadata',
+            'source_review',
+            'status',
+            'variant',
+            'error_message',
+            'failure_reason',
         ];
         $update = [];
         foreach ($allowed as $column) {
@@ -275,5 +294,70 @@ class JobProcessingRepository
 
         $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)
             ->update(self::ARTIFACT_TABLE, $update, ['uid' => $artifactUid]);
+    }
+
+    /** @param array<string, mixed> $review */
+    public function setSourceReview(int $jobUid, array $review): void
+    {
+        $this->connectionPool
+            ->getConnectionForTable(self::JOB_TABLE)
+            ->update(
+                self::JOB_TABLE,
+                [
+                    'source_review' => json_encode(
+                        $review,
+                        JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
+                    ),
+                    'tstamp' => time(),
+                ],
+                ['uid' => $jobUid],
+            );
+    }
+
+    /**
+     * Store only against the exact review read before the potentially slow evaluation.
+     * SQL NULL is a distinct snapshot; concurrent stronger verdicts must survive.
+     *
+     * @param array<string, mixed> $review
+     */
+    public function compareAndSetSourceReview(
+        int $jobUid,
+        array $review,
+        ?string $expected,
+    ): bool {
+        $encoded      = json_encode($review, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::JOB_TABLE);
+        $queryBuilder
+            ->update(self::JOB_TABLE)
+            ->set('source_review', $encoded)
+            ->set('tstamp', time())
+            ->where(
+                $queryBuilder->expr()->eq(
+                    'uid',
+                    $queryBuilder->createNamedParameter(
+                        $jobUid,
+                        Connection::PARAM_INT,
+                    ),
+                ),
+            );
+        if ($expected === null) {
+            $queryBuilder->andWhere(
+                $queryBuilder->expr()->isNull('source_review'),
+            );
+        } else {
+            $parameter = $queryBuilder->createNamedParameter($expected);
+            // MySQL's default text collation ignores case. Compare the raw snapshot bytes.
+            $condition = $this->connectionPool
+                ->getConnectionForTable(self::JOB_TABLE)
+                ->getDatabasePlatform() instanceof AbstractMySQLPlatform ? 'BINARY ' . $queryBuilder->quoteIdentifier('source_review') . ' = BINARY ' . $parameter : $queryBuilder->expr()->eq('source_review', $parameter);
+            $queryBuilder->andWhere($condition);
+        }
+
+        if ($queryBuilder->executeStatement() > 0) {
+            return true;
+        }
+
+        // Some drivers report changed rather than matched rows for an identical write.
+        return $encoded === $expected && ($this->findRow($jobUid)['source_review'] ?? null) === $expected;
     }
 }
