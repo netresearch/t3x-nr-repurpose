@@ -48,6 +48,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 
 final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
 {
+    private const SOURCE_URL  = 'https://example.com/source';
+    private const SALES_CLAIM = 'Sales may rise by 12%.';
+
     private function seed(): int
     {
         $connection = $this
@@ -57,7 +60,7 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
             'tx_nrrepurpose_domain_model_job',
             [
                 'source_type'  => 'url',
-                'source_value' => 'https://example.com/source',
+                'source_value' => self::SOURCE_URL,
                 'status'       => 'queued',
             ],
         );
@@ -86,8 +89,8 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
             ->willReturn(
                 new SourceDocument(
                     'Forecast',
-                    'Sales may rise by 12%.',
-                    'https://example.com/source',
+                    self::SALES_CLAIM,
+                    self::SOURCE_URL,
                     1,
                     'en',
                 ),
@@ -161,7 +164,7 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
                 ): bool {
                     self::assertSame('flagged', $ctx->briefReview['status']);
                     self::assertSame(
-                        'Sales may rise by 12%.',
+                        self::SALES_CLAIM,
                         $ctx->document->text,
                     );
                     self::assertNotNull($ctx->sourceReview);
@@ -252,12 +255,12 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
         $policy                                                                       = new SourceReviewPolicy($this->get(ExtensionConfiguration::class));
         $document                                                                     = new SourceDocument(
             'Forecast',
-            'Sales may rise by 12%.',
-            'https://example.com/source',
+            self::SALES_CLAIM,
+            self::SOURCE_URL,
             1,
             'en',
         );
-        $text              = 'Sales may rise by 12%.';
+        $text              = self::SALES_CLAIM;
         $acceptedDecisions = $this->createMock(DecisionServiceInterface::class);
         $acceptedDecisions
             ->expects(self::exactly(2))

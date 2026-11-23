@@ -24,6 +24,8 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 final class SourceReviewPersistenceTest extends AbstractFunctionalTestCase
 {
+    private const SCRIPT_TEXT = 'The source text.';
+
     public function testJobAndArtifactStoreIndependentAssessmentsAndRetryKeepsEnforcement(): void
     {
         $pool       = GeneralUtility::makeInstance(ConnectionPool::class);
@@ -79,7 +81,7 @@ final class SourceReviewPersistenceTest extends AbstractFunctionalTestCase
             [
                 'status'        => 'passed',
                 'mode'          => 'enforce',
-                'candidateHash' => hash('sha256', 'The source text.'),
+                'candidateHash' => hash('sha256', self::SCRIPT_TEXT),
             ],
             JSON_THROW_ON_ERROR,
         );
@@ -109,13 +111,13 @@ final class SourceReviewPersistenceTest extends AbstractFunctionalTestCase
             [
                 'status'        => 'passed',
                 'mode'          => 'enforce',
-                'candidateHash' => hash('sha256', 'The source text.'),
+                'candidateHash' => hash('sha256', self::SCRIPT_TEXT),
             ],
             JSON_THROW_ON_ERROR,
         );
         $entity = new Artifact();
         $entity->_setProperty('type', 'social_post');
-        $entity->_setProperty('scriptText', 'The source text.');
+        $entity->_setProperty('scriptText', self::SCRIPT_TEXT);
         $entity->_setProperty('sourceReview', $json);
 
         $repository->add($entity);
