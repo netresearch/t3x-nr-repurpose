@@ -181,7 +181,9 @@ The TYPO3 worker runs the job, renders files and stores the results. Analysis
 and copy send source material to the configured chat endpoint, which can be
 self-hosted. Generated artwork sends image prompts to the image service. A
 podcast sends the speaker text to the speech service. A scanned PDF can also
-require a vision request.
+require a vision request. An enabled source review (see
+:ref:`configuration-source-review`) sends the complete source text, the content
+brief and the generated texts to the nr-llm configuration that reviews them.
 
 The bundled adapters use nr-llm's OpenAI image and text-to-speech services.
 Selecting a local chat model leaves those adapters in place. For an endpoint
