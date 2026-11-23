@@ -24,7 +24,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 final class SourceReviewPersistenceTest extends AbstractFunctionalTestCase
 {
-    private const SCRIPT_TEXT = 'The source text.';
+    private const string SCRIPT_TEXT = 'The source text.';
 
     public function testJobAndArtifactStoreIndependentAssessmentsAndRetryKeepsEnforcement(): void
     {

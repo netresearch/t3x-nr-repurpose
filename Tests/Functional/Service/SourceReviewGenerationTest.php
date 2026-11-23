@@ -48,8 +48,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 
 final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
 {
-    private const SOURCE_URL  = 'https://example.com/source';
-    private const SALES_CLAIM = 'Sales may rise by 12%.';
+    private const string SOURCE_URL = 'https://example.com/source';
+
+    private const string SALES_CLAIM = 'Sales may rise by 12%.';
 
     private function seed(): int
     {
