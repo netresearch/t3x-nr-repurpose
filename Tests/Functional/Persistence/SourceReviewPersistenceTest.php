@@ -192,7 +192,12 @@ final class SourceReviewPersistenceTest extends AbstractFunctionalTestCase
                 'model'  => 'newer reviewer',
             ],
         );
+        // A fixed past timestamp shows any write of the stale attempt, even within the same second.
+        GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrrepurpose_domain_model_job')
+            ->update('tx_nrrepurpose_domain_model_job', ['tstamp' => 1], ['uid' => $uid]);
         $current = $repository->findRow($uid);
+        self::assertSame(1, (int) $current['tstamp']);
 
         self::assertFalse(
             $repository->compareAndSetSourceReview(
