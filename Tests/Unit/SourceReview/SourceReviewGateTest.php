@@ -18,7 +18,15 @@ final class SourceReviewGateTest extends TestCase
     {
         self::assertSame(
             'Growth 1.5% in 2026',
-            SourceReviewGate::htmlText('<p>Growth <strong>1.</strong><em>5</em>% in <span>2026</span></p>'),
+            SourceReviewGate::htmlText('<p>Growth 1.<strong>5</strong>% in <span>2026</span></p>'),
+        );
+    }
+
+    public function testAdjacentSiblingElementsStaySeparate(): void
+    {
+        self::assertSame(
+            '2026 15%',
+            SourceReviewGate::htmlText('<span>2026</span><span>15%</span>'),
         );
     }
 
