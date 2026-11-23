@@ -104,9 +104,16 @@ final readonly class SourceReviewGate
         $withoutStyle = preg_replace('~<(style|script)\b[^>]*>.*?</\1>~is', '', $html) ?? '';
 
         // Keep adjacent headings/cells separate: strip_tags alone joins their words.
+        // Inline tags get no separator, so "1.<strong>5</strong>%" stays "1.5%".
+        $separated = preg_replace(
+            '~<(?:/?(?:address|article|aside|blockquote|caption|dd|div|dl|dt|figcaption|figure|footer|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul)\b[^>]*|br\b[^>]*)>~i',
+            '$0 ',
+            $withoutStyle,
+        ) ?? '';
+
         return trim(
             html_entity_decode(
-                strip_tags(str_replace('>', '> ', $withoutStyle)),
+                strip_tags($separated),
                 ENT_QUOTES | ENT_HTML5,
                 'UTF-8',
             ),
