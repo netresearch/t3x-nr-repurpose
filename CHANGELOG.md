@@ -8,9 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-23
+
+### Upgrading
+
+- Run the database schema update: jobs and artifacts get a `source_review` column. Then flush the caches. The source review stays disabled until an administrator sets the extension setting `sourceReviewMode` to `observe` or `enforce` and, if wanted, names a separate nr-llm configuration for the reviewer.
+
 ### Added
 
-- Optional independent source fidelity checks for content briefs and final format text, with persisted verdicts and publication guards.
+- Optional independent source fidelity checks for content briefs and final format text, with persisted verdicts and publication guards ([#205](https://github.com/netresearch/t3x-nr-repurpose/pull/205)). An nr-llm decision call compares the content brief and each format's final text with the complete source before rendering, speech or image generation. `observe` records the verdict; `enforce` also blocks approval, scheduling and publication of text without an accepted assessment. Finished pixels, audio and video are not inspected.
 
 ## [0.15.9] - 2026-11-21
 
@@ -667,7 +673,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.9...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.9...v0.16.0
 [0.15.9]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.8...v0.15.9
 [0.15.8]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.7...v0.15.8
 [0.15.7]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.6...v0.15.7
