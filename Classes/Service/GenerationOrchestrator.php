@@ -307,11 +307,9 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         $this->jobs->markFailed(
             $jobUid,
             match (true) {
-                $e instanceof GuardrailPolicyException => GuardrailRefusal::storableMessage($e),
-                $e instanceof IngestionException
-                    || $e instanceof AnalysisException
-                    || $e instanceof SourceReviewRejectedException => $e->getMessage(),
-                default => $step . ' failed',
+                $e instanceof GuardrailPolicyException                                                                             => GuardrailRefusal::storableMessage($e),
+                $e instanceof IngestionException || $e instanceof AnalysisException || $e instanceof SourceReviewRejectedException => $e->getMessage(),
+                default                                                                                                            => $step . ' failed',
             },
             FailureClassifier::reasonFor($e),
         );
