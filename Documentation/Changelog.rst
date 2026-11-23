@@ -17,6 +17,27 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-16-0:
+
+Version 0.16.0 (2026-11-23)
+===========================
+
+Upgrading
+---------
+
+-   Run the database schema update and flush the caches. The source
+    review stays off until an administrator enables it.
+
+Added
+-----
+
+-   An optional source review compares the content brief and the final
+    text of each format with the complete source before rendering,
+    speech or image generation. In observation mode it records the
+    verdict; in enforcement mode it also blocks approval, scheduling and
+    publication of text without an accepted assessment. See
+    :ref:`configuration-source-review`.
+
 .. _version-0-15-9:
 
 Version 0.15.9 (2026-11-21)
