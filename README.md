@@ -144,7 +144,7 @@ image adapter to it.
 ## Requirements
 
 - TYPO3 v14.3 LTS, PHP 8.3+
-- nr-llm `^0.43.4 || ^0.44 || ^0.45 || ^0.46 || ^0.47 || ^0.48 || ^0.49 || ^0.50 || ^0.51 || ^0.52 || ^0.53` (installed automatically via Composer; it owns the provider
+- nr-llm `^0.43.4 || ^0.44 || ^0.45 || ^0.46 || ^0.47 || ^0.48 || ^0.49 || ^0.50 || ^0.51 || ^0.52 || ^0.53 || ^0.54` (installed automatically via Composer; it owns the provider
   credentials)
 - An API key for at least one nr-llm-supported provider. The tested default stack
   uses a single OpenAI key for everything (analysis, TTS, images).
