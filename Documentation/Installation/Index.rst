@@ -25,7 +25,7 @@ Requirements
    * - TYPO3
      - ``^14.3`` (v14.3 LTS only)
    * - :composer:`netresearch/nr-llm`
-     - ``^0.43.4 || ^0.44 || ^0.45 || ^0.46 || ^0.47 || ^0.48 || ^0.49 || ^0.50 || ^0.51 || ^0.52 || ^0.53 || ^0.54`` — AI access (completion, TTS,
+     - ``^0.43.4 || ^0.44 || ^0.45 || ^0.46 || ^0.47 || ^0.48 || ^0.49 || ^0.50 || ^0.51 || ^0.52 || ^0.53 || ^0.54 || ^0.55`` — AI access (completion, TTS,
        image), budget enforcement and one-click configuration presets.
    * - :composer:`netresearch/nr-vault`
      - ``^1.1`` — holds the provider keys nr-llm reads; its

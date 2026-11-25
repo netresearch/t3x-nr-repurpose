@@ -10,7 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- nr-llm 0.54 is accepted beside 0.43 to 0.53 (`^0.43.4 || ^0.44 || ^0.45 || ^0.46 || ^0.47 || ^0.48 || ^0.49 || ^0.50 || ^0.51 || ^0.52 || ^0.53 || ^0.54`), so the extension installs together with nr-llm 0.54.0 ([#242](https://github.com/netresearch/t3x-nr-repurpose/pull/242)).
+- nr-llm 0.54 and 0.55 are accepted beside 0.43 to 0.53 (`^0.43.4 || ^0.44 || ^0.45 || ^0.46 || ^0.47 || ^0.48 || ^0.49 || ^0.50 || ^0.51 || ^0.52 || ^0.53 || ^0.54 || ^0.55`), so the extension installs together with nr-llm 0.55.0 ([#242](https://github.com/netresearch/t3x-nr-repurpose/pull/242)).
 
 ## [0.16.1] - 2026-11-24
 
