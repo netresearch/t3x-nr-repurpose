@@ -4,7 +4,7 @@
     "private": true,
     "description": "HTML to PNG renderer for nr_repurpose (Playwright + apt chromium)",
     "engines": {
-        "node": ">=22.18.0 <25.0.0"
+        "node": ">=22.18.0 <27.0.0"
     },
     "dependencies": {
         "playwright-core": "^1.57.0"
