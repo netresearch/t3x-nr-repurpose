@@ -141,9 +141,8 @@ class StoryGenerator extends AbstractGenerator
                 ArtifactStatus::Pending,
             );
             // The row is gone already (#238): nothing to review or render for this slide.
-            if (!$this->storeArtifact(
+            if (!$this->jobs->updateArtifact(
                 $artifactUid,
-                $jobUid,
                 [
                     'metadata' => json_encode(
                         [
@@ -155,6 +154,12 @@ class StoryGenerator extends AbstractGenerator
                     ),
                 ],
             )) {
+                $this->logger->warning('A story slide row is gone before its review; the slide is skipped', [
+                    'job'      => $jobUid,
+                    'artifact' => $artifactUid,
+                    'slide'    => $i + 1,
+                ]);
+
                 continue;
             }
 

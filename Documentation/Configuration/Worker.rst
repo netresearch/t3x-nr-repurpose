@@ -47,8 +47,10 @@ HTTP request that created the job returns immediately and the
    nothing and is sent again after 15 minutes; the delivery after a dead
    worker takes the job over once the dead run has written nothing for 15
    minutes. The claim lives in the job columns ``run_token`` and
-   ``run_claimed_at``; update the database schema after installing a version
-   that adds them. The claim's age is measured with each host's own clock, so
+   ``run_claimed_at``. When installing a version that adds them, stop every
+   worker first, update the database schema, and start the workers again
+   only afterwards: a new worker fails on a database without the columns,
+   and an old worker beside a new one runs jobs without a claim. The claim's age is measured with each host's own clock, so
    keep the clocks of all worker and web hosts synchronised (NTP). A job whose
    worker died and whose message is gone can be started again from its result
    view once it has stood still for two hours. See :ref:`adr-001`.

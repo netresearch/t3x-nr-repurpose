@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\Decision\QuestionType;
 use Netresearch\NrLlm\Service\Decision\DecisionRequest;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Throwable;
 
 /** No evidence is truncated or replaced with the generated brief. */
@@ -115,6 +116,9 @@ final readonly class SourceReviewService
             $review['provider']        = $result->provider;
             $review['probabilityKind'] = $result->probabilityKind->value;
             $review['evaluatedAt']     = time();
+        } catch (RunOwnershipLostException $e) {
+            // Another run took the job over (#238): no review happened, so none is returned.
+            throw $e;
         } catch (Throwable) {
             // Fixed code only: exception messages may contain source text, credentials or endpoints.
             return $review;

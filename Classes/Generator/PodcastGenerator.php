@@ -16,6 +16,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
 use Netresearch\NrRepurpose\Generator\Support\DialogueScript;
 use Netresearch\NrRepurpose\Generator\Support\DialogueTurn;
@@ -281,6 +282,9 @@ final class PodcastGenerator extends AbstractGenerator
                 $this->speech->synthesizeToFile($text, $voice, $segmentPath);
 
                 return null;
+            } catch (RunOwnershipLostException $e) {
+                // Another run took the job over (#238): no TTS failure, and no second attempt.
+                throw $e;
             } catch (Throwable $e) {
                 $failure = $e;
                 $this->logger->warning('Podcast TTS turn failed', [

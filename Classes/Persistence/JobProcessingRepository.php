@@ -95,8 +95,9 @@ class JobProcessingRepository implements RunHeartbeatInterface
     }
 
     /**
-     * Renew this process's claim in a long stretch without a write to the job: per OCR page,
-     * per map-reduce chunk (#238). Without a claim it does nothing.
+     * Renew this process's claim in a long stretch without a write to the job: per PDF page;
+     * provider calls renew through RunClaimRenewalMiddleware (#238). Without a claim it does
+     * nothing.
      *
      * @throws RunOwnershipLostException
      */

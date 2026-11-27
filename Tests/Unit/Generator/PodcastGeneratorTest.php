@@ -25,6 +25,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\PodcastGenerator;
 use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
 use Netresearch\NrRepurpose\Generator\Support\WebVttBuilder;
@@ -854,5 +855,45 @@ final class PodcastGeneratorTest extends TestCase
 
         $call = $completion->completeJsonCalls[0];
         self::assertSpoofNeutralised((string) $call['options']?->getSystemPrompt(), $call['prompt']);
+    }
+
+    /**
+     * A takeover in a TTS turn is no TTS failure (#238): the turn is not tried again, the run
+     * stops with the lost claim, and nothing is logged as a failure.
+     */
+    public function testALostClaimInATtsTurnStopsThePodcastWithoutAFailureLog(): void
+    {
+        $speech = new class implements SpeechSynthesizerInterface {
+            public int $calls = 0;
+
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function getModel(): string
+            {
+                return 'stub-tts-model';
+            }
+
+            public function synthesizeToFile(string $text, string $voice, string $outputPath): void
+            {
+                ++$this->calls;
+
+                throw new RunOwnershipLostException('Another run holds job 7 now', 1795000001);
+            }
+        };
+        $logger    = new RecordingLogger();
+        $generator = new PodcastGenerator($this->jobs(), $this->allowingBudget(), $logger, $this->completion(), $speech, $this->stitcher(), $this->storage(), new WebVttBuilder());
+
+        try {
+            $generator->generate($this->context());
+            self::fail('The lost claim must stop the podcast');
+        } catch (RunOwnershipLostException) {
+            // Expected.
+        }
+
+        self::assertSame(1, $speech->calls, 'no second attempt for a lost run');
+        self::assertSame([], array_values(array_filter($logger->records, static fn (array $r): bool => in_array($r['level'], ['warning', 'error', 'critical'], true))));
     }
 }

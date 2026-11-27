@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Generator\Image;
 
 use Netresearch\NrLlm\Specialized\Image\DallEImageService;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -87,6 +88,9 @@ final class DallEImageGenerator implements ImageGeneratorInterface
                 throw RenderingException::because('DALL-E could not save generated image', 1749411000);
             }
         } catch (RenderingException $e) {
+            throw $e;
+        } catch (RunOwnershipLostException $e) {
+            // Another run took the job over (#238): no provider failure, passed on as it is.
             throw $e;
         } catch (Throwable $e) {
             // The message reaches the artifact's error_message, shown to every module user;

@@ -703,6 +703,25 @@ final class StoryGeneratorTest extends TestCase
         self::assertFalse($this->generator($response, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor())->generate($this->context()));
     }
 
+    /** A slide row gone before its review is skipped with a line that names the slide (#238). */
+    public function testASlideRowGoneBeforeItsReviewIsLoggedAsASkippedSlide(): void
+    {
+        $response = ['slides' => [
+            ['role' => 'cover', 'headline' => 'Big News', 'subline' => 'Details inside'],
+            ['role' => 'outro', 'headline' => 'Takeaway', 'subline' => ''],
+        ]];
+        $jobs       = $this->jobs();
+        $jobs->gone = ['slide-1'];
+
+        $logger = new RecordingLogger();
+
+        self::assertTrue($this->generator($response, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), logger: $logger)->generate($this->context()));
+
+        $messages = array_column($logger->records, 'message');
+        self::assertContains('A story slide row is gone before its review; the slide is skipped', $messages);
+        self::assertNotContains('The artifact row is gone; the format counts as failed', $messages);
+    }
+
     public function testFailedSlideRenderDoesNotAbortSiblingSlides(): void
     {
         $jobs     = $this->jobs();
@@ -1080,6 +1099,9 @@ final class StoryGeneratorTest extends TestCase
             /** @var list<string> variants whose row is gone when the final write comes (#238) */
             public array $goneAtFinalWrite = [];
 
+            /** @var list<string> variants whose row is gone from the first write on (#238) */
+            public array $gone = [];
+
             public function __construct() {}
 
             public function insertArtifact(int $jobUid, ArtifactType $type, string $variant, int $fileUid, ArtifactStatus $status, ?string $error = null): int
@@ -1093,7 +1115,8 @@ final class StoryGeneratorTest extends TestCase
 
             public function updateArtifact(int $artifactUid, array $fields): bool
             {
-                if (($fields['status'] ?? null) === ArtifactStatus::Done->value && in_array(array_search($artifactUid, $this->variantUid, true), $this->goneAtFinalWrite, true)) {
+                $variant = array_search($artifactUid, $this->variantUid, true);
+                if (in_array($variant, $this->gone, true) || (($fields['status'] ?? null) === ArtifactStatus::Done->value && in_array($variant, $this->goneAtFinalWrite, true))) {
                     return false;
                 }
 

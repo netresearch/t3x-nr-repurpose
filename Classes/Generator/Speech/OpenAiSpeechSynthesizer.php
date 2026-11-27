@@ -11,6 +11,7 @@ namespace Netresearch\NrRepurpose\Generator\Speech;
 
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -65,6 +66,9 @@ final class OpenAiSpeechSynthesizer implements SpeechSynthesizerInterface
                 $outputPath,
                 $this->buildOptions($voice),
             );
+        } catch (RunOwnershipLostException $e) {
+            // Another run took the job over (#238): no provider failure, passed on as it is.
+            throw $e;
         } catch (Throwable $e) {
             // The message reaches the podcast's error_message, shown to every module user;
             // the provider's detail goes to the server log only.

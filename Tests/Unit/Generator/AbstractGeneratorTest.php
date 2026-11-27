@@ -10,12 +10,15 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Testing\FakeBudgetService;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Rendering\RenderingException;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Stringable;
+use Throwable;
 
 use function function_exists;
 
@@ -51,6 +54,11 @@ final class AbstractGeneratorTest extends TestCase
                 // Intentionally empty: bypasses the parent's ConnectionPool wiring —
                 // this test never touches the database.
             }
+
+            public function updateArtifact(int $artifactUid, array $fields): bool
+            {
+                return true;
+            }
         };
         $budget = new FakeBudgetService();
 
@@ -78,6 +86,11 @@ final class AbstractGeneratorTest extends TestCase
             public function exposeRemoveTempDir(string $dir): void
             {
                 $this->removeTempDir($dir);
+            }
+
+            public function exposeFailArtifactFrom(Throwable $e): void
+            {
+                $this->failArtifactFrom(1, 7, 'Step', $e);
             }
         };
     }
@@ -181,5 +194,22 @@ final class AbstractGeneratorTest extends TestCase
         } finally {
             rmdir($foreign);
         }
+    }
+
+    /** A lost claim under a wrapper (a RenderingException around a provider call) passes on too (#238). */
+    public function testFailArtifactFromPassesOnALostClaimBelowAWrapper(): void
+    {
+        $lost    = new RunOwnershipLostException('Another run holds job 7 now', 1795000001);
+        $logger  = $this->logger();
+        $subject = $this->subject($logger);
+
+        try {
+            $subject->exposeFailArtifactFrom(RenderingException::because('TTS synthesis failed', 1749410000, $lost));
+            self::fail('The lost claim must pass on');
+        } catch (RunOwnershipLostException $e) {
+            self::assertSame($lost, $e);
+        }
+
+        self::assertSame([], $logger->records);
     }
 }

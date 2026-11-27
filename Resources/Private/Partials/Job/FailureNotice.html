@@ -38,8 +38,11 @@
                     <span class="d-block form-text"><f:translate key="{lll}:failure.retry.note" /></span>
                 </f:form>
             </f:then>
-            <f:else if="{reason.retryable}">
+            <f:else if="{reason.retryable} && {job.doneArtifactCount}">
                 <p><f:translate key="{lll}:failure.retry.blocked" /></p>
+            </f:else>
+            <f:else if="{reason.retryable}">
+                <p><f:translate key="{lll}:failure.retry.running" /></p>
             </f:else>
         </f:if>
 

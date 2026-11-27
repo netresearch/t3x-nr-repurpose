@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Generator\Speech;
 
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 
 /**
@@ -29,7 +30,8 @@ interface SpeechSynthesizerInterface
     /**
      * Synthesize $text in the given voice and write the audio to $outputPath (mp3).
      *
-     * @throws RenderingException on synthesis failure
+     * @throws RenderingException        on synthesis failure
+     * @throws RunOwnershipLostException when another run took the job over during the call (#238)
      */
     public function synthesizeToFile(string $text, string $voice, string $outputPath): void;
 }
