@@ -44,16 +44,21 @@ HTTP request that created the job returns immediately and the
    The transport hands a message out again while its first delivery still
    runs, once 3600 seconds have passed, and after a worker died. One run owns
    a job at a time: a second delivery while the first run is alive changes
-   nothing and is sent again after 15 minutes; the delivery after a dead
-   worker takes the job over once the dead run has written nothing for 15
-   minutes. The claim lives in the job columns ``run_token`` and
-   ``run_claimed_at``. When installing a version that adds them, stop every
-   worker first, update the database schema, and start the workers again
-   only afterwards: a new worker fails on a database without the columns,
-   and an old worker beside a new one runs jobs without a claim. The claim's age is measured with each host's own clock, so
-   keep the clocks of all worker and web hosts synchronised (NTP). A job whose
-   worker died and whose message is gone can be started again from its result
-   view once it has stood still for two hours. See :ref:`adr-001`.
+   nothing and is sent again after 30 minutes; the delivery after a dead
+   worker takes the job over once the dead run has written nothing for 30
+   minutes. A provider call must not outlast that: for every nr-llm provider
+   record, ``(max_retries + 1) × api_timeout`` must stay at or below 1380
+   seconds (nr-llm's defaults, 3 retries of 120 seconds, give 480).
+
+   The claim lives in the job columns ``run_token`` and ``run_claimed_at``.
+   When installing a version that adds them, stop every worker first, update
+   the database schema, and start the workers again only afterwards: a new
+   worker fails on a database without the columns, and an old worker beside a
+   new one runs jobs without a claim. The claim's age is measured with each
+   host's own clock, so keep the clocks of all worker and web hosts
+   synchronised (NTP). A job whose worker died and whose message is gone can
+   be started again from its result view once it has stood still for two
+   hours. See :ref:`adr-001`.
 
 .. _configuration-http:
 

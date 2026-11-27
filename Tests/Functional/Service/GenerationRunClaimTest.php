@@ -807,13 +807,14 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertSame('pdf_fal job has no attached PDF (source_pdf empty)', $row['error_message']);
     }
 
-    /** @return iterable<string, array{int, string, bool}> seconds since the last write, claim state, retry accepted */
+    /** @return iterable<string, array{0: int, 1: string, 2: bool, 3?: bool}> seconds since the last write, claim state, retry accepted, a done artifact */
     public static function stalledJobs(): iterable
     {
         yield 'stalled, claim expired' => [Job::STALLED_AFTER + 60, 'expired', true];
         yield 'stalled, no claim' => [Job::STALLED_AFTER + 60, 'none', true];
         yield 'stalled, live claim' => [Job::STALLED_AFTER + 60, 'live', false];
         yield 'written recently, no claim' => [60, 'none', false];
+        yield 'stalled, no claim, a finished artifact' => [Job::STALLED_AFTER + 60, 'none', false, true];
     }
 
     /**
@@ -821,9 +822,14 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
      * failed one can; a job a live run holds, or one written recently, cannot.
      */
     #[DataProvider('stalledJobs')]
-    public function testAStalledJobWithoutALiveRunCanBeStartedAgain(int $idle, string $claim, bool $accepted): void
+    public function testAStalledJobWithoutALiveRunCanBeStartedAgain(int $idle, string $claim, bool $accepted, bool $doneArtifact = false): void
     {
         $uid = $this->seedJob();
+        if ($doneArtifact) {
+            // Finished results stay: a caller that skips Job::isRetryable() cannot delete them.
+            $this->repository()->insertArtifact($uid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+        }
+
         $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)->update(self::JOB_TABLE, [
             'status'         => 'generating',
             'tstamp'         => time() - $idle,
@@ -840,6 +846,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertSame($accepted, $job->isRetryable(), 'the result view offers the button exactly where the server accepts it');
         self::assertSame($accepted, $this->repository()->requeueFailed($uid));
         self::assertSame($accepted ? 'queued' : 'generating', $this->row($uid)['status']);
+        self::assertSame($doneArtifact ? 1 : 0, $this->artifactCount($uid));
     }
 
     /** A run that only renews (a long OCR) is not stalled: the renewal writes tstamp too. */

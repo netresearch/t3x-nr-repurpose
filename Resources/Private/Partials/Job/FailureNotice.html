@@ -41,9 +41,6 @@
             <f:else if="{reason.retryable} && {job.doneArtifactCount}">
                 <p><f:translate key="{lll}:failure.retry.blocked" /></p>
             </f:else>
-            <f:else if="{reason.retryable}">
-                <p><f:translate key="{lll}:failure.retry.running" /></p>
-            </f:else>
         </f:if>
 
         <h3 class="h6 fw-bold mb-1"><f:translate key="{lll}:failure.heading.admin" /></h3>

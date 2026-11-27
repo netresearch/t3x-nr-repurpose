@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Domain\Model;
 
+use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Model\Artifact;
@@ -18,6 +19,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ReflectionClassConstant;
 
 final class JobTest extends TestCase
 {
@@ -234,5 +236,27 @@ final class JobTest extends TestCase
         }
 
         return $artifact;
+    }
+
+    /**
+     * The lease covers the longest stretch a live run goes without renewing its claim (#238):
+     * one nr-llm dispatch inside the documented provider limit, its retry backoff, and the local
+     * work after it. It stays below the doctrine transport's 3600 s redelivery.
+     */
+    public function testTheLeaseCoversTheLongestDispatchTheDocumentationAllows(): void
+    {
+        $providerLimit = 1380; // (max_retries + 1) × api_timeout, Documentation/Configuration/Worker.rst
+        $localWork     = 300;  // ffmpeg and poppler after a call
+        $retries       = (new ReflectionClassConstant(AbstractProvider::class, 'MAX_RETRIES_LIMIT'))->getValue();
+        self::assertIsInt($retries);
+
+        // AbstractProvider::sendRequest(): 0.1 s × 2^attempt before each retry, capped at 30 s.
+        $backoff = 0.0;
+        for ($attempt = 1; $attempt <= $retries; ++$attempt) {
+            $backoff += $attempt >= 9 ? 30.0 : 0.1 * (2 ** $attempt);
+        }
+
+        self::assertGreaterThanOrEqual($providerLimit + $backoff + $localWork, Job::RUN_LEASE_SECONDS);
+        self::assertLessThan(3600, Job::RUN_LEASE_SECONDS);
     }
 }

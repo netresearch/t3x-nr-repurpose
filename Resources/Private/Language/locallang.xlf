@@ -250,7 +250,6 @@
       <trans-unit id="failure.format.action"><source>To make this format, create a new job with only this format.</source></trans-unit>
       <trans-unit id="failure.retry.action"><source>Start this job again</source></trans-unit>
       <trans-unit id="failure.retry.note"><source>The job runs from the beginning, and its AI calls are billed again.</source></trans-unit>
-      <trans-unit id="failure.retry.running"><source>A run is still working on this job. If it stays like this, start it again later.</source></trans-unit>
       <trans-unit id="failure.retry.blocked"><source>This job holds finished results. To keep them, create a new job for another try.</source></trans-unit>
       <trans-unit id="job.retry.started"><source>The job is queued again.</source></trans-unit>
       <trans-unit id="job.retry.refused"><source>This job cannot be started again: it is already running or holds finished results.</source></trans-unit>

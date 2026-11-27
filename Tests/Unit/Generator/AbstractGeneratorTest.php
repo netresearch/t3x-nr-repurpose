@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Testing\FakeBudgetService;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -17,6 +18,7 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use RuntimeException;
 use Stringable;
 use Throwable;
 
@@ -211,5 +213,46 @@ final class AbstractGeneratorTest extends TestCase
         }
 
         self::assertSame([], $logger->records);
+    }
+
+    /** A failed write must not swallow the reason; only a lost claim suppresses the log (#238). */
+    public function testFailArtifactLogsTheReasonWhenItsWriteFails(): void
+    {
+        foreach ([[new RuntimeException('connection lost'), true], [new RunOwnershipLostException('Another run holds job 7 now', 1795000001), false]] as [$writeFailure, $logged]) {
+            $jobs = new class ($writeFailure) extends JobProcessingRepository {
+                public function __construct(private readonly Throwable $failure) {}
+
+                public function updateArtifact(int $artifactUid, array $fields): bool
+                {
+                    throw $this->failure;
+                }
+            };
+            $logger  = $this->logger();
+            $subject = new class ($jobs, new FakeBudgetService(), $logger) extends AbstractGenerator {
+                public function supports(GenerationContext $ctx): bool
+                {
+                    return false;
+                }
+
+                public function generate(GenerationContext $ctx): bool
+                {
+                    return false;
+                }
+
+                public function exposeFailArtifact(): void
+                {
+                    $this->failArtifact(1, 7, 'The render failed', FailureReason::Rendering);
+                }
+            };
+
+            try {
+                $subject->exposeFailArtifact();
+                self::fail('The write failure must pass on');
+            } catch (Throwable $e) {
+                self::assertSame($writeFailure, $e);
+            }
+
+            self::assertSame($logged ? ['Artifact generation failed'] : [], array_column($logger->records, 'message'), $writeFailure::class);
+        }
     }
 }

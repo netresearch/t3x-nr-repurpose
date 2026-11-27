@@ -235,17 +235,24 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     /** Record a previously-inserted artifact row as failed and log the reason. */
     protected function failArtifact(int $artifactUid, int $jobUid, string $reason, FailureReason $failure): void
     {
-        // The write first: a run that lost its job stops here and logs no failure (#238).
-        $this->jobs->updateArtifact($artifactUid, [
-            'status'         => ArtifactStatus::Failed->value,
-            'error_message'  => $reason,
-            'failure_reason' => $failure->value,
-        ]);
-        $this->logger->warning('Artifact generation failed', [
-            'job'      => $jobUid,
-            'artifact' => $artifactUid,
-            'reason'   => $reason,
-        ]);
+        $context = ['job' => $jobUid, 'artifact' => $artifactUid, 'reason' => $reason];
+        try {
+            $this->jobs->updateArtifact($artifactUid, [
+                'status'         => ArtifactStatus::Failed->value,
+                'error_message'  => $reason,
+                'failure_reason' => $failure->value,
+            ]);
+        } catch (RunOwnershipLostException $e) {
+            // Another run holds the job: nothing of this run failed, nothing is logged (#238).
+            throw $e;
+        } catch (Throwable $e) {
+            // The reason must not get lost with the write.
+            $this->logger->warning('Artifact generation failed', $context);
+
+            throw $e;
+        }
+
+        $this->logger->warning('Artifact generation failed', $context);
     }
 
     /**

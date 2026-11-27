@@ -134,6 +134,22 @@ class JobProcessingRepository implements RunHeartbeatInterface
         );
     }
 
+    /** The done artifact rows of the job the outer statement updates, as a subquery. */
+    private function doneArtifactsOf(QueryBuilder $queryBuilder): string
+    {
+        $artifacts = $this->connectionPool->getQueryBuilderForTable(self::ARTIFACT_TABLE);
+        $artifacts->getRestrictions()->removeAll();
+
+        return $artifacts
+            ->select('a.uid')
+            ->from(self::ARTIFACT_TABLE, 'a')
+            ->where(
+                $artifacts->expr()->eq('a.job', $artifacts->quoteIdentifier(self::JOB_TABLE . '.uid')),
+                $artifacts->expr()->eq('a.status', $queryBuilder->createNamedParameter(ArtifactStatus::Done->value)),
+            )
+            ->getSQL();
+    }
+
     private function freeClaim(QueryBuilder $queryBuilder, int $now): string
     {
         $expr = $queryBuilder->expr();
@@ -310,8 +326,9 @@ class JobProcessingRepository implements RunHeartbeatInterface
 
     /**
      * Back into the queue. One statement that only a failed job passes, or a stalled one: not
-     * finished, no write for Job::STALLED_AFTER and no live run holding it, as a run whose worker
-     * died and whose message is gone leaves it (#238). Of two clicks, or of two people, one run
+     * finished, no write for Job::STALLED_AFTER, no live run holding it and no finished artifact,
+     * as a run whose worker died and whose message is gone leaves it (#238); for a stalled job
+     * these are the conditions Job::isRetryable() offers the button under. Of two clicks, or of two people, one run
      * starts: the caller dispatches only when this returns true.
      */
     public function requeueFailed(int $jobUid): bool
@@ -345,6 +362,8 @@ class JobProcessingRepository implements RunHeartbeatInterface
                         $this->unfinished($queryBuilder),
                         $expr->lt('tstamp', $queryBuilder->createNamedParameter($now - Job::STALLED_AFTER, Connection::PARAM_INT)),
                         $this->freeClaim($queryBuilder, $now),
+                        // A new run deletes every artifact; a stalled job's finished ones stay.
+                        'NOT EXISTS (' . $this->doneArtifactsOf($queryBuilder) . ')',
                     ),
                 ),
             )

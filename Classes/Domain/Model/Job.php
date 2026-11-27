@@ -43,16 +43,26 @@ class Job extends AbstractEntity
      *
      * A worker that dies leaves its message in the doctrine transport, which hands it out again
      * once its redeliver_timeout has passed (3600 s: TYPO3 passes only queue_name, so Symfony's
-     * default applies). That delivery can take the job over only when the claim has expired by
-     * then, so the lease has to be well below 3600 s. A live run must not lose its claim
-     * between two renewals: every write of the run renews the claim, RunClaimRenewalMiddleware
-     * renews it before every provider call, and the PDF ingestion before every page. So at most
-     * one bounded call (300 s: the HTTP timeout the worker documentation asks for, the image
-     * request) runs between two renewals. A local process after it (Chromium 60 s, ffmpeg and
-     * poppler up to 300 s) adds to that stretch; the longest is the story video, its review call
-     * and then the slideshow render: 600 s against a lease of 900 s.
+     * default applies). The lease stays below that, so such a delivery normally finds the claim
+     * expired; a delivery that finds it live is sent again after one lease.
+     *
+     * A live run must not lose its claim between two renewals. Every write of the run renews it,
+     * RunClaimRenewalMiddleware renews it before every provider dispatch, and the PDF ingestion
+     * before every page. One dispatch is not one HTTP request: nr-llm's AbstractProvider retries a
+     * failed connection inside it, up to max_retries + 1 attempts of up to api_timeout each plus
+     * a backoff of 0.2 s doubling up to 30 s per retry, 111 s for 10 retries (a timed-out attempt
+     * is not retried). The middleware
+     * cannot renew between those attempts (netresearch/t3x-nr-llm#1476). Local work after a call
+     * (Chromium 60 s, ffmpeg and poppler up to 300 s) adds up to 300 s.
+     *
+     * nr-llm allows up to 10 retries of up to 600 s, longer than any lease below 3600 s, so the
+     * lease is fixed and the extension requires, for every nr-llm provider record:
+     * (max_retries + 1) × api_timeout <= 1380 s. nr-llm's defaults (3 retries, 120 s: 480 s)
+     * and 3 retries at 300 s (1200 s) fit; with 111 s of backoff and 300 s of local work that is
+     * at most 1791 s. The specialized speech and image calls do not retry and are bounded by their own
+     * request timeout.
      */
-    public const int RUN_LEASE_SECONDS = 900;
+    public const int RUN_LEASE_SECONDS = 1800;
 
     protected string $sourceType = 'url';
 
@@ -486,8 +496,8 @@ class Job extends AbstractEntity
     }
 
     /**
-     * A failed job, or a stalled one that no live run holds (#238); the same conditions as
-     * JobProcessingRepository::requeueFailed(). A new run removes every artifact of the job, so
+     * A failed job, or a stalled one that no live run holds (#238); for a stalled job the same
+     * conditions JobProcessingRepository::requeueFailed() applies. A new run removes every artifact of the job, so
      * a finished result rules it out, also for a stalled job: a dead run's finished artifacts
      * may already be reviewed or published.
      */

@@ -70,7 +70,7 @@ Split submission from execution over a Symfony Messenger transport.
    seconds) has passed, and after a worker died. Before ingestion a run claims
    the job: it writes a random token and the time into ``run_token`` and
    ``run_claimed_at``, in one statement that only an unfinished job passes
-   whose claim is empty or older than the lease of 900 seconds. Every later
+   whose claim is empty or older than the lease of 1800 seconds. Every later
    write of the run (status, progress, failure, source review, artifact rows)
    is bound to that token and renews the claim. ``RunClaimRenewalMiddleware``,
    the innermost layer of nr-llm's provider middleware pipeline, renews it
@@ -117,16 +117,25 @@ Consequences
   later Core version adds one, the handler can be revisited.
 - A crashed run always leaves a ``failed`` job with an error message rather than
   a silently lost message.
-- The lease is a constant. It has to stay below the transport's 3600 seconds so
-  that the delivery after a dead worker finds the claim expired, and above the
-  longest stretch a live run spends without renewing its claim. At most one
-  bounded provider call (300 seconds) runs between two renewals. A local
-  process after it (Chromium, ffmpeg, poppler) adds at most 300 seconds; the
-  longest stretch is the story video, its review call and then the slideshow
-  render: 600 seconds against a lease of 900. A live run that still goes 900
-  seconds without a renewal can
-  be taken over by the delayed message; it then stops at its next write, and
-  the new run starts from the beginning.
+- The lease is a constant of 1800 seconds. It stays below the transport's
+  3600 seconds, so the delivery after a dead worker normally finds the claim
+  expired. It has to exceed the longest stretch a live run spends without
+  renewing its claim. One provider dispatch is not one request: nr-llm retries
+  a failed connection inside it, up to ``max_retries`` + 1 attempts of up to
+  ``api_timeout`` each, with a backoff that doubles from 0.2 up to 30 seconds
+  per retry (111 seconds for 10 retries); a timed-out attempt is not retried.
+  The middleware cannot renew between those attempts
+  (`netresearch/t3x-nr-llm#1476
+  <https://github.com/netresearch/t3x-nr-llm/issues/1476>`__). Local work
+  after a call (Chromium, ffmpeg, poppler) adds up to 300 seconds. nr-llm
+  allows up to 10 retries of up to 600 seconds, which no lease below 3600
+  seconds covers, so the extension requires ``(max_retries + 1) ×
+  api_timeout`` of at most 1380 seconds for every nr-llm provider record:
+  with the backoff and the local work that stays below 1800 seconds.
+  nr-llm's defaults (3 retries of 120 seconds) and 3 retries of 300 seconds
+  fit. A live run that still goes 1800 seconds without a renewal can be taken
+  over by the delayed message; it then stops at its next write, and the new
+  run starts from the beginning.
 - Lease expiry compares ``run_claimed_at``, written with the worker host's
   clock, against the clock of the host that reads it. Worker hosts and web
   hosts need synchronised clocks (NTP); a skew of minutes shortens or extends
