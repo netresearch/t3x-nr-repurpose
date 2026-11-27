@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
+use Netresearch\NrRepurpose\Exception\ArtifactRowMissingException;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
@@ -231,7 +232,10 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         return $default;
     }
 
-    /** Record a previously-inserted artifact row as failed and log the reason. */
+    /**
+     * Record a previously-inserted artifact row as failed and log the reason. A row that is gone
+     * leaves nothing to record (#238): the format counts as failed, and the next one still runs.
+     */
     protected function failArtifact(int $artifactUid, int $jobUid, string $reason, FailureReason $failure): void
     {
         $this->logger->warning('Artifact generation failed', [
@@ -239,11 +243,19 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
             'artifact' => $artifactUid,
             'reason'   => $reason,
         ]);
-        $this->jobs->updateArtifact($artifactUid, [
-            'status'         => ArtifactStatus::Failed->value,
-            'error_message'  => $reason,
-            'failure_reason' => $failure->value,
-        ]);
+        try {
+            $this->jobs->updateArtifact($artifactUid, [
+                'status'         => ArtifactStatus::Failed->value,
+                'error_message'  => $reason,
+                'failure_reason' => $failure->value,
+            ]);
+        } catch (ArtifactRowMissingException $e) {
+            $this->logger->warning("The failed artifact's row is gone; nothing to record", [
+                'job'       => $jobUid,
+                'artifact'  => $artifactUid,
+                'exception' => $e,
+            ]);
+        }
     }
 
     /**

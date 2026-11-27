@@ -119,7 +119,9 @@ Consequences
   that the delivery after a dead worker finds the claim expired, and above the
   longest stretch a live run spends without renewing its claim. One provider
   call, one OCR page, one map-reduce chunk or one ffmpeg slideshow is bounded
-  by 300 seconds. A live run that still goes 900 seconds without a renewal can
+  by 300 seconds, and at most two of them run between two renewals: 600
+  seconds against a lease of 900. A live run that still goes 900 seconds
+  without a renewal can
   be taken over by the delayed message; it then stops at its next write, and
   the new run starts from the beginning.
 - Lease expiry compares ``run_claimed_at``, written with the worker host's

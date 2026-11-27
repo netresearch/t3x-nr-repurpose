@@ -19,6 +19,7 @@ use Netresearch\NrRepurpose\Ingestion\RemoteSourceGuard;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use RuntimeException;
@@ -177,23 +178,31 @@ final class PdfFileResolverTest extends TestCase
         }
     }
 
+    /** @return iterable<string, array{int, class-string<RuntimeException>}> */
+    public static function capturedFileReadFailures(): iterable
+    {
+        yield 'sys_file row missing' => [1314354065, IngestionException::class];
+        yield 'any other failure' => [1, RuntimeException::class];
+    }
+
     /**
      * The captured file (#238): only findByUid()'s missing-row exception means the file is gone.
      * Any other failure reading the sys_file row is passed on as it is.
+     *
+     * @param class-string<RuntimeException> $expected
      */
-    public function testOnlyAMissingSysFileRowOfTheCapturedFileReadsAsNoAttachedPdf(): void
+    #[DataProvider('capturedFileReadFailures')]
+    public function testOnlyAMissingSysFileRowOfTheCapturedFileReadsAsNoAttachedPdf(int $code, string $expected): void
     {
-        foreach ([1314354065 => IngestionException::class, 1 => RuntimeException::class] as $code => $expected) {
-            $repository = $this->createStub(FileRepository::class);
-            $repository->method('findByUid')->willThrowException(new RuntimeException('sys_file read failed', $code));
-            $resolver = new PdfFileResolver($repository, QueuedHttpClient::answering(200, '')->client, new HttpFactory(), StaticHostResolver::publicGuard());
+        $repository = $this->createStub(FileRepository::class);
+        $repository->method('findByUid')->willThrowException(new RuntimeException('sys_file read failed', $code));
+        $resolver = new PdfFileResolver($repository, QueuedHttpClient::answering(200, '')->client, new HttpFactory(), StaticHostResolver::publicGuard());
 
-            try {
-                $resolver->resolve(JobSnapshots::of(['uid' => 5, 'source_type' => 'pdf_fal', 'source_pdf' => 1])->withSourceFileUid(77));
-                self::fail('The resolver must throw for code ' . $code);
-            } catch (RuntimeException $e) {
-                self::assertSame($expected, $e::class, 'code ' . $code);
-            }
+        try {
+            $resolver->resolve(JobSnapshots::of(['uid' => 5, 'source_type' => 'pdf_fal', 'source_pdf' => 1])->withSourceFileUid(77));
+            self::fail('The resolver must throw');
+        } catch (RuntimeException $e) {
+            self::assertSame($expected, $e::class);
         }
     }
 

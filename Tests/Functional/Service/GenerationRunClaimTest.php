@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 use Closure;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
+use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Command\GenerateCommand;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
@@ -25,6 +26,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Exception\ArtifactRowMissingException;
 use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
 use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
+use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
@@ -59,6 +61,7 @@ use Symfony\Component\Messenger\Exception\TransportException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
+use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -731,7 +734,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
 
         $job = $this->get(JobRepository::class)->findByUid($uid);
         self::assertInstanceOf(Job::class, $job);
-        self::assertSame($idle > Job::STALLED_AFTER, $job->isRetryable(), 'the result view offers the button');
+        self::assertSame($accepted, $job->isRetryable(), 'the result view offers the button exactly where the server accepts it');
         self::assertSame($accepted, $this->repository()->requeueFailed($uid));
         self::assertSame($accepted ? 'queued' : 'generating', $this->row($uid)['status']);
     }
@@ -751,6 +754,26 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Job::class, $job);
         self::assertNull($job->getFailure());
         self::assertFalse($job->isRetryable());
+    }
+
+    /**
+     * One format's row is deleted while the run holds the job: that format counts as failed,
+     * the next format still runs, and the job ends by count (#238).
+     */
+    public function testADeletedArtifactRowFailsOnlyItsFormat(): void
+    {
+        $uid   = $this->seedJob();
+        $jobs  = $this->repository();
+        $first = new RowLosingGenerator($jobs, $this->get(ConnectionPool::class));
+        $next  = new ClaimTestGenerator($jobs);
+
+        $this->orchestrator($jobs, [$first, $next])->process($uid);
+
+        self::assertSame(1, $next->runs, 'the next format still runs');
+        $row = $this->row($uid);
+        self::assertSame('partially_done', $row['status']);
+        self::assertSame('1 of 2 formats failed; each failed artifact shows its error', $row['error_message']);
+        self::assertSame(1, $this->artifactCount($uid));
     }
 
     private function offGate(JobProcessingRepository $jobs): SourceReviewGate
@@ -929,5 +952,35 @@ final class FailingMessageBus implements MessageBusInterface
         $this->dispatched[] = $message;
 
         return new Envelope($message);
+    }
+}
+
+/** Inserts its row, loses it (deleted from outside), then fails the way the generators do. */
+final class RowLosingGenerator extends AbstractGenerator
+{
+    public function __construct(JobProcessingRepository $jobs, private readonly ConnectionPool $pool)
+    {
+        parent::__construct($jobs, new FakeBudgetService(), new NullLogger());
+    }
+
+    public function supports(GenerationContext $ctx): bool
+    {
+        return true;
+    }
+
+    public function generate(GenerationContext $ctx): bool
+    {
+        $artifactUid = $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'lost', 0, ArtifactStatus::Pending);
+        $this->pool->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
+            ->delete('tx_nrrepurpose_domain_model_artifact', ['uid' => $artifactUid]);
+        try {
+            $this->jobs->updateArtifact($artifactUid, ['status' => ArtifactStatus::Done->value]);
+
+            return true;
+        } catch (Throwable $e) {
+            $this->failArtifactFrom($artifactUid, $ctx->jobUid(), 'Stub', $e);
+
+            return false;
+        }
     }
 }

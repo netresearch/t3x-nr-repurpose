@@ -52,9 +52,9 @@ class JobProcessingRepository implements RunHeartbeatInterface
      * then, so the lease has to be well below 3600 s. A live run must not lose its claim
      * between two renewals: every write of the run renews the claim, and so does renew() before
      * every PDF page and every map-reduce chunk, the stretches that write nothing to the job.
-     * The longest step between two renewals is then one provider call, OCR page, chunk or ffmpeg
-     * slideshow, bounded by 300 s (the HTTP timeout the worker documentation asks for, the image
-     * request, the slideshow's process limit). 900 s is three of those.
+     * Each provider call, OCR page, chunk or ffmpeg slideshow is bounded by 300 s (the HTTP
+     * timeout the worker documentation asks for, the image request, the slideshow's process
+     * limit), and at most two of them run between two renewals: 600 s against a lease of 900 s.
      */
     public const int RUN_LEASE_SECONDS = 900;
 

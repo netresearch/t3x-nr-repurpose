@@ -19,6 +19,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\ArtifactTypeSummary;
 use Netresearch\NrRepurpose\Domain\ValueObject\PromptSnippetSelection;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Ingestion\SourceUrlRedactor;
+use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewResult;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
 use TYPO3\CMS\Extbase\Attribute\ORM\Lazy;
@@ -100,6 +101,10 @@ class Job extends AbstractEntity
     protected string $failureReason = '';
 
     protected int $tstamp = 0;
+
+    protected string $runToken = '';
+
+    protected int $runClaimedAt = 0;
 
     protected string $languageDetected = '';
 
@@ -466,13 +471,16 @@ class Job extends AbstractEntity
     }
 
     /**
-     * A failed job, or a stalled one (#238). A new run removes every artifact of the job, so a
-     * finished result rules it out.
+     * A failed job, or a stalled one that no live run holds (#238); the same conditions as
+     * JobProcessingRepository::requeueFailed(). A new run removes every artifact of the job, so
+     * a finished result rules it out, also for a stalled job: a dead run's finished artifacts
+     * may already be reviewed or published.
      */
     public function isRetryable(): bool
     {
         return $this->getFailure()?->isRetryable() === true
-            && $this->getDoneArtifactCount() === 0;
+            && $this->getDoneArtifactCount() === 0
+            && ($this->runToken === '' || $this->runClaimedAt < time() - JobProcessingRepository::RUN_LEASE_SECONDS);
     }
 
     public function getDoneArtifactCount(): int
