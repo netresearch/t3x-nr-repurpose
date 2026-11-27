@@ -17,6 +17,7 @@ use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
+use Random\Randomizer;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -72,7 +73,7 @@ class JobProcessingRepository
      */
     public function claimRun(int $jobUid): bool
     {
-        $token        = bin2hex(random_bytes(16));
+        $token        = bin2hex((new Randomizer())->getBytes(16));
         $now          = time();
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::JOB_TABLE);
         $expr         = $queryBuilder->expr();
