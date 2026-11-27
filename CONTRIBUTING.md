@@ -71,9 +71,10 @@ without the fix.
 ## Pull Requests
 
 - Open the pull request as a draft and mark it ready once CI is green.
-- Add a `CHANGELOG.md` entry under `## [Unreleased]` for every change a user
-  or integrator can notice. Version bumps belong to the release commit, never
-  to a feature pull request.
+- Add a changelog fragment `changelog.d/<branch-slug>.<section>.md` for every
+  change a user or integrator can notice (format in `changelog.d/README.md`)
+  instead of editing `CHANGELOG.md`; `composer ci:test:changelog` checks it.
+  Version bumps belong to the release commit, never to a feature pull request.
 - A pull request needs one approving review, all review threads resolved and
   the required checks green.
 - Pull requests are merged with a merge commit; squash and rebase merging are
@@ -83,8 +84,9 @@ without the fix.
 
 1. Merge a `chore: prepare release vX.Y.Z` pull request that sets the version
    in `ext_emconf.php`, in `composer.json` (`extra.typo3/cms.version`) and in
-   `Documentation/guides.xml` (`version` and `release`), moves the entries
-   under `## [Unreleased]` in `CHANGELOG.md` below a new
+   `Documentation/guides.xml` (`version` and `release`), runs
+   `composer changelog:collect` (it moves the fragments into
+   `## [Unreleased]`), moves the entries under `## [Unreleased]` in `CHANGELOG.md` below a new
    `## [X.Y.Z] - date` heading with the compare links, and adds the version
    to `Documentation/Changelog.rst`. The release workflow compares the tag
    with `composer.json` before it builds anything; the TER upload compares it

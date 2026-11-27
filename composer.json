@@ -35,7 +35,7 @@
         "smalot/pdfparser": "^2.12"
     },
     "require-dev": {
-        "netresearch/typo3-ci-workflows": "^2.0.3",
+        "netresearch/typo3-ci-workflows": "^2.3.1",
         "phpunit/phpunit": "^11.5",
         "sabberworm/php-css-parser": "^9.5",
         "typo3/cms-belog": "^14.3",
@@ -84,7 +84,10 @@
         "ci:rector": [
             "rector process --config Build/rector.php"
         ],
-        "ci:test:php:cgl": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff \"$@\"; else ./Build/Scripts/runTests.sh -s cgl -n \"$@\"; fi' --",
+        "ci:test:php:cgl": [
+            "@ci:test:changelog",
+            "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff \"$@\"; else ./Build/Scripts/runTests.sh -s cgl -n \"$@\"; fi' --"
+        ],
         "ci:test:php:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite unit \"$@\"; else ./Build/Scripts/runTests.sh -s unit \"$@\"; fi' --",
         "ci:test:php:fractor": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then fractor process --config Build/fractor.php --dry-run \"$@\"; else ./Build/Scripts/runTests.sh -s fractor -n \"$@\"; fi' --",
         "ci:test:php:functional": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/FunctionalTests.xml \"$@\"; else ./Build/Scripts/runTests.sh -s functional \"$@\"; fi' --",
@@ -93,7 +96,9 @@
         "ci:test:php:phpstan": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpstan analyse -c Build/phpstan.neon \"$@\"; else ./Build/Scripts/runTests.sh -s phpstan \"$@\"; fi' --",
         "ci:test:php:rector": [
             "@ci:rector --dry-run"
-        ]
+        ],
+        "changelog:collect": "changelog-fragments collect",
+        "ci:test:changelog": "changelog-fragments check @no_additional_args"
     },
     "extra": {
         "captainhook": {
