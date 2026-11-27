@@ -2,9 +2,10 @@
 <files version="1">
  <!--
    smalot/pdfparser calls spl_object_hash(), which PHP 8.6 deprecates (#246).
-   PHPUnit matches an entry on file, line and message: line 1266 is
-   pdfparser 2.13.x, line 1362 is 2.14.0. A pdfparser release that moves the
-   call needs the entry regenerated on PHP 8.6 (generate-baseline option).
+   PHPUnit matches an entry on file, line, hash of the source line and
+   message: line 1266 is pdfparser 2.13.x, line 1362 is 2.14.0. A pdfparser
+   release that moves or changes that source line needs the entry regenerated
+   on PHP 8.6 (generate-baseline option).
  -->
  <file path=".Build/vendor/typo3/cms-core/Classes/Package/PackageManager.php">
   <line number="948" hash="8f3e2257409cdb8fabb85e9a19591d1b4ac5ec6b">
