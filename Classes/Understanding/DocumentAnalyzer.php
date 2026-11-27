@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Service\JobLlmOptions;
@@ -60,6 +61,8 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
         private int $chunkThreshold = 24000,
         private int $chunkSize = 12000,
         private int $maxChunks = 100,
+        // Renews the run's claim per chunk: a long map step writes nothing to the job (#238).
+        private ?RunHeartbeatInterface $heartbeat = null,
     ) {}
 
     public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
@@ -151,6 +154,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
 
         $summaries = [];
         foreach ($chunks as $index => $chunk) {
+            $this->heartbeat?->renew($job->uid);
             $prompt  = SourceMaterial::wrap('SECTION ' . ($index + 1) . ":\n" . $chunk);
             $decoded = $this->completion->completeJson(
                 $prompt,

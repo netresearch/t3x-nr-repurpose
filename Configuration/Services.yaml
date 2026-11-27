@@ -61,6 +61,10 @@ services:
   Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface:
     alias: Netresearch\NrRepurpose\Understanding\DocumentAnalyzer
 
+  # Renews a generation run's claim in long stretches without a job write (#238).
+  Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface:
+    alias: Netresearch\NrRepurpose\Persistence\JobProcessingRepository
+
   # Render-infra (Plan 4): process boundary + the three primitives. The implementations'
   # constructor defaults (node/ffmpeg/ffprobe on PATH, chromium at /usr/bin/chromium,
   # render.cjs resolved relative to the extension, temp work dirs) need no explicit scalars.

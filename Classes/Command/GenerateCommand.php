@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Command;
 
+use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
+use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -26,8 +28,10 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'nr_repurpose:generate', description: 'Run the generation pipeline for a job uid')]
 final class GenerateCommand extends Command
 {
-    public function __construct(private readonly GenerationOrchestratorInterface $orchestrator)
-    {
+    public function __construct(
+        private readonly GenerationOrchestratorInterface $orchestrator,
+        private readonly JobProcessingRepository $jobs,
+    ) {
         parent::__construct();
     }
 
@@ -48,7 +52,16 @@ final class GenerateCommand extends Command
             return Command::FAILURE;
         }
 
-        $output->writeln('<info>Done.</info>');
+        // The orchestrator records a crash or a lost run on the job instead of throwing (#238);
+        // the exit code comes from the status the run left.
+        $status = JobStatus::tryFrom(ScalarCast::string($this->jobs->findRow($jobUid)['status'] ?? ''));
+        if ($status === null || !$status->isTerminal() || $status === JobStatus::Failed) {
+            $output->writeln(sprintf('<error>Job #%d ended with status "%s".</error>', $jobUid, $status->value ?? 'missing'));
+
+            return Command::FAILURE;
+        }
+
+        $output->writeln(sprintf('<info>Done: %s.</info>', $status->value));
 
         return Command::SUCCESS;
     }

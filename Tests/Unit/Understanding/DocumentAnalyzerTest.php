@@ -14,6 +14,7 @@ use LogicException;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Service\TextCompletionInterface;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
@@ -265,6 +266,27 @@ final class DocumentAnalyzerTest extends TestCase
         self::assertSame('Quarterly report', $brief->title);
         self::assertCount(4, $fake->jsonCalls);
         self::assertStringContainsString('Chunk summary.', $fake->jsonCalls[3]['prompt']);
+    }
+
+    /** Each map call renews the run's claim first: the map step writes nothing to the job (#238). */
+    public function testEachMapChunkRenewsTheRunsClaim(): void
+    {
+        $mapResult = ['summary' => 'Chunk summary.', 'keyPoints' => ['kp']];
+        $fake      = new ScriptedJsonCompletion([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
+        $heartbeat = new class implements RunHeartbeatInterface {
+            /** @var list<int> */
+            public array $renewed = [];
+
+            public function renew(int $jobUid): void
+            {
+                $this->renewed[] = $jobUid;
+            }
+        };
+
+        (new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000, heartbeat: $heartbeat))
+            ->analyze($this->threeChunkDocument(), JobSnapshots::of(['uid' => 42, 'be_user' => 7]));
+
+        self::assertSame([42, 42, 42], $heartbeat->renewed);
     }
 
     /** Three chunks of 10,000 characters each, above the 20,000-character threshold. */

@@ -29,7 +29,6 @@ use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\SourceReview\SourceCapture;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewRejectedException;
-use Netresearch\NrRepurpose\SourceReview\SourceReviewSupersededException;
 use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
@@ -228,10 +227,11 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
                 $brief,
                 $capture?->hash,
             ) ?? [];
-        } catch (SourceReviewSupersededException) {
-            // The winning run owns the job state and artifacts; leave both untouched.
-            return;
         } catch (Throwable $e) {
+            // A review that another run replaced arrives as RunOwnershipLostException, which
+            // failJob() passes on. A SourceReviewSupersededException means the stored review
+            // changed under a claim this run still holds, outside any run: the run cannot
+            // trust its baseline and fails the job through its claim (#238).
             $this->failJob($jobUid, 'Source fidelity check', $e);
 
             return;

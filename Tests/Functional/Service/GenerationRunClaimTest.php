@@ -10,17 +10,22 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
 use Closure;
+use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
+use Netresearch\NrRepurpose\Command\GenerateCommand;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\ArtifactRowMissingException;
 use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
 use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
+use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
@@ -30,6 +35,7 @@ use Netresearch\NrRepurpose\Queue\Handler\GenerateArtifactsHandler;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
+use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewPointer;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewPolicy;
@@ -37,10 +43,17 @@ use Netresearch\NrRepurpose\SourceReview\SourceReviewService;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingMessageBus;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
+use Netresearch\NrRepurpose\Understanding\DocumentAnalyzer;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
+use ReflectionProperty;
 use RuntimeException;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\TransportException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
@@ -406,6 +419,217 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertSame('%PDF-1.4 captured', $generator->document->text);
     }
 
+    /** @return iterable<string, array{Closure(JobProcessingRepository, int): void, int}> */
+    public static function commandOutcomes(): iterable
+    {
+        yield 'done' => [static function (JobProcessingRepository $jobs, int $uid): void {
+            $jobs->finishJob($uid, JobStatus::Done, '');
+        }, Command::SUCCESS];
+        yield 'partially done' => [static function (JobProcessingRepository $jobs, int $uid): void {
+            $jobs->finishJob($uid, JobStatus::PartiallyDone, '1 of 2 formats failed');
+        }, Command::SUCCESS];
+        yield 'failed' => [static function (JobProcessingRepository $jobs, int $uid): void {
+            $jobs->markFailed($uid, 'Generation failed', FailureReason::Unknown);
+        }, Command::FAILURE];
+        yield 'left running, as a lost run leaves it' => [static function (JobProcessingRepository $jobs, int $uid): void {
+            $jobs->markStatus($uid, JobStatus::Generating, 'generating', 30);
+        }, Command::FAILURE];
+        yield 'held by another run' => [static function (): never {
+            throw new RunClaimHeldException('held', 1);
+        }, Command::FAILURE];
+    }
+
+    /** The CLI's exit code follows the status the run left, not the absence of an exception. */
+    #[DataProvider('commandOutcomes')]
+    public function testTheGenerateCommandExitsWithTheRunsOutcome(Closure $run, int $exitCode): void
+    {
+        $uid          = $this->seedJob();
+        $jobs         = $this->repository();
+        $orchestrator = new readonly class ($run, $jobs) implements GenerationOrchestratorInterface {
+            public function __construct(private Closure $run, private JobProcessingRepository $jobs) {}
+
+            public function process(int $jobUid): void
+            {
+                ($this->run)($this->jobs, $jobUid);
+            }
+        };
+        $tester = new CommandTester(new GenerateCommand($orchestrator, $jobs));
+
+        self::assertSame($exitCode, $tester->execute(['jobUid' => (string) $uid]));
+    }
+
+    /**
+     * A failure before the claim reaches the handler's catch. While another run holds a live
+     * claim, that run owns the outcome: the job and its claim stay as they are.
+     */
+    public function testAFailureBeforeTheClaimLeavesAJobThatALiveRunHolds(): void
+    {
+        $uid  = $this->seedJob();
+        $live = $this->repository();
+        self::assertTrue($live->claimRun($uid));
+        $live->markStatus($uid, JobStatus::Generating, 'generating', 50);
+        $before = $this->row($uid);
+
+        $this->crashingHandler()(new GenerateArtifactsMessage($uid));
+
+        self::assertSame($before, $this->row($uid));
+    }
+
+    /** With the claim expired the failure is recorded and the dead run's claim cleared. */
+    public function testAFailureBeforeTheClaimFailsAJobWhoseClaimExpired(): void
+    {
+        $uid = $this->seedJob();
+        self::assertTrue($this->repository()->claimRun($uid));
+        $this->backdateClaim($uid);
+
+        $this->crashingHandler()(new GenerateArtifactsMessage($uid));
+
+        $row = $this->row($uid);
+        self::assertSame('failed', $row['status']);
+        self::assertSame('', $row['run_token']);
+        self::assertSame(0, (int) $row['run_claimed_at']);
+    }
+
+    /** A job queued again from the backend starts without the claim of an earlier run. */
+    public function testRequeueingAFailedJobClearsItsClaim(): void
+    {
+        $uid = $this->seedJob();
+        $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)->update(
+            self::JOB_TABLE,
+            ['status' => 'failed', 'run_token' => 'left-behind', 'run_claimed_at' => time()],
+            ['uid' => $uid],
+        );
+
+        self::assertTrue($this->repository()->requeueFailed($uid));
+
+        $row = $this->row($uid);
+        self::assertSame('queued', $row['status']);
+        self::assertSame('', $row['run_token']);
+        self::assertSame(0, (int) $row['run_claimed_at']);
+    }
+
+    /** The backend's retry clears artifacts without a claim; a live run's set stays. */
+    public function testAnUnclaimedClearLeavesTheArtifactsOfALiveRun(): void
+    {
+        $uid  = $this->seedJob();
+        $live = $this->repository();
+        self::assertTrue($live->claimRun($uid));
+        $live->insertArtifact($uid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+
+        $this->repository()->deleteArtifactsForJob($uid);
+
+        self::assertSame(1, $this->artifactCount($uid));
+    }
+
+    /** A run that still holds the job but finds its artifact row deleted records a failure. */
+    public function testAnArtifactRowThatIsGoneUnderALiveClaimIsAFailure(): void
+    {
+        $uid  = $this->seedJob();
+        $jobs = $this->repository();
+        self::assertTrue($jobs->claimRun($uid));
+        $artifact = $jobs->insertArtifact($uid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Pending);
+        $file     = $this->createFile('gone.pdf', '%PDF-1.4 gone');
+        $this->get(ConnectionPool::class)->getConnectionForTable(self::ARTIFACT_TABLE)
+            ->delete(self::ARTIFACT_TABLE, ['uid' => $artifact]);
+
+        try {
+            $jobs->updateArtifact($artifact, ['file_uid' => $file]);
+            self::fail('A missing row must not pass as a stored artifact');
+        } catch (ArtifactRowMissingException) {
+            // Expected.
+        }
+
+        self::assertSame(0, $this->get(ConnectionPool::class)->getConnectionForTable('sys_file')->count('uid', 'sys_file', ['uid' => $file]));
+    }
+
+    /**
+     * The stored brief review changes outside any run while this run still holds the job: the
+     * run cannot trust its baseline and fails the job through its claim, which it clears.
+     */
+    public function testASupersededReviewUnderALiveClaimFailsTheJob(): void
+    {
+        $uid                                                                          = $this->seedJob();
+        $pool                                                                         = $this->get(ConnectionPool::class);
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_repurpose']['sourceReviewMode'] = 'observe';
+
+        $config    = $this->get(ExtensionConfiguration::class);
+        $policy    = new SourceReviewPolicy($config);
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions->method('evaluate')->willReturnCallback(static function () use ($pool, $uid): DecisionResult {
+            $pool->getConnectionForTable(self::JOB_TABLE)
+                ->update(self::JOB_TABLE, ['source_review' => '{"mode":"observe","status":"edited"}'], ['uid' => $uid]);
+
+            return SourceReviewFixture::result();
+        });
+        $jobs      = $this->repository();
+        $generator = new ClaimTestGenerator($jobs);
+
+        $this->orchestrator($jobs, [$generator], null, new SourceReviewGate(new SourceReviewService($decisions, $policy), $policy, $jobs))->process($uid);
+
+        $row = $this->row($uid);
+        self::assertSame(0, $generator->runs);
+        self::assertSame('failed', $row['status']);
+        self::assertSame('Source fidelity check failed', $row['error_message']);
+        self::assertSame('', $row['run_token']);
+    }
+
+    /** The container hands the analyzer and the ingestion the worker's own repository. */
+    public function testTheLongStepsRenewThroughTheWorkersRepository(): void
+    {
+        $jobs = $this->get(JobProcessingRepository::class);
+        foreach ([DocumentAnalyzer::class, SourceIngestionService::class] as $class) {
+            $heartbeat = (new ReflectionProperty($class, 'heartbeat'))->getValue($this->get($class));
+            self::assertSame($jobs, $heartbeat, $class);
+        }
+    }
+
+    /** A send that fails once is tried again: the held job keeps its message. */
+    public function testASendThatFailsOnceIsTriedAgain(): void
+    {
+        $uid = $this->seedJob();
+        self::assertTrue($this->repository()->claimRun($uid));
+        $bus = new FailingMessageBus(1);
+
+        $this->handler($bus, $this->repository())(new GenerateArtifactsMessage($uid));
+
+        self::assertSame(2, $bus->attempts);
+        self::assertCount(1, $bus->dispatched);
+    }
+
+    /**
+     * A send that keeps failing is not swallowed: the delivery fails, so the worker logs it, and
+     * the job, which a live run holds, is left as it is.
+     */
+    public function testASendThatKeepsFailingFailsTheDelivery(): void
+    {
+        $uid = $this->seedJob();
+        self::assertTrue($this->repository()->claimRun($uid));
+        $before = $this->row($uid);
+        $bus    = new FailingMessageBus(PHP_INT_MAX);
+
+        try {
+            $this->handler($bus, $this->repository())(new GenerateArtifactsMessage($uid));
+            self::fail('A send that keeps failing must fail the delivery');
+        } catch (TransportException) {
+            // Expected.
+        }
+
+        self::assertSame(3, $bus->attempts);
+        self::assertSame($before, $this->row($uid));
+    }
+
+    private function crashingHandler(): GenerateArtifactsHandler
+    {
+        $orchestrator = new readonly class implements GenerationOrchestratorInterface {
+            public function process(int $jobUid): void
+            {
+                throw new RuntimeException('database gone while reading the job');
+            }
+        };
+
+        return new GenerateArtifactsHandler($orchestrator, $this->repository(), new NullLogger(), new RecordingMessageBus());
+    }
+
     private function repository(): JobProcessingRepository
     {
         return new JobProcessingRepository($this->get(ConnectionPool::class), $this->get(ResourceFactory::class));
@@ -444,7 +668,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     }
 
     /** @param list<ArtifactGeneratorInterface> $generators */
-    private function handler(RecordingMessageBus $bus, JobProcessingRepository $jobs, array $generators = []): GenerateArtifactsHandler
+    private function handler(MessageBusInterface $bus, JobProcessingRepository $jobs, array $generators = []): GenerateArtifactsHandler
     {
         return new GenerateArtifactsHandler($this->orchestrator($jobs, $generators), $jobs, new NullLogger(), $bus);
     }
@@ -537,5 +761,27 @@ final class ClaimTestGenerator implements ArtifactGeneratorInterface
         $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
 
         return true;
+    }
+}
+
+/** Fails the first $failures sends, then records like RecordingMessageBus. */
+final class FailingMessageBus implements MessageBusInterface
+{
+    public int $attempts = 0;
+
+    /** @var list<object> */
+    public array $dispatched = [];
+
+    public function __construct(private readonly int $failures) {}
+
+    public function dispatch(object $message, array $stamps = []): Envelope
+    {
+        if (++$this->attempts <= $this->failures) {
+            throw new TransportException('queue table unavailable');
+        }
+
+        $this->dispatched[] = $message;
+
+        return new Envelope($message);
     }
 }

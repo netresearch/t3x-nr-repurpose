@@ -15,12 +15,15 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
+use Netresearch\NrRepurpose\Exception\ArtifactRowMissingException;
 use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
+use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
 use Random\Randomizer;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Database\ReferenceIndex;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -29,7 +32,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Plain DBAL persistence for the long-running Messenger worker.
  * Avoids Extbase persistence-session pitfalls in a recycled consumer process.
  */
-class JobProcessingRepository
+class JobProcessingRepository implements RunHeartbeatInterface
 {
     private const string JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
 
@@ -46,10 +49,11 @@ class JobProcessingRepository
      * once its redeliver_timeout has passed (3600 s: TYPO3 passes only queue_name, so Symfony's
      * default applies). That delivery can take the job over only when the claim has expired by
      * then, so the lease has to be well below 3600 s. A live run must not lose its claim
-     * between two writes: every write of the run renews the claim, and the longest step without
-     * one is bounded by the 300 s limits of a provider call (the HTTP timeout the worker
-     * documentation asks for, the image request) and of the ffmpeg slideshow. 900 s is three of
-     * those.
+     * between two renewals: every write of the run renews the claim, and so does renew() before
+     * every PDF page and every map-reduce chunk, the stretches that write nothing to the job.
+     * The longest step between two renewals is then one provider call, OCR page, chunk or ffmpeg
+     * slideshow, bounded by 300 s (the HTTP timeout the worker documentation asks for, the image
+     * request, the slideshow's process limit). 900 s is three of those.
      */
     public const int RUN_LEASE_SECONDS = 900;
 
@@ -90,10 +94,7 @@ class JobProcessingRepository
                         Connection::PARAM_STR_ARRAY,
                     ),
                 ),
-                $expr->or(
-                    $expr->eq('run_token', $queryBuilder->createNamedParameter('')),
-                    $expr->lt('run_claimed_at', $queryBuilder->createNamedParameter($now - self::RUN_LEASE_SECONDS, Connection::PARAM_INT)),
-                ),
+                $this->freeClaim($queryBuilder, $now),
             )
             ->executeStatement() === 1;
 
@@ -102,6 +103,37 @@ class JobProcessingRepository
         }
 
         return $claimed;
+    }
+
+    /**
+     * Renew this process's claim in a long stretch without a write to the job: per OCR page,
+     * per map-reduce chunk (#238). Without a claim it does nothing.
+     *
+     * @throws RunOwnershipLostException
+     */
+    public function renew(int $jobUid): void
+    {
+        $this->renewClaim($jobUid);
+    }
+
+    /** Whether no live run holds the job: no claim, or one older than the lease. */
+    private function claimIsFree(int $jobUid): bool
+    {
+        $row = $this->findRow($jobUid);
+
+        return $row === null
+            || ScalarCast::string($row['run_token'] ?? '') === ''
+            || ScalarCast::int($row['run_claimed_at'] ?? 0) < time() - self::RUN_LEASE_SECONDS;
+    }
+
+    private function freeClaim(QueryBuilder $queryBuilder, int $now): string
+    {
+        $expr = $queryBuilder->expr();
+
+        return (string) $expr->or(
+            $expr->eq('run_token', $queryBuilder->createNamedParameter('')),
+            $expr->lt('run_claimed_at', $queryBuilder->createNamedParameter($now - self::RUN_LEASE_SECONDS, Connection::PARAM_INT)),
+        );
     }
 
     /** Drop this process's token for the job once its run has ended; writes nothing. */
@@ -217,8 +249,33 @@ class JobProcessingRepository
         $this->forgetRun($jobUid);
     }
 
+    /**
+     * Without a claim of this process (the Messenger handler's catch for a failure before the
+     * claim), only a job that no live run holds is marked failed; a run that holds one owns
+     * its outcome (#238).
+     */
     public function markFailed(int $jobUid, string $error, FailureReason $reason): void
     {
+        if (!isset($this->runTokens[$jobUid])) {
+            $now          = time();
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::JOB_TABLE);
+            $queryBuilder
+                ->update(self::JOB_TABLE)
+                ->set('status', JobStatus::Failed->value)
+                ->set('error_message', $error)
+                ->set('failure_reason', $reason->value)
+                ->set('tstamp', $now)
+                ->set('run_token', '')
+                ->set('run_claimed_at', 0)
+                ->where(
+                    $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($jobUid, Connection::PARAM_INT)),
+                    $this->freeClaim($queryBuilder, $now),
+                )
+                ->executeStatement();
+
+            return;
+        }
+
         $this->updateJob(
             $jobUid,
             ['status' => JobStatus::Failed->value, 'error_message' => $error, 'failure_reason' => $reason->value, 'tstamp' => time()],
@@ -244,6 +301,8 @@ class JobProcessingRepository
                 'source_report'     => '',
                 'language_detected' => '',
                 'tstamp'            => time(),
+                'run_token'         => '',
+                'run_claimed_at'    => 0,
             ],
             ['uid' => $jobUid, 'status' => JobStatus::Failed->value],
         ) === 1;
@@ -332,9 +391,14 @@ class JobProcessingRepository
      */
     public function deleteArtifactsForJob(int $jobUid): void
     {
-        // Under a claim, only the run that holds it clears the set; a retry from the backend
-        // runs without one, on a failed job that no run holds.
-        $this->renewClaim($jobUid);
+        // Under a claim, only the run that holds it clears the set. A retry from the backend
+        // runs without one and leaves a set alone that a live run holds (#238).
+        if (isset($this->runTokens[$jobUid])) {
+            $this->renewClaim($jobUid);
+        } elseif (!$this->claimIsFree($jobUid)) {
+            return;
+        }
+
         $connection = $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE);
 
         /** @var list<array{file_uid: int|string|null, subtitle_file_uid: int|string|null}> $rows */
@@ -417,8 +481,8 @@ class JobProcessingRepository
         );
         if ($jobUid === 0) {
             // The row is gone: a run that took the job over cleared the set, or a retry did.
-            // The file meant for it is nobody's; and a run of this process that lost its job
-            // stops here rather than at its next write to the job.
+            // The file meant for it is nobody's. A run of this process that lost its job stops
+            // here; one that still holds it records the failure instead of a silent success.
             foreach (['file_uid', 'subtitle_file_uid'] as $column) {
                 $this->deleteFalFile(ScalarCast::int($update[$column] ?? 0));
             }
@@ -427,7 +491,7 @@ class JobProcessingRepository
                 $this->assertOwnership($heldJob, $token);
             }
 
-            return;
+            throw new ArtifactRowMissingException(sprintf('Artifact %d no longer exists', $artifactUid), 1795000003);
         }
 
         try {

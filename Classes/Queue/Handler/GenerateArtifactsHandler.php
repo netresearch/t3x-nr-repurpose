@@ -34,6 +34,8 @@ use Throwable;
 #[AsMessageHandler]
 final readonly class GenerateArtifactsHandler
 {
+    private const int DISPATCH_ATTEMPTS = 3;
+
     public function __construct(
         private GenerationOrchestratorInterface $orchestrator,
         private JobProcessingRepository $jobs,
@@ -52,16 +54,41 @@ final readonly class GenerateArtifactsHandler
             // and the message takes the job over; or the claim is still live and the message
             // is sent again. A live run that lasts long sees one such message per lease.
             // Same transport pin as JobSubmissionService::dispatch().
-            $this->bus->dispatch(
-                new GenerateArtifactsMessage($message->jobUid),
-                [
-                    new TransportNamesStamp(['doctrine']),
-                    new DelayStamp(JobProcessingRepository::RUN_LEASE_SECONDS * 1000),
-                ],
-            );
+            $this->dispatchAgain($message->jobUid);
         } catch (Throwable $e) {
             $this->logger->error('Generation job crashed', ['job' => $message->jobUid, 'exception' => $e]);
             $this->jobs->markFailed($message->jobUid, 'Generation failed', FailureClassifier::reasonFor($e));
+        }
+    }
+
+    /**
+     * The message that comes back after one lease. A failed send is tried twice more, then
+     * rethrown: TYPO3 Core has no retry strategy, so Messenger rejects the delivery, which
+     * deletes it from the doctrine queue, and the job keeps its status until it is queued
+     * again. Rethrowing at least leaves the failure in the worker log, and a rejection that
+     * fails as well (the database the send failed on) leaves the message in the queue for
+     * the next redelivery.
+     */
+    private function dispatchAgain(int $jobUid): void
+    {
+        for ($attempt = 1;; ++$attempt) {
+            try {
+                $this->bus->dispatch(
+                    new GenerateArtifactsMessage($jobUid),
+                    [
+                        new TransportNamesStamp(['doctrine']),
+                        new DelayStamp(JobProcessingRepository::RUN_LEASE_SECONDS * 1000),
+                    ],
+                );
+
+                return;
+            } catch (Throwable $e) {
+                if ($attempt >= self::DISPATCH_ATTEMPTS) {
+                    $this->logger->critical('A held job could not be queued again', ['job' => $jobUid, 'exception' => $e]);
+
+                    throw $e;
+                }
+            }
         }
     }
 }

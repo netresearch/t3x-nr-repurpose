@@ -72,14 +72,22 @@ Split submission from execution over a Symfony Messenger transport.
    ``run_claimed_at``, in one statement that only an unfinished job passes
    whose claim is empty or older than the lease of 900 seconds. Every later
    write of the run (status, progress, failure, source review, artifact rows)
-   is bound to that token and renews the claim. A run whose token is gone stops
-   and writes nothing further; a finished job holds no claim. A delivery that
+   is bound to that token and renews the claim; the PDF ingestion renews it
+   before every page and the analysis before every map-reduce chunk, the two
+   stretches that otherwise write nothing to the job. A run whose token is
+   gone stops and writes nothing further; a finished job holds no claim, and a
+   failed job that is queued again starts without one. A failure before the
+   claim is recorded only on a job that no live run holds. A delivery that
    finds a live claim writes nothing and sends the message again with a delay
    of one lease. When it comes back, the other run has finished and the message
    does nothing, or the other run's worker is gone, its claim has expired and
    the message takes the job over, or the claim is still live and the message
    is sent again. A run that lasts long therefore sees one such message per
-   lease.
+   lease. A send that fails is tried three times and then fails the delivery;
+   Messenger then rejects the message, which deletes it from the queue, unless
+   the rejection fails as well. A live owner still finishes the job; if the
+   owner's worker is dead, the job keeps its unfinished status, and the
+   backend's retry, which only takes failed jobs, cannot restart it.
 
 The same orchestrator is reachable synchronously via the
 ``nr_repurpose:generate`` CLI command, so ops and tests can run the exact
@@ -104,8 +112,10 @@ Consequences
   a silently lost message.
 - The lease is a constant. It has to stay below the transport's 3600 seconds so
   that the delivery after a dead worker finds the claim expired, and above the
-  longest stretch a live run spends without a write, which the 300-second
-  limits of a provider call and of the ffmpeg slideshow bound. A live run that
-  spends more than 900 seconds without a write, for example a long map-reduce
-  analysis, can be taken over by the delayed message; it then stops at its next
-  write, and the new run starts from the beginning.
+  longest stretch a live run spends without renewing its claim. One provider
+  call, one OCR page, one map-reduce chunk or one ffmpeg slideshow is bounded
+  by 300 seconds. A live run that still goes 900 seconds without a renewal can
+  be taken over by the delayed message; it then stops at its next write, and
+  the new run starts from the beginning.
+- ``nr_repurpose:generate`` exits with an error when the job is failed or not
+  finished after the run, including a run that lost the job to another one.

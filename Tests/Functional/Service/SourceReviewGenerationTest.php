@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
+use LogicException;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
@@ -45,6 +46,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 
 final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
 {
@@ -67,6 +69,34 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
         );
 
         return (int) $connection->lastInsertId();
+    }
+
+    /**
+     * A second run in its own process: invoked with a job uid, it takes the job over from the
+     * run under test as a delivery after an expired lease does.
+     */
+    private function otherRun(): JobProcessingRepository
+    {
+        $pool = $this->get(ConnectionPool::class);
+
+        return new class ($pool, $this->get(ResourceFactory::class)) extends JobProcessingRepository {
+            public function __construct(private readonly ConnectionPool $pool, ResourceFactory $files)
+            {
+                parent::__construct($pool, $files);
+            }
+
+            public function __invoke(int $jobUid): void
+            {
+                $this->pool->getConnectionForTable('tx_nrrepurpose_domain_model_job')->update(
+                    'tx_nrrepurpose_domain_model_job',
+                    ['run_claimed_at' => time() - JobProcessingRepository::RUN_LEASE_SECONDS - 1],
+                    ['uid' => $jobUid],
+                );
+                if (!$this->claimRun($jobUid)) {
+                    throw new LogicException('The other run must take the job over');
+                }
+            }
+        };
     }
 
     private function runJob(
@@ -386,15 +416,18 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
         ];
         $newerJson = json_encode($newerReview, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $winner    = null;
+        $other     = $this->otherRun();
         $decisions = $this->createMock(DecisionServiceInterface::class);
         $decisions
             ->expects(self::once())
             ->method('evaluate')
             ->willReturnCallback(
-                static function () use ($jobs, $uid, $newerReview, &$winner): DecisionResult {
-                    // A second worker finishes its mandatory review while this call is pending.
-                    $jobs->setSourceReview($uid, $newerReview);
-                    $jobs->markFailed(
+                static function () use ($jobs, $other, $uid, $newerReview, &$winner): DecisionResult {
+                    // A second worker takes the job over and finishes its mandatory review
+                    // while this call is pending (#238).
+                    $other($uid);
+                    $other->setSourceReview($uid, $newerReview);
+                    $other->markFailed(
                         $uid,
                         'Winning review rejected the brief.',
                         FailureReason::SourceReview,
@@ -441,22 +474,25 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
         ];
         $winner           = null;
         $winningArtifacts = [];
+        $other            = $this->otherRun();
         $decisions        = $this->createMock(DecisionServiceInterface::class);
         $decisions
             ->expects(self::once())
             ->method('evaluate')
             ->willReturnCallback(
-                static function () use ($jobs, $uid, $newerReview, $winningStatus, $artifacts, &$winner, &$winningArtifacts): DecisionResult {
-                    // The other worker completes while this worker's external review is pending.
-                    $jobs->setSourceReview($uid, $newerReview);
-                    $artifactUid = $jobs->insertArtifact(
+                static function () use ($jobs, $other, $uid, $newerReview, $winningStatus, $artifacts, &$winner, &$winningArtifacts): DecisionResult {
+                    // The other worker takes the job over and completes while this worker's
+                    // external review is pending (#238).
+                    $other($uid);
+                    $other->setSourceReview($uid, $newerReview);
+                    $artifactUid = $other->insertArtifact(
                         $uid,
                         ArtifactType::SocialPost,
                         'linkedin',
                         0,
                         ArtifactStatus::Done,
                     );
-                    $jobs->updateArtifact(
+                    $other->updateArtifact(
                         $artifactUid,
                         [
                             'script_text'   => 'Winning final copy',
@@ -476,7 +512,7 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
                         ['uid' => $artifactUid],
                     );
                     if ($winningStatus === JobStatus::PartiallyDone) {
-                        $jobs->insertArtifact(
+                        $other->insertArtifact(
                             $uid,
                             ArtifactType::Handout,
                             'default',
@@ -485,7 +521,7 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
                         );
                     }
 
-                    $jobs->finishJob($uid, $winningStatus, '');
+                    $other->finishJob($uid, $winningStatus, '');
                     $winner           = $jobs->findRow($uid);
                     $winningArtifacts = $artifacts->select(
                         ['*'],
