@@ -245,8 +245,9 @@ final class PodcastGenerator extends AbstractGenerator
             $metadata['aiLabel'] = $provenance->toArray();
             $metadata += $this->guardrailHintsMetadata($hints);
 
-            $this->jobs->updateArtifact(
+            return $this->storeArtifact(
                 $artifactUid,
+                $jobUid,
                 [
                     'file_uid'          => $mp3File->getUid(),
                     'subtitle_file_uid' => $vttFile->getUid(),
@@ -255,8 +256,6 @@ final class PodcastGenerator extends AbstractGenerator
                     'status'            => ArtifactStatus::Done->value,
                 ],
             );
-
-            return true;
         } catch (Throwable $e) {
             $this->failArtifactFrom(
                 $artifactUid,

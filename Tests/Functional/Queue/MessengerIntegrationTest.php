@@ -13,6 +13,7 @@ use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Queue\Handler\GenerateArtifactsHandler;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
+use Netresearch\NrRepurpose\Service\RunOutcome;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingMessageBus;
@@ -50,9 +51,11 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
         $orchestrator = new class implements GenerationOrchestratorInterface {
             public int $processed = 0;
 
-            public function process(int $jobUid): void
+            public function process(int $jobUid): RunOutcome
             {
                 $this->processed = $jobUid;
+
+                return RunOutcome::Done;
             }
         };
 
@@ -85,7 +88,7 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
         $orchestrator = new readonly class ($cause) implements GenerationOrchestratorInterface {
             public function __construct(private OrchestratorCrashException $cause) {}
 
-            public function process(int $jobUid): void
+            public function process(int $jobUid): RunOutcome
             {
                 throw $this->cause;
             }

@@ -681,6 +681,28 @@ final class StoryGeneratorTest extends TestCase
         self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
     }
 
+    /**
+     * A slide whose row is gone by its final write is not produced (#238): its sibling still is,
+     * and a story whose every slide row is gone counts as failed.
+     */
+    public function testASlideWhoseRowIsGoneIsNotCountedAsProduced(): void
+    {
+        $response = ['slides' => [
+            ['role' => 'cover', 'headline' => 'Big News', 'subline' => 'Details inside'],
+            ['role' => 'outro', 'headline' => 'Takeaway', 'subline' => ''],
+        ]];
+
+        $jobs                   = $this->jobs();
+        $jobs->goneAtFinalWrite = ['slide-1'];
+        self::assertTrue($this->generator($response, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor())->generate($this->context()));
+        self::assertNotSame('done', $jobs->updates[$jobs->uidForVariant('slide-1')]['status'] ?? null);
+        self::assertSame('done', $jobs->updates[$jobs->uidForVariant('slide-2')]['status'] ?? null);
+
+        $jobs                   = $this->jobs();
+        $jobs->goneAtFinalWrite = ['slide-1', 'slide-2'];
+        self::assertFalse($this->generator($response, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor())->generate($this->context()));
+    }
+
     public function testFailedSlideRenderDoesNotAbortSiblingSlides(): void
     {
         $jobs     = $this->jobs();
@@ -1055,6 +1077,9 @@ final class StoryGeneratorTest extends TestCase
             /** @var array<string, int> */
             private array $variantUid = [];
 
+            /** @var list<string> variants whose row is gone when the final write comes (#238) */
+            public array $goneAtFinalWrite = [];
+
             public function __construct() {}
 
             public function insertArtifact(int $jobUid, ArtifactType $type, string $variant, int $fileUid, ArtifactStatus $status, ?string $error = null): int
@@ -1066,9 +1091,15 @@ final class StoryGeneratorTest extends TestCase
                 return $uid;
             }
 
-            public function updateArtifact(int $artifactUid, array $fields): void
+            public function updateArtifact(int $artifactUid, array $fields): bool
             {
+                if (($fields['status'] ?? null) === ArtifactStatus::Done->value && in_array(array_search($artifactUid, $this->variantUid, true), $this->goneAtFinalWrite, true)) {
+                    return false;
+                }
+
                 $this->updates[$artifactUid] = array_merge($this->updates[$artifactUid] ?? [], $fields);
+
+                return true;
             }
 
             public function uidForVariant(string $variant): int

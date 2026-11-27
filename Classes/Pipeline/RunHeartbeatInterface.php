@@ -19,4 +19,12 @@ interface RunHeartbeatInterface
 {
     /** @throws RunOwnershipLostException when another run holds the job now */
     public function renew(int $jobUid): void;
+
+    /**
+     * Renew every claim this process holds; nothing when it holds none (a web request, a run
+     * of another extension). RunClaimRenewalMiddleware calls it before each provider call.
+     *
+     * @throws RunOwnershipLostException when another run holds one of the jobs now
+     */
+    public function renewHeld(): void;
 }

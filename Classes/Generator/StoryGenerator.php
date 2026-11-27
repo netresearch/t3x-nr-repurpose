@@ -140,8 +140,10 @@ class StoryGenerator extends AbstractGenerator
                 0,
                 ArtifactStatus::Pending,
             );
-            $this->jobs->updateArtifact(
+            // The row is gone already (#238): nothing to review or render for this slide.
+            if (!$this->storeArtifact(
                 $artifactUid,
+                $jobUid,
                 [
                     'metadata' => json_encode(
                         [
@@ -152,7 +154,10 @@ class StoryGenerator extends AbstractGenerator
                         JSON_THROW_ON_ERROR,
                     ),
                 ],
-            );
+            )) {
+                continue;
+            }
+
             try {
                 $this->reviewArtifact(
                     $ctx,
@@ -300,8 +305,10 @@ class StoryGenerator extends AbstractGenerator
                 }
             }
 
-            $this->jobs->updateArtifact(
+            // The video does not decide the story's success; a gone row is only logged.
+            $this->storeArtifact(
                 $artifactUid,
+                $jobUid,
                 [
                     'file_uid' => $file->getUid(),
                     'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
@@ -532,15 +539,21 @@ class StoryGenerator extends AbstractGenerator
                 $provenance,
                 $alternative,
             );
-            $this->jobs->updateArtifact(
+            if (!$this->storeArtifact(
                 $artifactUid,
+                $jobUid,
                 [
                     'file_uid'    => $file->getUid(),
                     'source_html' => $html,
                     'metadata'    => json_encode($metadata, JSON_THROW_ON_ERROR),
                     'status'      => ArtifactStatus::Done->value,
                 ],
-            );
+            )) {
+                // Not handed to the caller, so nobody else removes it.
+                $this->discardRenderedFile($pngPath);
+
+                return null;
+            }
 
             return $pngPath;
         } catch (Throwable $e) {

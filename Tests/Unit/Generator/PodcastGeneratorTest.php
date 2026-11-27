@@ -191,9 +191,11 @@ final class PodcastGeneratorTest extends TestCase
                 return $this->nextUid;
             }
 
-            public function updateArtifact(int $artifactUid, array $fields): void
+            public function updateArtifact(int $artifactUid, array $fields): bool
             {
                 $this->updates[$artifactUid] = array_merge($this->updates[$artifactUid] ?? [], $fields);
+
+                return true;
             }
         };
     }

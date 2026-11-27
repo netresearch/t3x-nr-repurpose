@@ -72,9 +72,11 @@ Split submission from execution over a Symfony Messenger transport.
    ``run_claimed_at``, in one statement that only an unfinished job passes
    whose claim is empty or older than the lease of 900 seconds. Every later
    write of the run (status, progress, failure, source review, artifact rows)
-   is bound to that token and renews the claim; the PDF ingestion renews it
-   before every page and the analysis before every map-reduce chunk, the two
-   stretches that otherwise write nothing to the job. A run whose token is
+   is bound to that token and renews the claim. ``RunClaimRenewalMiddleware``,
+   the innermost layer of nr-llm's provider middleware pipeline, renews it
+   before every provider call (completion, structured output, vision,
+   decision, speech, image), and the PDF ingestion before every page, which
+   poppler reads without a provider call. A run whose token is
    gone stops and writes nothing further; a finished job holds no claim, and a
    failed job that is queued again starts without one. A failure before the
    claim is recorded only on an unfinished job that no live run holds. A
@@ -117,11 +119,12 @@ Consequences
   a silently lost message.
 - The lease is a constant. It has to stay below the transport's 3600 seconds so
   that the delivery after a dead worker finds the claim expired, and above the
-  longest stretch a live run spends without renewing its claim. One provider
-  call, one OCR page, one map-reduce chunk or one ffmpeg slideshow is bounded
-  by 300 seconds, and at most two of them run between two renewals: 600
-  seconds against a lease of 900. A live run that still goes 900 seconds
-  without a renewal can
+  longest stretch a live run spends without renewing its claim. At most one
+  bounded provider call (300 seconds) runs between two renewals. A local
+  process after it (Chromium, ffmpeg, poppler) adds at most 300 seconds; the
+  longest stretch is the story video, its review call and then the slideshow
+  render: 600 seconds against a lease of 900. A live run that still goes 900
+  seconds without a renewal can
   be taken over by the delayed message; it then stops at its next write, and
   the new run starts from the beginning.
 - Lease expiry compares ``run_claimed_at``, written with the worker host's

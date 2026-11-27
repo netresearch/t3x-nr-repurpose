@@ -85,21 +85,19 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
      * not configured an actor behaves exactly as before instead of failing in a
      * new way.
      */
-    public function process(int $jobUid): void
+    public function process(int $jobUid): RunOutcome
     {
         $actorUid = $this->technicalActorUid();
 
         // <= 0, not === 0: runAs() takes a positive uid, and a negative one
         // reached it because only zero was filtered. There is no actor below 1.
         if ($actorUid <= 0) {
-            $this->processJob($jobUid);
-
-            return;
+            return $this->processJob($jobUid);
         }
 
-        $this->technicalActor->runAs($actorUid, function () use ($jobUid): void {
-            $this->processJob($jobUid);
-        });
+        $outcome = $this->technicalActor->runAs($actorUid, fn (): RunOutcome => $this->processJob($jobUid));
+
+        return $outcome instanceof RunOutcome ? $outcome : RunOutcome::Failed;
     }
 
     private function technicalActorUid(): int
@@ -113,7 +111,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         }
     }
 
-    private function processJob(int $jobUid): void
+    private function processJob(int $jobUid): RunOutcome
     {
         $row = $this->jobs->findRow($jobUid);
         if ($row === null) {
@@ -122,31 +120,37 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
                 ['job' => $jobUid],
             );
 
-            return;
+            return RunOutcome::NotFound;
         }
 
         // Idempotent: never reprocess a finished job. Checked on the raw status before
         // the row is parsed, so a finished job whose row no longer parses stays as it is.
         if ($this->isFinished($row)) {
-            return;
+            return RunOutcome::AlreadyFinished;
         }
 
         // One run per job (#238): a second delivery while a live run holds the job writes
         // nothing. The claim also refuses a job that finished since the read above.
         if (!$this->jobs->claimRun($jobUid)) {
             $row = $this->jobs->findRow($jobUid);
-            if ($row === null || $this->isFinished($row)) {
-                return;
+            if ($row === null) {
+                return RunOutcome::NotFound;
+            }
+
+            if ($this->isFinished($row)) {
+                return RunOutcome::AlreadyFinished;
             }
 
             throw new RunClaimHeldException(sprintf('Another run holds job %d', $jobUid), 1795000002);
         }
 
         try {
-            $this->runClaimed($jobUid);
+            return $this->runClaimed($jobUid);
         } catch (RunOwnershipLostException $e) {
             // Another run took the job over; it owns the status and the artifacts now.
             $this->logger->warning('Run lost the job to another run, stopping', ['job' => $jobUid, 'exception' => $e]);
+
+            return RunOutcome::Lost;
         } catch (Throwable $e) {
             // A crash past the step handling (a generator that threw, a database error) fails
             // the job here, while the claim binds the write; the Messenger handler's own catch
@@ -156,7 +160,10 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
                 $this->jobs->markFailed($jobUid, 'Generation failed', FailureClassifier::reasonFor($e));
             } catch (RunOwnershipLostException) {
                 // Another run took the job over in between; its outcome stands.
+                return RunOutcome::Lost;
             }
+
+            return RunOutcome::Failed;
         } finally {
             $this->jobs->forgetRun($jobUid);
         }
@@ -171,12 +178,12 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
     }
 
     /** The pipeline of a run that holds the job's claim; every write below is bound to it. */
-    private function runClaimed(int $jobUid): void
+    private function runClaimed(int $jobUid): RunOutcome
     {
         // Read again: the row the claim was won on, not the one read before it.
         $row = $this->jobs->findRow($jobUid);
         if ($row === null) {
-            return;
+            return RunOutcome::NotFound;
         }
 
         // The only conversion of the raw row; everything downstream reads the snapshot.
@@ -185,7 +192,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         } catch (MalformedJobRowException $e) {
             $this->failJob($jobUid, 'Reading the job', $e);
 
-            return;
+            return RunOutcome::Failed;
         }
 
         // 1) Ingestion — turn the source into a SourceDocument.
@@ -199,7 +206,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Ingestion', $e);
 
-            return;
+            return RunOutcome::Failed;
         }
 
         // A page source says what it used and what it left out; the result view shows that.
@@ -215,7 +222,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Analysis', $e);
 
-            return;
+            return RunOutcome::Failed;
         }
 
         // Record the detected language on the job for the BE result view.
@@ -234,7 +241,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             // trust its baseline and fails the job through its claim (#238).
             $this->failJob($jobUid, 'Source fidelity check', $e);
 
-            return;
+            return RunOutcome::Failed;
         }
 
         // 3) Resolve the editor's prompt-snippet selection ONCE for this run (analysis stays
@@ -245,7 +252,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Prompt snippet resolution', $e);
 
-            return;
+            return RunOutcome::Failed;
         }
 
         // 4) Build the shared per-run context.
@@ -341,6 +348,12 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             ],
         };
         $this->jobs->finishJob($jobUid, $final, $error, $reason);
+
+        return match ($final) {
+            JobStatus::Done          => RunOutcome::Done,
+            JobStatus::PartiallyDone => RunOutcome::PartiallyDone,
+            default                  => RunOutcome::Failed,
+        };
     }
 
     /**

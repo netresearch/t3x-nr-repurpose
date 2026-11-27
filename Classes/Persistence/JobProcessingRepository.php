@@ -16,7 +16,6 @@ use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
-use Netresearch\NrRepurpose\Exception\ArtifactRowMissingException;
 use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
@@ -50,11 +49,12 @@ class JobProcessingRepository implements RunHeartbeatInterface
      * once its redeliver_timeout has passed (3600 s: TYPO3 passes only queue_name, so Symfony's
      * default applies). That delivery can take the job over only when the claim has expired by
      * then, so the lease has to be well below 3600 s. A live run must not lose its claim
-     * between two renewals: every write of the run renews the claim, and so does renew() before
-     * every PDF page and every map-reduce chunk, the stretches that write nothing to the job.
-     * Each provider call, OCR page, chunk or ffmpeg slideshow is bounded by 300 s (the HTTP
-     * timeout the worker documentation asks for, the image request, the slideshow's process
-     * limit), and at most two of them run between two renewals: 600 s against a lease of 900 s.
+     * between two renewals: every write of the run renews the claim, RunClaimRenewalMiddleware
+     * renews it before every provider call, and the PDF ingestion before every page. So at most
+     * one bounded call (300 s: the HTTP timeout the worker documentation asks for, the image
+     * request) runs between two renewals. A local process after it (Chromium 60 s, ffmpeg and
+     * poppler up to 300 s) adds to that stretch; the longest is the story video, its review call
+     * and then the slideshow render: 600 s against a lease of 900 s.
      */
     public const int RUN_LEASE_SECONDS = 900;
 
@@ -119,6 +119,13 @@ class JobProcessingRepository implements RunHeartbeatInterface
     public function renew(int $jobUid): void
     {
         $this->renewClaim($jobUid);
+    }
+
+    public function renewHeld(): void
+    {
+        foreach (array_keys($this->runTokens) as $jobUid) {
+            $this->renewClaim($jobUid);
+        }
     }
 
     /** Whether no live run holds the job: no claim, or one older than the lease. */
@@ -499,8 +506,10 @@ class JobProcessingRepository implements RunHeartbeatInterface
      * @param array<string, mixed> $fields keys: file_uid, subtitle_file_uid, source_html,
      *                                     script_text, metadata, status, variant, error_message,
      *                                     failure_reason
+     *
+     * @return bool false when the row no longer exists: nothing was stored (#238)
      */
-    public function updateArtifact(int $artifactUid, array $fields): void
+    public function updateArtifact(int $artifactUid, array $fields): bool
     {
         $allowed = [
             'file_uid',
@@ -522,7 +531,7 @@ class JobProcessingRepository implements RunHeartbeatInterface
         }
 
         if ($update === []) {
-            return;
+            return true;
         }
 
         $jobUid = ScalarCast::int(
@@ -533,7 +542,7 @@ class JobProcessingRepository implements RunHeartbeatInterface
         if ($jobUid === 0) {
             // The row is gone: a run that took the job over cleared the set, or a retry did.
             // The file meant for it is nobody's. A run of this process that lost its job stops
-            // here; one that still holds it records the failure instead of a silent success.
+            // here; otherwise the caller learns from false that nothing was stored (#238).
             foreach (['file_uid', 'subtitle_file_uid'] as $column) {
                 $this->deleteFalFile(ScalarCast::int($update[$column] ?? 0));
             }
@@ -542,7 +551,7 @@ class JobProcessingRepository implements RunHeartbeatInterface
                 $this->assertOwnership($heldJob, $token);
             }
 
-            throw new ArtifactRowMissingException(sprintf('Artifact %d no longer exists', $artifactUid), 1795000003);
+            return false;
         }
 
         try {
@@ -561,6 +570,8 @@ class JobProcessingRepository implements RunHeartbeatInterface
 
         $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)
             ->update(self::ARTIFACT_TABLE, $update, ['uid' => $artifactUid]);
+
+        return true;
     }
 
     /** @param array<string, mixed> $review */

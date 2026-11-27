@@ -11,5 +11,5 @@ namespace Netresearch\NrRepurpose\Service;
 
 interface GenerationOrchestratorInterface
 {
-    public function process(int $jobUid): void;
+    public function process(int $jobUid): RunOutcome;
 }

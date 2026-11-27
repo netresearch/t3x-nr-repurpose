@@ -13,7 +13,6 @@ use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
-use Netresearch\NrRepurpose\Exception\ArtifactRowMissingException;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
@@ -232,10 +231,7 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         return $default;
     }
 
-    /**
-     * Record a previously-inserted artifact row as failed and log the reason. A row that is gone
-     * leaves nothing to record (#238): the format counts as failed, and the next one still runs.
-     */
+    /** Record a previously-inserted artifact row as failed and log the reason. */
     protected function failArtifact(int $artifactUid, int $jobUid, string $reason, FailureReason $failure): void
     {
         $this->logger->warning('Artifact generation failed', [
@@ -243,19 +239,32 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
             'artifact' => $artifactUid,
             'reason'   => $reason,
         ]);
-        try {
-            $this->jobs->updateArtifact($artifactUid, [
-                'status'         => ArtifactStatus::Failed->value,
-                'error_message'  => $reason,
-                'failure_reason' => $failure->value,
-            ]);
-        } catch (ArtifactRowMissingException $e) {
-            $this->logger->warning("The failed artifact's row is gone; nothing to record", [
-                'job'       => $jobUid,
-                'artifact'  => $artifactUid,
-                'exception' => $e,
-            ]);
+        $this->jobs->updateArtifact($artifactUid, [
+            'status'         => ArtifactStatus::Failed->value,
+            'error_message'  => $reason,
+            'failure_reason' => $failure->value,
+        ]);
+    }
+
+    /**
+     * The final write of a format: its result onto its row. False when the row no longer
+     * exists (#238): nothing was stored, so the format counts as failed and is not reported as
+     * produced; the next format still runs.
+     *
+     * @param array<string, mixed> $fields
+     */
+    protected function storeArtifact(int $artifactUid, int $jobUid, array $fields): bool
+    {
+        if ($this->jobs->updateArtifact($artifactUid, $fields)) {
+            return true;
         }
+
+        $this->logger->warning('The artifact row is gone; the format counts as failed', [
+            'job'      => $jobUid,
+            'artifact' => $artifactUid,
+        ]);
+
+        return false;
     }
 
     /**

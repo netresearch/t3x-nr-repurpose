@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Functional\Service;
 
 use Closure;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
 use Netresearch\NrLlm\Testing\FakeBudgetService;
@@ -23,7 +26,6 @@ use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
-use Netresearch\NrRepurpose\Exception\ArtifactRowMissingException;
 use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
 use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
@@ -34,12 +36,14 @@ use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
+use Netresearch\NrRepurpose\Pipeline\RunClaimRenewalMiddleware;
 use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\Queue\Handler\GenerateArtifactsHandler;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
+use Netresearch\NrRepurpose\Service\RunOutcome;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewPointer;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewPolicy;
@@ -47,7 +51,6 @@ use Netresearch\NrRepurpose\SourceReview\SourceReviewService;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingMessageBus;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
-use Netresearch\NrRepurpose\Understanding\DocumentAnalyzer;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -61,7 +64,6 @@ use Symfony\Component\Messenger\Exception\TransportException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
-use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -424,43 +426,53 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertSame('%PDF-1.4 captured', $generator->document->text);
     }
 
-    /** @return iterable<string, array{Closure(JobProcessingRepository, int): void, int}> */
+    /** @return iterable<string, array{RunOutcome|null, int}> null: the run finds the job held */
     public static function commandOutcomes(): iterable
     {
-        yield 'done' => [static function (JobProcessingRepository $jobs, int $uid): void {
-            $jobs->finishJob($uid, JobStatus::Done, '');
-        }, Command::SUCCESS];
-        yield 'partially done' => [static function (JobProcessingRepository $jobs, int $uid): void {
-            $jobs->finishJob($uid, JobStatus::PartiallyDone, '1 of 2 formats failed');
-        }, Command::SUCCESS];
-        yield 'failed' => [static function (JobProcessingRepository $jobs, int $uid): void {
-            $jobs->markFailed($uid, 'Generation failed', FailureReason::Unknown);
-        }, Command::FAILURE];
-        yield 'left running, as a lost run leaves it' => [static function (JobProcessingRepository $jobs, int $uid): void {
-            $jobs->markStatus($uid, JobStatus::Generating, 'generating', 30);
-        }, Command::FAILURE];
-        yield 'held by another run' => [static function (): never {
-            throw new RunClaimHeldException('held', 1);
-        }, Command::FAILURE];
+        yield 'done' => [RunOutcome::Done, Command::SUCCESS];
+        yield 'partially done' => [RunOutcome::PartiallyDone, Command::SUCCESS];
+        yield 'finished before' => [RunOutcome::AlreadyFinished, Command::SUCCESS];
+        yield 'failed' => [RunOutcome::Failed, Command::FAILURE];
+        yield 'lost to another run' => [RunOutcome::Lost, Command::FAILURE];
+        yield 'not found' => [RunOutcome::NotFound, Command::FAILURE];
+        yield 'held by another run' => [null, Command::FAILURE];
     }
 
-    /** The CLI's exit code follows the status the run left, not the absence of an exception. */
+    /** The CLI's exit code follows what this run did, not the absence of an exception. */
     #[DataProvider('commandOutcomes')]
-    public function testTheGenerateCommandExitsWithTheRunsOutcome(Closure $run, int $exitCode): void
+    public function testTheGenerateCommandExitsWithTheRunsOutcome(?RunOutcome $outcome, int $exitCode): void
     {
-        $uid          = $this->seedJob();
-        $jobs         = $this->repository();
-        $orchestrator = new readonly class ($run, $jobs) implements GenerationOrchestratorInterface {
-            public function __construct(private Closure $run, private JobProcessingRepository $jobs) {}
+        $orchestrator = new readonly class ($outcome) implements GenerationOrchestratorInterface {
+            public function __construct(private ?RunOutcome $outcome) {}
 
-            public function process(int $jobUid): void
+            public function process(int $jobUid): RunOutcome
             {
-                ($this->run)($this->jobs, $jobUid);
+                return $this->outcome ?? throw new RunClaimHeldException('held', 1);
             }
         };
-        $tester = new CommandTester(new GenerateCommand($orchestrator, $jobs));
 
-        self::assertSame($exitCode, $tester->execute(['jobUid' => (string) $uid]));
+        self::assertSame($exitCode, (new CommandTester(new GenerateCommand($orchestrator)))->execute(['jobUid' => '1']));
+    }
+
+    /**
+     * A run that loses the job fails on the command line even when the run that took it over
+     * finished it: the command reports this run, not the job's status (#238).
+     */
+    public function testARunThatLostTheJobFailsEvenWhenTheWinnerFinished(): void
+    {
+        $uid       = $this->seedJob();
+        $stale     = $this->repository();
+        $generator = new ClaimTestGenerator($stale, function () use ($uid): void {
+            $this->backdateClaim($uid);
+            $winner = $this->repository();
+            self::assertTrue($winner->claimRun($uid));
+            $winner->finishJob($uid, JobStatus::Done, '');
+        });
+
+        $exitCode = (new CommandTester(new GenerateCommand($this->orchestrator($stale, [$generator]))))->execute(['jobUid' => (string) $uid]);
+
+        self::assertSame('done', $this->row($uid)['status']);
+        self::assertSame(Command::FAILURE, $exitCode);
     }
 
     /**
@@ -527,7 +539,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     }
 
     /** A run that still holds the job but finds its artifact row deleted records a failure. */
-    public function testAnArtifactRowThatIsGoneUnderALiveClaimIsAFailure(): void
+    public function testAnArtifactRowThatIsGoneUnderALiveClaimReportsNothingStored(): void
     {
         $uid  = $this->seedJob();
         $jobs = $this->repository();
@@ -537,13 +549,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         $this->get(ConnectionPool::class)->getConnectionForTable(self::ARTIFACT_TABLE)
             ->delete(self::ARTIFACT_TABLE, ['uid' => $artifact]);
 
-        try {
-            $jobs->updateArtifact($artifact, ['file_uid' => $file]);
-            self::fail('A missing row must not pass as a stored artifact');
-        } catch (ArtifactRowMissingException) {
-            // Expected.
-        }
-
+        self::assertFalse($jobs->updateArtifact($artifact, ['file_uid' => $file]), 'A missing row is not a stored artifact');
         self::assertSame(0, $this->get(ConnectionPool::class)->getConnectionForTable('sys_file')->count('uid', 'sys_file', ['uid' => $file]));
     }
 
@@ -582,10 +588,71 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     public function testTheLongStepsRenewThroughTheWorkersRepository(): void
     {
         $jobs = $this->get(JobProcessingRepository::class);
-        foreach ([DocumentAnalyzer::class, SourceIngestionService::class] as $class) {
-            $heartbeat = (new ReflectionProperty($class, 'heartbeat'))->getValue($this->get($class));
-            self::assertSame($jobs, $heartbeat, $class);
+        self::assertSame($jobs, (new ReflectionProperty(SourceIngestionService::class, 'heartbeat'))->getValue($this->get(SourceIngestionService::class)));
+
+        // Every provider call goes through nr-llm's pipeline; the renewal is its innermost
+        // layer, so it runs directly before each dispatch, fallback attempts included.
+        $middleware = (new ReflectionProperty(MiddlewarePipeline::class, 'middleware'))->getValue($this->get(MiddlewarePipeline::class));
+        self::assertIsArray($middleware);
+        $innermost = end($middleware);
+        self::assertInstanceOf(RunClaimRenewalMiddleware::class, $innermost);
+        self::assertSame($jobs, (new ReflectionProperty(RunClaimRenewalMiddleware::class, 'heartbeat'))->getValue($innermost));
+    }
+
+    /** A provider call through nr-llm's pipeline renews the claim this process holds. */
+    public function testAProviderCallRenewsTheRunsClaim(): void
+    {
+        $uid  = $this->seedJob();
+        $jobs = $this->get(JobProcessingRepository::class);
+        self::assertTrue($jobs->claimRun($uid));
+        $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)
+            ->update(self::JOB_TABLE, ['run_claimed_at' => time() - 600], ['uid' => $uid]);
+        $claimedAtTheCall = null;
+
+        try {
+            $answer = $this->get(MiddlewarePipeline::class)->run(
+                ProviderCallContext::for(ProviderOperation::Chat, []),
+                function () use ($uid, &$claimedAtTheCall): string {
+                    $claimedAtTheCall = (int) $this->row($uid)['run_claimed_at'];
+
+                    return 'answer';
+                },
+            );
+        } finally {
+            $jobs->forgetRun($uid);
         }
+
+        self::assertSame('answer', $answer);
+        self::assertGreaterThanOrEqual(time() - 5, $claimedAtTheCall, 'renewed before the provider call');
+    }
+
+    /** A provider call of a run that lost its job does not happen: the renewal stops the run. */
+    public function testAProviderCallOfALostRunIsNotMade(): void
+    {
+        $uid  = $this->seedJob();
+        $jobs = $this->get(JobProcessingRepository::class);
+        self::assertTrue($jobs->claimRun($uid));
+        $this->backdateClaim($uid);
+        self::assertTrue($this->repository()->claimRun($uid));
+        $called = false;
+
+        try {
+            $this->get(MiddlewarePipeline::class)->run(
+                ProviderCallContext::for(ProviderOperation::Chat, []),
+                static function () use (&$called): string {
+                    $called = true;
+
+                    return 'answer';
+                },
+            );
+            self::fail('A lost run must not make a provider call');
+        } catch (RunOwnershipLostException) {
+            // Expected, unwrapped by nr-llm's middlewares.
+        } finally {
+            $jobs->forgetRun($uid);
+        }
+
+        self::assertFalse($called);
     }
 
     /** A send that fails once is tried again: the held job keeps its message. */
@@ -790,7 +857,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     private function crashingHandler(): GenerateArtifactsHandler
     {
         $orchestrator = new readonly class implements GenerationOrchestratorInterface {
-            public function process(int $jobUid): void
+            public function process(int $jobUid): RunOutcome
             {
                 throw new RuntimeException('database gone while reading the job');
             }
@@ -955,7 +1022,7 @@ final class FailingMessageBus implements MessageBusInterface
     }
 }
 
-/** Inserts its row, loses it (deleted from outside), then fails the way the generators do. */
+/** Inserts its row, loses it (deleted from outside), then makes its final write. */
 final class RowLosingGenerator extends AbstractGenerator
 {
     public function __construct(JobProcessingRepository $jobs, private readonly ConnectionPool $pool)
@@ -973,14 +1040,8 @@ final class RowLosingGenerator extends AbstractGenerator
         $artifactUid = $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'lost', 0, ArtifactStatus::Pending);
         $this->pool->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
             ->delete('tx_nrrepurpose_domain_model_artifact', ['uid' => $artifactUid]);
-        try {
-            $this->jobs->updateArtifact($artifactUid, ['status' => ArtifactStatus::Done->value]);
 
-            return true;
-        } catch (Throwable $e) {
-            $this->failArtifactFrom($artifactUid, $ctx->jobUid(), 'Stub', $e);
-
-            return false;
-        }
+        // The final write, as every generator makes it.
+        return $this->storeArtifact($artifactUid, $ctx->jobUid(), ['status' => ArtifactStatus::Done->value]);
     }
 }

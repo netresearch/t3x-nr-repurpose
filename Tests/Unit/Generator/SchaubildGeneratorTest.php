@@ -768,9 +768,11 @@ final class SchaubildGeneratorTest extends TestCase
                 return $uid;
             }
 
-            public function updateArtifact(int $artifactUid, array $fields): void
+            public function updateArtifact(int $artifactUid, array $fields): bool
             {
                 $this->updates[$artifactUid] = array_merge($this->updates[$artifactUid] ?? [], $fields);
+
+                return true;
             }
 
             public function uidForVariant(string $variant): int

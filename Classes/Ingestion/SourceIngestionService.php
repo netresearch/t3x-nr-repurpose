@@ -57,7 +57,9 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         private LoggerInterface $logger,
         private PageSourceReader $pageSourceReader,
         private ?ExtensionConfiguration $extensionConfiguration = null,
-        // Renews the run's claim per page: OCR of a long PDF writes nothing to the job (#238).
+        // Renews the run's claim per page (#238): a page read by poppler (text, layout) is no
+        // provider call, so RunClaimRenewalMiddleware does not see it, and a long PDF writes
+        // nothing to the job while its pages are read.
         private ?RunHeartbeatInterface $heartbeat = null,
     ) {}
 

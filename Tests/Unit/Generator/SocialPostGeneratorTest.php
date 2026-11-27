@@ -126,13 +126,13 @@ final class SocialPostGeneratorTest extends TextGeneratorTestCase
     {
         // The done-write of the second row (the "x" post) fails; the failure write succeeds.
         $this->jobs = new class extends ArtifactRecordingJobRepository {
-            public function updateArtifact(int $artifactUid, array $fields): void
+            public function updateArtifact(int $artifactUid, array $fields): bool
             {
                 if (($fields['status'] ?? null) === 'done' && $this->inserted[$artifactUid]['variant'] === 'x') {
                     throw new SimulatedStorageFailure('connection lost');
                 }
 
-                parent::updateArtifact($artifactUid, $fields);
+                return parent::updateArtifact($artifactUid, $fields);
             }
         };
 

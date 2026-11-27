@@ -196,6 +196,8 @@ final class SourceIngestionServiceTest extends TestCase
             {
                 $this->renewed[] = $jobUid;
             }
+
+            public function renewHeld(): void {}
         };
 
         $this->service($this->sparsePages(3), heartbeat: $heartbeat)
@@ -213,6 +215,8 @@ final class SourceIngestionServiceTest extends TestCase
             {
                 throw new RunOwnershipLostException('Another run holds job ' . $jobUid, 1795000001);
             }
+
+            public function renewHeld(): void {}
         };
         $service = $this->service($this->sparsePages(2), heartbeat: $heartbeat);
 

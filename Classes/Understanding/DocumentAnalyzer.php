@@ -13,7 +13,6 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
-use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Pipeline\SourceMaterial;
 use Netresearch\NrRepurpose\Service\CallerSource;
 use Netresearch\NrRepurpose\Service\JobLlmOptions;
@@ -61,8 +60,6 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
         private int $chunkThreshold = 24000,
         private int $chunkSize = 12000,
         private int $maxChunks = 100,
-        // Renews the run's claim per chunk: a long map step writes nothing to the job (#238).
-        private ?RunHeartbeatInterface $heartbeat = null,
     ) {}
 
     public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
@@ -79,10 +76,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
             $synthesisInput = $text;
         }
 
-        $prompt = $this->buildSynthesisPrompt($document, $synthesisInput);
-        // Every provider call starts with a renewed claim, so no two calls run back to back
-        // without one (#238).
-        $this->heartbeat?->renew($job->uid);
+        $prompt  = $this->buildSynthesisPrompt($document, $synthesisInput);
         $decoded = $this->completion->completeJson(
             $prompt,
             $this->jsonOptions(self::SYSTEM_PROMPT, $job, CallerSource::ANALYZE_DOCUMENT),
@@ -104,7 +98,6 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
                 . '] and was rejected. Respond again with EXACTLY the JSON keys '
                 . '"title", "summary", "keyPoints", "sections", "audience", "language" '
                 . '— non-empty "title" and "summary" are mandatory.';
-            $this->heartbeat?->renew($job->uid);
             $decoded = $this->completion->completeJson(
                 $prompt,
                 $this->jsonOptions($retrySystemPrompt, $job, CallerSource::ANALYZE_DOCUMENT),
@@ -158,7 +151,6 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
 
         $summaries = [];
         foreach ($chunks as $index => $chunk) {
-            $this->heartbeat?->renew($job->uid);
             $prompt  = SourceMaterial::wrap('SECTION ' . ($index + 1) . ":\n" . $chunk);
             $decoded = $this->completion->completeJson(
                 $prompt,
