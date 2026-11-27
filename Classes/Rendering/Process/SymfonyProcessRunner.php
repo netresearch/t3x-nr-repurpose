@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Rendering\Process;
 
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
+use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Process\Exception\ExceptionInterface;
@@ -26,13 +28,22 @@ use Symfony\Component\Process\Process;
  * the command line (script, input and output paths) or the working directory. Every caller's
  * error reaches an artifact's error_message, which every module user sees, so the Symfony
  * exception goes to the server log and a RenderingException with a fixed message is thrown.
+ *
+ * Chromium, ffmpeg and ffprobe run through here and bypass nr-llm's pipeline, so a generation
+ * run renews its claim before each process (#238); a web request holds no claim.
  */
 final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
 {
-    public function __construct(private LoggerInterface $logger) {}
+    public function __construct(
+        private LoggerInterface $logger,
+        private ?RunHeartbeatInterface $heartbeat = null,
+    ) {}
 
+    /** @throws RunOwnershipLostException when another run holds the job now */
     public function run(array $command, ?string $stdin = null, float $timeoutSeconds = 60.0, array $env = []): ProcessResult
     {
+        $this->heartbeat?->renewHeld();
+
         try {
             // Symfony adds the inherited environment to $env; entries in $env win.
             $process = new Process($command, null, $env);

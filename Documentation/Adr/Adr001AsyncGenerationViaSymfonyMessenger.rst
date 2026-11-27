@@ -120,18 +120,25 @@ Consequences
 - The lease is a constant of 1800 seconds. It stays below the transport's
   3600 seconds, so the delivery after a dead worker normally finds the claim
   expired. It has to exceed the longest stretch a live run spends without
-  renewing its claim. One provider dispatch is not one request: nr-llm retries
-  a failed connection inside it, up to ``max_retries`` + 1 attempts of up to
-  ``api_timeout`` each, with a backoff that doubles from 0.2 up to 30 seconds
-  per retry (111 seconds for 10 retries); a timed-out attempt is not retried.
-  The middleware cannot renew between those attempts
+  renewing its claim. A run renews it with every write, before every provider
+  dispatch, and before every step that bypasses nr-llm's pipeline: each
+  external process (Chromium, ffmpeg, ffprobe, poppler), each page fetch of a
+  URL or page source, and the PDF download. One provider dispatch is not one
+  request: nr-llm retries a failed connection inside it, up to
+  ``max_retries`` + 1 attempts, each bounded by the attempt timeout (an LLM
+  configuration's effective timeout for a call through it, else the
+  provider's ``api_timeout``), with a backoff that doubles from 0.2 up to 30
+  seconds per retry (111 seconds for 10 retries); a timed-out attempt is not
+  retried. The middleware cannot renew between those attempts
   (`netresearch/t3x-nr-llm#1476
   <https://github.com/netresearch/t3x-nr-llm/issues/1476>`__). Local work
   after a call (Chromium, ffmpeg, poppler) adds up to 300 seconds. nr-llm
   allows up to 10 retries of up to 600 seconds, which no lease below 3600
-  seconds covers, so the extension requires ``(max_retries + 1) ×
-  api_timeout`` of at most 1380 seconds for every nr-llm provider record:
-  with the backoff and the local work that stays below 1800 seconds.
+  seconds covers, so the extension requires ``(max_retries + 1)`` × the
+  attempt timeout of at most 1380 seconds for every active nr-llm provider
+  and LLM configuration: with the backoff and the local work that stays below
+  1800 seconds. The worker logs a warning naming each record above it before
+  its first job.
   nr-llm's defaults (3 retries of 120 seconds) and 3 retries of 300 seconds
   fit. A live run that still goes 1800 seconds without a renewal can be taken
   over by the delayed message; it then stops at its next write, and the new

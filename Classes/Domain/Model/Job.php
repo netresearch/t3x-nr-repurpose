@@ -56,13 +56,18 @@ class Job extends AbstractEntity
      * (Chromium 60 s, ffmpeg and poppler up to 300 s) adds up to 300 s.
      *
      * nr-llm allows up to 10 retries of up to 600 s, longer than any lease below 3600 s, so the
-     * lease is fixed and the extension requires, for every nr-llm provider record:
-     * (max_retries + 1) × api_timeout <= 1380 s. nr-llm's defaults (3 retries, 120 s: 480 s)
+     * lease is fixed and the extension requires PROVIDER_DISPATCH_LIMIT_SECONDS for the attempts
+     * of one dispatch: (max_retries + 1) × the attempt timeout, which is an LLM configuration's
+     * effective timeout for a call through it, else the provider's api_timeout. The worker logs
+     * the records above it (ProviderDispatchLimitCheck). nr-llm's defaults (3 retries, 120 s: 480 s)
      * and 3 retries at 300 s (1200 s) fit; with 111 s of backoff and 300 s of local work that is
      * at most 1791 s. The specialized speech and image calls do not retry and are bounded by their own
      * request timeout.
      */
     public const int RUN_LEASE_SECONDS = 1800;
+
+    /** The longest nr-llm dispatch, all attempts together, the lease is sized for (#238). */
+    public const int PROVIDER_DISPATCH_LIMIT_SECONDS = 1380;
 
     protected string $sourceType = 'url';
 

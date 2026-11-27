@@ -153,6 +153,12 @@ services:
   Netresearch\NrRepurpose\Command\GenerateCommand:
     public: true
 
+  # Public so functional tests can check the worker's wiring via $this->get() (#238).
+  Netresearch\NrRepurpose\Queue\Handler\GenerateArtifactsHandler:
+    public: true
+  Netresearch\NrRepurpose\Service\ProviderDispatchLimitCheck:
+    public: true
+
   Netresearch\NrRepurpose\Command\PublishDueCommand:
     public: true
 

@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Unit\Rendering\Process;
 
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Rendering\Process\SymfonyProcessRunner;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingHeartbeat;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -88,5 +90,28 @@ final class SymfonyProcessRunnerTest extends TestCase
         self::assertCount(1, $logger->records);
         self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
         self::assertSame($inner, $logger->records[0]['context']['exception'] ?? null);
+    }
+
+    /**
+     * Chromium, ffmpeg and ffprobe bypass nr-llm's pipeline: a run renews its claim before each
+     * process, and a lost claim stops it before the process starts (#238).
+     */
+    public function testEachProcessRenewsTheRunsClaimFirst(): void
+    {
+        $heartbeat = new RecordingHeartbeat();
+        $runner    = new SymfonyProcessRunner(new NullLogger(), $heartbeat);
+        $runner->run([PHP_BINARY, '-r', 'exit(0);']);
+        $runner->run([PHP_BINARY, '-r', 'exit(0);']);
+        self::assertSame(2, $heartbeat->heldRenewals);
+
+        $marker = sys_get_temp_dir() . '/nrrepurpose_probe_' . getmypid();
+        try {
+            (new SymfonyProcessRunner(new NullLogger(), RecordingHeartbeat::lost()))->run([PHP_BINARY, '-r', 'touch($argv[1]);', $marker]);
+            self::fail('A lost claim must stop the run');
+        } catch (RunOwnershipLostException) {
+            self::assertFileDoesNotExist($marker, 'the process must not start');
+        } finally {
+            @unlink($marker);
+        }
     }
 }

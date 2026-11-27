@@ -245,7 +245,7 @@ final class JobTest extends TestCase
      */
     public function testTheLeaseCoversTheLongestDispatchTheDocumentationAllows(): void
     {
-        $providerLimit = 1380; // (max_retries + 1) × api_timeout, Documentation/Configuration/Worker.rst
+        $providerLimit = Job::PROVIDER_DISPATCH_LIMIT_SECONDS;
         $localWork     = 300;  // ffmpeg and poppler after a call
         $retries       = (new ReflectionClassConstant(AbstractProvider::class, 'MAX_RETRIES_LIMIT'))->getValue();
         self::assertIsInt($retries);

@@ -15,6 +15,7 @@ use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use Netresearch\NrRepurpose\Service\FailureClassifier;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
+use Netresearch\NrRepurpose\Service\ProviderDispatchLimitCheck;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -42,10 +43,14 @@ final readonly class GenerateArtifactsHandler
         private JobProcessingRepository $jobs,
         private LoggerInterface $logger,
         private MessageBusInterface $bus,
+        private ?ProviderDispatchLimitCheck $providerLimit = null,
     ) {}
 
     public function __invoke(GenerateArtifactsMessage $message): void
     {
+        // Before the worker's first job: an nr-llm call longer than the lease (#238).
+        $this->providerLimit?->warnOnce();
+
         try {
             $this->orchestrator->process($message->jobUid);
         } catch (RunClaimHeldException) {

@@ -13,11 +13,13 @@ use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Psr7\HttpFactory;
 use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\RequestOptions;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Ingestion\HostResolverInterface;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\RemoteSourceGuard;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingHeartbeat;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use PHPUnit\Framework\TestCase;
 
@@ -207,5 +209,28 @@ final class WebPageFetcherTest extends TestCase
         $doc = (new WebPageFetcher($this->client(200, $body), new HttpFactory(), StaticHostResolver::publicGuard()))->fetch('https://example.com/big');
 
         self::assertSame(WebPageFetcher::MAX_BYTES - strlen($prefix) - strlen($suffix), strlen($doc->text));
+    }
+
+    /**
+     * A page fetch bypasses nr-llm's pipeline, and a page source fetches one page after the
+     * other: each fetch renews the run's claim first, and a lost claim sends no request (#238).
+     */
+    public function testEachFetchRenewsTheRunsClaimFirst(): void
+    {
+        $page      = '<html><body><main>Text</main></body></html>';
+        $http      = new QueuedHttpClient(new Response(200, [], $page), new Response(200, [], $page));
+        $heartbeat = new RecordingHeartbeat();
+        $fetcher   = new WebPageFetcher($http->client, new HttpFactory(), StaticHostResolver::publicGuard(), $heartbeat);
+        $fetcher->fetch('https://example.com/a');
+        $fetcher->fetch('https://example.com/b');
+        self::assertSame(2, $heartbeat->heldRenewals);
+
+        $http = QueuedHttpClient::answering(200, $page);
+        try {
+            (new WebPageFetcher($http->client, new HttpFactory(), StaticHostResolver::publicGuard(), RecordingHeartbeat::lost()))->fetch('https://example.com/a');
+            self::fail('A lost claim must stop the run');
+        } catch (RunOwnershipLostException) {
+            self::assertSame(1, $http->unconsumed(), 'no request is sent');
+        }
     }
 }

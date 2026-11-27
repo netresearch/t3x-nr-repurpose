@@ -134,19 +134,19 @@ class JobProcessingRepository implements RunHeartbeatInterface
         );
     }
 
-    /** The done artifact rows of the job the outer statement updates, as a subquery. */
-    private function doneArtifactsOf(QueryBuilder $queryBuilder): string
+    /**
+     * The jobs that have a done artifact, as a subquery for ExpressionBuilder::notIn(). Its
+     * parameter is bound on the outer statement, which runs it.
+     */
+    private function jobsWithDoneArtifacts(QueryBuilder $queryBuilder): string
     {
         $artifacts = $this->connectionPool->getQueryBuilderForTable(self::ARTIFACT_TABLE);
         $artifacts->getRestrictions()->removeAll();
 
         return $artifacts
-            ->select('a.uid')
-            ->from(self::ARTIFACT_TABLE, 'a')
-            ->where(
-                $artifacts->expr()->eq('a.job', $artifacts->quoteIdentifier(self::JOB_TABLE . '.uid')),
-                $artifacts->expr()->eq('a.status', $queryBuilder->createNamedParameter(ArtifactStatus::Done->value)),
-            )
+            ->select('job')
+            ->from(self::ARTIFACT_TABLE)
+            ->where($artifacts->expr()->eq('status', $queryBuilder->createNamedParameter(ArtifactStatus::Done->value)))
             ->getSQL();
     }
 
@@ -326,7 +326,7 @@ class JobProcessingRepository implements RunHeartbeatInterface
 
     /**
      * Back into the queue. One statement that only a failed job passes, or a stalled one: not
-     * finished, no write for Job::STALLED_AFTER, no live run holding it and no finished artifact,
+     * finished, written once but not for Job::STALLED_AFTER, no live run holding it and no finished artifact,
      * as a run whose worker died and whose message is gone leaves it (#238); for a stalled job
      * these are the conditions Job::isRetryable() offers the button under. Of two clicks, or of two people, one run
      * starts: the caller dispatches only when this returns true.
@@ -360,10 +360,12 @@ class JobProcessingRepository implements RunHeartbeatInterface
                     $expr->eq('status', $queryBuilder->createNamedParameter(JobStatus::Failed->value)),
                     $expr->and(
                         $this->unfinished($queryBuilder),
+                        // As Job::getFailure(): a job never written is not stalled.
+                        $expr->gt('tstamp', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                         $expr->lt('tstamp', $queryBuilder->createNamedParameter($now - Job::STALLED_AFTER, Connection::PARAM_INT)),
                         $this->freeClaim($queryBuilder, $now),
                         // A new run deletes every artifact; a stalled job's finished ones stay.
-                        'NOT EXISTS (' . $this->doneArtifactsOf($queryBuilder) . ')',
+                        $expr->notIn('uid', $this->jobsWithDoneArtifacts($queryBuilder)),
                     ),
                 ),
             )

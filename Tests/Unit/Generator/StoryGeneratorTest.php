@@ -24,6 +24,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\StoryGenerator;
 use Netresearch\NrRepurpose\Generator\Support\StorySlide;
@@ -703,6 +704,27 @@ final class StoryGeneratorTest extends TestCase
         self::assertFalse($this->generator($response, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor())->generate($this->context()));
     }
 
+    /** A slide whose final write finds the job lost removes its PNG before the run stops (#238). */
+    public function testASlideLostAtItsFinalWriteLeavesNoRenderedFile(): void
+    {
+        $response = ['slides' => [
+            ['role' => 'cover', 'headline' => 'Big News', 'subline' => 'Details inside'],
+            ['role' => 'outro', 'headline' => 'Takeaway', 'subline' => ''],
+        ]];
+        $jobs                   = $this->jobs();
+        $jobs->lostAtFinalWrite = ['slide-1'];
+
+        $renderer = $this->renderer();
+
+        try {
+            $this->generator($response, $renderer, $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor())->generate($this->context());
+            self::fail('A lost claim must stop the run');
+        } catch (RunOwnershipLostException) {
+            self::assertCount(1, $renderer->outputs);
+            $this->assertAllGone($renderer->outputs);
+        }
+    }
+
     /** A slide row gone before its review is skipped with a line that names the slide (#238). */
     public function testASlideRowGoneBeforeItsReviewIsLoggedAsASkippedSlide(): void
     {
@@ -1102,6 +1124,9 @@ final class StoryGeneratorTest extends TestCase
             /** @var list<string> variants whose row is gone from the first write on (#238) */
             public array $gone = [];
 
+            /** @var list<string> variants another run takes over at the final write (#238) */
+            public array $lostAtFinalWrite = [];
+
             public function __construct() {}
 
             public function insertArtifact(int $jobUid, ArtifactType $type, string $variant, int $fileUid, ArtifactStatus $status, ?string $error = null): int
@@ -1116,6 +1141,10 @@ final class StoryGeneratorTest extends TestCase
             public function updateArtifact(int $artifactUid, array $fields): bool
             {
                 $variant = array_search($artifactUid, $this->variantUid, true);
+                if (($fields['status'] ?? null) === ArtifactStatus::Done->value && in_array($variant, $this->lostAtFinalWrite, true)) {
+                    throw new RunOwnershipLostException('Another run holds job 7 now', 1795000001);
+                }
+
                 if (in_array($variant, $this->gone, true) || (($fields['status'] ?? null) === ArtifactStatus::Done->value && in_array($variant, $this->goneAtFinalWrite, true))) {
                     return false;
                 }

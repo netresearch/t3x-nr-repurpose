@@ -503,8 +503,9 @@ class StoryGenerator extends AbstractGenerator
             'aiLabel' => $provenance->toArray(),
         ] + $this->guardrailHintsMetadata($hints);
 
-        $fgPath  = null;
-        $pngPath = null;
+        $fgPath     = null;
+        $pngPath    = null;
+        $handedOver = false;
         try {
             $html = $this->renderSlideHtml(
                 $ctx,
@@ -554,11 +555,10 @@ class StoryGenerator extends AbstractGenerator
                     'status'      => ArtifactStatus::Done->value,
                 ],
             )) {
-                // Not handed to the caller, so nobody else removes it.
-                $this->discardRenderedFile($pngPath);
-
                 return null;
             }
+
+            $handedOver = true;
 
             return $pngPath;
         } catch (Throwable $e) {
@@ -575,13 +575,16 @@ class StoryGenerator extends AbstractGenerator
                 sprintf('Story slide %d/%d', $index, $total),
                 $e,
             );
-            // Not handed to the caller, so nobody else removes it.
-            $this->discardRenderedFile($pngPath);
 
             return null;
         } finally {
             // The transparent foreground is composited into $pngPath and not needed after.
             $this->discardRenderedFile($fgPath);
+            // A slide not handed to the caller is removed here, also when a lost claim (#238)
+            // ends the run from the final write or the failure write.
+            if (!$handedOver) {
+                $this->discardRenderedFile($pngPath);
+            }
         }
     }
 

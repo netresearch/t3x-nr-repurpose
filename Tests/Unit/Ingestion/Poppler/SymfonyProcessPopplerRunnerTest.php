@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion\Poppler;
 
 use Netresearch\NrRepurpose\Exception\PopplerProcessFailedException;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Ingestion\Poppler\SymfonyProcessPopplerRunner;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\ProcessTimeoutAssertions;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingHeartbeat;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\SlowExecutable;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -63,6 +65,32 @@ final class SymfonyProcessPopplerRunnerTest extends TestCase
             );
         } finally {
             $slow->remove();
+        }
+    }
+
+    /** Each poppler process renews the run's claim first; a lost claim starts none (#238). */
+    public function testEachPopplerProcessRenewsTheRunsClaimFirst(): void
+    {
+        $heartbeat = new RecordingHeartbeat();
+        $runner    = new SymfonyProcessPopplerRunner(new RecordingLogger(), '/nonexistent/pdftoppm', '/nonexistent/pdftotext', 5.0, $heartbeat);
+        foreach ([static fn (): string => $runner->rasterizePage('/nonexistent.pdf', 1), static fn (): string => $runner->extractLayout('/nonexistent.pdf', 1)] as $call) {
+            try {
+                $call();
+            } catch (PopplerProcessFailedException) {
+                // The binary is missing; only the renewal before it counts here.
+            }
+        }
+
+        self::assertSame(2, $heartbeat->heldRenewals);
+
+        $lost = new SymfonyProcessPopplerRunner(new RecordingLogger(), '/nonexistent/pdftoppm', '/nonexistent/pdftotext', 5.0, RecordingHeartbeat::lost());
+        foreach ([static fn (): string => $lost->rasterizePage('/nonexistent.pdf', 1), static fn (): string => $lost->extractLayout('/nonexistent.pdf', 1)] as $call) {
+            try {
+                $call();
+                self::fail('A lost claim must stop the run');
+            } catch (RunOwnershipLostException) {
+                // Thrown before the process, so no PopplerProcessFailedException.
+            }
         }
     }
 }

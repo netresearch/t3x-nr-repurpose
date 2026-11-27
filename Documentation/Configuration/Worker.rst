@@ -46,9 +46,13 @@ HTTP request that created the job returns immediately and the
    a job at a time: a second delivery while the first run is alive changes
    nothing and is sent again after 30 minutes; the delivery after a dead
    worker takes the job over once the dead run has written nothing for 30
-   minutes. A provider call must not outlast that: for every nr-llm provider
-   record, ``(max_retries + 1) × api_timeout`` must stay at or below 1380
-   seconds (nr-llm's defaults, 3 retries of 120 seconds, give 480).
+   minutes. A provider call must not outlast that: for every active nr-llm
+   provider and LLM configuration, ``max_retries`` + 1 times the attempt
+   timeout must stay at or below 1380 seconds. The attempt timeout is the
+   configuration's timeout for a call through a configuration, else the
+   provider's ``api_timeout``; nr-llm's defaults, 3 retries of 120 seconds,
+   give 480. Before its first job the worker logs a warning that names every
+   record above the limit; it checks again after a restart.
 
    The claim lives in the job columns ``run_token`` and ``run_claimed_at``.
    When installing a version that adds them, stop every worker first, update

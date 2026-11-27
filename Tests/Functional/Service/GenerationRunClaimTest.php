@@ -30,6 +30,7 @@ use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
 use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
+use Netresearch\NrRepurpose\Generator\StoryGenerator;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
@@ -82,6 +83,9 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     private const string JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
 
     private const string ARTIFACT_TABLE = 'tx_nrrepurpose_domain_model_artifact';
+
+    /** The stalled-jobs data provider's idle time for a job whose tstamp is 0. */
+    private const int NEVER_WRITTEN = -1;
 
     /** A second delivery while the first run holds a live claim starts nothing and writes nothing. */
     public function testASecondRunIsBlockedWhileTheFirstHoldsALiveClaim(): void
@@ -455,7 +459,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
             }
         };
 
-        self::assertSame($exitCode, (new CommandTester(new GenerateCommand($orchestrator)))->execute(['jobUid' => '1']));
+        self::assertSame($exitCode, (new CommandTester(new GenerateCommand($orchestrator, $this->repository())))->execute(['jobUid' => '1']));
     }
 
     /** A job that had failed before this run stays a failure on the command line (#238). */
@@ -463,11 +467,31 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     {
         $uid = $this->seedJob();
         $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)
-            ->update(self::JOB_TABLE, ['status' => 'failed'], ['uid' => $uid]);
+            ->update(self::JOB_TABLE, ['status' => 'failed', 'error_message' => 'Source fidelity check failed', 'failure_reason' => 'source_review'], ['uid' => $uid]);
 
-        $exitCode = (new CommandTester(new GenerateCommand($this->orchestrator($this->repository(), []))))->execute(['jobUid' => (string) $uid]);
+        $tester   = new CommandTester(new GenerateCommand($this->orchestrator($this->repository(), []), $this->repository()));
+        $exitCode = $tester->execute(['jobUid' => (string) $uid]);
 
         self::assertSame(Command::FAILURE, $exitCode);
+        self::assertStringContainsString('Error: Source fidelity check failed (reason: source_review)', $tester->getDisplay());
+    }
+
+    /** A run that fails the job names the error and the reason on the command line (#238). */
+    public function testTheGenerateCommandNamesTheFailure(): void
+    {
+        $uid = $this->seedJob();
+        $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)
+            ->update(self::JOB_TABLE, ['status' => 'failed', 'error_message' => 'No text extracted', 'failure_reason' => 'source_empty'], ['uid' => $uid]);
+        $orchestrator = new readonly class implements GenerationOrchestratorInterface {
+            public function process(int $jobUid): RunOutcome
+            {
+                return RunOutcome::Failed;
+            }
+        };
+
+        $tester = new CommandTester(new GenerateCommand($orchestrator, $this->repository()));
+        self::assertSame(Command::FAILURE, $tester->execute(['jobUid' => (string) $uid]));
+        self::assertStringContainsString('Error: No text extracted (reason: source_empty)', $tester->getDisplay());
     }
 
     /**
@@ -505,7 +529,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
             $winner->finishJob($uid, JobStatus::Done, '');
         });
 
-        $exitCode = (new CommandTester(new GenerateCommand($this->orchestrator($stale, [$generator]))))->execute(['jobUid' => (string) $uid]);
+        $exitCode = (new CommandTester(new GenerateCommand($this->orchestrator($stale, [$generator]), $stale)))->execute(['jobUid' => (string) $uid]);
 
         self::assertSame('done', $this->row($uid)['status']);
         self::assertSame(Command::FAILURE, $exitCode);
@@ -623,8 +647,21 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     /** The container hands the analyzer and the ingestion the worker's own repository. */
     public function testTheLongStepsRenewThroughTheWorkersRepository(): void
     {
-        $jobs = $this->get(JobProcessingRepository::class);
-        self::assertSame($jobs, (new ReflectionProperty(SourceIngestionService::class, 'heartbeat'))->getValue($this->get(SourceIngestionService::class)));
+        $jobs      = $this->get(JobProcessingRepository::class);
+        $ingestion = $this->get(SourceIngestionService::class);
+        self::assertSame($jobs, $this->property($ingestion, 'heartbeat'));
+
+        // Every step that bypasses nr-llm's pipeline renews first: each page fetch (url and page
+        // sources), the PDF download, each poppler process, each Chromium and ffmpeg process.
+        $fetcher = $this->property($ingestion, 'webPageFetcher');
+        self::assertIsObject($fetcher);
+        self::assertSame($jobs, $this->property($fetcher, 'heartbeat'));
+        $pageFetcher = $this->property($this->property($ingestion, 'pageSourceReader'), 'fetcher');
+        self::assertSame($fetcher, $pageFetcher);
+        self::assertSame($jobs, $this->property($this->get(PdfFileResolver::class), 'heartbeat'));
+        self::assertSame($jobs, $this->property($this->property($this->property($ingestion, 'layoutExtractor'), 'poppler'), 'heartbeat'));
+        $renderer = $this->property($this->get(StoryGenerator::class), 'renderer');
+        self::assertSame($jobs, $this->property($this->property($renderer, 'processRunner'), 'heartbeat'));
 
         // Every provider call goes through nr-llm's pipeline; the renewal is its innermost
         // layer, so it runs directly before each dispatch, fallback attempts included.
@@ -815,6 +852,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         yield 'stalled, live claim' => [Job::STALLED_AFTER + 60, 'live', false];
         yield 'written recently, no claim' => [60, 'none', false];
         yield 'stalled, no claim, a finished artifact' => [Job::STALLED_AFTER + 60, 'none', false, true];
+        yield 'never written, no claim' => [self::NEVER_WRITTEN, 'none', false];
     }
 
     /**
@@ -832,7 +870,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
 
         $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)->update(self::JOB_TABLE, [
             'status'         => 'generating',
-            'tstamp'         => time() - $idle,
+            'tstamp'         => $idle === self::NEVER_WRITTEN ? 0 : time() - $idle,
             'run_token'      => $claim === 'none' ? '' : 'dead-or-alive',
             'run_claimed_at' => match ($claim) {
                 'none'    => 0,
@@ -951,6 +989,13 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     private function handler(MessageBusInterface $bus, JobProcessingRepository $jobs, array $generators = []): GenerateArtifactsHandler
     {
         return new GenerateArtifactsHandler($this->orchestrator($jobs, $generators), $jobs, new NullLogger(), $bus);
+    }
+
+    private function property(mixed $object, string $name): mixed
+    {
+        self::assertIsObject($object);
+
+        return (new ReflectionProperty($object, $name))->getValue($object);
     }
 
     private function seedJob(): int

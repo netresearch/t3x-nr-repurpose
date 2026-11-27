@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Ingestion;
 use GuzzleHttp\ClientInterface;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
+use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Source\SourceAccess;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -52,6 +53,7 @@ class PdfFileResolver
         private readonly RequestFactoryInterface $requestFactory,
         private readonly RemoteSourceGuard $guard,
         private readonly SourceAccess $sourceAccess = new SourceAccess(),
+        private readonly ?RunHeartbeatInterface $heartbeat = null,
     ) {}
 
     public function resolve(JobSnapshot $job): string
@@ -105,7 +107,9 @@ class PdfFileResolver
         if ($file->getStorage()->getDriverType() !== self::LOCAL_DRIVER) {
             // Any other driver would copy the file into var/transient for local
             // processing, and nothing removes that copy. A copy of our own is
-            // removed by release() once it has been read.
+            // removed by release() once it has been read. The read can be remote (#238).
+            $this->heartbeat?->renewHeld();
+
             return $this->writeDownload($file->getContents());
         }
 
@@ -157,6 +161,9 @@ class PdfFileResolver
         $request = $this->guard->createRequest($this->requestFactory, 'GET', $url)
             ->withHeader('User-Agent', 'nr_repurpose/0.1 (+https://www.netresearch.de)')
             ->withHeader('Accept', 'application/pdf');
+
+        // The download bypasses nr-llm's pipeline (#238).
+        $this->heartbeat?->renewHeld();
 
         try {
             $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);
