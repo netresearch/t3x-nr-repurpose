@@ -16,7 +16,7 @@
 - [ ] Commits are signed (`-S`) and signed-off (`--signoff`)
 - [ ] Commits follow [Conventional Commits](https://www.conventionalcommits.org/) format
 - [ ] Tests added/updated for changed behavior
-- [ ] Documentation updated (README, AGENTS.md, CHANGELOG, or inline docs)
+- [ ] Documentation updated (README, AGENTS.md, a `changelog.d/` fragment, or inline docs)
 - [ ] CI passes (lint, tests, static analysis)
 
 ## Retro

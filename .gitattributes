@@ -27,3 +27,4 @@
 /.gitignore export-ignore
 /.editorconfig export-ignore
 /.semgrepignore export-ignore
+/changelog.d/ export-ignore
