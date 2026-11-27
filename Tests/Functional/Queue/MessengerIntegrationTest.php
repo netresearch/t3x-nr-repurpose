@@ -15,6 +15,7 @@ use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingMessageBus;
 use Psr\Log\NullLogger;
 use RuntimeException;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -59,6 +60,7 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
             $orchestrator,
             $this->get(JobProcessingRepository::class),
             new NullLogger(),
+            new RecordingMessageBus(),
         );
 
         $handler(new GenerateArtifactsMessage($jobUid));
@@ -89,7 +91,7 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
             }
         };
 
-        $handler = new GenerateArtifactsHandler($orchestrator, $jobs, $logger);
+        $handler = new GenerateArtifactsHandler($orchestrator, $jobs, $logger, new RecordingMessageBus());
         $handler(new GenerateArtifactsMessage($jobUid));
 
         $row = $jobs->findRow($jobUid);

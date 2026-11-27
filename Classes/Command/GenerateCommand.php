@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Command;
 
+use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -39,7 +40,14 @@ final class GenerateCommand extends Command
     {
         $jobUid = ScalarCast::int($input->getArgument('jobUid'));
         $output->writeln(sprintf('<info>Processing job #%d …</info>', $jobUid));
-        $this->orchestrator->process($jobUid);
+        try {
+            $this->orchestrator->process($jobUid);
+        } catch (RunClaimHeldException) {
+            $output->writeln(sprintf('<error>Job #%d is being processed by another run; nothing was done.</error>', $jobUid));
+
+            return Command::FAILURE;
+        }
+
         $output->writeln('<info>Done.</info>');
 
         return Command::SUCCESS;

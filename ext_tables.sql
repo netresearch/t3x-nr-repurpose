@@ -33,6 +33,8 @@ CREATE TABLE tx_nrrepurpose_domain_model_job (
     language_detected varchar(16) DEFAULT '' NOT NULL,
     be_user int unsigned DEFAULT 0 NOT NULL,
     artifacts int unsigned DEFAULT 0 NOT NULL,
+    run_token varchar(32) DEFAULT '' NOT NULL,
+    run_claimed_at int unsigned DEFAULT 0 NOT NULL,
 
     PRIMARY KEY (uid),
     KEY parent (pid)

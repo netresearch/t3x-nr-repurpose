@@ -62,6 +62,22 @@ Split submission from execution over a Symfony Messenger transport.
    missing or already in a terminal status, so redelivery (or a manual
    re-dispatch) never reprocesses or duplicates artifacts.
 
+5. **One run owns a job.** The doctrine transport hands a message out again
+   while its first delivery still runs once its ``redeliver_timeout`` (3600
+   seconds) has passed, and after a worker died. Before ingestion a run claims
+   the job: it writes a random token and the time into ``run_token`` and
+   ``run_claimed_at``, in one statement that only an unfinished job passes
+   whose claim is empty or older than the lease of 900 seconds. Every later
+   write of the run (status, progress, failure, source review, artifact rows)
+   is bound to that token and renews the claim. A run whose token is gone stops
+   and writes nothing further; a finished job holds no claim. A delivery that
+   finds a live claim writes nothing and sends the message again with a delay
+   of one lease. When it comes back, the other run has finished and the message
+   does nothing, or the other run's worker is gone, its claim has expired and
+   the message takes the job over, or the claim is still live and the message
+   is sent again. A run that lasts long therefore sees one such message per
+   lease.
+
 The same orchestrator is reachable synchronously via the
 ``nr_repurpose:generate`` CLI command, so ops and tests can run the exact
 pipeline without a consumer.
@@ -83,3 +99,10 @@ Consequences
   later Core version adds one, the handler can be revisited.
 - A crashed run always leaves a ``failed`` job with an error message rather than
   a silently lost message.
+- The lease is a constant. It has to stay below the transport's 3600 seconds so
+  that the delivery after a dead worker finds the claim expired, and above the
+  longest stretch a live run spends without a write, which the 300-second
+  limits of a provider call and of the ffmpeg slideshow bound. A live run that
+  spends more than 900 seconds without a write, for example a long map-reduce
+  analysis, can be taken over by the delayed message; it then stops at its next
+  write, and the new run starts from the beginning.

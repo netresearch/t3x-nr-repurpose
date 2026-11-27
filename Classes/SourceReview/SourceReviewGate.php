@@ -62,7 +62,7 @@ final readonly class SourceReviewGate
             'content brief',
             $forceEnforce,
         );
-        $review['sourcePointerHash'] = $sourcePointerHash ?? $this->captureSource($row);
+        $review['sourcePointerHash'] = $sourcePointerHash ?? $this->captureSource($row)->hash;
         if (!$this->jobs->compareAndSetSourceReview($job->uid, $review, $previous)) {
             throw new SourceReviewSupersededException();
         }
@@ -125,8 +125,8 @@ final readonly class SourceReviewGate
     /** Capture before ingestion; later edits must not become evidence for an older document.
      * @param array<string, mixed> $row
      */
-    public function captureSource(array $row): string
+    public function captureSource(array $row): SourceCapture
     {
-        return $this->sourcePointer?->fingerprint($row) ?? SourceReviewPolicy::sourcePointerHash($row);
+        return $this->sourcePointer?->capture($row) ?? new SourceCapture(SourceReviewPolicy::sourcePointerHash($row));
     }
 }

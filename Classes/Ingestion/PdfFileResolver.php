@@ -16,7 +16,9 @@ use Netresearch\NrRepurpose\Source\SourceAccess;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Random\Randomizer;
+use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\FileRepository;
 
 /**
@@ -87,14 +89,7 @@ class PdfFileResolver
      */
     private function resolveFalFile(JobSnapshot $job): string
     {
-        $jobUid     = $job->uid;
-        $references = $jobUid > 0 ? $this->fileRepository->findByRelation(self::JOB_TABLE, 'source_pdf', $jobUid) : [];
-        // findByRelation() leaves out a reference whose sys_file no longer exists.
-        if ($references === []) {
-            throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441);
-        }
-
-        $file    = $references[0]->getOriginalFile();
+        $file    = $this->attachedFile($job);
         $fileUid = $file->getUid();
 
         if ($job->beUser > 0) {
@@ -118,6 +113,31 @@ class PdfFileResolver
         }
 
         return $localPath;
+    }
+
+    /**
+     * The file the source review fingerprinted before ingestion, when it did: an edit of the
+     * reference since then must not swap the file the review names (#238). Otherwise the
+     * job's first reference.
+     */
+    private function attachedFile(JobSnapshot $job): File
+    {
+        if ($job->sourceFileUid > 0) {
+            try {
+                return $this->fileRepository->findByUid($job->sourceFileUid);
+            } catch (RuntimeException) {
+                // findByUid() throws a plain RuntimeException for a sys_file row that is gone.
+                throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441);
+            }
+        }
+
+        $references = $job->uid > 0 ? $this->fileRepository->findByRelation(self::JOB_TABLE, 'source_pdf', $job->uid) : [];
+        // findByRelation() leaves out a reference whose sys_file no longer exists.
+        if ($references === []) {
+            throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441);
+        }
+
+        return $references[0]->getOriginalFile();
     }
 
     private function downloadUrl(string $url): string

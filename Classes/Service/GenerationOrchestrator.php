@@ -15,6 +15,8 @@ use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Exception\MalformedJobRowException;
+use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
@@ -24,6 +26,7 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
+use Netresearch\NrRepurpose\SourceReview\SourceCapture;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewRejectedException;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewSupersededException;
@@ -125,8 +128,55 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
 
         // Idempotent: never reprocess a finished job. Checked on the raw status before
         // the row is parsed, so a finished job whose row no longer parses stays as it is.
+        if ($this->isFinished($row)) {
+            return;
+        }
+
+        // One run per job (#238): a second delivery while a live run holds the job writes
+        // nothing. The claim also refuses a job that finished since the read above.
+        if (!$this->jobs->claimRun($jobUid)) {
+            $row = $this->jobs->findRow($jobUid);
+            if ($row === null || $this->isFinished($row)) {
+                return;
+            }
+
+            throw new RunClaimHeldException(sprintf('Another run holds job %d', $jobUid), 1795000002);
+        }
+
+        try {
+            $this->runClaimed($jobUid);
+        } catch (RunOwnershipLostException $e) {
+            // Another run took the job over; it owns the status and the artifacts now.
+            $this->logger->warning('Run lost the job to another run, stopping', ['job' => $jobUid, 'exception' => $e]);
+        } catch (Throwable $e) {
+            // A crash past the step handling (a generator that threw, a database error) fails
+            // the job here, while the claim binds the write; the Messenger handler's own catch
+            // is left with failures before the claim. Fixed text, as there (#77).
+            $this->logger->error('Generation job crashed', ['job' => $jobUid, 'exception' => $e]);
+            try {
+                $this->jobs->markFailed($jobUid, 'Generation failed', FailureClassifier::reasonFor($e));
+            } catch (RunOwnershipLostException) {
+                // Another run took the job over in between; its outcome stands.
+            }
+        } finally {
+            $this->jobs->forgetRun($jobUid);
+        }
+    }
+
+    /** @param array<string, mixed> $row */
+    private function isFinished(array $row): bool
+    {
         $status = $row['status'] ?? null;
-        if (is_string($status) && JobStatus::tryFrom($status)?->isTerminal() === true) {
+
+        return is_string($status) && JobStatus::tryFrom($status)?->isTerminal() === true;
+    }
+
+    /** The pipeline of a run that holds the job's claim; every write below is bound to it. */
+    private function runClaimed(int $jobUid): void
+    {
+        // Read again: the row the claim was won on, not the one read before it.
+        $row = $this->jobs->findRow($jobUid);
+        if ($row === null) {
             return;
         }
 
@@ -142,8 +192,11 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         // 1) Ingestion — turn the source into a SourceDocument.
         $this->jobs->markStatus($jobUid, JobStatus::Ingesting, 'ingesting', 5);
         try {
-            $sourcePointerHash = $this->sourceReview?->captureSource($row);
-            $document          = $this->ingestion->ingest($job);
+            $capture = $this->sourceReview?->captureSource($row);
+            // Ingestion reads the file the fingerprint names, not the reference read again.
+            $document = $this->ingestion->ingest(
+                $capture instanceof SourceCapture && $capture->fileUid > 0 ? $job->withSourceFileUid($capture->fileUid) : $job,
+            );
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Ingestion', $e);
 
@@ -173,7 +226,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
                 $job,
                 $document,
                 $brief,
-                $sourcePointerHash,
+                $capture?->hash,
             ) ?? [];
         } catch (SourceReviewSupersededException) {
             // The winning run owns the job state and artifacts; leave both untouched.
@@ -300,6 +353,11 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
      */
     private function failJob(int $jobUid, string $step, Throwable $e): void
     {
+        // A run that lost the job writes no failure either.
+        if ($e instanceof RunOwnershipLostException) {
+            throw $e;
+        }
+
         $this->logger->error(
             $step . ' failed',
             ['job' => $jobUid, 'exception' => $e],

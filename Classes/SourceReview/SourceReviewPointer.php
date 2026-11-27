@@ -22,12 +22,24 @@ final readonly class SourceReviewPointer
     /** @param array<string, mixed> $jobRow */
     public function fingerprint(array $jobRow): string
     {
+        return $this->capture($jobRow)->hash;
+    }
+
+    /**
+     * The fingerprint and the file of the first reference whose sys_file exists, the one
+     * ingestion would pick, both from one read of the references (#238).
+     *
+     * @param array<string, mixed> $jobRow
+     */
+    public function capture(array $jobRow): SourceCapture
+    {
+        $fileUid                          = 0;
         $jobRow['_source_pdf_references'] = [];
         if (($jobRow['source_type'] ?? null) === SourceType::PdfFal->value) {
             $query      = $this->connectionPool->getQueryBuilderForTable('sys_file_reference');
             $expr       = $query->expr();
             $references = $query
-                ->select('r.uid', 'r.uid_local', 'r.sorting_foreign', 'f.sha1')
+                ->select('r.uid', 'r.uid_local', 'r.sorting_foreign', 'f.sha1', 'f.uid AS file_found')
                 ->from('sys_file_reference', 'r')
                 ->leftJoin(
                     'r',
@@ -71,8 +83,15 @@ final readonly class SourceReviewPointer
                 ],
                 $references,
             );
+            foreach ($references as $reference) {
+                if ($reference['file_found'] !== null) {
+                    $fileUid = ScalarCast::int($reference['uid_local']);
+
+                    break;
+                }
+            }
         }
 
-        return SourceReviewPolicy::sourcePointerHash($jobRow);
+        return new SourceCapture(SourceReviewPolicy::sourcePointerHash($jobRow), $fileUid);
     }
 }

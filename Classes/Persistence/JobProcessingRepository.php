@@ -15,6 +15,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
@@ -37,10 +38,131 @@ class JobProcessingRepository
 
     private const string SOURCE_PDF_FIELD = 'source_pdf';
 
+    /**
+     * How long a run's claim on a job holds without a write of that run (#238).
+     *
+     * A worker that dies leaves its message in the doctrine transport, which hands it out again
+     * once its redeliver_timeout has passed (3600 s: TYPO3 passes only queue_name, so Symfony's
+     * default applies). That delivery can take the job over only when the claim has expired by
+     * then, so the lease has to be well below 3600 s. A live run must not lose its claim
+     * between two writes: every write of the run renews the claim, and the longest step without
+     * one is bounded by the 300 s limits of a provider call (the HTTP timeout the worker
+     * documentation asks for, the image request) and of the ffmpeg slideshow. 900 s is three of
+     * those.
+     */
+    public const int RUN_LEASE_SECONDS = 900;
+
+    /**
+     * The token of the run this process holds, per job uid. A worker runs one message at a
+     * time; two runs of one job are two processes, each with its own repository instance.
+     *
+     * @var array<int, string>
+     */
+    private array $runTokens = [];
+
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         private readonly ResourceFactory $resourceFactory,
     ) {}
+
+    /**
+     * Claim the job for this run: one statement that only an unfinished job passes whose claim
+     * is empty or older than the lease, so of two runs one wins (#238). The winner's later
+     * writes are bound to its token; a run that does not win writes nothing.
+     */
+    public function claimRun(int $jobUid): bool
+    {
+        $token        = bin2hex(random_bytes(16));
+        $now          = time();
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::JOB_TABLE);
+        $expr         = $queryBuilder->expr();
+        $claimed      = $queryBuilder
+            ->update(self::JOB_TABLE)
+            ->set('run_token', $token)
+            ->set('run_claimed_at', $now)
+            ->where(
+                $expr->eq('uid', $queryBuilder->createNamedParameter($jobUid, Connection::PARAM_INT)),
+                $expr->notIn(
+                    'status',
+                    $queryBuilder->createNamedParameter(
+                        array_map(static fn (JobStatus $s): string => $s->value, array_values(array_filter(JobStatus::cases(), static fn (JobStatus $s): bool => $s->isTerminal()))),
+                        Connection::PARAM_STR_ARRAY,
+                    ),
+                ),
+                $expr->or(
+                    $expr->eq('run_token', $queryBuilder->createNamedParameter('')),
+                    $expr->lt('run_claimed_at', $queryBuilder->createNamedParameter($now - self::RUN_LEASE_SECONDS, Connection::PARAM_INT)),
+                ),
+            )
+            ->executeStatement() === 1;
+
+        if ($claimed) {
+            $this->runTokens[$jobUid] = $token;
+        }
+
+        return $claimed;
+    }
+
+    /** Drop this process's token for the job once its run has ended; writes nothing. */
+    public function forgetRun(int $jobUid): void
+    {
+        unset($this->runTokens[$jobUid]);
+    }
+
+    /**
+     * Update the job row. Under a claim of this process, only while the row still carries its
+     * token, and the write renews the claim. Without a claim (the backend, a test) by uid alone.
+     *
+     * A terminal write ($release) also clears the claim: a failed job that is queued again
+     * starts with no claim on it.
+     *
+     * @param array<string, mixed> $fields
+     *
+     * @throws RunOwnershipLostException
+     */
+    private function updateJob(int $jobUid, array $fields, bool $release = false): void
+    {
+        $connection = $this->connectionPool->getConnectionForTable(self::JOB_TABLE);
+        $token      = $this->runTokens[$jobUid] ?? null;
+        if ($token === null) {
+            $connection->update(self::JOB_TABLE, $fields, ['uid' => $jobUid]);
+
+            return;
+        }
+
+        $fields += $release ? ['run_token' => '', 'run_claimed_at' => 0] : ['run_claimed_at' => time()];
+        if ($connection->update(self::JOB_TABLE, $fields, ['uid' => $jobUid, 'run_token' => $token]) === 0) {
+            $this->assertOwnership($jobUid, $token);
+        }
+    }
+
+    /**
+     * Renew this process's claim before a write to another table (artifact rows, FAL files):
+     * after it, the claim cannot expire for a lease, so no other run takes the job over
+     * before the write that follows.
+     *
+     * @throws RunOwnershipLostException
+     */
+    private function renewClaim(int $jobUid): void
+    {
+        if (isset($this->runTokens[$jobUid])) {
+            $this->updateJob($jobUid, ['run_claimed_at' => time()]);
+        }
+    }
+
+    /**
+     * MySQL and MariaDB report changed rather than matched rows, so a write within the same
+     * second that changes nothing reports 0 although the row carries the token: read it.
+     *
+     * @throws RunOwnershipLostException
+     */
+    private function assertOwnership(int $jobUid, string $token): void
+    {
+        // The token stays with the run: every later write of it fails the same way.
+        if (($this->findRow($jobUid)['run_token'] ?? null) !== $token) {
+            throw new RunOwnershipLostException(sprintf('Another run holds job %d now', $jobUid), 1795000001);
+        }
+    }
 
     /** @return array<string, mixed>|null */
     public function findRow(int $jobUid): ?array
@@ -63,8 +185,7 @@ class JobProcessingRepository
             $fields['progress'] = $progress;
         }
 
-        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)
-            ->update(self::JOB_TABLE, $fields, ['uid' => $jobUid]);
+        $this->updateJob($jobUid, $fields);
     }
 
     /**
@@ -75,11 +196,12 @@ class JobProcessingRepository
      */
     public function finishJob(int $jobUid, JobStatus $status, string $error, ?FailureReason $reason = null): void
     {
+        $this->renewClaim($jobUid);
         $artifacts = $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)
             ->count('uid', self::ARTIFACT_TABLE, ['job' => $jobUid]);
 
-        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
-            self::JOB_TABLE,
+        $this->updateJob(
+            $jobUid,
             [
                 'status'         => $status->value,
                 'current_step'   => 'done',
@@ -89,17 +211,19 @@ class JobProcessingRepository
                 'artifacts'      => $artifacts,
                 'tstamp'         => time(),
             ],
-            ['uid' => $jobUid],
+            true,
         );
+        $this->forgetRun($jobUid);
     }
 
     public function markFailed(int $jobUid, string $error, FailureReason $reason): void
     {
-        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
-            self::JOB_TABLE,
+        $this->updateJob(
+            $jobUid,
             ['status' => JobStatus::Failed->value, 'error_message' => $error, 'failure_reason' => $reason->value, 'tstamp' => time()],
-            ['uid' => $jobUid],
+            true,
         );
+        $this->forgetRun($jobUid);
     }
 
     /**
@@ -126,21 +250,13 @@ class JobProcessingRepository
 
     public function setLanguageDetected(int $jobUid, string $language): void
     {
-        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
-            self::JOB_TABLE,
-            ['language_detected' => $language, 'tstamp' => time()],
-            ['uid' => $jobUid],
-        );
+        $this->updateJob($jobUid, ['language_detected' => $language, 'tstamp' => time()]);
     }
 
     /** What a page source used, left out or was cut by; the result view shows it (ADR-010). */
     public function setSourceReport(int $jobUid, SourceReport $report): void
     {
-        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
-            self::JOB_TABLE,
-            ['source_report' => $report->toJson(), 'tstamp' => time()],
-            ['uid' => $jobUid],
-        );
+        $this->updateJob($jobUid, ['source_report' => $report->toJson(), 'tstamp' => time()]);
     }
 
     /**
@@ -186,6 +302,7 @@ class JobProcessingRepository
         ArtifactStatus $status,
         ?string $error = null,
     ): int {
+        $this->renewClaim($jobUid);
         $conn = $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE);
         $conn->insert(self::ARTIFACT_TABLE, [
             'pid'           => 0,
@@ -214,6 +331,9 @@ class JobProcessingRepository
      */
     public function deleteArtifactsForJob(int $jobUid): void
     {
+        // Under a claim, only the run that holds it clears the set; a retry from the backend
+        // runs without one, on a failed job that no run holds.
+        $this->renewClaim($jobUid);
         $connection = $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE);
 
         /** @var list<array{file_uid: int|string|null, subtitle_file_uid: int|string|null}> $rows */
@@ -227,8 +347,7 @@ class JobProcessingRepository
         }
 
         $connection->delete(self::ARTIFACT_TABLE, ['job' => $jobUid]);
-        $this->connectionPool->getConnectionForTable(self::JOB_TABLE)
-            ->update(self::JOB_TABLE, ['artifacts' => 0], ['uid' => $jobUid]);
+        $this->updateJob($jobUid, ['artifacts' => 0]);
     }
 
     /**
@@ -290,6 +409,23 @@ class JobProcessingRepository
             return;
         }
 
+        $jobUid = ScalarCast::int(
+            $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)
+                ->select(['job'], self::ARTIFACT_TABLE, ['uid' => $artifactUid])
+                ->fetchOne(),
+        );
+        try {
+            $this->renewClaim($jobUid);
+        } catch (RunOwnershipLostException $e) {
+            // The file this run stored for the row is nobody's now: the run that holds the job
+            // clears the rows and writes its own files.
+            foreach (['file_uid', 'subtitle_file_uid'] as $column) {
+                $this->deleteFalFile(ScalarCast::int($update[$column] ?? 0));
+            }
+
+            throw $e;
+        }
+
         $update['tstamp'] = time();
 
         $this->connectionPool->getConnectionForTable(self::ARTIFACT_TABLE)
@@ -340,6 +476,13 @@ class JobProcessingRepository
                     ),
                 ),
             );
+        $token = $this->runTokens[$jobUid] ?? null;
+        if ($token !== null) {
+            $queryBuilder
+                ->set('run_claimed_at', time())
+                ->andWhere($queryBuilder->expr()->eq('run_token', $queryBuilder->createNamedParameter($token)));
+        }
+
         if ($expected === null) {
             $queryBuilder->andWhere(
                 $queryBuilder->expr()->isNull('source_review'),
@@ -355,6 +498,10 @@ class JobProcessingRepository
 
         if ($queryBuilder->executeStatement() > 0) {
             return true;
+        }
+
+        if ($token !== null) {
+            $this->assertOwnership($jobUid, $token);
         }
 
         // Some drivers report changed rather than matched rows for an identical write.

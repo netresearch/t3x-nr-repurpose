@@ -39,6 +39,17 @@ HTTP request that created the job returns immediately and the
    rethrow — otherwise the message would be lost with no record. See
    :ref:`adr-001`.
 
+.. note::
+
+   The transport hands a message out again while its first delivery still
+   runs, once 3600 seconds have passed, and after a worker died. One run owns
+   a job at a time: a second delivery while the first run is alive changes
+   nothing and is sent again after 15 minutes; the delivery after a dead
+   worker takes the job over once the dead run has written nothing for 15
+   minutes. The claim lives in the job columns ``run_token`` and
+   ``run_claimed_at``; update the database schema after installing a version
+   that adds them. See :ref:`adr-001`.
+
 .. _configuration-http:
 
 HTTP timeouts

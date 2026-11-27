@@ -1,0 +1,1 @@
+- Update the database schema (Admin Tools > Maintenance > Analyze Database Structure, or `vendor/bin/typo3 extension:setup`): the job table gets the columns `run_token` and `run_claimed_at`, which the generation worker writes from this version on ([#238](https://github.com/netresearch/t3x-nr-repurpose/issues/238)).

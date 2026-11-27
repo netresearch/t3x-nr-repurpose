@@ -1,0 +1,451 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrRepurpose\Tests\Functional\Service;
+
+use Closure;
+use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
+use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
+use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
+use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
+use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
+use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
+use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
+use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
+use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
+use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
+use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
+use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
+use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
+use Netresearch\NrRepurpose\Queue\Handler\GenerateArtifactsHandler;
+use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
+use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
+use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewPointer;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewPolicy;
+use Netresearch\NrRepurpose\SourceReview\SourceReviewService;
+use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingMessageBus;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
+use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
+use Netresearch\NrVault\Security\TechnicalActorContextInterface;
+use Psr\Log\NullLogger;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
+use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\StorageRepository;
+
+/**
+ * Two runs of one job (#238): the transport hands a message out again while its first
+ * delivery still runs, or after the worker running it died. Each run gets its own repository
+ * instance, as two worker processes have.
+ */
+final class GenerationRunClaimTest extends AbstractFunctionalTestCase
+{
+    private const string JOB_TABLE = 'tx_nrrepurpose_domain_model_job';
+
+    private const string ARTIFACT_TABLE = 'tx_nrrepurpose_domain_model_artifact';
+
+    /** A second delivery while the first run holds a live claim starts nothing and writes nothing. */
+    public function testASecondRunIsBlockedWhileTheFirstHoldsALiveClaim(): void
+    {
+        $uid   = $this->seedJob();
+        $first = $this->repository();
+        self::assertTrue($first->claimRun($uid));
+        $first->markStatus($uid, JobStatus::Generating, 'generating', 40);
+        $before = $this->row($uid);
+
+        $second    = $this->repository();
+        $generator = new ClaimTestGenerator($second);
+        try {
+            $this->orchestrator($second, [$generator])->process($uid);
+            self::fail('The second run must not pass the claim');
+        } catch (RunClaimHeldException) {
+            // Expected: the handler turns this into a delivery after the lease.
+        }
+
+        self::assertSame(0, $generator->runs);
+        self::assertSame($before, $this->row($uid));
+    }
+
+    /**
+     * A run whose claim another run took over stops at its next write: neither its artifact
+     * nor its progress nor a final status reaches the job.
+     */
+    public function testARunThatLostItsClaimWritesNeitherStatusNorArtifacts(): void
+    {
+        $uid       = $this->seedJob();
+        $stale     = $this->repository();
+        $takeover  = $this->repository();
+        $generator = new ClaimTestGenerator($stale, function () use ($stale, $takeover, $uid): void {
+            // The first run stalls beyond the lease; a redelivery takes the job over.
+            $this->backdateClaim($uid);
+            self::assertTrue($takeover->claimRun($uid));
+            $stale->insertArtifact($uid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+        });
+
+        $this->orchestrator($stale, [$generator])->process($uid);
+
+        self::assertInstanceOf(RunOwnershipLostException::class, $generator->thrown);
+        self::assertSame(0, $this->artifactCount($uid));
+        $row = $this->row($uid);
+        self::assertSame('generating', $row['status']);
+        self::assertSame(30, (int) $row['progress']);
+        self::assertSame('', (string) $row['error_message']);
+        self::assertNotSame('', $row['run_token'], 'The takeover keeps its claim');
+    }
+
+    /** The file a lost run stored for its artifact row is removed; the row keeps no file. */
+    public function testALostRunsArtifactUpdateLeavesTheRowAndRemovesItsFile(): void
+    {
+        $uid   = $this->seedJob();
+        $stale = $this->repository();
+        self::assertTrue($stale->claimRun($uid));
+        $artifact = $stale->insertArtifact($uid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Pending);
+        $file     = $this->createFile('lost.pdf', '%PDF-1.4 lost');
+        $this->backdateClaim($uid);
+        self::assertTrue($this->repository()->claimRun($uid));
+
+        try {
+            $stale->updateArtifact($artifact, ['file_uid' => $file, 'status' => ArtifactStatus::Done->value]);
+            self::fail('A lost run must not update its artifact');
+        } catch (RunOwnershipLostException) {
+            // Expected.
+        }
+
+        $row = $this->get(ConnectionPool::class)->getConnectionForTable(self::ARTIFACT_TABLE)
+            ->select(['file_uid', 'status'], self::ARTIFACT_TABLE, ['uid' => $artifact])->fetchAssociative();
+        self::assertSame(['file_uid' => 0, 'status' => 'pending'], ['file_uid' => (int) ($row['file_uid'] ?? -1), 'status' => $row['status'] ?? null]);
+        self::assertSame(0, $this->get(ConnectionPool::class)->getConnectionForTable('sys_file')->count('uid', 'sys_file', ['uid' => $file]));
+    }
+
+    /** The brief's review is written by the run that holds the job, not by a lost one. */
+    public function testALostRunCannotStoreTheBriefReview(): void
+    {
+        $uid   = $this->seedJob();
+        $stale = $this->repository();
+        self::assertTrue($stale->claimRun($uid));
+        $this->backdateClaim($uid);
+        self::assertTrue($this->repository()->claimRun($uid));
+
+        try {
+            $stale->compareAndSetSourceReview($uid, ['mode' => 'off'], null);
+            self::fail('A lost run must not store a review');
+        } catch (RunOwnershipLostException) {
+            // Expected.
+        }
+
+        self::assertNull($this->row($uid)['source_review']);
+    }
+
+    /** A claim older than the lease is a dead worker's: the next run takes the job over. */
+    public function testAnExpiredClaimIsTakenOver(): void
+    {
+        $uid = $this->seedJob();
+        self::assertTrue($this->repository()->claimRun($uid));
+        $this->backdateClaim($uid);
+
+        $jobs      = $this->repository();
+        $generator = new ClaimTestGenerator($jobs);
+        $this->orchestrator($jobs, [$generator])->process($uid);
+
+        self::assertSame(1, $generator->runs);
+        self::assertSame(1, $this->artifactCount($uid));
+        $row = $this->row($uid);
+        self::assertSame('done', $row['status']);
+        self::assertSame('', $row['run_token'], 'A finished job holds no claim');
+    }
+
+    /** The blocked delivery comes back after the lease and leaves the job untouched. */
+    public function testTheHandlerDeliversABlockedRunAgainAfterTheLease(): void
+    {
+        $uid = $this->seedJob();
+        self::assertTrue($this->repository()->claimRun($uid));
+        $before = $this->row($uid);
+        $bus    = new RecordingMessageBus();
+
+        $this->handler($bus, $this->repository())(new GenerateArtifactsMessage($uid));
+
+        self::assertSame($before, $this->row($uid));
+        self::assertCount(1, $bus->dispatched);
+        $message = $bus->dispatched[0]['message'];
+        self::assertInstanceOf(GenerateArtifactsMessage::class, $message);
+        self::assertSame($uid, $message->jobUid);
+        $stamps = $bus->dispatched[0]['stamps'];
+        $delay  = array_values(array_filter($stamps, static fn (object $s): bool => $s instanceof DelayStamp));
+        self::assertCount(1, $delay);
+        self::assertInstanceOf(DelayStamp::class, $delay[0]);
+        self::assertSame(JobProcessingRepository::RUN_LEASE_SECONDS * 1000, $delay[0]->getDelay());
+        $transport = array_values(array_filter($stamps, static fn (object $s): bool => $s instanceof TransportNamesStamp));
+        self::assertCount(1, $transport);
+        self::assertInstanceOf(TransportNamesStamp::class, $transport[0]);
+        self::assertSame(['doctrine'], $transport[0]->getTransportNames());
+    }
+
+    /** Once the other run has finished, the message that came back does nothing: no loop. */
+    public function testADeliveryAfterAFinishedRunDoesNothingAndIsNotSentAgain(): void
+    {
+        $uid   = $this->seedJob();
+        $first = $this->repository();
+        self::assertTrue($first->claimRun($uid));
+        $first->finishJob($uid, JobStatus::Done, '');
+        $before = $this->row($uid);
+        $bus    = new RecordingMessageBus();
+
+        $this->handler($bus, $this->repository())(new GenerateArtifactsMessage($uid));
+
+        self::assertSame([], $bus->dispatched);
+        self::assertSame($before, $this->row($uid));
+    }
+
+    /**
+     * The other run finishes between this delivery's read of the job and its claim: the claim
+     * refuses the finished job, and the delivery ends without being sent again.
+     */
+    public function testAJobThatFinishesBeforeTheClaimIsNotSentAgain(): void
+    {
+        $uid   = $this->seedJob();
+        $first = $this->repository();
+        self::assertTrue($first->claimRun($uid));
+        $jobs = new class ($this->get(ConnectionPool::class), $this->get(ResourceFactory::class), $first) extends JobProcessingRepository {
+            public function __construct(ConnectionPool $pool, ResourceFactory $files, private readonly JobProcessingRepository $first)
+            {
+                parent::__construct($pool, $files);
+            }
+
+            public function claimRun(int $jobUid): bool
+            {
+                $this->first->finishJob($jobUid, JobStatus::Done, '');
+
+                return parent::claimRun($jobUid);
+            }
+        };
+        $bus = new RecordingMessageBus();
+
+        $this->handler($bus, $jobs)(new GenerateArtifactsMessage($uid));
+
+        self::assertSame([], $bus->dispatched);
+        self::assertSame('done', $this->row($uid)['status']);
+    }
+
+    /** The message that came back after a dead worker's lease runs the job to its end. */
+    public function testADeliveryAfterAnExpiredClaimTakesTheJobOver(): void
+    {
+        $uid = $this->seedJob();
+        self::assertTrue($this->repository()->claimRun($uid));
+        $this->backdateClaim($uid);
+        $bus       = new RecordingMessageBus();
+        $jobs      = $this->repository();
+        $generator = new ClaimTestGenerator($jobs);
+
+        $this->handler($bus, $jobs, [$generator])(new GenerateArtifactsMessage($uid));
+
+        self::assertSame([], $bus->dispatched);
+        self::assertSame(1, $generator->runs);
+        self::assertSame('done', $this->row($uid)['status']);
+    }
+
+    /**
+     * The source review fingerprints the job's PDF before ingestion. An edit of the reference
+     * in between must not let ingestion read another file than the fingerprint names.
+     */
+    public function testAReferenceEditedBetweenCaptureAndIngestionDoesNotChangeTheFile(): void
+    {
+        $captured = $this->createFile('captured.pdf', '%PDF-1.4 captured');
+        $swapped  = $this->createFile('swapped.pdf', '%PDF-1.4 swapped');
+        $pool     = $this->get(ConnectionPool::class);
+        $pool->getConnectionForTable(self::JOB_TABLE)->insert(self::JOB_TABLE, [
+            'pid' => 0, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'status' => 'queued',
+        ]);
+        $uid = (int) $pool->getConnectionForTable(self::JOB_TABLE)->lastInsertId();
+        $pool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
+            'pid'        => 0, 'uid_local' => $captured, 'uid_foreign' => $uid,
+            'tablenames' => self::JOB_TABLE, 'fieldname' => 'source_pdf',
+        ]);
+
+        $resolver  = $this->get(PdfFileResolver::class);
+        $ingestion = new readonly class ($resolver, $pool, $uid, $swapped) implements SourceIngestionServiceInterface {
+            public function __construct(
+                private PdfFileResolver $resolver,
+                private ConnectionPool $pool,
+                private int $uid,
+                private int $swapped,
+            ) {}
+
+            public function ingest(JobSnapshot $job): SourceDocument
+            {
+                // The editor swaps the file after the capture, before the file is read.
+                $this->pool->getConnectionForTable('sys_file_reference')
+                    ->update('sys_file_reference', ['uid_local' => $this->swapped], ['uid_foreign' => $this->uid]);
+                $text = (string) file_get_contents($this->resolver->resolve($job));
+
+                return new SourceDocument('Doc', $text, 'pdf', 1, 'en');
+            }
+        };
+
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_repurpose']['sourceReviewMode'] = 'off';
+
+        $config    = $this->get(ExtensionConfiguration::class);
+        $policy    = new SourceReviewPolicy($config);
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions->method('evaluate')->willReturn(SourceReviewFixture::result());
+        $jobs = $this->repository();
+        $gate = new SourceReviewGate(
+            new SourceReviewService($decisions, $policy),
+            $policy,
+            $jobs,
+            new SourceReviewPointer($pool),
+        );
+        $generator = new ClaimTestGenerator($jobs);
+
+        $this->orchestrator($jobs, [$generator], $ingestion, $gate)->process($uid);
+
+        self::assertNotNull($generator->document);
+        self::assertSame('%PDF-1.4 captured', $generator->document->text);
+    }
+
+    private function repository(): JobProcessingRepository
+    {
+        return new JobProcessingRepository($this->get(ConnectionPool::class), $this->get(ResourceFactory::class));
+    }
+
+    /** @param list<ArtifactGeneratorInterface> $generators */
+    private function orchestrator(
+        JobProcessingRepository $jobs,
+        array $generators,
+        ?SourceIngestionServiceInterface $ingestion = null,
+        ?SourceReviewGate $gate = null,
+    ): GenerationOrchestrator {
+        return new GenerationOrchestrator(
+            $jobs,
+            new NullLogger(),
+            $ingestion ?? new readonly class implements SourceIngestionServiceInterface {
+                public function ingest(JobSnapshot $job): SourceDocument
+                {
+                    return new SourceDocument('Doc', 'Body.', 'https://example.com/', 0, 'en');
+                }
+            },
+            new readonly class implements DocumentAnalyzerInterface {
+                public function analyze(SourceDocument $document, JobSnapshot $job): ContentBrief
+                {
+                    return new ContentBrief('Doc', 'Summary.', ['Point'], [], 'Analysts', 'en');
+                }
+            },
+            $this->get(PromptSnippetResolver::class),
+            $this->get(TechnicalActorContextInterface::class),
+            $this->get(ExtensionConfiguration::class),
+            $this->get(CapabilityGrantResolver::class),
+            $this->get(AiLabelSettingsFactory::class),
+            $generators,
+            $gate,
+        );
+    }
+
+    /** @param list<ArtifactGeneratorInterface> $generators */
+    private function handler(RecordingMessageBus $bus, JobProcessingRepository $jobs, array $generators = []): GenerateArtifactsHandler
+    {
+        return new GenerateArtifactsHandler($this->orchestrator($jobs, $generators), $jobs, new NullLogger(), $bus);
+    }
+
+    private function seedJob(): int
+    {
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE);
+        $connection->insert(self::JOB_TABLE, [
+            'pid' => 0, 'source_type' => 'url', 'source_value' => 'https://example.com/', 'status' => 'queued',
+        ]);
+
+        return (int) $connection->lastInsertId();
+    }
+
+    /** The claim's last renewal lies beyond the lease, as a dead worker leaves it. */
+    private function backdateClaim(int $uid): void
+    {
+        $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)->update(
+            self::JOB_TABLE,
+            ['run_claimed_at' => time() - JobProcessingRepository::RUN_LEASE_SECONDS - 1],
+            ['uid' => $uid],
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function row(int $uid): array
+    {
+        $row = $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)
+            ->select(['*'], self::JOB_TABLE, ['uid' => $uid])->fetchAssociative();
+        self::assertIsArray($row);
+
+        return $row;
+    }
+
+    private function artifactCount(int $uid): int
+    {
+        return (int) $this->get(ConnectionPool::class)->getConnectionForTable(self::ARTIFACT_TABLE)
+            ->count('uid', self::ARTIFACT_TABLE, ['job' => $uid]);
+    }
+
+    private function createFile(string $name, string $contents): int
+    {
+        $storage = $this->get(StorageRepository::class)->getDefaultStorage();
+        self::assertNotNull($storage);
+        $folder = $storage->hasFolder('claim') ? $storage->getFolder('claim') : $storage->createFolder('claim');
+        $file   = $storage->createFile($name, $folder);
+        $file->setContents($contents);
+
+        return $file->getUid();
+    }
+}
+
+/**
+ * Writes one artifact per run. A hook runs first; a lost claim it throws is kept, as a
+ * generator's own catch would swallow it, so the test sees what the orchestrator does next.
+ */
+final class ClaimTestGenerator implements ArtifactGeneratorInterface
+{
+    public int $runs = 0;
+
+    public ?SourceDocument $document = null;
+
+    public ?RunOwnershipLostException $thrown = null;
+
+    public function __construct(
+        private readonly JobProcessingRepository $jobs,
+        private readonly ?Closure $hook = null,
+    ) {}
+
+    public function supports(GenerationContext $ctx): bool
+    {
+        return true;
+    }
+
+    public function generate(GenerationContext $ctx): bool
+    {
+        ++$this->runs;
+        $this->document = $ctx->document;
+        if ($this->hook instanceof Closure) {
+            try {
+                ($this->hook)();
+            } catch (RunOwnershipLostException $e) {
+                $this->thrown = $e;
+            }
+
+            return true;
+        }
+
+        $ctx->progress?->step('Stub: halfway', 0.5);
+        $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+
+        return true;
+    }
+}
