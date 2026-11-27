@@ -1,5 +1,11 @@
 <?xml version="1.0"?>
 <files version="1">
+ <!--
+   smalot/pdfparser calls spl_object_hash(), which PHP 8.6 deprecates (#246).
+   PHPUnit matches an entry on file, line and message: line 1266 is
+   pdfparser 2.13.x, line 1362 is 2.14.0. A pdfparser release that moves the
+   call needs the entry regenerated on PHP 8.6 (generate-baseline option).
+ -->
  <file path=".Build/vendor/typo3/cms-core/Classes/Package/PackageManager.php">
   <line number="948" hash="8f3e2257409cdb8fabb85e9a19591d1b4ac5ec6b">
    <issue><![CDATA[Extension "nr_vault" is having an ext_emconf.php file, which is deprecated. Additionally the composer.json is missing "version" and "providesPackages" declaration. See https://docs.typo3.org/permalink/changelog:deprecation-108345-1774126701@14.3 for details.]]></issue>
@@ -50,6 +56,12 @@ Because the field 'adapter' of 'tx_nrvault_secret' is considered searchable base
  </file>
  <file path=".Build/vendor/smalot/pdfparser/src/Smalot/PdfParser/PDFObject.php">
   <line number="1266" hash="40ca9e8ec44e57cfff10265e3bdc089d9cf7f2bb">
+   <issue><![CDATA[Function spl_object_hash() is deprecated since 8.6, consider using spl_object_id() instead]]></issue>
+  </line>
+  <line number="1362" hash="40ca9e8ec44e57cfff10265e3bdc089d9cf7f2bb">
+   <issue><![CDATA[Function spl_object_hash() is deprecated since 8.6, consider using spl_object_id() instead]]></issue>
+   <issue><![CDATA[Function spl_object_hash() is deprecated since 8.6, consider using spl_object_id() instead]]></issue>
+   <issue><![CDATA[Function spl_object_hash() is deprecated since 8.6, consider using spl_object_id() instead]]></issue>
    <issue><![CDATA[Function spl_object_hash() is deprecated since 8.6, consider using spl_object_id() instead]]></issue>
   </line>
  </file>
