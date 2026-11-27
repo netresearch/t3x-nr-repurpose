@@ -40,6 +40,8 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use Psr\Log\NullLogger;
+use RuntimeException;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -131,6 +133,73 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->get(ConnectionPool::class)->getConnectionForTable('sys_file')->count('uid', 'sys_file', ['uid' => $file]));
     }
 
+    /**
+     * The usual order: the run that took over has already cleared the set, so the row the lost
+     * run fills is gone. Its file is removed and the run stops.
+     */
+    public function testALostRunsUpdateOfAClearedRowRemovesItsFileAndStopsTheRun(): void
+    {
+        $uid   = $this->seedJob();
+        $stale = $this->repository();
+        self::assertTrue($stale->claimRun($uid));
+        $artifact = $stale->insertArtifact($uid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Pending);
+        $file     = $this->createFile('cleared.pdf', '%PDF-1.4 cleared');
+        $this->backdateClaim($uid);
+        $takeover = $this->repository();
+        self::assertTrue($takeover->claimRun($uid));
+        $takeover->deleteArtifactsForJob($uid);
+
+        try {
+            $stale->updateArtifact($artifact, ['file_uid' => $file]);
+            self::fail('A lost run must stop when the row it fills is gone');
+        } catch (RunOwnershipLostException) {
+            // Expected.
+        }
+
+        self::assertSame(0, $this->artifactCount($uid));
+        self::assertSame(0, $this->get(ConnectionPool::class)->getConnectionForTable('sys_file')->count('uid', 'sys_file', ['uid' => $file]));
+    }
+
+    /** A lost run cannot clear the artifacts of the run that took the job over. */
+    public function testALostRunCannotClearTheArtifactsOfTheRunThatTookOver(): void
+    {
+        $uid   = $this->seedJob();
+        $stale = $this->repository();
+        self::assertTrue($stale->claimRun($uid));
+        $this->backdateClaim($uid);
+        $takeover = $this->repository();
+        self::assertTrue($takeover->claimRun($uid));
+        $takeover->insertArtifact($uid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
+
+        try {
+            $stale->deleteArtifactsForJob($uid);
+            self::fail('A lost run must not clear the set');
+        } catch (RunOwnershipLostException) {
+            // Expected.
+        }
+
+        self::assertSame(1, $this->artifactCount($uid));
+    }
+
+    /** A lost run whose generator then crashes does not mark the job failed. */
+    public function testALostRunThatCrashesDoesNotFailTheJob(): void
+    {
+        $uid       = $this->seedJob();
+        $stale     = $this->repository();
+        $generator = new ClaimTestGenerator($stale, function () use ($uid): never {
+            $this->backdateClaim($uid);
+            self::assertTrue($this->repository()->claimRun($uid));
+
+            throw new RuntimeException('provider answered garbage');
+        });
+
+        $this->orchestrator($stale, [$generator])->process($uid);
+
+        $row = $this->row($uid);
+        self::assertSame('generating', $row['status']);
+        self::assertSame('', (string) $row['error_message']);
+    }
+
     /** The brief's review is written by the run that holds the job, not by a lost one. */
     public function testALostRunCannotStoreTheBriefReview(): void
     {
@@ -219,6 +288,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         $uid   = $this->seedJob();
         $first = $this->repository();
         self::assertTrue($first->claimRun($uid));
+        $first->insertArtifact($uid, ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
         $jobs = new class ($this->get(ConnectionPool::class), $this->get(ResourceFactory::class), $first) extends JobProcessingRepository {
             public function __construct(ConnectionPool $pool, ResourceFactory $files, private readonly JobProcessingRepository $first)
             {
@@ -232,12 +302,32 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
                 return parent::claimRun($jobUid);
             }
         };
-        $bus = new RecordingMessageBus();
+        $bus       = new RecordingMessageBus();
+        $generator = new ClaimTestGenerator($jobs);
 
-        $this->handler($bus, $jobs)(new GenerateArtifactsMessage($uid));
+        $this->handler($bus, $jobs, [$generator])(new GenerateArtifactsMessage($uid));
 
         self::assertSame([], $bus->dispatched);
+        self::assertSame(0, $generator->runs, 'A finished job is not run again');
+        self::assertSame(1, $this->artifactCount($uid), 'The finished run keeps its artifacts');
         self::assertSame('done', $this->row($uid)['status']);
+    }
+
+    /** Through the real bus the message lands in the doctrine queue, due one lease from now. */
+    public function testTheMessageSentAgainIsQueuedOneLeaseAhead(): void
+    {
+        $uid = $this->seedJob();
+        self::assertTrue($this->repository()->claimRun($uid));
+        $jobs = $this->repository();
+
+        (new GenerateArtifactsHandler($this->orchestrator($jobs, []), $jobs, new NullLogger(), $this->get(MessageBusInterface::class)))(new GenerateArtifactsMessage($uid));
+
+        $rows = $this->get(ConnectionPool::class)->getConnectionForTable('sys_messenger_messages')
+            ->select(['available_at', 'created_at', 'queue_name'], 'sys_messenger_messages')->fetchAllAssociative();
+        self::assertCount(1, $rows);
+        $delay = strtotime((string) $rows[0]['available_at']) - strtotime((string) $rows[0]['created_at']);
+        self::assertGreaterThanOrEqual(JobProcessingRepository::RUN_LEASE_SECONDS - 1, $delay);
+        self::assertLessThanOrEqual(JobProcessingRepository::RUN_LEASE_SECONDS + 1, $delay);
     }
 
     /** The message that came back after a dead worker's lease runs the job to its end. */

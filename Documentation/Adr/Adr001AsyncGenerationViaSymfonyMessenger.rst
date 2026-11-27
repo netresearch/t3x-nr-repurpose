@@ -57,6 +57,9 @@ Split submission from execution over a Symfony Messenger transport.
    :php:`JobProcessingRepository::markFailed()`, and deliberately does **not**
    rethrow. Rethrowing would let Messenger drop the message with no record,
    leaving the job stuck in a non-terminal state forever.
+   A crash after the run claimed the job (see point 5) is caught by the
+   orchestrator, which marks the job failed through that claim; the handler's
+   catch is left with failures before the claim.
 
 4. **Processing is idempotent.** The orchestrator returns early if the job is
    missing or already in a terminal status, so redelivery (or a manual

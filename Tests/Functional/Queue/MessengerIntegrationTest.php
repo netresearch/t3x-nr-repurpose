@@ -69,9 +69,9 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * What reaches the handler escaped the orchestrator's own step handling — a generator
-     * that threw (the Schaubild's diagram completion is not caught in the generator), a
-     * database error. Its message can be the text model's answer, a path or SQL, and the
+     * What reaches the handler failed before the orchestrator claimed the job (a crash after
+     * the claim is failed by the orchestrator, #238) — a database error reading the row.
+     * Its message can be a path or SQL, and the
      * job's error_message is shown to every module user: the row gets a fixed text and the
      * exception goes to the log.
      */

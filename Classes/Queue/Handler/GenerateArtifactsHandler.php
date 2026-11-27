@@ -25,8 +25,9 @@ use Throwable;
  * v14.3 Core has NO retry/failure transport — so a hard failure is caught here and the job
  * is marked failed (no rethrow), otherwise the message would be lost with no record.
  *
- * What reaches this catch escaped the orchestrator's own step handling (a generator that
- * threw, a database error), so its message can be the text model's answer, a path or SQL.
+ * A crash after the run claimed the job (a generator that threw, a database error) is failed
+ * by the orchestrator itself, bound to the claim (#238). What reaches this catch failed
+ * before the claim, for example reading the job row, so its message can be a path or SQL.
  * The job's error_message is shown to every module user: it gets a fixed text, the
  * exception goes to the log.
  */

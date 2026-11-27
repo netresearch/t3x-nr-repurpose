@@ -414,6 +414,21 @@ class JobProcessingRepository
                 ->select(['job'], self::ARTIFACT_TABLE, ['uid' => $artifactUid])
                 ->fetchOne(),
         );
+        if ($jobUid === 0) {
+            // The row is gone: a run that took the job over cleared the set, or a retry did.
+            // The file meant for it is nobody's; and a run of this process that lost its job
+            // stops here rather than at its next write to the job.
+            foreach (['file_uid', 'subtitle_file_uid'] as $column) {
+                $this->deleteFalFile(ScalarCast::int($update[$column] ?? 0));
+            }
+
+            foreach ($this->runTokens as $heldJob => $token) {
+                $this->assertOwnership($heldJob, $token);
+            }
+
+            return;
+        }
+
         try {
             $this->renewClaim($jobUid);
         } catch (RunOwnershipLostException $e) {
