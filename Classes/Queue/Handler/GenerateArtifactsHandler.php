@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Queue\Handler;
 
+use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
@@ -77,7 +78,7 @@ final readonly class GenerateArtifactsHandler
                     new GenerateArtifactsMessage($jobUid),
                     [
                         new TransportNamesStamp(['doctrine']),
-                        new DelayStamp(JobProcessingRepository::RUN_LEASE_SECONDS * 1000),
+                        new DelayStamp(Job::RUN_LEASE_SECONDS * 1000),
                     ],
                 );
 

@@ -89,7 +89,7 @@ final class SourceReviewGenerationTest extends AbstractFunctionalTestCase
             {
                 $this->pool->getConnectionForTable('tx_nrrepurpose_domain_model_job')->update(
                     'tx_nrrepurpose_domain_model_job',
-                    ['run_claimed_at' => time() - JobProcessingRepository::RUN_LEASE_SECONDS - 1],
+                    ['run_claimed_at' => time() - Job::RUN_LEASE_SECONDS - 1],
                     ['uid' => $jobUid],
                 );
                 if (!$this->claimRun($jobUid)) {

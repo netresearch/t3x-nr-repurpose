@@ -133,5 +133,7 @@ Consequences
   the lease by that much. The time is not taken from the database: SQLite,
   MariaDB and PostgreSQL each spell the current Unix time differently, and
   Doctrine DBAL offers no portable expression for it.
-- ``nr_repurpose:generate`` exits with an error when the job is failed or not
-  finished after the run, including a run that lost the job to another one.
+- ``nr_repurpose:generate`` reports its own run: it exits with an error when
+  the run failed the job, lost it to another run, found it failed already,
+  found no such job or found it held by another run. It exits without error
+  when the run finished the job, or found it done or partially done already.

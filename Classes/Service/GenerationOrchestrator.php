@@ -126,7 +126,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         // Idempotent: never reprocess a finished job. Checked on the raw status before
         // the row is parsed, so a finished job whose row no longer parses stays as it is.
         if ($this->isFinished($row)) {
-            return RunOutcome::AlreadyFinished;
+            return $this->finishedOutcome($row);
         }
 
         // One run per job (#238): a second delivery while a live run holds the job writes
@@ -138,7 +138,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             }
 
             if ($this->isFinished($row)) {
-                return RunOutcome::AlreadyFinished;
+                return $this->finishedOutcome($row);
             }
 
             throw new RunClaimHeldException(sprintf('Another run holds job %d', $jobUid), 1795000002);
@@ -167,6 +167,16 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         } finally {
             $this->jobs->forgetRun($jobUid);
         }
+    }
+
+    /**
+     * A job finished before this run: failed stays a failure for the caller (#238).
+     *
+     * @param array<string, mixed> $row
+     */
+    private function finishedOutcome(array $row): RunOutcome
+    {
+        return ($row['status'] ?? null) === JobStatus::Failed->value ? RunOutcome::AlreadyFailed : RunOutcome::AlreadyFinished;
     }
 
     /** @param array<string, mixed> $row */

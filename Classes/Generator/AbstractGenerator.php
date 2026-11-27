@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
@@ -234,15 +235,16 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     /** Record a previously-inserted artifact row as failed and log the reason. */
     protected function failArtifact(int $artifactUid, int $jobUid, string $reason, FailureReason $failure): void
     {
-        $this->logger->warning('Artifact generation failed', [
-            'job'      => $jobUid,
-            'artifact' => $artifactUid,
-            'reason'   => $reason,
-        ]);
+        // The write first: a run that lost its job stops here and logs no failure (#238).
         $this->jobs->updateArtifact($artifactUid, [
             'status'         => ArtifactStatus::Failed->value,
             'error_message'  => $reason,
             'failure_reason' => $failure->value,
+        ]);
+        $this->logger->warning('Artifact generation failed', [
+            'job'      => $jobUid,
+            'artifact' => $artifactUid,
+            'reason'   => $reason,
         ]);
     }
 
@@ -283,6 +285,12 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         string $step,
         Throwable $e,
     ): void {
+        // Another run took the job over: nothing of this run failed, and nothing is written or
+        // logged as a failure, as in the orchestrator's failJob() (#238).
+        if ($e instanceof RunOwnershipLostException) {
+            throw $e;
+        }
+
         // A guardrail's message is written for the person who started the job. An image or speech
         // call wraps every failure, so the guardrail can sit below a RenderingException. The row
         // keeps the refusal without any quoted passage of the generated text (nr-llm ADR-288).

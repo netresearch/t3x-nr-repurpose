@@ -32,6 +32,15 @@ final class LayerTest
             ->because('The domain is used by the backend module and the worker alike and must not know either.');
     }
 
+    public function testDomainDoesNotDependOnTheWorkersPersistence(): Rule
+    {
+        return PHPat::rule()
+            ->classes(Selector::inNamespace('Netresearch\NrRepurpose\Domain'))
+            ->shouldNotDependOn()
+            ->classes(Selector::inNamespace('Netresearch\NrRepurpose\Persistence'))
+            ->because("The worker's persistence reads the domain's rules (the run lease, the stall time), never the other way round.");
+    }
+
     public function testGeneratorsDoNotDependOnControllers(): Rule
     {
         return PHPat::rule()

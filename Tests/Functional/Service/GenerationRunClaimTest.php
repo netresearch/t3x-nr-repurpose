@@ -49,11 +49,13 @@ use Netresearch\NrRepurpose\SourceReview\SourceReviewPointer;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewPolicy;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewService;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingMessageBus;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use ReflectionProperty;
 use RuntimeException;
@@ -64,6 +66,7 @@ use Symfony\Component\Messenger\Exception\TransportException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
+use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -276,7 +279,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         $delay  = array_values(array_filter($stamps, static fn (object $s): bool => $s instanceof DelayStamp));
         self::assertCount(1, $delay);
         self::assertInstanceOf(DelayStamp::class, $delay[0]);
-        self::assertSame(JobProcessingRepository::RUN_LEASE_SECONDS * 1000, $delay[0]->getDelay());
+        self::assertSame(Job::RUN_LEASE_SECONDS * 1000, $delay[0]->getDelay());
         $transport = array_values(array_filter($stamps, static fn (object $s): bool => $s instanceof TransportNamesStamp));
         self::assertCount(1, $transport);
         self::assertInstanceOf(TransportNamesStamp::class, $transport[0]);
@@ -346,8 +349,8 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
             ->select(['available_at', 'created_at', 'queue_name'], 'sys_messenger_messages')->fetchAllAssociative();
         self::assertCount(1, $rows);
         $delay = strtotime((string) $rows[0]['available_at']) - strtotime((string) $rows[0]['created_at']);
-        self::assertGreaterThanOrEqual(JobProcessingRepository::RUN_LEASE_SECONDS - 1, $delay);
-        self::assertLessThanOrEqual(JobProcessingRepository::RUN_LEASE_SECONDS + 1, $delay);
+        self::assertGreaterThanOrEqual(Job::RUN_LEASE_SECONDS - 1, $delay);
+        self::assertLessThanOrEqual(Job::RUN_LEASE_SECONDS + 1, $delay);
     }
 
     /** The message that came back after a dead worker's lease runs the job to its end. */
@@ -432,6 +435,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         yield 'done' => [RunOutcome::Done, Command::SUCCESS];
         yield 'partially done' => [RunOutcome::PartiallyDone, Command::SUCCESS];
         yield 'finished before' => [RunOutcome::AlreadyFinished, Command::SUCCESS];
+        yield 'failed before' => [RunOutcome::AlreadyFailed, Command::FAILURE];
         yield 'failed' => [RunOutcome::Failed, Command::FAILURE];
         yield 'lost to another run' => [RunOutcome::Lost, Command::FAILURE];
         yield 'not found' => [RunOutcome::NotFound, Command::FAILURE];
@@ -452,6 +456,38 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         };
 
         self::assertSame($exitCode, (new CommandTester(new GenerateCommand($orchestrator)))->execute(['jobUid' => '1']));
+    }
+
+    /** A job that had failed before this run stays a failure on the command line (#238). */
+    public function testTheGenerateCommandFailsForAJobThatFailedBefore(): void
+    {
+        $uid = $this->seedJob();
+        $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)
+            ->update(self::JOB_TABLE, ['status' => 'failed'], ['uid' => $uid]);
+
+        $exitCode = (new CommandTester(new GenerateCommand($this->orchestrator($this->repository(), []))))->execute(['jobUid' => (string) $uid]);
+
+        self::assertSame(Command::FAILURE, $exitCode);
+    }
+
+    /**
+     * A takeover while a generator works is no failure of this run: the generator's catch passes
+     * it on, and neither the generator nor the orchestrator logs an error (#238).
+     */
+    public function testATakeoverDuringGenerationLogsNoError(): void
+    {
+        $uid       = $this->seedJob();
+        $stale     = $this->repository();
+        $logger    = new RecordingLogger();
+        $generator = new TakeoverDuringGenerationGenerator($stale, $logger, function () use ($uid): void {
+            $this->backdateClaim($uid);
+            self::assertTrue($this->repository()->claimRun($uid));
+        });
+
+        self::assertSame(RunOutcome::Lost, $this->orchestrator($stale, [$generator], null, null, $logger)->process($uid));
+
+        self::assertSame([], array_values(array_filter($logger->records, static fn (array $r): bool => in_array($r['level'], ['error', 'critical', 'alert', 'emergency'], true))));
+        self::assertSame('generating', $this->row($uid)['status']);
     }
 
     /**
@@ -794,7 +830,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
             'run_token'      => $claim === 'none' ? '' : 'dead-or-alive',
             'run_claimed_at' => match ($claim) {
                 'none'    => 0,
-                'expired' => time() - JobProcessingRepository::RUN_LEASE_SECONDS - 1,
+                'expired' => time() - Job::RUN_LEASE_SECONDS - 1,
                 default   => time(),
             },
         ], ['uid' => $uid]);
@@ -877,10 +913,11 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         array $generators,
         ?SourceIngestionServiceInterface $ingestion = null,
         ?SourceReviewGate $gate = null,
+        ?LoggerInterface $logger = null,
     ): GenerationOrchestrator {
         return new GenerationOrchestrator(
             $jobs,
-            new NullLogger(),
+            $logger ?? new NullLogger(),
             $ingestion ?? new readonly class implements SourceIngestionServiceInterface {
                 public function ingest(JobSnapshot $job): SourceDocument
                 {
@@ -924,7 +961,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     {
         $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)->update(
             self::JOB_TABLE,
-            ['run_claimed_at' => time() - JobProcessingRepository::RUN_LEASE_SECONDS - 1],
+            ['run_claimed_at' => time() - Job::RUN_LEASE_SECONDS - 1],
             ['uid' => $uid],
         );
     }
@@ -1043,5 +1080,35 @@ final class RowLosingGenerator extends AbstractGenerator
 
         // The final write, as every generator makes it.
         return $this->storeArtifact($artifactUid, $ctx->jobUid(), ['status' => ArtifactStatus::Done->value]);
+    }
+}
+
+/** Inserts its row, is taken over in its provider call, and handles that like the generators. */
+final class TakeoverDuringGenerationGenerator extends AbstractGenerator
+{
+    public function __construct(JobProcessingRepository $jobs, LoggerInterface $logger, private readonly Closure $takeover)
+    {
+        parent::__construct($jobs, new FakeBudgetService(), $logger);
+    }
+
+    public function supports(GenerationContext $ctx): bool
+    {
+        return true;
+    }
+
+    public function generate(GenerationContext $ctx): bool
+    {
+        $artifactUid = $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'taken', 0, ArtifactStatus::Pending);
+        try {
+            ($this->takeover)();
+            // The next write of this run, as a progress step or a renewal before a call makes it.
+            $ctx->progress?->step('Stub: working', 0.5);
+
+            return $this->storeArtifact($artifactUid, $ctx->jobUid(), ['status' => ArtifactStatus::Done->value]);
+        } catch (Throwable $e) {
+            $this->failArtifactFrom($artifactUid, $ctx->jobUid(), 'Stub generation', $e);
+
+            return false;
+        }
     }
 }

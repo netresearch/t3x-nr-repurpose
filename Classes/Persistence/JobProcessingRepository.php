@@ -43,22 +43,6 @@ class JobProcessingRepository implements RunHeartbeatInterface
     private const string SOURCE_PDF_FIELD = 'source_pdf';
 
     /**
-     * How long a run's claim on a job holds without a write of that run (#238).
-     *
-     * A worker that dies leaves its message in the doctrine transport, which hands it out again
-     * once its redeliver_timeout has passed (3600 s: TYPO3 passes only queue_name, so Symfony's
-     * default applies). That delivery can take the job over only when the claim has expired by
-     * then, so the lease has to be well below 3600 s. A live run must not lose its claim
-     * between two renewals: every write of the run renews the claim, RunClaimRenewalMiddleware
-     * renews it before every provider call, and the PDF ingestion before every page. So at most
-     * one bounded call (300 s: the HTTP timeout the worker documentation asks for, the image
-     * request) runs between two renewals. A local process after it (Chromium 60 s, ffmpeg and
-     * poppler up to 300 s) adds to that stretch; the longest is the story video, its review call
-     * and then the slideshow render: 600 s against a lease of 900 s.
-     */
-    public const int RUN_LEASE_SECONDS = 900;
-
-    /**
      * The token of the run this process holds, per job uid. A worker runs one message at a
      * time; two runs of one job are two processes, each with its own repository instance.
      *
@@ -135,7 +119,7 @@ class JobProcessingRepository implements RunHeartbeatInterface
 
         return $row === null
             || ScalarCast::string($row['run_token'] ?? '') === ''
-            || ScalarCast::int($row['run_claimed_at'] ?? 0) < time() - self::RUN_LEASE_SECONDS;
+            || ScalarCast::int($row['run_claimed_at'] ?? 0) < time() - Job::RUN_LEASE_SECONDS;
     }
 
     private function unfinished(QueryBuilder $queryBuilder): string
@@ -155,7 +139,7 @@ class JobProcessingRepository implements RunHeartbeatInterface
 
         return (string) $expr->or(
             $expr->eq('run_token', $queryBuilder->createNamedParameter('')),
-            $expr->lt('run_claimed_at', $queryBuilder->createNamedParameter($now - self::RUN_LEASE_SECONDS, Connection::PARAM_INT)),
+            $expr->lt('run_claimed_at', $queryBuilder->createNamedParameter($now - Job::RUN_LEASE_SECONDS, Connection::PARAM_INT)),
         );
     }
 

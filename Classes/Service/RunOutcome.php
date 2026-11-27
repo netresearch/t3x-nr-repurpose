@@ -27,8 +27,11 @@ enum RunOutcome: string
     /** Another run took the job over; this run stopped without a final status. */
     case Lost = 'lost';
 
-    /** The job was finished before this run could claim it; nothing was done. */
+    /** The job was done or partially done before this run could claim it; nothing was done. */
     case AlreadyFinished = 'already_finished';
+
+    /** The job had failed before this run could claim it; nothing was done. */
+    case AlreadyFailed = 'already_failed';
 
     /** There is no such job. */
     case NotFound = 'not_found';
