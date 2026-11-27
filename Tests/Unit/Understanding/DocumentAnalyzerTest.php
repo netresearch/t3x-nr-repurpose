@@ -268,25 +268,48 @@ final class DocumentAnalyzerTest extends TestCase
         self::assertStringContainsString('Chunk summary.', $fake->jsonCalls[3]['prompt']);
     }
 
-    /** Each map call renews the run's claim first: the map step writes nothing to the job (#238). */
-    public function testEachMapChunkRenewsTheRunsClaim(): void
+    /**
+     * Every provider call starts with a renewed claim (#238): each map chunk, the synthesis and
+     * its corrective retry. The heartbeat records how many calls had run when it was renewed.
+     */
+    public function testEachMapChunkAndTheSynthesisRenewTheRunsClaim(): void
     {
         $mapResult = ['summary' => 'Chunk summary.', 'keyPoints' => ['kp']];
         $fake      = new ScriptedJsonCompletion([$mapResult, $mapResult, $mapResult, $this->briefResult('en')]);
-        $heartbeat = new class implements RunHeartbeatInterface {
-            /** @var list<int> */
-            public array $renewed = [];
-
-            public function renew(int $jobUid): void
-            {
-                $this->renewed[] = $jobUid;
-            }
-        };
+        $heartbeat = $this->callCountingHeartbeat($fake);
 
         (new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 20000, chunkSize: 11000, heartbeat: $heartbeat))
             ->analyze($this->threeChunkDocument(), JobSnapshots::of(['uid' => 42, 'be_user' => 7]));
 
-        self::assertSame([42, 42, 42], $heartbeat->renewed);
+        self::assertSame([[42, 0], [42, 1], [42, 2], [42, 3]], $heartbeat->renewed);
+    }
+
+    public function testTheCorrectiveRetryRenewsTheRunsClaim(): void
+    {
+        $fake      = new ScriptedJsonCompletion([['titel' => 'wrong shape'], $this->briefResult('en')]);
+        $heartbeat = $this->callCountingHeartbeat($fake);
+
+        (new DocumentAnalyzer($fake, new NullLogger(), chunkThreshold: 24000, chunkSize: 12000, heartbeat: $heartbeat))
+            ->analyze($this->smallDocument(), JobSnapshots::of(['uid' => 43, 'be_user' => 7]));
+
+        self::assertCount(2, $fake->jsonCalls);
+        self::assertSame([[43, 0], [43, 1]], $heartbeat->renewed);
+    }
+
+    /** @return RunHeartbeatInterface&object{renewed: list<array{int, int}>} */
+    private function callCountingHeartbeat(ScriptedJsonCompletion $fake): RunHeartbeatInterface
+    {
+        return new class ($fake) implements RunHeartbeatInterface {
+            /** @var list<array{int, int}> job uid, provider calls made before the renewal */
+            public array $renewed = [];
+
+            public function __construct(private readonly ScriptedJsonCompletion $fake) {}
+
+            public function renew(int $jobUid): void
+            {
+                $this->renewed[] = [$jobUid, count($this->fake->jsonCalls)];
+            }
+        };
     }
 
     /** Three chunks of 10,000 characters each, above the 20,000-character threshold. */

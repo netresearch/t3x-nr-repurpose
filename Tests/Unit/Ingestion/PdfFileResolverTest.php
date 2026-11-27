@@ -21,6 +21,7 @@ use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
+use RuntimeException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\FileReference;
 use TYPO3\CMS\Core\Resource\FileRepository;
@@ -173,6 +174,26 @@ final class PdfFileResolverTest extends TestCase
         } finally {
             array_map(unlink(...), (array) glob($transient . '/*'));
             rmdir($transient);
+        }
+    }
+
+    /**
+     * The captured file (#238): only findByUid()'s missing-row exception means the file is gone.
+     * Any other failure reading the sys_file row is passed on as it is.
+     */
+    public function testOnlyAMissingSysFileRowOfTheCapturedFileReadsAsNoAttachedPdf(): void
+    {
+        foreach ([1314354065 => IngestionException::class, 1 => RuntimeException::class] as $code => $expected) {
+            $repository = $this->createStub(FileRepository::class);
+            $repository->method('findByUid')->willThrowException(new RuntimeException('sys_file read failed', $code));
+            $resolver = new PdfFileResolver($repository, QueuedHttpClient::answering(200, '')->client, new HttpFactory(), StaticHostResolver::publicGuard());
+
+            try {
+                $resolver->resolve(JobSnapshots::of(['uid' => 5, 'source_type' => 'pdf_fal', 'source_pdf' => 1])->withSourceFileUid(77));
+                self::fail('The resolver must throw for code ' . $code);
+            } catch (RuntimeException $e) {
+                self::assertSame($expected, $e::class, 'code ' . $code);
+            }
         }
     }
 

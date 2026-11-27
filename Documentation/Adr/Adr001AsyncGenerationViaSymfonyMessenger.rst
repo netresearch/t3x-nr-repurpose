@@ -77,7 +77,8 @@ Split submission from execution over a Symfony Messenger transport.
    stretches that otherwise write nothing to the job. A run whose token is
    gone stops and writes nothing further; a finished job holds no claim, and a
    failed job that is queued again starts without one. A failure before the
-   claim is recorded only on a job that no live run holds. A delivery that
+   claim is recorded only on an unfinished job that no live run holds. A
+   delivery that
    finds a live claim writes nothing and sends the message again with a delay
    of one lease. When it comes back, the other run has finished and the message
    does nothing, or the other run's worker is gone, its claim has expired and
@@ -86,8 +87,12 @@ Split submission from execution over a Symfony Messenger transport.
    lease. A send that fails is tried three times and then fails the delivery;
    Messenger then rejects the message, which deletes it from the queue, unless
    the rejection fails as well. A live owner still finishes the job; if the
-   owner's worker is dead, the job keeps its unfinished status, and the
-   backend's retry, which only takes failed jobs, cannot restart it.
+   owner's worker is dead, the job stands still, and after two hours without a
+   write the backend offers to start it again, as for a failed job (see
+   :ref:`adr-011`). The Messenger handler's own failure write after a crash
+   accepts the claim of the run this process just ended, so a run whose
+   failure write failed once still ends as ``failed``; it never touches a
+   finished job.
 
 The same orchestrator is reachable synchronously via the
 ``nr_repurpose:generate`` CLI command, so ops and tests can run the exact
@@ -117,5 +122,11 @@ Consequences
   by 300 seconds. A live run that still goes 900 seconds without a renewal can
   be taken over by the delayed message; it then stops at its next write, and
   the new run starts from the beginning.
+- Lease expiry compares ``run_claimed_at``, written with the worker host's
+  clock, against the clock of the host that reads it. Worker hosts and web
+  hosts need synchronised clocks (NTP); a skew of minutes shortens or extends
+  the lease by that much. The time is not taken from the database: SQLite,
+  MariaDB and PostgreSQL each spell the current Unix time differently, and
+  Doctrine DBAL offers no portable expression for it.
 - ``nr_repurpose:generate`` exits with an error when the job is failed or not
   finished after the run, including a run that lost the job to another one.

@@ -66,8 +66,8 @@ enum FailureReason: string
     public function isRetryable(): bool
     {
         return match ($this) {
-            self::SourceEmpty, self::SourceTooLong, self::Guardrail, self::SomeFormatsFailed, self::WorkerStalled => false,
-            default                                                                                               => true,
+            self::SourceEmpty, self::SourceTooLong, self::Guardrail, self::SomeFormatsFailed => false,
+            default                                                                          => true,
         };
     }
 

@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\PdfLayoutExtractor;
@@ -202,6 +203,27 @@ final class SourceIngestionServiceTest extends TestCase
 
         self::assertSame(3, $this->vision->calls);
         self::assertSame([33, 33, 33], $heartbeat->renewed);
+    }
+
+    /** A takeover while the pages are read is not an ingestion failure: no error is logged. */
+    public function testATakeoverDuringThePagesIsNotLoggedAsAnError(): void
+    {
+        $heartbeat = new class implements RunHeartbeatInterface {
+            public function renew(int $jobUid): void
+            {
+                throw new RunOwnershipLostException('Another run holds job ' . $jobUid, 1795000001);
+            }
+        };
+        $service = $this->service($this->sparsePages(2), heartbeat: $heartbeat);
+
+        try {
+            $service->ingest(JobSnapshots::of(['uid' => 34, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'vision', 'be_user' => 0]));
+            self::fail('The lost claim must stop the ingestion');
+        } catch (RunOwnershipLostException) {
+            // Expected.
+        }
+
+        self::assertSame([], array_filter($this->logger->records, static fn (array $r): bool => $r['level'] === 'error'));
     }
 
     public function testReadsAPdfOfExactlyTheConfiguredPageCount(): void

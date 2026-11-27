@@ -13,6 +13,7 @@ use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
@@ -83,6 +84,9 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         $absPath = $this->pdfFileResolver->resolve($job);
         try {
             return $this->readPdf($absPath, $job);
+        } catch (RunOwnershipLostException $e) {
+            // Another run took the job over during the pages; nothing failed here (#238).
+            throw $e;
         } catch (Throwable $e) {
             // The exception message becomes the job's error, which every module user
             // sees, so it never carries the server path; the path goes to the log.

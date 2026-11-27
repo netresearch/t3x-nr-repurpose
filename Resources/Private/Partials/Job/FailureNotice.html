@@ -38,7 +38,7 @@
                     <span class="d-block form-text"><f:translate key="{lll}:failure.retry.note" /></span>
                 </f:form>
             </f:then>
-            <f:else if="{job.failed} && {reason.retryable}">
+            <f:else if="{reason.retryable}">
                 <p><f:translate key="{lll}:failure.retry.blocked" /></p>
             </f:else>
         </f:if>

@@ -79,7 +79,10 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
             $synthesisInput = $text;
         }
 
-        $prompt  = $this->buildSynthesisPrompt($document, $synthesisInput);
+        $prompt = $this->buildSynthesisPrompt($document, $synthesisInput);
+        // Every provider call starts with a renewed claim, so no two calls run back to back
+        // without one (#238).
+        $this->heartbeat?->renew($job->uid);
         $decoded = $this->completion->completeJson(
             $prompt,
             $this->jsonOptions(self::SYSTEM_PROMPT, $job, CallerSource::ANALYZE_DOCUMENT),
@@ -101,6 +104,7 @@ final readonly class DocumentAnalyzer implements DocumentAnalyzerInterface
                 . '] and was rejected. Respond again with EXACTLY the JSON keys '
                 . '"title", "summary", "keyPoints", "sections", "audience", "language" '
                 . '— non-empty "title" and "summary" are mandatory.';
+            $this->heartbeat?->renew($job->uid);
             $decoded = $this->completion->completeJson(
                 $prompt,
                 $this->jsonOptions($retrySystemPrompt, $job, CallerSource::ANALYZE_DOCUMENT),

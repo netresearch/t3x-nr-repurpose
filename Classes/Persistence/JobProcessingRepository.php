@@ -14,6 +14,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
+use Netresearch\NrRepurpose\Domain\Model\Job;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Exception\ArtifactRowMissingException;
 use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
@@ -65,6 +66,15 @@ class JobProcessingRepository implements RunHeartbeatInterface
      */
     private array $runTokens = [];
 
+    /**
+     * The token of a run this process ended without a terminal write, per job uid: a crash whose
+     * failure write failed too (#238). The Messenger handler's fallback markFailed() may still
+     * replace that claim; the next claimRun() of the job drops it.
+     *
+     * @var array<int, string>
+     */
+    private array $endedTokens = [];
+
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         private readonly ResourceFactory $resourceFactory,
@@ -87,19 +97,14 @@ class JobProcessingRepository implements RunHeartbeatInterface
             ->set('run_claimed_at', $now)
             ->where(
                 $expr->eq('uid', $queryBuilder->createNamedParameter($jobUid, Connection::PARAM_INT)),
-                $expr->notIn(
-                    'status',
-                    $queryBuilder->createNamedParameter(
-                        array_map(static fn (JobStatus $s): string => $s->value, array_values(array_filter(JobStatus::cases(), static fn (JobStatus $s): bool => $s->isTerminal()))),
-                        Connection::PARAM_STR_ARRAY,
-                    ),
-                ),
+                $this->unfinished($queryBuilder),
                 $this->freeClaim($queryBuilder, $now),
             )
             ->executeStatement() === 1;
 
         if ($claimed) {
             $this->runTokens[$jobUid] = $token;
+            unset($this->endedTokens[$jobUid]);
         }
 
         return $claimed;
@@ -126,6 +131,17 @@ class JobProcessingRepository implements RunHeartbeatInterface
             || ScalarCast::int($row['run_claimed_at'] ?? 0) < time() - self::RUN_LEASE_SECONDS;
     }
 
+    private function unfinished(QueryBuilder $queryBuilder): string
+    {
+        return $queryBuilder->expr()->notIn(
+            'status',
+            $queryBuilder->createNamedParameter(
+                array_map(static fn (JobStatus $s): string => $s->value, array_values(array_filter(JobStatus::cases(), static fn (JobStatus $s): bool => $s->isTerminal()))),
+                Connection::PARAM_STR_ARRAY,
+            ),
+        );
+    }
+
     private function freeClaim(QueryBuilder $queryBuilder, int $now): string
     {
         $expr = $queryBuilder->expr();
@@ -139,6 +155,10 @@ class JobProcessingRepository implements RunHeartbeatInterface
     /** Drop this process's token for the job once its run has ended; writes nothing. */
     public function forgetRun(int $jobUid): void
     {
+        if (isset($this->runTokens[$jobUid])) {
+            $this->endedTokens[$jobUid] = $this->runTokens[$jobUid];
+        }
+
         unset($this->runTokens[$jobUid]);
     }
 
@@ -179,7 +199,8 @@ class JobProcessingRepository implements RunHeartbeatInterface
     private function renewClaim(int $jobUid): void
     {
         if (isset($this->runTokens[$jobUid])) {
-            $this->updateJob($jobUid, ['run_claimed_at' => time()]);
+            // tstamp too: a run that renews is not stalled (Job::getFailure()).
+            $this->updateJob($jobUid, ['run_claimed_at' => time(), 'tstamp' => time()]);
         }
     }
 
@@ -246,19 +267,27 @@ class JobProcessingRepository implements RunHeartbeatInterface
             ],
             true,
         );
-        $this->forgetRun($jobUid);
+        // The terminal write released the claim; nothing is left for a fallback to replace.
+        unset($this->runTokens[$jobUid], $this->endedTokens[$jobUid]);
     }
 
     /**
-     * Without a claim of this process (the Messenger handler's catch for a failure before the
-     * claim), only a job that no live run holds is marked failed; a run that holds one owns
-     * its outcome (#238).
+     * Without a claim of this process (the Messenger handler's catch), only an unfinished job
+     * is marked failed, and only while no live run holds it or the claim is the one of a run
+     * this process just ended: a run whose own failure write failed (#238). A finished job,
+     * and a job another live run holds, keep their state.
      */
     public function markFailed(int $jobUid, string $error, FailureReason $reason): void
     {
         if (!isset($this->runTokens[$jobUid])) {
             $now          = time();
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::JOB_TABLE);
+            $expr         = $queryBuilder->expr();
+            $released     = $this->freeClaim($queryBuilder, $now);
+            if (isset($this->endedTokens[$jobUid])) {
+                $released = (string) $expr->or($released, $expr->eq('run_token', $queryBuilder->createNamedParameter($this->endedTokens[$jobUid])));
+            }
+
             $queryBuilder
                 ->update(self::JOB_TABLE)
                 ->set('status', JobStatus::Failed->value)
@@ -268,10 +297,12 @@ class JobProcessingRepository implements RunHeartbeatInterface
                 ->set('run_token', '')
                 ->set('run_claimed_at', 0)
                 ->where(
-                    $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($jobUid, Connection::PARAM_INT)),
-                    $this->freeClaim($queryBuilder, $now),
+                    $expr->eq('uid', $queryBuilder->createNamedParameter($jobUid, Connection::PARAM_INT)),
+                    $this->unfinished($queryBuilder),
+                    $released,
                 )
                 ->executeStatement();
+            unset($this->endedTokens[$jobUid]);
 
             return;
         }
@@ -281,31 +312,51 @@ class JobProcessingRepository implements RunHeartbeatInterface
             ['status' => JobStatus::Failed->value, 'error_message' => $error, 'failure_reason' => $reason->value, 'tstamp' => time()],
             true,
         );
-        $this->forgetRun($jobUid);
+        // The terminal write released the claim; nothing is left for a fallback to replace.
+        unset($this->runTokens[$jobUid], $this->endedTokens[$jobUid]);
     }
 
     /**
-     * Back into the queue. One statement that only a failed job passes, so of two clicks, or of
-     * two people, one run starts: the caller dispatches only when this returns true.
+     * Back into the queue. One statement that only a failed job passes, or a stalled one: not
+     * finished, no write for Job::STALLED_AFTER and no live run holding it, as a run whose worker
+     * died and whose message is gone leaves it (#238). Of two clicks, or of two people, one run
+     * starts: the caller dispatches only when this returns true.
      */
     public function requeueFailed(int $jobUid): bool
     {
-        return $this->connectionPool->getConnectionForTable(self::JOB_TABLE)->update(
-            self::JOB_TABLE,
-            [
-                'status'            => JobStatus::Queued->value,
-                'current_step'      => '',
-                'progress'          => 0,
-                'error_message'     => '',
-                'failure_reason'    => '',
-                'source_report'     => '',
-                'language_detected' => '',
-                'tstamp'            => time(),
-                'run_token'         => '',
-                'run_claimed_at'    => 0,
-            ],
-            ['uid' => $jobUid, 'status' => JobStatus::Failed->value],
-        ) === 1;
+        $now          = time();
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::JOB_TABLE);
+        $expr         = $queryBuilder->expr();
+        $fields       = [
+            'status'            => JobStatus::Queued->value,
+            'current_step'      => '',
+            'progress'          => 0,
+            'error_message'     => '',
+            'failure_reason'    => '',
+            'source_report'     => '',
+            'language_detected' => '',
+            'tstamp'            => $now,
+            'run_token'         => '',
+            'run_claimed_at'    => 0,
+        ];
+        $queryBuilder->update(self::JOB_TABLE);
+        foreach ($fields as $field => $value) {
+            $queryBuilder->set($field, $value);
+        }
+
+        return $queryBuilder
+            ->where(
+                $expr->eq('uid', $queryBuilder->createNamedParameter($jobUid, Connection::PARAM_INT)),
+                $expr->or(
+                    $expr->eq('status', $queryBuilder->createNamedParameter(JobStatus::Failed->value)),
+                    $expr->and(
+                        $this->unfinished($queryBuilder),
+                        $expr->lt('tstamp', $queryBuilder->createNamedParameter($now - Job::STALLED_AFTER, Connection::PARAM_INT)),
+                        $this->freeClaim($queryBuilder, $now),
+                    ),
+                ),
+            )
+            ->executeStatement() === 1;
     }
 
     public function setLanguageDetected(int $jobUid, string $language): void

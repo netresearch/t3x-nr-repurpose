@@ -31,10 +31,12 @@ class Job extends AbstractEntity
     private const int DEEPEST_NAMED_LEVEL = 4;
 
     /**
-     * Two hours without a write, in seconds. Every step writes the job, and the doctrine transport
-     * hands an unfinished message to a worker again after one hour, so this is a stopped worker.
+     * Two hours without a write, in seconds. Every step writes the job, a running run renews its
+     * claim with tstamp at least once per lease, and the doctrine transport hands an unfinished
+     * message to a worker again after one hour, so this is a stopped worker. Such a job can be
+     * started again (#238); JobProcessingRepository::requeueFailed() applies the same limit.
      */
-    private const int STALLED_AFTER = 7200;
+    public const int STALLED_AFTER = 7200;
 
     protected string $sourceType = 'url';
 
@@ -463,11 +465,13 @@ class Job extends AbstractEntity
         return $this->getStatusEnum() === JobStatus::Failed;
     }
 
-    /** A new run removes every artifact of the job, so a finished result rules it out. */
+    /**
+     * A failed job, or a stalled one (#238). A new run removes every artifact of the job, so a
+     * finished result rules it out.
+     */
     public function isRetryable(): bool
     {
-        return $this->isFailed()
-            && $this->getFailure()?->isRetryable() === true
+        return $this->getFailure()?->isRetryable() === true
             && $this->getDoneArtifactCount() === 0;
     }
 

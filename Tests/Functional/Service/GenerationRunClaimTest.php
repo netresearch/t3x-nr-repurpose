@@ -17,6 +17,8 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
+use Netresearch\NrRepurpose\Domain\Model\Job;
+use Netresearch\NrRepurpose\Domain\Repository\JobRepository;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
@@ -616,6 +618,150 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
 
         self::assertSame(3, $bus->attempts);
         self::assertSame($before, $this->row($uid));
+    }
+
+    /**
+     * A crash whose own failure write fails too (the database dropped the connection): the
+     * handler's fallback write accepts the claim this process just held, so the job still ends
+     * failed and not stuck under a live-looking claim.
+     */
+    public function testACrashWhoseFailureWriteFailsStillEndsFailed(): void
+    {
+        $uid  = $this->seedJob();
+        $jobs = new class ($this->get(ConnectionPool::class), $this->get(ResourceFactory::class)) extends JobProcessingRepository {
+            private int $failingWrites = 1;
+
+            public function markFailed(int $jobUid, string $error, FailureReason $reason): void
+            {
+                if ($this->failingWrites-- > 0) {
+                    throw new RuntimeException('Lost connection to the database server during query');
+                }
+
+                parent::markFailed($jobUid, $error, $reason);
+            }
+        };
+        $generator = new ClaimTestGenerator($jobs, static function (): never {
+            throw new RuntimeException('provider answered garbage');
+        });
+
+        (new GenerateArtifactsHandler($this->orchestrator($jobs, [$generator]), $jobs, new NullLogger(), new RecordingMessageBus()))(new GenerateArtifactsMessage($uid));
+
+        $row = $this->row($uid);
+        self::assertSame('failed', $row['status']);
+        self::assertSame('Generation failed', $row['error_message']);
+        self::assertSame('', $row['run_token']);
+    }
+
+    /** A failure before the claim never turns a finished job into a failed one. */
+    public function testAFailureBeforeTheClaimLeavesAFinishedJob(): void
+    {
+        $uid  = $this->seedJob();
+        $jobs = $this->repository();
+        self::assertTrue($jobs->claimRun($uid));
+        $jobs->finishJob($uid, JobStatus::Done, '');
+        $before = $this->row($uid);
+
+        $this->crashingHandler()(new GenerateArtifactsMessage($uid));
+
+        self::assertSame($before, $this->row($uid));
+    }
+
+    /** The captured file is deleted before ingestion reads it: the job fails as one without a PDF. */
+    public function testACapturedFileDeletedBeforeIngestionFailsTheJobAsMissing(): void
+    {
+        $captured = $this->createFile('deleted.pdf', '%PDF-1.4 deleted');
+        $pool     = $this->get(ConnectionPool::class);
+        $pool->getConnectionForTable(self::JOB_TABLE)->insert(self::JOB_TABLE, [
+            'pid' => 0, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'status' => 'queued',
+        ]);
+        $uid = (int) $pool->getConnectionForTable(self::JOB_TABLE)->lastInsertId();
+        $pool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
+            'pid'        => 0, 'uid_local' => $captured, 'uid_foreign' => $uid,
+            'tablenames' => self::JOB_TABLE, 'fieldname' => 'source_pdf',
+        ]);
+        $ingestion = new readonly class ($this->get(PdfFileResolver::class), $pool, $captured) implements SourceIngestionServiceInterface {
+            public function __construct(private PdfFileResolver $resolver, private ConnectionPool $pool, private int $file) {}
+
+            public function ingest(JobSnapshot $job): SourceDocument
+            {
+                $this->pool->getConnectionForTable('sys_file')->delete('sys_file', ['uid' => $this->file]);
+                $this->resolver->resolve($job);
+
+                return new SourceDocument('Doc', 'never read', 'pdf', 1, 'en');
+            }
+        };
+        $jobs      = $this->repository();
+        $generator = new ClaimTestGenerator($jobs);
+
+        $this->orchestrator($jobs, [$generator], $ingestion, $this->offGate($jobs))->process($uid);
+
+        $row = $this->row($uid);
+        self::assertSame(0, $generator->runs);
+        self::assertSame('failed', $row['status']);
+        self::assertSame('pdf_fal job has no attached PDF (source_pdf empty)', $row['error_message']);
+    }
+
+    /** @return iterable<string, array{int, string, bool}> seconds since the last write, claim state, retry accepted */
+    public static function stalledJobs(): iterable
+    {
+        yield 'stalled, claim expired' => [Job::STALLED_AFTER + 60, 'expired', true];
+        yield 'stalled, no claim' => [Job::STALLED_AFTER + 60, 'none', true];
+        yield 'stalled, live claim' => [Job::STALLED_AFTER + 60, 'live', false];
+        yield 'written recently, no claim' => [60, 'none', false];
+    }
+
+    /**
+     * A job left unfinished by a dead worker whose message is gone can be started again, as a
+     * failed one can; a job a live run holds, or one written recently, cannot.
+     */
+    #[DataProvider('stalledJobs')]
+    public function testAStalledJobWithoutALiveRunCanBeStartedAgain(int $idle, string $claim, bool $accepted): void
+    {
+        $uid = $this->seedJob();
+        $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)->update(self::JOB_TABLE, [
+            'status'         => 'generating',
+            'tstamp'         => time() - $idle,
+            'run_token'      => $claim === 'none' ? '' : 'dead-or-alive',
+            'run_claimed_at' => match ($claim) {
+                'none'    => 0,
+                'expired' => time() - JobProcessingRepository::RUN_LEASE_SECONDS - 1,
+                default   => time(),
+            },
+        ], ['uid' => $uid]);
+
+        $job = $this->get(JobRepository::class)->findByUid($uid);
+        self::assertInstanceOf(Job::class, $job);
+        self::assertSame($idle > Job::STALLED_AFTER, $job->isRetryable(), 'the result view offers the button');
+        self::assertSame($accepted, $this->repository()->requeueFailed($uid));
+        self::assertSame($accepted ? 'queued' : 'generating', $this->row($uid)['status']);
+    }
+
+    /** A run that only renews (a long OCR) is not stalled: the renewal writes tstamp too. */
+    public function testARenewingRunIsNotStalled(): void
+    {
+        $uid  = $this->seedJob();
+        $jobs = $this->repository();
+        self::assertTrue($jobs->claimRun($uid));
+        $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)
+            ->update(self::JOB_TABLE, ['status' => 'ingesting', 'tstamp' => time() - Job::STALLED_AFTER - 60], ['uid' => $uid]);
+
+        $jobs->renew($uid);
+
+        $job = $this->get(JobRepository::class)->findByUid($uid);
+        self::assertInstanceOf(Job::class, $job);
+        self::assertNull($job->getFailure());
+        self::assertFalse($job->isRetryable());
+    }
+
+    private function offGate(JobProcessingRepository $jobs): SourceReviewGate
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_repurpose']['sourceReviewMode'] = 'off';
+
+        $policy    = new SourceReviewPolicy($this->get(ExtensionConfiguration::class));
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions->method('evaluate')->willReturn(SourceReviewFixture::result());
+
+        return new SourceReviewGate(new SourceReviewService($decisions, $policy), $policy, $jobs, new SourceReviewPointer($this->get(ConnectionPool::class)));
     }
 
     private function crashingHandler(): GenerateArtifactsHandler

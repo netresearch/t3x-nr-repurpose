@@ -37,6 +37,9 @@ class PdfFileResolver
     /** Driver key of TYPO3's local file system driver (sys_file_storage.driver). */
     private const string LOCAL_DRIVER = 'Local';
 
+    /** Code of FileRepository::findByUid()'s exception for a sys_file uid without a row. */
+    private const int FILE_ROW_MISSING = 1314354065;
+
     /** Largest PDF downloaded: 50 MiB covers long illustrated reports. */
     public const MAX_BYTES = 50 * 1024 * 1024;
 
@@ -125,9 +128,14 @@ class PdfFileResolver
         if ($job->sourceFileUid > 0) {
             try {
                 return $this->fileRepository->findByUid($job->sourceFileUid);
-            } catch (RuntimeException) {
-                // findByUid() throws a plain RuntimeException for a sys_file row that is gone.
-                throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441);
+            } catch (RuntimeException $e) {
+                // findByUid() throws a plain RuntimeException with this code for a sys_file row
+                // that is gone; anything else is not a missing file.
+                if ($e->getCode() !== self::FILE_ROW_MISSING) {
+                    throw $e;
+                }
+
+                throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441, $e);
             }
         }
 
