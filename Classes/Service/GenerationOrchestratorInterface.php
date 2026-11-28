@@ -9,6 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Service;
 
+/**
+ * Runs the generation pipeline for one job and returns what this run did (#238). Implemented by
+ * GenerationOrchestrator; the Messenger handler and nr_repurpose:generate call it.
+ *
+ * @internal
+ */
 interface GenerationOrchestratorInterface
 {
     public function process(int $jobUid): RunOutcome;

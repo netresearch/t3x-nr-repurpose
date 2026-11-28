@@ -15,7 +15,11 @@ use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 
-/** Persist the verdict and exact checked text before enforcing it. */
+/**
+ * Persist the verdict and exact checked text before enforcing it.
+ *
+ * @internal
+ */
 final readonly class SourceReviewGate
 {
     public function __construct(

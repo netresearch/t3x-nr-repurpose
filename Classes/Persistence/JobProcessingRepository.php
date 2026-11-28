@@ -31,6 +31,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 /**
  * Plain DBAL persistence for the long-running Messenger worker.
  * Avoids Extbase persistence-session pitfalls in a recycled consumer process.
+ *
+ * @internal
  */
 class JobProcessingRepository implements RunHeartbeatInterface
 {
