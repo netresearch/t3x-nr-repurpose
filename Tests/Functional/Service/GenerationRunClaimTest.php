@@ -404,7 +404,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertCount(1, $delay);
         self::assertInstanceOf(DelayStamp::class, $delay[0]);
         self::assertSame((Job::RUN_LEASE_SECONDS + GenerateArtifactsHandler::REDELIVERY_MARGIN_SECONDS) * 1000, $delay[0]->getDelay());
-        self::assertSame(['The claim of a held job could not be read; it is sent again after one lease'], array_column($logger->records, 'message'));
+        self::assertSame(['The claim of a held job could not be read; it is sent again after one lease plus the margin'], array_column($logger->records, 'message'));
     }
 
     /** Through the real bus the message lands in the doctrine queue, due once the claim would expire. */

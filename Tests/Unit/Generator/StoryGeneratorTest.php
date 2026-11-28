@@ -556,50 +556,56 @@ final class StoryGeneratorTest extends TestCase
         }
     }
 
+    /** @return iterable<string, array{bool}> whether a RenderingException wraps the lost claim */
+    public static function lostClaimShapes(): iterable
+    {
+        yield 'thrown as it is' => [false];
+        yield 'below a RenderingException' => [true];
+    }
+
     /**
      * A lost claim in the background call, also below a wrapper, is no failed background: the
      * run stops, renders no flat slide and logs no fallback (#238).
      */
-    public function testALostClaimInTheBackgroundCallStopsTheRun(): void
+    #[DataProvider('lostClaimShapes')]
+    public function testALostClaimInTheBackgroundCallStopsTheRun(bool $wrap): void
     {
-        foreach ([false, true] as $wrap) {
-            $lost           = new RunOwnershipLostException('Another run holds job 7 now', 1795000001);
-            $renderer       = $this->renderer();
-            $logger         = new RecordingLogger();
-            $imageGenerator = new readonly class ($wrap ? RenderingException::because('Image generation failed', 1749400520, $lost) : $lost) implements ImageGeneratorInterface {
-                public function __construct(private Throwable $failure) {}
+        $lost           = new RunOwnershipLostException('Another run holds job 7 now', 1795000001);
+        $renderer       = $this->renderer();
+        $logger         = new RecordingLogger();
+        $imageGenerator = new readonly class ($wrap ? RenderingException::because('Image generation failed', 1749400520, $lost) : $lost) implements ImageGeneratorInterface {
+            public function __construct(private Throwable $failure) {}
 
-                public function isAvailable(): bool
-                {
-                    return true;
-                }
-
-                public function getModel(): string
-                {
-                    return 'stub-image-model';
-                }
-
-                public function getPromptPreamble(): string
-                {
-                    return '';
-                }
-
-                public function generateToFile(string $prompt, string $size, string $outputPath): void
-                {
-                    throw $this->failure;
-                }
-            };
-
-            try {
-                $this->generator(self::THREE_SLIDES, $renderer, $imageGenerator, $this->jobs(), $this->allowingBudget(), $this->compositor(), logger: $logger)->generate($this->context());
-                self::fail('A lost claim must stop the run');
-            } catch (RunOwnershipLostException $e) {
-                self::assertSame($lost, $e, $wrap ? 'wrapped' : 'unwrapped');
+            public function isAvailable(): bool
+            {
+                return true;
             }
 
-            self::assertSame([], $renderer->outputs);
-            self::assertNotContains('Story background generation failed, falling back to flat slides', array_column($logger->records, 'message'));
+            public function getModel(): string
+            {
+                return 'stub-image-model';
+            }
+
+            public function getPromptPreamble(): string
+            {
+                return '';
+            }
+
+            public function generateToFile(string $prompt, string $size, string $outputPath): void
+            {
+                throw $this->failure;
+            }
+        };
+
+        try {
+            $this->generator(self::THREE_SLIDES, $renderer, $imageGenerator, $this->jobs(), $this->allowingBudget(), $this->compositor(), logger: $logger)->generate($this->context());
+            self::fail('A lost claim must stop the run');
+        } catch (RunOwnershipLostException $e) {
+            self::assertSame($lost, $e);
         }
+
+        self::assertSame([], $renderer->outputs);
+        self::assertNotContains('Story background generation failed, falling back to flat slides', array_column($logger->records, 'message'));
     }
 
     public function testSkipsMalformedAndEmptySlideEntriesAndNormalizesUnknownRoles(): void

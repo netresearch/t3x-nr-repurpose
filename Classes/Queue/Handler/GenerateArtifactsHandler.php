@@ -109,16 +109,17 @@ final readonly class GenerateArtifactsHandler
 
     /**
      * Seconds until the claim the delivery found would expire, plus a margin; at least the floor,
-     * at most one lease. A live run renews its claim, so its message comes back a lease later at
-     * most. Without a readable claim, one lease: this runs in the handler's catch, where an
-     * exception would make Messenger reject the delivery and delete the message.
+     * at most one lease plus the margin. A live run renews its claim, so its message comes back
+     * one lease plus the margin later at most. Without a readable claim, one lease plus the
+     * margin: this runs in the handler's catch, where an exception would make Messenger reject
+     * the delivery and delete the message.
      */
     private function redeliveryDelay(int $jobUid): int
     {
         try {
             $claimedAt = ScalarCast::int($this->jobs->findRow($jobUid)['run_claimed_at'] ?? 0);
         } catch (Throwable $e) {
-            $this->logger->warning('The claim of a held job could not be read; it is sent again after one lease', ['job' => $jobUid, 'exception' => $e]);
+            $this->logger->warning('The claim of a held job could not be read; it is sent again after one lease plus the margin', ['job' => $jobUid, 'exception' => $e]);
 
             return Job::RUN_LEASE_SECONDS + self::REDELIVERY_MARGIN_SECONDS;
         }
