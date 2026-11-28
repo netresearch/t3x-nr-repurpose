@@ -12,11 +12,14 @@ namespace Netresearch\NrRepurpose\Ingestion;
 use GuzzleHttp\ClientInterface;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
+use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Source\SourceAccess;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Random\Randomizer;
+use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\FileRepository;
 
 /**
@@ -35,6 +38,9 @@ class PdfFileResolver
     /** Driver key of TYPO3's local file system driver (sys_file_storage.driver). */
     private const string LOCAL_DRIVER = 'Local';
 
+    /** Code of FileRepository::findByUid()'s exception for a sys_file uid without a row. */
+    private const int FILE_ROW_MISSING = 1314354065;
+
     /** Largest PDF downloaded: 50 MiB covers long illustrated reports. */
     public const MAX_BYTES = 50 * 1024 * 1024;
 
@@ -47,6 +53,7 @@ class PdfFileResolver
         private readonly RequestFactoryInterface $requestFactory,
         private readonly RemoteSourceGuard $guard,
         private readonly SourceAccess $sourceAccess = new SourceAccess(),
+        private readonly ?RunHeartbeatInterface $heartbeat = null,
     ) {}
 
     public function resolve(JobSnapshot $job): string
@@ -87,14 +94,7 @@ class PdfFileResolver
      */
     private function resolveFalFile(JobSnapshot $job): string
     {
-        $jobUid     = $job->uid;
-        $references = $jobUid > 0 ? $this->fileRepository->findByRelation(self::JOB_TABLE, 'source_pdf', $jobUid) : [];
-        // findByRelation() leaves out a reference whose sys_file no longer exists.
-        if ($references === []) {
-            throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441);
-        }
-
-        $file    = $references[0]->getOriginalFile();
+        $file    = $this->attachedFile($job);
         $fileUid = $file->getUid();
 
         if ($job->beUser > 0) {
@@ -107,7 +107,9 @@ class PdfFileResolver
         if ($file->getStorage()->getDriverType() !== self::LOCAL_DRIVER) {
             // Any other driver would copy the file into var/transient for local
             // processing, and nothing removes that copy. A copy of our own is
-            // removed by release() once it has been read.
+            // removed by release() once it has been read. The read can be remote (#238).
+            $this->heartbeat?->renewHeld();
+
             return $this->writeDownload($file->getContents());
         }
 
@@ -120,6 +122,36 @@ class PdfFileResolver
         return $localPath;
     }
 
+    /**
+     * The file the source review fingerprinted before ingestion, when it did: an edit of the
+     * reference since then must not swap the file the review names (#238). Otherwise the
+     * job's first reference.
+     */
+    private function attachedFile(JobSnapshot $job): File
+    {
+        if ($job->sourceFileUid > 0) {
+            try {
+                return $this->fileRepository->findByUid($job->sourceFileUid);
+            } catch (RuntimeException $e) {
+                // findByUid() throws a plain RuntimeException with this code for a sys_file row
+                // that is gone; anything else is not a missing file.
+                if ($e->getCode() !== self::FILE_ROW_MISSING) {
+                    throw $e;
+                }
+
+                throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441, $e);
+            }
+        }
+
+        $references = $job->uid > 0 ? $this->fileRepository->findByRelation(self::JOB_TABLE, 'source_pdf', $job->uid) : [];
+        // findByRelation() leaves out a reference whose sys_file no longer exists.
+        if ($references === []) {
+            throw new IngestionException('pdf_fal job has no attached PDF (source_pdf empty)', 1749379441);
+        }
+
+        return $references[0]->getOriginalFile();
+    }
+
     private function downloadUrl(string $url): string
     {
         if ($url === '') {
@@ -129,6 +161,9 @@ class PdfFileResolver
         $request = $this->guard->createRequest($this->requestFactory, 'GET', $url)
             ->withHeader('User-Agent', 'nr_repurpose/0.1 (+https://www.netresearch.de)')
             ->withHeader('Accept', 'application/pdf');
+
+        // The download bypasses nr-llm's pipeline (#238).
+        $this->heartbeat?->renewHeld();
 
         try {
             $response = BoundedResponseReader::send($this->httpClient, $request, self::MAX_BYTES, self::TIMEOUT_SECONDS, $url);

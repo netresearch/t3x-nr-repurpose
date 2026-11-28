@@ -67,7 +67,7 @@ PHPUnit configs live in `Build/` (repo root), not under `Tests/`: `Build/phpunit
 
 <!-- AGENTS-GENERATED:START code-style -->
 ## Code Style
-- Test class name matches source: `MyClass` → `MyClassTest`
+- Test class name matches source: `MyClass` → `MyClassTest`. Exception: a functional scenario test that drives one behaviour across several classes is named after the scenario (`GenerationRunClaimTest`, `SourceReviewGenerationTest`, `FailureNoticeRenderingTest`)
 - Test methods: `test` prefix or the `#[Test]` attribute — never `@test` (PHPUnit 11 deprecates doc-comment metadata, 12 drops it)
 - One assertion concept per test
 - Use data providers for multiple similar cases

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Decision\DecisionRequest;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewPolicy;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewService;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
@@ -154,6 +155,18 @@ final class SourceReviewServiceTest extends TestCase
             'SECRET',
             json_encode($result, JSON_THROW_ON_ERROR),
         );
+    }
+
+    /** A takeover inside the review call is no unavailable review: the run stops (#238). */
+    public function testALostClaimDuringTheReviewPassesOnInsteadOfAnEmptyReview(): void
+    {
+        $decisions = $this->createMock(DecisionServiceInterface::class);
+        $decisions
+            ->method('evaluate')
+            ->willThrowException(new RunOwnershipLostException('Another run holds job 7 now', 1795000001));
+
+        $this->expectException(RunOwnershipLostException::class);
+        (new SourceReviewService($decisions, $this->policy(['sourceReviewMode' => 'observe'])))->review('copy', $this->document(), 1, 'final text');
     }
 
     public function testMissingConfigurationIsErrorEvenInObserveMode(): void

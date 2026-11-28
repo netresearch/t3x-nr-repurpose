@@ -41,9 +41,11 @@ class ArtifactRecordingJobRepository extends JobProcessingRepository
         return $uid;
     }
 
-    public function updateArtifact(int $artifactUid, array $fields): void
+    public function updateArtifact(int $artifactUid, array $fields): bool
     {
         $this->updates[$artifactUid] = array_merge($this->updates[$artifactUid] ?? [], $fields);
+
+        return true;
     }
 
     /**

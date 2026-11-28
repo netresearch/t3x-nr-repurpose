@@ -31,10 +31,43 @@ class Job extends AbstractEntity
     private const int DEEPEST_NAMED_LEVEL = 4;
 
     /**
-     * Two hours without a write, in seconds. Every step writes the job, and the doctrine transport
-     * hands an unfinished message to a worker again after one hour, so this is a stopped worker.
+     * Two hours without a write, in seconds. Every step writes the job, a running run renews its
+     * claim with tstamp at least once per lease, and the doctrine transport hands an unfinished
+     * message to a worker again after one hour, so this is a stopped worker. Such a job can be
+     * started again (#238); JobProcessingRepository::requeueFailed() applies the same limit.
      */
-    private const int STALLED_AFTER = 7200;
+    public const int STALLED_AFTER = 7200;
+
+    /**
+     * How long a run's claim on a job holds without a write of that run (#238).
+     *
+     * A worker that dies leaves its message in the doctrine transport, which hands it out again
+     * once its redeliver_timeout has passed (3600 s: TYPO3 passes only queue_name, so Symfony's
+     * default applies). The lease stays below that, so such a delivery normally finds the claim
+     * expired; a delivery that finds it live is sent again once that claim would have expired.
+     *
+     * A live run must not lose its claim between two renewals. Every write of the run renews it,
+     * RunClaimRenewalMiddleware renews it before every provider dispatch, and the PDF ingestion
+     * before every page. One dispatch is not one HTTP request: nr-llm's AbstractProvider retries a
+     * failed connection inside it, up to max_retries + 1 attempts of up to api_timeout each plus
+     * a backoff of 0.2 s doubling up to 30 s per retry, 111 s for 10 retries (a timed-out attempt
+     * is not retried). The middleware
+     * cannot renew between those attempts (netresearch/t3x-nr-llm#1476). Local work after a call
+     * (Chromium 60 s, ffmpeg and poppler up to 300 s) adds up to 300 s.
+     *
+     * nr-llm allows up to 10 retries of up to 600 s, longer than any lease below 3600 s, so the
+     * lease is fixed and the extension requires PROVIDER_DISPATCH_LIMIT_SECONDS for the attempts
+     * of one dispatch: (max_retries + 1) × the attempt timeout, which is an LLM configuration's
+     * effective timeout for a call through it, else the provider's api_timeout. The worker logs
+     * the records above it (ProviderDispatchLimitCheck). nr-llm's defaults (3 retries, 120 s: 480 s)
+     * and 3 retries at 300 s (1200 s) fit; with 111 s of backoff and 300 s of local work that is
+     * at most 1791 s. The specialized speech and image calls do not retry and are bounded by their own
+     * request timeout.
+     */
+    public const int RUN_LEASE_SECONDS = 1800;
+
+    /** The longest nr-llm dispatch, all attempts together, the lease is sized for (#238). */
+    public const int PROVIDER_DISPATCH_LIMIT_SECONDS = 1380;
 
     protected string $sourceType = 'url';
 
@@ -98,6 +131,10 @@ class Job extends AbstractEntity
     protected string $failureReason = '';
 
     protected int $tstamp = 0;
+
+    protected string $runToken = '';
+
+    protected int $runClaimedAt = 0;
 
     protected string $languageDetected = '';
 
@@ -463,12 +500,17 @@ class Job extends AbstractEntity
         return $this->getStatusEnum() === JobStatus::Failed;
     }
 
-    /** A new run removes every artifact of the job, so a finished result rules it out. */
+    /**
+     * A failed job, or a stalled one that no live run holds (#238); for a stalled job the same
+     * conditions JobProcessingRepository::requeueFailed() applies. A new run removes every artifact of the job, so
+     * a finished result rules it out, also for a stalled job: a dead run's finished artifacts
+     * may already be reviewed or published.
+     */
     public function isRetryable(): bool
     {
-        return $this->isFailed()
-            && $this->getFailure()?->isRetryable() === true
-            && $this->getDoneArtifactCount() === 0;
+        return $this->getFailure()?->isRetryable() === true
+            && $this->getDoneArtifactCount() === 0
+            && ($this->runToken === '' || $this->runClaimedAt < time() - self::RUN_LEASE_SECONDS);
     }
 
     public function getDoneArtifactCount(): int

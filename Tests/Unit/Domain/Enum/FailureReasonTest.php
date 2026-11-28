@@ -101,11 +101,13 @@ final class FailureReasonTest extends TestCase
     /** Both directions: a run that cannot end differently is refused, a passing fault is offered. */
     public function testARetryIsOfferedWhereANewRunCanEndDifferently(): void
     {
-        foreach ([FailureReason::SourceEmpty, FailureReason::SourceTooLong, FailureReason::Guardrail, FailureReason::SomeFormatsFailed, FailureReason::WorkerStalled] as $reason) {
+        foreach ([FailureReason::SourceEmpty, FailureReason::SourceTooLong, FailureReason::Guardrail, FailureReason::SomeFormatsFailed] as $reason) {
             self::assertFalse($reason->isRetryable(), $reason->value);
         }
 
-        foreach ([FailureReason::AnswerUnusable, FailureReason::ProviderTimeout, FailureReason::BudgetExhausted, FailureReason::Unknown, FailureReason::Internal] as $reason) {
+        // Since #238 the reason of a stalled job allows a retry. Whether a job offers it is
+        // Job::isRetryable(): no live claim and no finished artifact.
+        foreach ([FailureReason::AnswerUnusable, FailureReason::ProviderTimeout, FailureReason::BudgetExhausted, FailureReason::Unknown, FailureReason::Internal, FailureReason::WorkerStalled] as $reason) {
             self::assertTrue($reason->isRetryable(), $reason->value);
         }
     }

@@ -11,6 +11,8 @@ namespace Netresearch\NrRepurpose\Ingestion\Poppler;
 
 use Netresearch\NrRepurpose\Exception\PopplerEmptyOutputException;
 use Netresearch\NrRepurpose\Exception\PopplerProcessFailedException;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
+use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Psr\Log\LoggerInterface;
 use Random\Randomizer;
 use Symfony\Component\Process\Exception\ExceptionInterface;
@@ -19,6 +21,8 @@ use Symfony\Component\Process\Process;
 /**
  * Real Poppler invocations via Symfony Process. Binaries (pdftoppm/pdftotext) are baked into
  * the DDEV web image in Plan 1 Task 2 (poppler-utils). No Ghostscript needed (Poppler renders natively).
+ *
+ * Each process bypasses nr-llm's pipeline, so a generation run renews its claim before it (#238).
  */
 final readonly class SymfonyProcessPopplerRunner implements PopplerRunnerInterface
 {
@@ -27,10 +31,13 @@ final readonly class SymfonyProcessPopplerRunner implements PopplerRunnerInterfa
         private string $pdftoppmBinary = 'pdftoppm',
         private string $pdftotextBinary = 'pdftotext',
         private float $timeoutSeconds = 120.0,
+        private ?RunHeartbeatInterface $heartbeat = null,
     ) {}
 
+    /** @throws RunOwnershipLostException when another run holds the job now */
     public function rasterizePage(string $absPdfPath, int $page, int $dpi = 200): string
     {
+        $this->heartbeat?->renewHeld();
         $tmpPrefix = sys_get_temp_dir() . '/nrrepurpose_' . bin2hex((new Randomizer())->getBytes(6));
         // -singlefile => output is exactly <prefix>.png (no -NN page suffix).
         $process = new Process([
@@ -62,8 +69,10 @@ final readonly class SymfonyProcessPopplerRunner implements PopplerRunnerInterfa
         }
     }
 
+    /** @throws RunOwnershipLostException when another run holds the job now */
     public function extractLayout(string $absPdfPath, int $page): string
     {
+        $this->heartbeat?->renewHeld();
         // '-' writes UTF-8 layout-preserved text to stdout.
         $process = new Process([
             $this->pdftotextBinary, '-layout',

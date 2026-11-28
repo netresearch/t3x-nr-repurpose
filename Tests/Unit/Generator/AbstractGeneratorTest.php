@@ -10,12 +10,17 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator;
 
 use Netresearch\NrLlm\Testing\FakeBudgetService;
+use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
+use Netresearch\NrRepurpose\Rendering\RenderingException;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use RuntimeException;
 use Stringable;
+use Throwable;
 
 use function function_exists;
 
@@ -51,6 +56,11 @@ final class AbstractGeneratorTest extends TestCase
                 // Intentionally empty: bypasses the parent's ConnectionPool wiring —
                 // this test never touches the database.
             }
+
+            public function updateArtifact(int $artifactUid, array $fields): bool
+            {
+                return true;
+            }
         };
         $budget = new FakeBudgetService();
 
@@ -78,6 +88,11 @@ final class AbstractGeneratorTest extends TestCase
             public function exposeRemoveTempDir(string $dir): void
             {
                 $this->removeTempDir($dir);
+            }
+
+            public function exposeFailArtifactFrom(Throwable $e): void
+            {
+                $this->failArtifactFrom(1, 7, 'Step', $e);
             }
         };
     }
@@ -180,6 +195,64 @@ final class AbstractGeneratorTest extends TestCase
             self::assertDirectoryExists($foreign);
         } finally {
             rmdir($foreign);
+        }
+    }
+
+    /** A lost claim under a wrapper (a RenderingException around a provider call) passes on too (#238). */
+    public function testFailArtifactFromPassesOnALostClaimBelowAWrapper(): void
+    {
+        $lost    = new RunOwnershipLostException('Another run holds job 7 now', 1795000001);
+        $logger  = $this->logger();
+        $subject = $this->subject($logger);
+
+        try {
+            $subject->exposeFailArtifactFrom(RenderingException::because('TTS synthesis failed', 1749410000, $lost));
+            self::fail('The lost claim must pass on');
+        } catch (RunOwnershipLostException $e) {
+            self::assertSame($lost, $e);
+        }
+
+        self::assertSame([], $logger->records);
+    }
+
+    /** A failed write must not swallow the reason; only a lost claim suppresses the log (#238). */
+    public function testFailArtifactLogsTheReasonWhenItsWriteFails(): void
+    {
+        foreach ([[new RuntimeException('connection lost'), true], [new RunOwnershipLostException('Another run holds job 7 now', 1795000001), false]] as [$writeFailure, $logged]) {
+            $jobs = new class ($writeFailure) extends JobProcessingRepository {
+                public function __construct(private readonly Throwable $failure) {}
+
+                public function updateArtifact(int $artifactUid, array $fields): bool
+                {
+                    throw $this->failure;
+                }
+            };
+            $logger  = $this->logger();
+            $subject = new class ($jobs, new FakeBudgetService(), $logger) extends AbstractGenerator {
+                public function supports(GenerationContext $ctx): bool
+                {
+                    return false;
+                }
+
+                public function generate(GenerationContext $ctx): bool
+                {
+                    return false;
+                }
+
+                public function exposeFailArtifact(): void
+                {
+                    $this->failArtifact(1, 7, 'The render failed', FailureReason::Rendering);
+                }
+            };
+
+            try {
+                $subject->exposeFailArtifact();
+                self::fail('The write failure must pass on');
+            } catch (Throwable $e) {
+                self::assertSame($writeFailure, $e);
+            }
+
+            self::assertSame($logged ? ['Artifact generation failed'] : [], array_column($logger->records, 'message'), $writeFailure::class);
         }
     }
 }

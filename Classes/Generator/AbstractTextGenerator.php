@@ -169,8 +169,9 @@ abstract class AbstractTextGenerator extends AbstractGenerator
             }
 
             try {
-                $this->jobs->updateArtifact(
+                $stored = $this->storeArtifact(
                     $artifactUid,
+                    $jobUid,
                     [
                         'script_text' => $artifact->plainText,
                         'metadata'    => json_encode(
@@ -184,7 +185,7 @@ abstract class AbstractTextGenerator extends AbstractGenerator
                         'status' => ArtifactStatus::Done->value,
                     ] + $fileFields,
                 );
-                $ok = true;
+                $ok = $stored || $ok;
             } catch (Throwable $e) {
                 $this->failArtifactFrom(
                     $artifactUid,

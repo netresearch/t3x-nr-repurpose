@@ -13,14 +13,18 @@ use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Psr7\HttpFactory;
 use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\RequestOptions;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\RemoteSourceGuard;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\QueuedHttpClient;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingHeartbeat;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\StaticHostResolver;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
+use RuntimeException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\FileReference;
 use TYPO3\CMS\Core\Resource\FileRepository;
@@ -176,8 +180,49 @@ final class PdfFileResolverTest extends TestCase
         }
     }
 
+    /** Another driver's file read can be remote, so a run renews its claim before it (#238). */
+    public function testAnotherDriversFileReadRenewsTheRunsClaimFirst(): void
+    {
+        $heartbeat = new RecordingHeartbeat();
+        $resolver  = $this->resolverForFile($this->falFile('FakeRemote', null), $heartbeat);
+        $resolver->release($resolver->resolve(JobSnapshots::of(['uid' => 5, 'source_type' => 'pdf_fal', 'source_pdf' => 1])));
+        self::assertSame(1, $heartbeat->heldRenewals);
+
+        $local = new RecordingHeartbeat();
+        $this->resolverForFile($this->falFile('Local', __FILE__), $local)->resolve(JobSnapshots::of(['uid' => 5, 'source_type' => 'pdf_fal', 'source_pdf' => 1]));
+        self::assertSame(0, $local->heldRenewals, 'the local driver reads nothing');
+    }
+
+    /** @return iterable<string, array{int, class-string<RuntimeException>}> */
+    public static function capturedFileReadFailures(): iterable
+    {
+        yield 'sys_file row missing' => [1314354065, IngestionException::class];
+        yield 'any other failure' => [1, RuntimeException::class];
+    }
+
+    /**
+     * The captured file (#238): only findByUid()'s missing-row exception means the file is gone.
+     * Any other failure reading the sys_file row is passed on as it is.
+     *
+     * @param class-string<RuntimeException> $expected
+     */
+    #[DataProvider('capturedFileReadFailures')]
+    public function testOnlyAMissingSysFileRowOfTheCapturedFileReadsAsNoAttachedPdf(int $code, string $expected): void
+    {
+        $repository = $this->createStub(FileRepository::class);
+        $repository->method('findByUid')->willThrowException(new RuntimeException('sys_file read failed', $code));
+        $resolver = new PdfFileResolver($repository, QueuedHttpClient::answering(200, '')->client, new HttpFactory(), StaticHostResolver::publicGuard());
+
+        try {
+            $resolver->resolve(JobSnapshots::of(['uid' => 5, 'source_type' => 'pdf_fal', 'source_pdf' => 1])->withSourceFileUid(77));
+            self::fail('The resolver must throw');
+        } catch (RuntimeException $e) {
+            self::assertSame($expected, $e::class);
+        }
+    }
+
     /** A resolver for which job 5 has $file attached through its source_pdf field. */
-    private function resolverForFile(File $file): PdfFileResolver
+    private function resolverForFile(File $file, ?RecordingHeartbeat $heartbeat = null): PdfFileResolver
     {
         $reference = $this->createStub(FileReference::class);
         $reference->method('getOriginalFile')->willReturn($file);
@@ -187,7 +232,7 @@ final class PdfFileResolverTest extends TestCase
             static fn (string $table, string $field, int $uid): array => [$table, $field, $uid] === ['tx_nrrepurpose_domain_model_job', 'source_pdf', 5] ? [$reference] : [],
         );
 
-        return new PdfFileResolver($repository, QueuedHttpClient::answering(200, '')->client, new HttpFactory(), StaticHostResolver::publicGuard());
+        return new PdfFileResolver($repository, QueuedHttpClient::answering(200, '')->client, new HttpFactory(), StaticHostResolver::publicGuard(), heartbeat: $heartbeat);
     }
 
     /**
@@ -215,5 +260,19 @@ final class PdfFileResolverTest extends TestCase
         });
 
         return $file;
+    }
+
+    /** The PDF download bypasses nr-llm's pipeline: a lost claim sends no request (#238). */
+    public function testTheDownloadRenewsTheRunsClaimFirst(): void
+    {
+        $http     = QueuedHttpClient::answering(200, '%PDF-1.4');
+        $resolver = new PdfFileResolver($this->createStub(FileRepository::class), $http->client, new HttpFactory(), StaticHostResolver::publicGuard(), heartbeat: RecordingHeartbeat::lost());
+
+        try {
+            $resolver->resolve(JobSnapshots::of(['source_type' => 'pdf_url', 'source_value' => 'https://example.com/r.pdf']));
+            self::fail('A lost claim must stop the run');
+        } catch (RunOwnershipLostException) {
+            self::assertSame(1, $http->unconsumed(), 'no request is sent');
+        }
     }
 }

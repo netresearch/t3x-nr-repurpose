@@ -12,6 +12,7 @@ namespace Netresearch\NrRepurpose\Tests\Unit\Ingestion;
 use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\PdfLayoutExtractor;
@@ -20,6 +21,7 @@ use Netresearch\NrRepurpose\Ingestion\PdfVisionExtractor;
 use Netresearch\NrRepurpose\Ingestion\Poppler\PopplerRunnerInterface;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\WebPageFetcher;
+use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Source\PageSourceReader;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\JobSnapshots;
@@ -48,7 +50,7 @@ final class SourceIngestionServiceTest extends TestCase
      *
      * @param list<array{page:int,text:string,isSparse:bool}> $textPages
      */
-    private function service(array $textPages, string $resolvedPath = '/abs/doc.pdf', ?CapabilityGrants $grants = null, ?ExtensionConfiguration $extensionConfiguration = null): SourceIngestionService
+    private function service(array $textPages, string $resolvedPath = '/abs/doc.pdf', ?CapabilityGrants $grants = null, ?ExtensionConfiguration $extensionConfiguration = null, ?RunHeartbeatInterface $heartbeat = null): SourceIngestionService
     {
         $text = new class ($textPages) extends PdfTextExtractor {
             /** @var list<int|null> the limit of every extract() call */
@@ -135,7 +137,7 @@ final class SourceIngestionServiceTest extends TestCase
             }
         };
 
-        return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout, $grantResolver, $this->logger, $this->createStub(PageSourceReader::class), $extensionConfiguration);
+        return new SourceIngestionService($fetcher, $resolver, $text, $vision, $layout, $grantResolver, $this->logger, $this->createStub(PageSourceReader::class), $extensionConfiguration, $heartbeat);
     }
 
     /** @return list<array{page:int,text:string,isSparse:bool}> */
@@ -181,6 +183,57 @@ final class SourceIngestionServiceTest extends TestCase
         );
 
         return $configuration;
+    }
+
+    /** Each page renews the run's claim before it is read: OCR writes nothing to the job (#238). */
+    public function testEachPdfPageRenewsTheRunsClaim(): void
+    {
+        $heartbeat = new class implements RunHeartbeatInterface {
+            /** @var list<int> */
+            public array $renewed = [];
+
+            public function renew(int $jobUid): void
+            {
+                $this->renewed[] = $jobUid;
+            }
+
+            public function renewHeld(): void
+            {
+                // The ingestion renews per job through renew(); renewHeld() is not part of this test.
+            }
+        };
+
+        $this->service($this->sparsePages(3), heartbeat: $heartbeat)
+            ->ingest(JobSnapshots::of(['uid' => 33, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'vision', 'be_user' => 0]));
+
+        self::assertSame(3, $this->vision->calls);
+        self::assertSame([33, 33, 33], $heartbeat->renewed);
+    }
+
+    /** A takeover while the pages are read is not an ingestion failure: no error is logged. */
+    public function testATakeoverDuringThePagesIsNotLoggedAsAnError(): void
+    {
+        $heartbeat = new class implements RunHeartbeatInterface {
+            public function renew(int $jobUid): void
+            {
+                throw new RunOwnershipLostException('Another run holds job ' . $jobUid, 1795000001);
+            }
+
+            public function renewHeld(): void
+            {
+                // The ingestion renews per job through renew(); renewHeld() is not part of this test.
+            }
+        };
+        $service = $this->service($this->sparsePages(2), heartbeat: $heartbeat);
+
+        try {
+            $service->ingest(JobSnapshots::of(['uid' => 34, 'source_type' => 'pdf_fal', 'source_pdf' => 1, 'pdf_mode' => 'vision', 'be_user' => 0]));
+            self::fail('The lost claim must stop the ingestion');
+        } catch (RunOwnershipLostException) {
+            // Expected.
+        }
+
+        self::assertSame([], array_filter($this->logger->records, static fn (array $r): bool => $r['level'] === 'error'));
     }
 
     public function testReadsAPdfOfExactlyTheConfiguredPageCount(): void

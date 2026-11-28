@@ -15,6 +15,8 @@ use Netresearch\NrRepurpose\Domain\Enum\JobStatus;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceReport;
 use Netresearch\NrRepurpose\Exception\MalformedJobRowException;
+use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Ingestion\IngestionException;
@@ -24,9 +26,9 @@ use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\JobProgress;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
+use Netresearch\NrRepurpose\SourceReview\SourceCapture;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewGate;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewRejectedException;
-use Netresearch\NrRepurpose\SourceReview\SourceReviewSupersededException;
 use Netresearch\NrRepurpose\Understanding\AnalysisException;
 use Netresearch\NrRepurpose\Understanding\DocumentAnalyzerInterface;
 use Netresearch\NrRepurpose\Utility\ScalarCast;
@@ -83,21 +85,19 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
      * not configured an actor behaves exactly as before instead of failing in a
      * new way.
      */
-    public function process(int $jobUid): void
+    public function process(int $jobUid): RunOutcome
     {
         $actorUid = $this->technicalActorUid();
 
         // <= 0, not === 0: runAs() takes a positive uid, and a negative one
         // reached it because only zero was filtered. There is no actor below 1.
         if ($actorUid <= 0) {
-            $this->processJob($jobUid);
-
-            return;
+            return $this->processJob($jobUid);
         }
 
-        $this->technicalActor->runAs($actorUid, function () use ($jobUid): void {
-            $this->processJob($jobUid);
-        });
+        $outcome = $this->technicalActor->runAs($actorUid, fn (): RunOutcome => $this->processJob($jobUid));
+
+        return $outcome instanceof RunOutcome ? $outcome : RunOutcome::Failed;
     }
 
     private function technicalActorUid(): int
@@ -111,7 +111,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         }
     }
 
-    private function processJob(int $jobUid): void
+    private function processJob(int $jobUid): RunOutcome
     {
         $row = $this->jobs->findRow($jobUid);
         if ($row === null) {
@@ -120,14 +120,87 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
                 ['job' => $jobUid],
             );
 
-            return;
+            return RunOutcome::NotFound;
         }
 
         // Idempotent: never reprocess a finished job. Checked on the raw status before
         // the row is parsed, so a finished job whose row no longer parses stays as it is.
+        if ($this->isFinished($row)) {
+            return $this->finishedOutcome($row);
+        }
+
+        // One run per job (#238): a second delivery while a live run holds the job writes
+        // nothing. The claim also refuses a job that finished since the read above.
+        if (!$this->jobs->claimRun($jobUid)) {
+            $row = $this->jobs->findRow($jobUid);
+            if ($row === null) {
+                return RunOutcome::NotFound;
+            }
+
+            if ($this->isFinished($row)) {
+                return $this->finishedOutcome($row);
+            }
+
+            throw new RunClaimHeldException(sprintf('Another run holds job %d', $jobUid), 1795000002);
+        }
+
+        try {
+            return $this->runClaimed($jobUid);
+        } catch (RunOwnershipLostException $e) {
+            // Another run took the job over; it owns the status and the artifacts now.
+            $this->logger->warning('Run lost the job to another run, stopping', ['job' => $jobUid, 'exception' => $e]);
+
+            return RunOutcome::Lost;
+        } catch (Throwable $e) {
+            // A lost claim below a wrapper is no crash either.
+            if (RunOwnershipLostException::in($e) instanceof RunOwnershipLostException) {
+                $this->logger->warning('Run lost the job to another run, stopping', ['job' => $jobUid, 'exception' => $e]);
+
+                return RunOutcome::Lost;
+            }
+
+            // A crash past the step handling (a generator that threw, a database error) fails
+            // the job here, while the claim binds the write; the Messenger handler's own catch
+            // is left with failures before the claim. Fixed text, as there (#77).
+            $this->logger->error('Generation job crashed', ['job' => $jobUid, 'exception' => $e]);
+            try {
+                $this->jobs->markFailed($jobUid, 'Generation failed', FailureClassifier::reasonFor($e));
+            } catch (RunOwnershipLostException) {
+                // Another run took the job over in between; its outcome stands.
+                return RunOutcome::Lost;
+            }
+
+            return RunOutcome::Failed;
+        } finally {
+            $this->jobs->forgetRun($jobUid);
+        }
+    }
+
+    /**
+     * A job finished before this run: failed stays a failure for the caller (#238).
+     *
+     * @param array<string, mixed> $row
+     */
+    private function finishedOutcome(array $row): RunOutcome
+    {
+        return ($row['status'] ?? null) === JobStatus::Failed->value ? RunOutcome::AlreadyFailed : RunOutcome::AlreadyFinished;
+    }
+
+    /** @param array<string, mixed> $row */
+    private function isFinished(array $row): bool
+    {
         $status = $row['status'] ?? null;
-        if (is_string($status) && JobStatus::tryFrom($status)?->isTerminal() === true) {
-            return;
+
+        return is_string($status) && JobStatus::tryFrom($status)?->isTerminal() === true;
+    }
+
+    /** The pipeline of a run that holds the job's claim; every write below is bound to it. */
+    private function runClaimed(int $jobUid): RunOutcome
+    {
+        // Read again: the row the claim was won on, not the one read before it.
+        $row = $this->jobs->findRow($jobUid);
+        if ($row === null) {
+            return RunOutcome::NotFound;
         }
 
         // The only conversion of the raw row; everything downstream reads the snapshot.
@@ -136,18 +209,21 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         } catch (MalformedJobRowException $e) {
             $this->failJob($jobUid, 'Reading the job', $e);
 
-            return;
+            return RunOutcome::Failed;
         }
 
         // 1) Ingestion — turn the source into a SourceDocument.
         $this->jobs->markStatus($jobUid, JobStatus::Ingesting, 'ingesting', 5);
         try {
-            $sourcePointerHash = $this->sourceReview?->captureSource($row);
-            $document          = $this->ingestion->ingest($job);
+            $capture = $this->sourceReview?->captureSource($row);
+            // Ingestion reads the file the fingerprint names, not the reference read again.
+            $document = $this->ingestion->ingest(
+                $capture instanceof SourceCapture && $capture->fileUid > 0 ? $job->withSourceFileUid($capture->fileUid) : $job,
+            );
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Ingestion', $e);
 
-            return;
+            return RunOutcome::Failed;
         }
 
         // A page source says what it used and what it left out; the result view shows that.
@@ -163,7 +239,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Analysis', $e);
 
-            return;
+            return RunOutcome::Failed;
         }
 
         // Record the detected language on the job for the BE result view.
@@ -173,15 +249,16 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
                 $job,
                 $document,
                 $brief,
-                $sourcePointerHash,
+                $capture?->hash,
             ) ?? [];
-        } catch (SourceReviewSupersededException) {
-            // The winning run owns the job state and artifacts; leave both untouched.
-            return;
         } catch (Throwable $e) {
+            // A review that another run replaced arrives as RunOwnershipLostException, which
+            // failJob() passes on. A SourceReviewSupersededException means the stored review
+            // changed under a claim this run still holds, outside any run: the run cannot
+            // trust its baseline and fails the job through its claim (#238).
             $this->failJob($jobUid, 'Source fidelity check', $e);
 
-            return;
+            return RunOutcome::Failed;
         }
 
         // 3) Resolve the editor's prompt-snippet selection ONCE for this run (analysis stays
@@ -192,7 +269,7 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
         } catch (Throwable $e) {
             $this->failJob($jobUid, 'Prompt snippet resolution', $e);
 
-            return;
+            return RunOutcome::Failed;
         }
 
         // 4) Build the shared per-run context.
@@ -288,6 +365,12 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
             ],
         };
         $this->jobs->finishJob($jobUid, $final, $error, $reason);
+
+        return match ($final) {
+            JobStatus::Done          => RunOutcome::Done,
+            JobStatus::PartiallyDone => RunOutcome::PartiallyDone,
+            default                  => RunOutcome::Failed,
+        };
     }
 
     /**
@@ -300,6 +383,12 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
      */
     private function failJob(int $jobUid, string $step, Throwable $e): void
     {
+        // A run that lost the job writes no failure either, also when a wrapper carries the loss.
+        $lost = RunOwnershipLostException::in($e);
+        if ($lost instanceof RunOwnershipLostException) {
+            throw $lost;
+        }
+
         $this->logger->error(
             $step . ' failed',
             ['job' => $jobUid, 'exception' => $e],

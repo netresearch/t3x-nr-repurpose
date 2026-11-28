@@ -24,6 +24,7 @@ use Netresearch\NrRepurpose\Domain\ValueObject\CapabilityGrants;
 use Netresearch\NrRepurpose\Domain\ValueObject\ContentBrief;
 use Netresearch\NrRepurpose\Domain\ValueObject\ResolvedPromptSnippets;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\StoryGenerator;
 use Netresearch\NrRepurpose\Generator\Support\StorySlide;
@@ -555,6 +556,58 @@ final class StoryGeneratorTest extends TestCase
         }
     }
 
+    /** @return iterable<string, array{bool}> whether a RenderingException wraps the lost claim */
+    public static function lostClaimShapes(): iterable
+    {
+        yield 'thrown as it is' => [false];
+        yield 'below a RenderingException' => [true];
+    }
+
+    /**
+     * A lost claim in the background call, also below a wrapper, is no failed background: the
+     * run stops, renders no flat slide and logs no fallback (#238).
+     */
+    #[DataProvider('lostClaimShapes')]
+    public function testALostClaimInTheBackgroundCallStopsTheRun(bool $wrap): void
+    {
+        $lost           = new RunOwnershipLostException('Another run holds job 7 now', 1795000001);
+        $renderer       = $this->renderer();
+        $logger         = new RecordingLogger();
+        $imageGenerator = new readonly class ($wrap ? RenderingException::because('Image generation failed', 1749400520, $lost) : $lost) implements ImageGeneratorInterface {
+            public function __construct(private Throwable $failure) {}
+
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function getModel(): string
+            {
+                return 'stub-image-model';
+            }
+
+            public function getPromptPreamble(): string
+            {
+                return '';
+            }
+
+            public function generateToFile(string $prompt, string $size, string $outputPath): void
+            {
+                throw $this->failure;
+            }
+        };
+
+        try {
+            $this->generator(self::THREE_SLIDES, $renderer, $imageGenerator, $this->jobs(), $this->allowingBudget(), $this->compositor(), logger: $logger)->generate($this->context());
+            self::fail('A lost claim must stop the run');
+        } catch (RunOwnershipLostException $e) {
+            self::assertSame($lost, $e);
+        }
+
+        self::assertSame([], $renderer->outputs);
+        self::assertNotContains('Story background generation failed, falling back to flat slides', array_column($logger->records, 'message'));
+    }
+
     public function testSkipsMalformedAndEmptySlideEntriesAndNormalizesUnknownRoles(): void
     {
         $jobs     = $this->jobs();
@@ -679,6 +732,68 @@ final class StoryGeneratorTest extends TestCase
         self::assertTrue($generator->generate($this->context()));
         self::assertSame('Story slide 2/3 failed', $jobs->updates[$jobs->uidForVariant('slide-2')]['error_message']);
         self::assertContains($cause, array_map(static fn (array $record): mixed => $record['context']['exception'] ?? null, $logger->records));
+    }
+
+    /**
+     * A slide whose row is gone by its final write is not produced (#238): its sibling still is,
+     * and a story whose every slide row is gone counts as failed.
+     */
+    public function testASlideWhoseRowIsGoneIsNotCountedAsProduced(): void
+    {
+        $response = ['slides' => [
+            ['role' => 'cover', 'headline' => 'Big News', 'subline' => 'Details inside'],
+            ['role' => 'outro', 'headline' => 'Takeaway', 'subline' => ''],
+        ]];
+
+        $jobs                   = $this->jobs();
+        $jobs->goneAtFinalWrite = ['slide-1'];
+        self::assertTrue($this->generator($response, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor())->generate($this->context()));
+        self::assertNotSame('done', $jobs->updates[$jobs->uidForVariant('slide-1')]['status'] ?? null);
+        self::assertSame('done', $jobs->updates[$jobs->uidForVariant('slide-2')]['status'] ?? null);
+
+        $jobs                   = $this->jobs();
+        $jobs->goneAtFinalWrite = ['slide-1', 'slide-2'];
+        self::assertFalse($this->generator($response, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor())->generate($this->context()));
+    }
+
+    /** A slide whose final write finds the job lost removes its PNG before the run stops (#238). */
+    public function testASlideLostAtItsFinalWriteLeavesNoRenderedFile(): void
+    {
+        $response = ['slides' => [
+            ['role' => 'cover', 'headline' => 'Big News', 'subline' => 'Details inside'],
+            ['role' => 'outro', 'headline' => 'Takeaway', 'subline' => ''],
+        ]];
+        $jobs                   = $this->jobs();
+        $jobs->lostAtFinalWrite = ['slide-1'];
+
+        $renderer = $this->renderer();
+
+        try {
+            $this->generator($response, $renderer, $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor())->generate($this->context());
+            self::fail('A lost claim must stop the run');
+        } catch (RunOwnershipLostException) {
+            self::assertCount(1, $renderer->outputs);
+            $this->assertAllGone($renderer->outputs);
+        }
+    }
+
+    /** A slide row gone before its review is skipped with a line that names the slide (#238). */
+    public function testASlideRowGoneBeforeItsReviewIsLoggedAsASkippedSlide(): void
+    {
+        $response = ['slides' => [
+            ['role' => 'cover', 'headline' => 'Big News', 'subline' => 'Details inside'],
+            ['role' => 'outro', 'headline' => 'Takeaway', 'subline' => ''],
+        ]];
+        $jobs       = $this->jobs();
+        $jobs->gone = ['slide-1'];
+
+        $logger = new RecordingLogger();
+
+        self::assertTrue($this->generator($response, $this->renderer(), $this->imageGenerator(false), $jobs, $this->allowingBudget(), $this->compositor(), logger: $logger)->generate($this->context()));
+
+        $messages = array_column($logger->records, 'message');
+        self::assertContains('A story slide row is gone before its review; the slide is skipped', $messages);
+        self::assertNotContains('The artifact row is gone; the format counts as failed', $messages);
     }
 
     public function testFailedSlideRenderDoesNotAbortSiblingSlides(): void
@@ -1055,6 +1170,15 @@ final class StoryGeneratorTest extends TestCase
             /** @var array<string, int> */
             private array $variantUid = [];
 
+            /** @var list<string> variants whose row is gone when the final write comes (#238) */
+            public array $goneAtFinalWrite = [];
+
+            /** @var list<string> variants whose row is gone from the first write on (#238) */
+            public array $gone = [];
+
+            /** @var list<string> variants another run takes over at the final write (#238) */
+            public array $lostAtFinalWrite = [];
+
             public function __construct() {}
 
             public function insertArtifact(int $jobUid, ArtifactType $type, string $variant, int $fileUid, ArtifactStatus $status, ?string $error = null): int
@@ -1066,9 +1190,20 @@ final class StoryGeneratorTest extends TestCase
                 return $uid;
             }
 
-            public function updateArtifact(int $artifactUid, array $fields): void
+            public function updateArtifact(int $artifactUid, array $fields): bool
             {
+                $variant = array_search($artifactUid, $this->variantUid, true);
+                if (($fields['status'] ?? null) === ArtifactStatus::Done->value && in_array($variant, $this->lostAtFinalWrite, true)) {
+                    throw new RunOwnershipLostException('Another run holds job 7 now', 1795000001);
+                }
+
+                if (in_array($variant, $this->gone, true) || (($fields['status'] ?? null) === ArtifactStatus::Done->value && in_array($variant, $this->goneAtFinalWrite, true))) {
+                    return false;
+                }
+
                 $this->updates[$artifactUid] = array_merge($this->updates[$artifactUid] ?? [], $fields);
+
+                return true;
             }
 
             public function uidForVariant(string $variant): int

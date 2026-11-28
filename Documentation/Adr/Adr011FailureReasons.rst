@@ -75,8 +75,14 @@ run is reused, and the page says so beside the button.
 report its own death. A job that is not finished and has not been written for
 two hours shows ``worker_stalled``, and it keeps running if the worker comes back.
 A job whose queue message never arrived, because the database failed between the
-requeue and the dispatch, does not. The texts therefore promise neither, and name
-creating the job again as the way out.
+requeue and the dispatch, does not. Since #238 such a job can be started again
+like a failed one: the same ``UPDATE`` also passes a job that is not finished,
+was written once but not for two hours, holds no live run claim and has no
+finished artifact (see :ref:`adr-001`). A running job renews its claim and its
+``tstamp`` before every provider dispatch, every external process, every page
+fetch and every PDF page, and a dispatch is bounded by the provider limit
+ADR-001 requires (well under the 1800-second lease and the two hours), so a
+live run does not qualify.
 
 .. _adr-011-consequences:
 

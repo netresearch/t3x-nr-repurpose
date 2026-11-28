@@ -151,11 +151,8 @@ final class GenerationOrchestratorTest extends AbstractFunctionalTestCase
                 $this->get(AiLabelSettingsFactory::class),
                 [$generator],
             );
-            try {
-                $orchestrator->process($this->seedJob());
-            } catch (RuntimeException) {
-                // The throwing generator's exception passes through the orchestrator.
-            }
+            // The throwing generator's crash fails the job inside the orchestrator (#238).
+            $orchestrator->process($this->seedJob());
 
             self::assertNotNull($generator->dir);
             self::assertDirectoryDoesNotExist($generator->dir);

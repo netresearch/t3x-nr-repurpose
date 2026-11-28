@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrRepurpose\Tests\Architecture;
 
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
@@ -38,7 +40,13 @@ final class AiBoundaryTest
             )
             // What nr-llm's services throw is their contract (nr-llm ADR-053), not provider
             // code: FailureClassifier reads the class to tell the editor why a job failed.
-            ->excluding(Selector::inNamespace('Netresearch\NrLlm\Provider\Exception'))
+            ->excluding(
+                Selector::inNamespace('Netresearch\NrLlm\Provider\Exception'),
+                // nr-llm's middleware extension point (@api, ADR-127) wraps every provider call
+                // without being one: RunClaimRenewalMiddleware renews the run claim there (#238).
+                Selector::classname(ProviderMiddlewareInterface::class),
+                Selector::classname(ProviderCallContext::class),
+            )
             ->because('All AI calls go through nr-llm; nr_repurpose contains zero provider code.');
     }
 }

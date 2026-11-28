@@ -53,7 +53,39 @@ final readonly class JobSnapshot
         public bool $wantNewsletter = false,
         public bool $wantSlideDeck = false,
         public bool $wantHandout = false,
+        // The sys_file uid a pdf_fal job's source was fingerprinted with before ingestion
+        // (SourceCapture); 0 lets ingestion resolve the job's file reference itself.
+        public int $sourceFileUid = 0,
     ) {}
+
+    /** The same job, bound to the file its source review fingerprinted (#238). */
+    public function withSourceFileUid(int $fileUid): self
+    {
+        return new self(
+            uid: $this->uid,
+            status: $this->status,
+            sourceType: $this->sourceType,
+            sourceValue: $this->sourceValue,
+            pdfMode: $this->pdfMode,
+            theme: $this->theme,
+            beUser: $this->beUser,
+            promptSnippets: $this->promptSnippets,
+            sourceDepth: $this->sourceDepth,
+            sourceUrl: $this->sourceUrl,
+            site: $this->site,
+            wantPodcast: $this->wantPodcast,
+            wantSchaubild: $this->wantSchaubild,
+            wantStory: $this->wantStory,
+            wantVideo: $this->wantVideo,
+            wantExecSummary: $this->wantExecSummary,
+            wantFaq: $this->wantFaq,
+            wantSocialPost: $this->wantSocialPost,
+            wantNewsletter: $this->wantNewsletter,
+            wantSlideDeck: $this->wantSlideDeck,
+            wantHandout: $this->wantHandout,
+            sourceFileUid: $fileUid,
+        );
+    }
 
     /**
      * @param array<string,mixed> $row

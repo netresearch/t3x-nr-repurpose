@@ -180,8 +180,10 @@ class SchaubildGenerator extends AbstractGenerator
                 $provenance,
                 $ctx->brief->title,
             );
-            $this->jobs->updateArtifact(
+
+            return $this->storeArtifact(
                 $artifactUid,
+                $jobUid,
                 [
                     'file_uid'    => $file->getUid(),
                     'source_html' => $html,
@@ -200,8 +202,6 @@ class SchaubildGenerator extends AbstractGenerator
                     'status' => ArtifactStatus::Done->value,
                 ],
             );
-
-            return true;
         } catch (Throwable $e) {
             $this->failArtifactFrom(
                 $artifactUid,
@@ -308,8 +308,10 @@ class SchaubildGenerator extends AbstractGenerator
                 $provenance,
                 $ctx->brief->title,
             );
-            $this->jobs->updateArtifact(
+
+            return $this->storeArtifact(
                 $artifactUid,
+                $jobUid,
                 [
                     'file_uid'    => $file->getUid(),
                     'source_html' => $transparentHtml,
@@ -331,8 +333,6 @@ class SchaubildGenerator extends AbstractGenerator
                     'status' => ArtifactStatus::Done->value,
                 ],
             );
-
-            return true;
         } catch (Throwable $e) {
             $this->failArtifactFrom(
                 $artifactUid,
@@ -418,8 +418,10 @@ class SchaubildGenerator extends AbstractGenerator
                 $provenance,
                 $ctx->brief->title,
             );
-            $this->jobs->updateArtifact(
+
+            return $this->storeArtifact(
                 $artifactUid,
+                $jobUid,
                 [
                     'file_uid'    => $file->getUid(),
                     'source_html' => $referenceHtml,
@@ -439,8 +441,6 @@ class SchaubildGenerator extends AbstractGenerator
                     'status' => ArtifactStatus::Done->value,
                 ],
             );
-
-            return true;
         } catch (Throwable $e) {
             $this->failArtifactFrom(
                 $artifactUid,

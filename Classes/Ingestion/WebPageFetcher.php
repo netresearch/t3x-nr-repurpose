@@ -14,6 +14,8 @@ use DOMNode;
 use DOMXPath;
 use GuzzleHttp\ClientInterface;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
+use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 
@@ -21,6 +23,9 @@ use Psr\Http\Message\RequestFactoryInterface;
  * Fetches a webpage via PSR-18 and extracts its main textual content with a deterministic
  * DOM strip (boilerplate node types removed, densest content container kept). JS-heavy
  * pages would be pre-rendered with the Plan-4 Chromium path; Plan 2 defaults to static HTML.
+ *
+ * A fetch bypasses nr-llm's pipeline, and a page source fetches one page after the other, so a
+ * generation run renews its claim before each fetch (#238).
  */
 class WebPageFetcher
 {
@@ -37,6 +42,7 @@ class WebPageFetcher
         private readonly ClientInterface $httpClient,
         private readonly RequestFactoryInterface $requestFactory,
         private readonly RemoteSourceGuard $guard,
+        private readonly ?RunHeartbeatInterface $heartbeat = null,
     ) {}
 
     public function fetch(string $url): SourceDocument
@@ -50,8 +56,10 @@ class WebPageFetcher
         return $this->fetchRequest($this->guard->createOwnSiteRequest($this->requestFactory, 'GET', $url), $url);
     }
 
+    /** @throws RunOwnershipLostException when another run holds the job now */
     private function fetchRequest(GuardedRequest $request, string $url): SourceDocument
     {
+        $this->heartbeat?->renewHeld();
         $request = $request
             ->withHeader('User-Agent', 'nr_repurpose/0.1 (+https://www.netresearch.de)')
             ->withHeader('Accept', 'text/html,application/xhtml+xml');

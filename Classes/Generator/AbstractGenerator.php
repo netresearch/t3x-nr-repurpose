@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\Support\InvalidLlmOutputException;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Pipeline\GenerationContext;
@@ -234,16 +235,45 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
     /** Record a previously-inserted artifact row as failed and log the reason. */
     protected function failArtifact(int $artifactUid, int $jobUid, string $reason, FailureReason $failure): void
     {
-        $this->logger->warning('Artifact generation failed', [
+        $context = ['job' => $jobUid, 'artifact' => $artifactUid, 'reason' => $reason];
+        try {
+            $this->jobs->updateArtifact($artifactUid, [
+                'status'         => ArtifactStatus::Failed->value,
+                'error_message'  => $reason,
+                'failure_reason' => $failure->value,
+            ]);
+        } catch (RunOwnershipLostException $e) {
+            // Another run holds the job: nothing of this run failed, nothing is logged (#238).
+            throw $e;
+        } catch (Throwable $e) {
+            // The reason must not get lost with the write.
+            $this->logger->warning('Artifact generation failed', $context);
+
+            throw $e;
+        }
+
+        $this->logger->warning('Artifact generation failed', $context);
+    }
+
+    /**
+     * The final write of a format: its result onto its row. False when the row no longer
+     * exists (#238): nothing was stored, so the format counts as failed and is not reported as
+     * produced; the next format still runs.
+     *
+     * @param array<string, mixed> $fields
+     */
+    protected function storeArtifact(int $artifactUid, int $jobUid, array $fields): bool
+    {
+        if ($this->jobs->updateArtifact($artifactUid, $fields)) {
+            return true;
+        }
+
+        $this->logger->warning('The artifact row is gone; the format counts as failed', [
             'job'      => $jobUid,
             'artifact' => $artifactUid,
-            'reason'   => $reason,
         ]);
-        $this->jobs->updateArtifact($artifactUid, [
-            'status'         => ArtifactStatus::Failed->value,
-            'error_message'  => $reason,
-            'failure_reason' => $failure->value,
-        ]);
+
+        return false;
     }
 
     /**
@@ -262,6 +292,14 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         string $step,
         Throwable $e,
     ): void {
+        // Another run took the job over: nothing of this run failed, and nothing is written or
+        // logged as a failure, as in the orchestrator's failJob() (#238). A wrapper (a
+        // RenderingException around a provider call) can carry it, like a guardrail below.
+        $lost = RunOwnershipLostException::in($e);
+        if ($lost instanceof RunOwnershipLostException) {
+            throw $lost;
+        }
+
         // A guardrail's message is written for the person who started the job. An image or speech
         // call wraps every failure, so the guardrail can sit below a RenderingException. The row
         // keeps the refusal without any quoted passage of the generated text (nr-llm ADR-288).

@@ -55,7 +55,11 @@ return [
         'failure_reason' => ['config' => ['type' => 'passthrough']],
         // The result view shows it as the time of a failure, and a job that stands still by it.
         'tstamp' => ['config' => ['type' => 'passthrough']],
-        'theme'  => [
+        // The run claim (#238): written by the worker, read by the result view to tell whether a
+        // stalled job may be started again.
+        'run_token'      => ['config' => ['type' => 'passthrough']],
+        'run_claimed_at' => ['config' => ['type' => 'passthrough']],
+        'theme'          => [
             'label'  => 'LLL:EXT:nr_repurpose/Resources/Private/Language/locallang_db.xlf:tx_nrrepurpose_domain_model_job.theme',
             'config' => [
                 'type'  => 'select', 'renderType' => 'selectSingle',

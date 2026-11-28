@@ -13,8 +13,10 @@ use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
 use Netresearch\NrRepurpose\Queue\Handler\GenerateArtifactsHandler;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
+use Netresearch\NrRepurpose\Service\RunOutcome;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingMessageBus;
 use Psr\Log\NullLogger;
 use RuntimeException;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -49,9 +51,11 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
         $orchestrator = new class implements GenerationOrchestratorInterface {
             public int $processed = 0;
 
-            public function process(int $jobUid): void
+            public function process(int $jobUid): RunOutcome
             {
                 $this->processed = $jobUid;
+
+                return RunOutcome::Done;
             }
         };
 
@@ -59,6 +63,7 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
             $orchestrator,
             $this->get(JobProcessingRepository::class),
             new NullLogger(),
+            new RecordingMessageBus(),
         );
 
         $handler(new GenerateArtifactsMessage($jobUid));
@@ -67,9 +72,9 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * What reaches the handler escaped the orchestrator's own step handling — a generator
-     * that threw (the Schaubild's diagram completion is not caught in the generator), a
-     * database error. Its message can be the text model's answer, a path or SQL, and the
+     * What reaches the handler failed before the orchestrator claimed the job (a crash after
+     * the claim is failed by the orchestrator, #238) — a database error reading the row.
+     * Its message can be a path or SQL, and the
      * job's error_message is shown to every module user: the row gets a fixed text and the
      * exception goes to the log.
      */
@@ -83,13 +88,13 @@ final class MessengerIntegrationTest extends AbstractFunctionalTestCase
         $orchestrator = new readonly class ($cause) implements GenerationOrchestratorInterface {
             public function __construct(private OrchestratorCrashException $cause) {}
 
-            public function process(int $jobUid): void
+            public function process(int $jobUid): RunOutcome
             {
                 throw $this->cause;
             }
         };
 
-        $handler = new GenerateArtifactsHandler($orchestrator, $jobs, $logger);
+        $handler = new GenerateArtifactsHandler($orchestrator, $jobs, $logger, new RecordingMessageBus());
         $handler(new GenerateArtifactsMessage($jobUid));
 
         $row = $jobs->findRow($jobUid);

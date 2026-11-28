@@ -15,6 +15,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\StorySlideRole;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\Support\StorySlide;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -140,7 +141,8 @@ class StoryGenerator extends AbstractGenerator
                 0,
                 ArtifactStatus::Pending,
             );
-            $this->jobs->updateArtifact(
+            // The row is gone already (#238): nothing to review or render for this slide.
+            if (!$this->jobs->updateArtifact(
                 $artifactUid,
                 [
                     'metadata' => json_encode(
@@ -152,7 +154,16 @@ class StoryGenerator extends AbstractGenerator
                         JSON_THROW_ON_ERROR,
                     ),
                 ],
-            );
+            )) {
+                $this->logger->warning('A story slide row is gone before its review; the slide is skipped', [
+                    'job'      => $jobUid,
+                    'artifact' => $artifactUid,
+                    'slide'    => $i + 1,
+                ]);
+
+                continue;
+            }
+
             try {
                 $this->reviewArtifact(
                     $ctx,
@@ -300,8 +311,10 @@ class StoryGenerator extends AbstractGenerator
                 }
             }
 
-            $this->jobs->updateArtifact(
+            // The video does not decide the story's success; a gone row is only logged.
+            $this->storeArtifact(
                 $artifactUid,
+                $jobUid,
                 [
                     'file_uid' => $file->getUid(),
                     'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
@@ -437,6 +450,12 @@ class StoryGenerator extends AbstractGenerator
 
             return $backgroundPath;
         } catch (Throwable $e) {
+            // Another run took the job over: no background failed, and the run stops (#238).
+            $lost = RunOwnershipLostException::in($e);
+            if ($lost instanceof RunOwnershipLostException) {
+                throw $lost;
+            }
+
             $this->logger->warning('Story background generation failed, falling back to flat slides', [
                 'job'    => $ctx->jobUid(),
                 'reason' => $e->getMessage(),
@@ -491,8 +510,9 @@ class StoryGenerator extends AbstractGenerator
             'aiLabel' => $provenance->toArray(),
         ] + $this->guardrailHintsMetadata($hints);
 
-        $fgPath  = null;
-        $pngPath = null;
+        $fgPath     = null;
+        $pngPath    = null;
+        $handedOver = false;
         try {
             $html = $this->renderSlideHtml(
                 $ctx,
@@ -532,15 +552,20 @@ class StoryGenerator extends AbstractGenerator
                 $provenance,
                 $alternative,
             );
-            $this->jobs->updateArtifact(
+            if (!$this->storeArtifact(
                 $artifactUid,
+                $jobUid,
                 [
                     'file_uid'    => $file->getUid(),
                     'source_html' => $html,
                     'metadata'    => json_encode($metadata, JSON_THROW_ON_ERROR),
                     'status'      => ArtifactStatus::Done->value,
                 ],
-            );
+            )) {
+                return null;
+            }
+
+            $handedOver = true;
 
             return $pngPath;
         } catch (Throwable $e) {
@@ -557,13 +582,16 @@ class StoryGenerator extends AbstractGenerator
                 sprintf('Story slide %d/%d', $index, $total),
                 $e,
             );
-            // Not handed to the caller, so nobody else removes it.
-            $this->discardRenderedFile($pngPath);
 
             return null;
         } finally {
             // The transparent foreground is composited into $pngPath and not needed after.
             $this->discardRenderedFile($fgPath);
+            // A slide not handed to the caller is removed here, also when a lost claim (#238)
+            // ends the run from the final write or the failure write.
+            if (!$handedOver) {
+                $this->discardRenderedFile($pngPath);
+            }
         }
     }
 

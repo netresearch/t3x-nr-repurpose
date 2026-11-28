@@ -39,6 +39,33 @@ HTTP request that created the job returns immediately and the
    rethrow — otherwise the message would be lost with no record. See
    :ref:`adr-001`.
 
+.. note::
+
+   The transport hands a message out again while its first delivery still
+   runs, once 3600 seconds have passed, and after a worker died. One run owns
+   a job at a time: a second delivery while the first run is alive changes
+   nothing and is sent again once the live run's claim would expire, at most
+   about 30 minutes later; the delivery after a dead
+   worker takes the job over once the dead run has written nothing for 30
+   minutes. A provider call must not outlast that: for every active nr-llm
+   provider and LLM configuration, ``max_retries`` + 1 times the attempt
+   timeout must stay at or below 1380 seconds. The attempt timeout is the
+   configuration's timeout for a call through a configuration, else the
+   provider's ``api_timeout``. A ``timeout`` or ``maxRetries`` in the
+   record's options JSON replaces the field, as nr-llm dispatches with it.
+   nr-llm's defaults, 3 retries of 120 seconds, give 480. Before its first job the worker logs a warning that names every
+   record above the limit; it checks again after a restart.
+
+   The claim lives in the job columns ``run_token`` and ``run_claimed_at``.
+   When installing a version that adds them, stop every worker first, update
+   the database schema, and start the workers again only afterwards: a new
+   worker fails on a database without the columns, and an old worker beside a
+   new one runs jobs without a claim. The claim's age is measured with each
+   host's own clock, so keep the clocks of all worker and web hosts
+   synchronised (NTP). A job whose worker died and whose message is gone can
+   be started again from its result view once it has stood still for two
+   hours. See :ref:`adr-001`.
+
 .. _configuration-http:
 
 HTTP timeouts

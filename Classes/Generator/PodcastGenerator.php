@@ -16,6 +16,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\ValueObject\Persona;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\Speech\SpeechSynthesizerInterface;
 use Netresearch\NrRepurpose\Generator\Support\DialogueScript;
 use Netresearch\NrRepurpose\Generator\Support\DialogueTurn;
@@ -245,8 +246,9 @@ final class PodcastGenerator extends AbstractGenerator
             $metadata['aiLabel'] = $provenance->toArray();
             $metadata += $this->guardrailHintsMetadata($hints);
 
-            $this->jobs->updateArtifact(
+            return $this->storeArtifact(
                 $artifactUid,
+                $jobUid,
                 [
                     'file_uid'          => $mp3File->getUid(),
                     'subtitle_file_uid' => $vttFile->getUid(),
@@ -255,8 +257,6 @@ final class PodcastGenerator extends AbstractGenerator
                     'status'            => ArtifactStatus::Done->value,
                 ],
             );
-
-            return true;
         } catch (Throwable $e) {
             $this->failArtifactFrom(
                 $artifactUid,
@@ -282,6 +282,9 @@ final class PodcastGenerator extends AbstractGenerator
                 $this->speech->synthesizeToFile($text, $voice, $segmentPath);
 
                 return null;
+            } catch (RunOwnershipLostException $e) {
+                // Another run took the job over (#238): no TTS failure, and no second attempt.
+                throw $e;
             } catch (Throwable $e) {
                 $failure = $e;
                 $this->logger->warning('Podcast TTS turn failed', [

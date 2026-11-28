@@ -13,6 +13,8 @@ use Netresearch\NrRepurpose\Domain\Enum\PdfMode;
 use Netresearch\NrRepurpose\Domain\Enum\SourceType;
 use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
+use Netresearch\NrRepurpose\Pipeline\RunHeartbeatInterface;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolverInterface;
 use Netresearch\NrRepurpose\Source\PageSourceReader;
@@ -55,6 +57,10 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         private LoggerInterface $logger,
         private PageSourceReader $pageSourceReader,
         private ?ExtensionConfiguration $extensionConfiguration = null,
+        // Renews the run's claim per page (#238): a page read by poppler (text, layout) is no
+        // provider call, so RunClaimRenewalMiddleware does not see it, and a long PDF writes
+        // nothing to the job while its pages are read.
+        private ?RunHeartbeatInterface $heartbeat = null,
     ) {}
 
     public function ingest(JobSnapshot $job): SourceDocument
@@ -79,7 +85,10 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
     {
         $absPath = $this->pdfFileResolver->resolve($job);
         try {
-            return $this->readPdf($absPath, $job->pdfMode, $job->beUser);
+            return $this->readPdf($absPath, $job);
+        } catch (RunOwnershipLostException $e) {
+            // Another run took the job over during the pages; nothing failed here (#238).
+            throw $e;
         } catch (Throwable $e) {
             // The exception message becomes the job's error, which every module user
             // sees, so it never carries the server path; the path goes to the log.
@@ -97,8 +106,10 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         }
     }
 
-    private function readPdf(string $absPath, PdfMode $mode, int $beUser): SourceDocument
+    private function readPdf(string $absPath, JobSnapshot $job): SourceDocument
     {
+        $mode   = $job->pdfMode;
+        $beUser = $job->beUser;
         // The extractor refuses an oversized PDF before reading any page's text; the check
         // here holds for an extractor that does not apply the limit.
         $maxPages = $this->maxPdfPages();
@@ -116,6 +127,7 @@ final readonly class SourceIngestionService implements SourceIngestionServiceInt
         $tiers        = [];
         $visionDenied = false;
         foreach ($pages as $page) {
+            $this->heartbeat?->renew($job->uid);
             [$text, $tier] = $this->extractPage($absPath, $page, $mode, $beUser, $visionGranted);
             if ($tier === self::TIER_VISION_DENIED) {
                 $visionDenied = true;

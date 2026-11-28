@@ -10,9 +10,12 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Tests\Unit\Generator\Image;
 
 use Netresearch\NrLlm\Specialized\Image\DallEImageService;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\Image\DallEImageGenerator;
 use Netresearch\NrRepurpose\Rendering\RenderingException;
+use Netresearch\NrRepurpose\Tests\Unit\Fixture\LosingSpecializedService;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
 use ReflectionClass;
@@ -53,5 +56,20 @@ final class DallEImageGeneratorTest extends TestCase
         self::assertCount(1, $logger->records);
         self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
         self::assertSame($inner, $logger->records[0]['context']['exception'] ?? null);
+    }
+
+    /** A takeover inside the provider call is no provider failure: passed on, nothing logged (#238). */
+    public function testALostClaimPassesUnwrappedAndUnlogged(): void
+    {
+        $vault = $this->createStub(VaultServiceInterface::class);
+        $vault->method('exists')->willThrowException(new RunOwnershipLostException('Another run holds job 7 now', 1795000001));
+        $logger = new RecordingLogger();
+
+        $this->expectException(RunOwnershipLostException::class);
+        try {
+            (new DallEImageGenerator(LosingSpecializedService::of(DallEImageService::class, $vault), $logger))->generateToFile('prompt', '1024x1024', '/tmp/out.png');
+        } finally {
+            self::assertSame([], $logger->records);
+        }
     }
 }
