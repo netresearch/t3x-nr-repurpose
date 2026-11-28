@@ -267,13 +267,15 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     /** The blocked delivery comes back once the live claim would expire and leaves the job untouched. */
     public function testTheHandlerDeliversABlockedRunAgainAfterTheLease(): void
     {
-        $uid = $this->seedJob();
+        $uid   = $this->seedJob();
+        $start = time();
         self::assertTrue($this->repository()->claimRun($uid));
         $before = $this->row($uid);
         $bus    = new RecordingMessageBus();
 
         $this->handler($bus, $this->repository())(new GenerateArtifactsMessage($uid));
 
+        $elapsed = time() - $start;
         self::assertSame($before, $this->row($uid));
         self::assertCount(1, $bus->dispatched);
         $message = $bus->dispatched[0]['message'];
@@ -283,10 +285,8 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         $delay  = array_values(array_filter($stamps, static fn (object $s): bool => $s instanceof DelayStamp));
         self::assertCount(1, $delay);
         self::assertInstanceOf(DelayStamp::class, $delay[0]);
-        // A claim taken just now: one lease and the margin, less the second the test may take.
-        $expected = Job::RUN_LEASE_SECONDS + GenerateArtifactsHandler::REDELIVERY_MARGIN_SECONDS;
-        self::assertGreaterThanOrEqual(($expected - 1) * 1000, $delay[0]->getDelay());
-        self::assertLessThanOrEqual($expected * 1000, $delay[0]->getDelay());
+        // A claim taken just now: one lease and the margin, less what the test took.
+        $this->assertDelayWithin(Job::RUN_LEASE_SECONDS + GenerateArtifactsHandler::REDELIVERY_MARGIN_SECONDS, $elapsed, $delay[0]->getDelay());
         $transport = array_values(array_filter($stamps, static fn (object $s): bool => $s instanceof TransportNamesStamp));
         self::assertCount(1, $transport);
         self::assertInstanceOf(TransportNamesStamp::class, $transport[0]);
@@ -361,19 +361,20 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     {
         $uid = $this->seedJob();
         self::assertTrue($this->repository()->claimRun($uid));
+        $start = time();
         $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)
-            ->update(self::JOB_TABLE, ['run_claimed_at' => time() - $claimedAgo], ['uid' => $uid]);
+            ->update(self::JOB_TABLE, ['run_claimed_at' => $start - $claimedAgo], ['uid' => $uid]);
         $bus = new RecordingMessageBus();
 
         $this->handler($bus, $this->repository())(new GenerateArtifactsMessage($uid));
+
+        $elapsed = time() - $start;
 
         self::assertCount(1, $bus->dispatched);
         $delay = array_values(array_filter($bus->dispatched[0]['stamps'], static fn (object $s): bool => $s instanceof DelayStamp));
         self::assertCount(1, $delay);
         self::assertInstanceOf(DelayStamp::class, $delay[0]);
-        // The test may take a second between the claim and the handler; the floor does not move.
-        self::assertGreaterThanOrEqual(($expected - 1) * 1000, $delay[0]->getDelay());
-        self::assertLessThanOrEqual($expected * 1000, $delay[0]->getDelay());
+        $this->assertDelayWithin($expected, $elapsed, $delay[0]->getDelay());
     }
 
     /**
@@ -410,18 +411,22 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
     /** Through the real bus the message lands in the doctrine queue, due once the claim would expire. */
     public function testTheMessageSentAgainIsQueuedOneLeaseAhead(): void
     {
-        $uid = $this->seedJob();
+        $uid   = $this->seedJob();
+        $start = time();
         self::assertTrue($this->repository()->claimRun($uid));
         $jobs = $this->repository();
 
         (new GenerateArtifactsHandler($this->orchestrator($jobs, []), $jobs, new NullLogger(), $this->get(MessageBusInterface::class)))(new GenerateArtifactsMessage($uid));
 
+        $elapsed = time() - $start;
+
         $rows = $this->get(ConnectionPool::class)->getConnectionForTable('sys_messenger_messages')
             ->select(['available_at', 'created_at', 'queue_name'], 'sys_messenger_messages')->fetchAllAssociative();
         self::assertCount(1, $rows);
-        $delay    = strtotime((string) $rows[0]['available_at']) - strtotime((string) $rows[0]['created_at']);
+        $delay = strtotime((string) $rows[0]['available_at']) - strtotime((string) $rows[0]['created_at']);
+        // Both columns are stored to the second, so the difference can be off by one either way.
         $expected = Job::RUN_LEASE_SECONDS + GenerateArtifactsHandler::REDELIVERY_MARGIN_SECONDS;
-        self::assertGreaterThanOrEqual($expected - 2, $delay);
+        self::assertGreaterThanOrEqual($expected - $elapsed - 1, $delay);
         self::assertLessThanOrEqual($expected + 1, $delay);
     }
 
@@ -1101,6 +1106,16 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertIsObject($object);
 
         return (new ReflectionProperty($object, $name))->getValue($object);
+    }
+
+    /**
+     * The handler takes the time once, somewhere between the claim and its return: the delay is
+     * $expected at most and $elapsed seconds less at least, however slow the runner is.
+     */
+    private function assertDelayWithin(int $expected, int $elapsed, int $delayMilliseconds): void
+    {
+        self::assertGreaterThanOrEqual(($expected - $elapsed) * 1000, $delayMilliseconds);
+        self::assertLessThanOrEqual($expected * 1000, $delayMilliseconds);
     }
 
     /** @return list<array{level: mixed, message: string}> */

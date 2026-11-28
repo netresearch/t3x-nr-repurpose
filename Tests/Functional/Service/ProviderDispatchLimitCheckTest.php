@@ -47,6 +47,22 @@ final class ProviderDispatchLimitCheckTest extends AbstractFunctionalTestCase
         ], $found);
     }
 
+    /**
+     * nr-llm dispatches with the options JSON over the stored values: a provider's maxRetries and a
+     * configuration's timeout there count, so a record within the limit on its fields alone is named.
+     */
+    public function testTheOptionsJsonOverridesTheStoredValues(): void
+    {
+        $this->provider('retries-in-options', 3, 300, options: '{"maxRetries":10}');       // 11 × 300 = 3300
+        $fits = $this->provider('fits', 3, 300);                                            // 4 × 300 = 1200
+        $this->configuration('timeout-in-options', $this->model($fits), 300, '{"timeout":600}'); // 4 × 600 = 2400
+
+        self::assertSame([
+            'provider "retries-in-options": 11 attempts × 300 s = 3300 s',
+            'configuration "timeout-in-options": 4 attempts × 600 s = 2400 s',
+        ], $this->get(ProviderDispatchLimitCheck::class)->exceeding());
+    }
+
     public function testTheWorkerWarnsOnceBeforeItsFirstJob(): void
     {
         $this->provider('too-long', 10, 600);
@@ -94,9 +110,10 @@ final class ProviderDispatchLimitCheckTest extends AbstractFunctionalTestCase
         );
     }
 
-    private function provider(string $identifier, int $maxRetries, int $apiTimeout, bool $active = true): int
+    private function provider(string $identifier, int $maxRetries, int $apiTimeout, bool $active = true, string $options = ''): int
     {
         return $this->insert('tx_nrllm_provider', [
+            'options'      => $options,
             'identifier'   => $identifier,
             'name'         => $identifier,
             'adapter_type' => 'openai',
@@ -117,9 +134,10 @@ final class ProviderDispatchLimitCheckTest extends AbstractFunctionalTestCase
         ]);
     }
 
-    private function configuration(string $identifier, int $modelUid, int $timeout): void
+    private function configuration(string $identifier, int $modelUid, int $timeout, string $options = ''): void
     {
         $this->insert('tx_nrllm_configuration', [
+            'options'    => $options,
             'identifier' => $identifier,
             'name'       => $identifier,
             'model_uid'  => $modelUid,

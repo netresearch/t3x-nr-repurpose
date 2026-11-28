@@ -51,8 +51,9 @@ HTTP request that created the job returns immediately and the
    provider and LLM configuration, ``max_retries`` + 1 times the attempt
    timeout must stay at or below 1380 seconds. The attempt timeout is the
    configuration's timeout for a call through a configuration, else the
-   provider's ``api_timeout``; nr-llm's defaults, 3 retries of 120 seconds,
-   give 480. Before its first job the worker logs a warning that names every
+   provider's ``api_timeout``. A ``timeout`` or ``maxRetries`` in the
+   record's options JSON replaces the field, as nr-llm dispatches with it.
+   nr-llm's defaults, 3 retries of 120 seconds, give 480. Before its first job the worker logs a warning that names every
    record above the limit; it checks again after a restart.
 
    The claim lives in the job columns ``run_token`` and ``run_claimed_at``.

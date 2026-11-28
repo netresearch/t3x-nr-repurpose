@@ -105,7 +105,8 @@ final class FailureReasonTest extends TestCase
             self::assertFalse($reason->isRetryable(), $reason->value);
         }
 
-        // A stalled job can be started again since #238: its run is gone and nothing else restarts it.
+        // Since #238 the reason of a stalled job allows a retry. Whether a job offers it is
+        // Job::isRetryable(): no live claim and no finished artifact.
         foreach ([FailureReason::AnswerUnusable, FailureReason::ProviderTimeout, FailureReason::BudgetExhausted, FailureReason::Unknown, FailureReason::Internal, FailureReason::WorkerStalled] as $reason) {
             self::assertTrue($reason->isRetryable(), $reason->value);
         }

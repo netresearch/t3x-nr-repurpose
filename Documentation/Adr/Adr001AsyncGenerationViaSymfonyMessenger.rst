@@ -128,7 +128,8 @@ Consequences
   request: nr-llm retries a failed connection inside it, up to
   ``max_retries`` + 1 attempts, each bounded by the attempt timeout (an LLM
   configuration's effective timeout for a call through it, else the
-  provider's ``api_timeout``), with a backoff that doubles from 0.2 up to 30
+  provider's ``api_timeout``; a ``timeout`` or ``maxRetries`` in the
+  record's options JSON replaces the field), with a backoff that doubles from 0.2 up to 30
   seconds per retry (111 seconds for 10 retries); a timed-out attempt is not
   retried. The middleware cannot renew between those attempts
   (`netresearch/t3x-nr-llm#1476
