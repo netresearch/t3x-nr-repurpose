@@ -8,6 +8,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-28
+
+### Upgrading from 0.16
+
+- Stop every generation worker (`messenger:consume`) before the update, then update the database schema (Admin Tools > Maintenance > Analyze Database Structure, or `vendor/bin/typo3 extension:setup`): the job table gets the columns `run_token` and `run_claimed_at`, which the generation worker writes from this version on. Start the workers again only after the schema update: a worker of this version fails on a database without the columns, and a worker of the previous version runs jobs without a claim. For every active nr-llm provider and LLM configuration, (`max_retries` + 1) times the attempt timeout (the configuration's timeout for a call through it, else the provider's `api_timeout`; a `timeout` or `maxRetries` in the record's options JSON replaces the field) must stay at or below 1380 seconds (nr-llm's defaults give 480), or a live run can lose its job to a redelivery; the worker logs a warning naming each record above it. The claim's age is measured with each host's own clock: keep the clocks of all worker and web hosts synchronised (NTP) ([#238](https://github.com/netresearch/t3x-nr-repurpose/issues/238)).
+
+### Changed
+
+- **Three PHP signatures change, and the classes are marked `@internal` (breaking for code that implements or calls them).** `GenerationOrchestratorInterface::process(int $jobUid)` returns a `RunOutcome` instead of `void`: a custom implementation must now return the outcome of its run, which `nr_repurpose:generate` turns into its exit code. `JobProcessingRepository::updateArtifact(int $artifactUid, array $fields)` returns `bool` instead of `void`: `false` when the artifact row no longer exists. `SourceReviewGate::captureSource(array $row)` returns a `SourceCapture` (the fingerprint as `hash` and the captured `sys_file` uid as `fileUid`) instead of the fingerprint `string` ([#238](https://github.com/netresearch/t3x-nr-repurpose/issues/238)).
+
+### Fixed
+
+- Two deliveries of one generation job no longer run it at the same time. The transport hands a message out again while its first delivery still runs and after a worker died; the first run now claims the job, and every later status, review and artifact write of a run is bound to that claim. A second delivery while the first run is alive writes nothing and comes back once that run's claim would have expired, at most about 30 minutes later; after a dead worker it takes the job over. `nr_repurpose:generate` exits with an error when the job ends failed or unfinished, including when another run took it over. A job that has stood still for two hours with no live run on it, because its worker died and its message was lost, can now be started again from its result view like a failed job. A PDF job's source review and its ingestion now read the same file even when the reference is edited in between ([#238](https://github.com/netresearch/t3x-nr-repurpose/issues/238)).
+
 ## [0.16.2] - 2026-11-25
 
 ### Changed
@@ -685,7 +699,8 @@ First tagged release.
   tag-triggered release pipeline with SBOMs, Cosign signatures and SLSA
   provenance.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.16.2...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/netresearch/t3x-nr-repurpose/compare/v0.15.9...v0.16.0
