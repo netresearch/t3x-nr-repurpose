@@ -17,6 +17,43 @@ lists the main points of each release; the full entries, with the reasoning
 behind each change, are in the repository's
 `CHANGELOG.md <https://github.com/netresearch/t3x-nr-repurpose/blob/main/CHANGELOG.md>`__.
 
+.. _version-0-17-0:
+
+Version 0.17.0 (2026-11-28)
+===========================
+
+Upgrading from 0.16
+-------------------
+
+-   Stop every generation worker (``messenger:consume``), run the
+    database schema update (the job table gets the columns
+    ``run_token`` and ``run_claimed_at``), then start the workers
+    again. For every active nr-llm provider and LLM configuration,
+    ``max_retries`` + 1 times the attempt timeout must stay at or below
+    1380 seconds; the worker logs a warning naming each record above
+    it. Keep the clocks of all worker and web hosts synchronised (NTP).
+
+Changed
+-------
+
+-   Breaking for code that implements or calls them: three PHP
+    signatures change, and the classes are marked ``@internal``.
+    ``GenerationOrchestratorInterface::process()`` returns a
+    ``RunOutcome`` instead of ``void``,
+    ``JobProcessingRepository::updateArtifact()`` returns ``bool``
+    instead of ``void``, and ``SourceReviewGate::captureSource()``
+    returns a ``SourceCapture`` instead of the fingerprint string.
+
+Fixed
+-----
+
+-   Two deliveries of one generation job no longer run it at the same
+    time: the first run claims the job, and every later write of a run
+    is bound to that claim. ``nr_repurpose:generate`` exits with an
+    error when the job ends failed or unfinished. A job that stood still
+    for two hours after its worker died can be started again from its
+    result view.
+
 .. _version-0-16-2:
 
 Version 0.16.2 (2026-11-25)
