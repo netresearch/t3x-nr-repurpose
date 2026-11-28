@@ -74,6 +74,10 @@ PHPUnit configs live in `Build/` (repo root), not under `Tests/`: `Build/phpunit
 - Mock external services, never real HTTP calls
 <!-- AGENTS-GENERATED:END code-style -->
 
+### Scenario tests
+
+A functional test that drives one behaviour across several classes is named after the scenario, not after a class: `Tests/Functional/Service/GenerationRunClaimTest.php` (two runs of one job), `Tests/Functional/Service/SourceReviewGenerationTest.php` (the source review through a whole run) and `Tests/Functional/Rendering/FailureNoticeRenderingTest.php` (the result view's failure notice). The class-name rule above applies to every other test.
+
 <!-- AGENTS-GENERATED:START checklist -->
 ## PR Checklist
 - [ ] All tests pass: `./Build/Scripts/runTests.sh -s unit` and `-s functional`

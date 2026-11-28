@@ -44,7 +44,7 @@ class Job extends AbstractEntity
      * A worker that dies leaves its message in the doctrine transport, which hands it out again
      * once its redeliver_timeout has passed (3600 s: TYPO3 passes only queue_name, so Symfony's
      * default applies). The lease stays below that, so such a delivery normally finds the claim
-     * expired; a delivery that finds it live is sent again after one lease.
+     * expired; a delivery that finds it live is sent again once that claim would have expired.
      *
      * A live run must not lose its claim between two renewals. Every write of the run renews it,
      * RunClaimRenewalMiddleware renews it before every provider dispatch, and the PDF ingestion

@@ -197,7 +197,10 @@ final class SourceIngestionServiceTest extends TestCase
                 $this->renewed[] = $jobUid;
             }
 
-            public function renewHeld(): void {}
+            public function renewHeld(): void
+            {
+                // The ingestion renews per job through renew(); renewHeld() is not part of this test.
+            }
         };
 
         $this->service($this->sparsePages(3), heartbeat: $heartbeat)
@@ -216,7 +219,10 @@ final class SourceIngestionServiceTest extends TestCase
                 throw new RunOwnershipLostException('Another run holds job ' . $jobUid, 1795000001);
             }
 
-            public function renewHeld(): void {}
+            public function renewHeld(): void
+            {
+                // The ingestion renews per job through renew(); renewHeld() is not part of this test.
+            }
         };
         $service = $this->service($this->sparsePages(2), heartbeat: $heartbeat);
 

@@ -152,6 +152,13 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
 
             return RunOutcome::Lost;
         } catch (Throwable $e) {
+            // A lost claim below a wrapper is no crash either.
+            if (RunOwnershipLostException::in($e) instanceof RunOwnershipLostException) {
+                $this->logger->warning('Run lost the job to another run, stopping', ['job' => $jobUid, 'exception' => $e]);
+
+                return RunOutcome::Lost;
+            }
+
             // A crash past the step handling (a generator that threw, a database error) fails
             // the job here, while the claim binds the write; the Messenger handler's own catch
             // is left with failures before the claim. Fixed text, as there (#77).
@@ -376,9 +383,10 @@ final readonly class GenerationOrchestrator implements GenerationOrchestratorInt
      */
     private function failJob(int $jobUid, string $step, Throwable $e): void
     {
-        // A run that lost the job writes no failure either.
-        if ($e instanceof RunOwnershipLostException) {
-            throw $e;
+        // A run that lost the job writes no failure either, also when a wrapper carries the loss.
+        $lost = RunOwnershipLostException::in($e);
+        if ($lost instanceof RunOwnershipLostException) {
+            throw $lost;
         }
 
         $this->logger->error(

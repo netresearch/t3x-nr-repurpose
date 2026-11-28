@@ -81,8 +81,9 @@ Split submission from execution over a Symfony Messenger transport.
    failed job that is queued again starts without one. A failure before the
    claim is recorded only on an unfinished job that no live run holds. A
    delivery that
-   finds a live claim writes nothing and sends the message again with a delay
-   of one lease. When it comes back, the other run has finished and the message
+   finds a live claim writes nothing and sends the message again, delayed until
+   that claim would expire plus 30 seconds (at least 60 seconds, at most one
+   lease plus the 30). When it comes back, the other run has finished and the message
    does nothing, or the other run's worker is gone, its claim has expired and
    the message takes the job over, or the claim is still live and the message
    is sent again. A run that lasts long therefore sees one such message per

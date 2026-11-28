@@ -10,9 +10,23 @@ declare(strict_types=1);
 namespace Netresearch\NrRepurpose\Exception;
 
 use RuntimeException;
+use Throwable;
 
 /**
  * Raised by JobProcessingRepository when a write of a generation run finds that another
  * run holds the job's claim now (#238). The run stops; it writes nothing further.
  */
-final class RunOwnershipLostException extends RuntimeException {}
+final class RunOwnershipLostException extends RuntimeException
+{
+    /** The lost claim in $e or below it: a wrapper (a RenderingException around a call) can carry it. */
+    public static function in(Throwable $e): ?self
+    {
+        for ($cause = $e; $cause instanceof Throwable; $cause = $cause->getPrevious()) {
+            if ($cause instanceof self) {
+                return $cause;
+            }
+        }
+
+        return null;
+    }
+}

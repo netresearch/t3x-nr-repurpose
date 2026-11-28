@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
-use Netresearch\NrLlm\Testing\FakeBudgetService;
 use Netresearch\NrRepurpose\Command\GenerateCommand;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
@@ -28,19 +27,18 @@ use Netresearch\NrRepurpose\Domain\ValueObject\JobSnapshot;
 use Netresearch\NrRepurpose\Domain\ValueObject\SourceDocument;
 use Netresearch\NrRepurpose\Exception\RunClaimHeldException;
 use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
-use Netresearch\NrRepurpose\Generator\AbstractGenerator;
 use Netresearch\NrRepurpose\Generator\ArtifactGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\StoryGenerator;
 use Netresearch\NrRepurpose\Ingestion\PdfFileResolver;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionService;
 use Netresearch\NrRepurpose\Ingestion\SourceIngestionServiceInterface;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
-use Netresearch\NrRepurpose\Pipeline\GenerationContext;
 use Netresearch\NrRepurpose\Pipeline\PromptSnippetResolver;
 use Netresearch\NrRepurpose\Pipeline\RunClaimRenewalMiddleware;
 use Netresearch\NrRepurpose\Provenance\AiLabelSettingsFactory;
 use Netresearch\NrRepurpose\Queue\Handler\GenerateArtifactsHandler;
 use Netresearch\NrRepurpose\Queue\Message\GenerateArtifactsMessage;
+use Netresearch\NrRepurpose\Rendering\RenderingException;
 use Netresearch\NrRepurpose\Service\CapabilityGrantResolver;
 use Netresearch\NrRepurpose\Service\GenerationOrchestrator;
 use Netresearch\NrRepurpose\Service\GenerationOrchestratorInterface;
@@ -50,6 +48,11 @@ use Netresearch\NrRepurpose\SourceReview\SourceReviewPointer;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewPolicy;
 use Netresearch\NrRepurpose\SourceReview\SourceReviewService;
 use Netresearch\NrRepurpose\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrRepurpose\Tests\Functional\Fixtures\ClaimTestGenerator;
+use Netresearch\NrRepurpose\Tests\Functional\Fixtures\FailingMessageBus;
+use Netresearch\NrRepurpose\Tests\Functional\Fixtures\RowLosingGenerator;
+use Netresearch\NrRepurpose\Tests\Functional\Fixtures\SimulatedFailure;
+use Netresearch\NrRepurpose\Tests\Functional\Fixtures\TakeoverDuringGenerationGenerator;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\RecordingMessageBus;
 use Netresearch\NrRepurpose\Tests\Unit\Fixture\SourceReviewFixture;
@@ -59,15 +62,12 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use ReflectionProperty;
-use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
-use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\TransportException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
-use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -217,7 +217,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
             $this->backdateClaim($uid);
             self::assertTrue($this->repository()->claimRun($uid));
 
-            throw new RuntimeException('provider answered garbage');
+            throw new SimulatedFailure('provider answered garbage');
         });
 
         $this->orchestrator($stale, [$generator])->process($uid);
@@ -264,7 +264,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertSame('', $row['run_token'], 'A finished job holds no claim');
     }
 
-    /** The blocked delivery comes back after the lease and leaves the job untouched. */
+    /** The blocked delivery comes back once the live claim would expire and leaves the job untouched. */
     public function testTheHandlerDeliversABlockedRunAgainAfterTheLease(): void
     {
         $uid = $this->seedJob();
@@ -283,7 +283,10 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         $delay  = array_values(array_filter($stamps, static fn (object $s): bool => $s instanceof DelayStamp));
         self::assertCount(1, $delay);
         self::assertInstanceOf(DelayStamp::class, $delay[0]);
-        self::assertSame(Job::RUN_LEASE_SECONDS * 1000, $delay[0]->getDelay());
+        // A claim taken just now: one lease and the margin, less the second the test may take.
+        $expected = Job::RUN_LEASE_SECONDS + GenerateArtifactsHandler::REDELIVERY_MARGIN_SECONDS;
+        self::assertGreaterThanOrEqual(($expected - 1) * 1000, $delay[0]->getDelay());
+        self::assertLessThanOrEqual($expected * 1000, $delay[0]->getDelay());
         $transport = array_values(array_filter($stamps, static fn (object $s): bool => $s instanceof TransportNamesStamp));
         self::assertCount(1, $transport);
         self::assertInstanceOf(TransportNamesStamp::class, $transport[0]);
@@ -340,7 +343,71 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertSame('done', $this->row($uid)['status']);
     }
 
-    /** Through the real bus the message lands in the doctrine queue, due one lease from now. */
+    /**
+     * The delay is what is left of the claim the delivery found, plus a margin, with a floor: a
+     * delivery that finds a dead run's claim about to expire comes back soon, not a lease later.
+     *
+     * @return iterable<string, array{int, int}> seconds since the claim was taken, expected delay
+     */
+    public static function redeliveryDelays(): iterable
+    {
+        yield 'claim taken just now' => [0, Job::RUN_LEASE_SECONDS + GenerateArtifactsHandler::REDELIVERY_MARGIN_SECONDS];
+        yield 'claim expires in 100 s' => [Job::RUN_LEASE_SECONDS - 100, 100 + GenerateArtifactsHandler::REDELIVERY_MARGIN_SECONDS];
+        yield 'claim expires in 5 s' => [Job::RUN_LEASE_SECONDS - 5, GenerateArtifactsHandler::REDELIVERY_FLOOR_SECONDS];
+    }
+
+    #[DataProvider('redeliveryDelays')]
+    public function testABlockedDeliveryWaitsForWhatIsLeftOfTheClaim(int $claimedAgo, int $expected): void
+    {
+        $uid = $this->seedJob();
+        self::assertTrue($this->repository()->claimRun($uid));
+        $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE)
+            ->update(self::JOB_TABLE, ['run_claimed_at' => time() - $claimedAgo], ['uid' => $uid]);
+        $bus = new RecordingMessageBus();
+
+        $this->handler($bus, $this->repository())(new GenerateArtifactsMessage($uid));
+
+        self::assertCount(1, $bus->dispatched);
+        $delay = array_values(array_filter($bus->dispatched[0]['stamps'], static fn (object $s): bool => $s instanceof DelayStamp));
+        self::assertCount(1, $delay);
+        self::assertInstanceOf(DelayStamp::class, $delay[0]);
+        // The test may take a second between the claim and the handler; the floor does not move.
+        self::assertGreaterThanOrEqual(($expected - 1) * 1000, $delay[0]->getDelay());
+        self::assertLessThanOrEqual($expected * 1000, $delay[0]->getDelay());
+    }
+
+    /**
+     * A claim that cannot be read is no reason to lose the message: the handler sends it again
+     * after one lease and the margin, and logs why (#238).
+     */
+    public function testABlockedDeliveryWhoseClaimCannotBeReadComesBackAfterOneLease(): void
+    {
+        $jobs = new class ($this->get(ConnectionPool::class), $this->get(ResourceFactory::class)) extends JobProcessingRepository {
+            public function findRow(int $jobUid): ?array
+            {
+                throw new SimulatedFailure('database gone while reading the claim');
+            }
+        };
+        $orchestrator = new readonly class implements GenerationOrchestratorInterface {
+            public function process(int $jobUid): RunOutcome
+            {
+                throw new RunClaimHeldException('Another run holds job ' . $jobUid, 1795000002);
+            }
+        };
+        $bus    = new RecordingMessageBus();
+        $logger = new RecordingLogger();
+
+        (new GenerateArtifactsHandler($orchestrator, $jobs, $logger, $bus))(new GenerateArtifactsMessage(7));
+
+        self::assertCount(1, $bus->dispatched);
+        $delay = array_values(array_filter($bus->dispatched[0]['stamps'], static fn (object $s): bool => $s instanceof DelayStamp));
+        self::assertCount(1, $delay);
+        self::assertInstanceOf(DelayStamp::class, $delay[0]);
+        self::assertSame((Job::RUN_LEASE_SECONDS + GenerateArtifactsHandler::REDELIVERY_MARGIN_SECONDS) * 1000, $delay[0]->getDelay());
+        self::assertSame(['The claim of a held job could not be read; it is sent again after one lease'], array_column($logger->records, 'message'));
+    }
+
+    /** Through the real bus the message lands in the doctrine queue, due once the claim would expire. */
     public function testTheMessageSentAgainIsQueuedOneLeaseAhead(): void
     {
         $uid = $this->seedJob();
@@ -352,9 +419,10 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         $rows = $this->get(ConnectionPool::class)->getConnectionForTable('sys_messenger_messages')
             ->select(['available_at', 'created_at', 'queue_name'], 'sys_messenger_messages')->fetchAllAssociative();
         self::assertCount(1, $rows);
-        $delay = strtotime((string) $rows[0]['available_at']) - strtotime((string) $rows[0]['created_at']);
-        self::assertGreaterThanOrEqual(Job::RUN_LEASE_SECONDS - 1, $delay);
-        self::assertLessThanOrEqual(Job::RUN_LEASE_SECONDS + 1, $delay);
+        $delay    = strtotime((string) $rows[0]['available_at']) - strtotime((string) $rows[0]['created_at']);
+        $expected = Job::RUN_LEASE_SECONDS + GenerateArtifactsHandler::REDELIVERY_MARGIN_SECONDS;
+        self::assertGreaterThanOrEqual($expected - 2, $delay);
+        self::assertLessThanOrEqual($expected + 1, $delay);
     }
 
     /** The message that came back after a dead worker's lease runs the job to its end. */
@@ -644,6 +712,43 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         self::assertSame('', $row['run_token']);
     }
 
+    /**
+     * A lost claim below a wrapper (a RenderingException around a provider call) is no failure
+     * of this run: not in a step, where failJob() passes it on, and not in a generator, where
+     * the orchestrator's catch finds it (#238).
+     */
+    public function testALostClaimBelowAWrapperEndsTheRunAsLost(): void
+    {
+        $wrapped = static fn (): RenderingException => RenderingException::because(
+            'Image generation failed',
+            1749400520,
+            new RunOwnershipLostException('Another run holds the job now', 1795000001),
+        );
+
+        $uid       = $this->seedJob();
+        $logger    = new RecordingLogger();
+        $ingestion = new readonly class ($wrapped) implements SourceIngestionServiceInterface {
+            public function __construct(private Closure $failure) {}
+
+            public function ingest(JobSnapshot $job): SourceDocument
+            {
+                throw ($this->failure)();
+            }
+        };
+        self::assertSame(RunOutcome::Lost, $this->orchestrator($this->repository(), [], $ingestion, null, $logger)->process($uid), 'in a step');
+        self::assertSame('ingesting', $this->row($uid)['status']);
+        self::assertSame([], $this->errorRecords($logger));
+
+        $uid       = $this->seedJob();
+        $logger    = new RecordingLogger();
+        $generator = new ClaimTestGenerator($this->repository(), static function () use ($wrapped): never {
+            throw $wrapped();
+        });
+        self::assertSame(RunOutcome::Lost, $this->orchestrator($this->repository(), [$generator], null, null, $logger)->process($uid), 'in a generator');
+        self::assertSame('generating', $this->row($uid)['status']);
+        self::assertSame([], $this->errorRecords($logger));
+    }
+
     /** The container hands the analyzer and the ingestion the worker's own repository. */
     public function testTheLongStepsRenewThroughTheWorkersRepository(): void
     {
@@ -777,14 +882,14 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
             public function markFailed(int $jobUid, string $error, FailureReason $reason): void
             {
                 if ($this->failingWrites-- > 0) {
-                    throw new RuntimeException('Lost connection to the database server during query');
+                    throw new SimulatedFailure('Lost connection to the database server during query');
                 }
 
                 parent::markFailed($jobUid, $error, $reason);
             }
         };
         $generator = new ClaimTestGenerator($jobs, static function (): never {
-            throw new RuntimeException('provider answered garbage');
+            throw new SimulatedFailure('provider answered garbage');
         });
 
         (new GenerateArtifactsHandler($this->orchestrator($jobs, [$generator]), $jobs, new NullLogger(), new RecordingMessageBus()))(new GenerateArtifactsMessage($uid));
@@ -940,7 +1045,7 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         $orchestrator = new readonly class implements GenerationOrchestratorInterface {
             public function process(int $jobUid): RunOutcome
             {
-                throw new RuntimeException('database gone while reading the job');
+                throw new SimulatedFailure('database gone while reading the job');
             }
         };
 
@@ -998,6 +1103,12 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         return (new ReflectionProperty($object, $name))->getValue($object);
     }
 
+    /** @return list<array{level: mixed, message: string}> */
+    private function errorRecords(RecordingLogger $logger): array
+    {
+        return array_values(array_filter($logger->records, static fn (array $r): bool => in_array($r['level'], ['error', 'critical', 'alert', 'emergency'], true)));
+    }
+
     private function seedJob(): int
     {
         $connection = $this->get(ConnectionPool::class)->getConnectionForTable(self::JOB_TABLE);
@@ -1043,124 +1154,5 @@ final class GenerationRunClaimTest extends AbstractFunctionalTestCase
         $file->setContents($contents);
 
         return $file->getUid();
-    }
-}
-
-/**
- * Writes one artifact per run. A hook runs first; a lost claim it throws is kept, as a
- * generator's own catch would swallow it, so the test sees what the orchestrator does next.
- */
-final class ClaimTestGenerator implements ArtifactGeneratorInterface
-{
-    public int $runs = 0;
-
-    public ?SourceDocument $document = null;
-
-    public ?RunOwnershipLostException $thrown = null;
-
-    public function __construct(
-        private readonly JobProcessingRepository $jobs,
-        private readonly ?Closure $hook = null,
-    ) {}
-
-    public function supports(GenerationContext $ctx): bool
-    {
-        return true;
-    }
-
-    public function generate(GenerationContext $ctx): bool
-    {
-        ++$this->runs;
-        $this->document = $ctx->document;
-        if ($this->hook instanceof Closure) {
-            try {
-                ($this->hook)();
-            } catch (RunOwnershipLostException $e) {
-                $this->thrown = $e;
-            }
-
-            return true;
-        }
-
-        $ctx->progress?->step('Stub: halfway', 0.5);
-        $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'default', 0, ArtifactStatus::Done);
-
-        return true;
-    }
-}
-
-/** Fails the first $failures sends, then records like RecordingMessageBus. */
-final class FailingMessageBus implements MessageBusInterface
-{
-    public int $attempts = 0;
-
-    /** @var list<object> */
-    public array $dispatched = [];
-
-    public function __construct(private readonly int $failures) {}
-
-    public function dispatch(object $message, array $stamps = []): Envelope
-    {
-        if (++$this->attempts <= $this->failures) {
-            throw new TransportException('queue table unavailable');
-        }
-
-        $this->dispatched[] = $message;
-
-        return new Envelope($message);
-    }
-}
-
-/** Inserts its row, loses it (deleted from outside), then makes its final write. */
-final class RowLosingGenerator extends AbstractGenerator
-{
-    public function __construct(JobProcessingRepository $jobs, private readonly ConnectionPool $pool)
-    {
-        parent::__construct($jobs, new FakeBudgetService(), new NullLogger());
-    }
-
-    public function supports(GenerationContext $ctx): bool
-    {
-        return true;
-    }
-
-    public function generate(GenerationContext $ctx): bool
-    {
-        $artifactUid = $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'lost', 0, ArtifactStatus::Pending);
-        $this->pool->getConnectionForTable('tx_nrrepurpose_domain_model_artifact')
-            ->delete('tx_nrrepurpose_domain_model_artifact', ['uid' => $artifactUid]);
-
-        // The final write, as every generator makes it.
-        return $this->storeArtifact($artifactUid, $ctx->jobUid(), ['status' => ArtifactStatus::Done->value]);
-    }
-}
-
-/** Inserts its row, is taken over in its provider call, and handles that like the generators. */
-final class TakeoverDuringGenerationGenerator extends AbstractGenerator
-{
-    public function __construct(JobProcessingRepository $jobs, LoggerInterface $logger, private readonly Closure $takeover)
-    {
-        parent::__construct($jobs, new FakeBudgetService(), $logger);
-    }
-
-    public function supports(GenerationContext $ctx): bool
-    {
-        return true;
-    }
-
-    public function generate(GenerationContext $ctx): bool
-    {
-        $artifactUid = $this->jobs->insertArtifact($ctx->jobUid(), ArtifactType::Stub, 'taken', 0, ArtifactStatus::Pending);
-        try {
-            ($this->takeover)();
-            // The next write of this run, as a progress step or a renewal before a call makes it.
-            $ctx->progress?->step('Stub: working', 0.5);
-
-            return $this->storeArtifact($artifactUid, $ctx->jobUid(), ['status' => ArtifactStatus::Done->value]);
-        } catch (Throwable $e) {
-            $this->failArtifactFrom($artifactUid, $ctx->jobUid(), 'Stub generation', $e);
-
-            return false;
-        }
     }
 }

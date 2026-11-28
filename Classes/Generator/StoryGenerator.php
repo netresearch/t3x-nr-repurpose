@@ -15,6 +15,7 @@ use Netresearch\NrRepurpose\Domain\Enum\ArtifactStatus;
 use Netresearch\NrRepurpose\Domain\Enum\ArtifactType;
 use Netresearch\NrRepurpose\Domain\Enum\FailureReason;
 use Netresearch\NrRepurpose\Domain\Enum\StorySlideRole;
+use Netresearch\NrRepurpose\Exception\RunOwnershipLostException;
 use Netresearch\NrRepurpose\Generator\Image\ImageGeneratorInterface;
 use Netresearch\NrRepurpose\Generator\Support\StorySlide;
 use Netresearch\NrRepurpose\Persistence\JobProcessingRepository;
@@ -449,6 +450,12 @@ class StoryGenerator extends AbstractGenerator
 
             return $backgroundPath;
         } catch (Throwable $e) {
+            // Another run took the job over: no background failed, and the run stops (#238).
+            $lost = RunOwnershipLostException::in($e);
+            if ($lost instanceof RunOwnershipLostException) {
+                throw $lost;
+            }
+
             $this->logger->warning('Story background generation failed, falling back to flat slides', [
                 'job'    => $ctx->jobUid(),
                 'reason' => $e->getMessage(),

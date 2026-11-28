@@ -556,6 +556,52 @@ final class StoryGeneratorTest extends TestCase
         }
     }
 
+    /**
+     * A lost claim in the background call, also below a wrapper, is no failed background: the
+     * run stops, renders no flat slide and logs no fallback (#238).
+     */
+    public function testALostClaimInTheBackgroundCallStopsTheRun(): void
+    {
+        foreach ([false, true] as $wrap) {
+            $lost           = new RunOwnershipLostException('Another run holds job 7 now', 1795000001);
+            $renderer       = $this->renderer();
+            $logger         = new RecordingLogger();
+            $imageGenerator = new readonly class ($wrap ? RenderingException::because('Image generation failed', 1749400520, $lost) : $lost) implements ImageGeneratorInterface {
+                public function __construct(private Throwable $failure) {}
+
+                public function isAvailable(): bool
+                {
+                    return true;
+                }
+
+                public function getModel(): string
+                {
+                    return 'stub-image-model';
+                }
+
+                public function getPromptPreamble(): string
+                {
+                    return '';
+                }
+
+                public function generateToFile(string $prompt, string $size, string $outputPath): void
+                {
+                    throw $this->failure;
+                }
+            };
+
+            try {
+                $this->generator(self::THREE_SLIDES, $renderer, $imageGenerator, $this->jobs(), $this->allowingBudget(), $this->compositor(), logger: $logger)->generate($this->context());
+                self::fail('A lost claim must stop the run');
+            } catch (RunOwnershipLostException $e) {
+                self::assertSame($lost, $e, $wrap ? 'wrapped' : 'unwrapped');
+            }
+
+            self::assertSame([], $renderer->outputs);
+            self::assertNotContains('Story background generation failed, falling back to flat slides', array_column($logger->records, 'message'));
+        }
+    }
+
     public function testSkipsMalformedAndEmptySlideEntriesAndNormalizesUnknownRoles(): void
     {
         $jobs     = $this->jobs();

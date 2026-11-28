@@ -295,10 +295,9 @@ abstract class AbstractGenerator implements ArtifactGeneratorInterface
         // Another run took the job over: nothing of this run failed, and nothing is written or
         // logged as a failure, as in the orchestrator's failJob() (#238). A wrapper (a
         // RenderingException around a provider call) can carry it, like a guardrail below.
-        for ($cause = $e; $cause instanceof Throwable; $cause = $cause->getPrevious()) {
-            if ($cause instanceof RunOwnershipLostException) {
-                throw $cause;
-            }
+        $lost = RunOwnershipLostException::in($e);
+        if ($lost instanceof RunOwnershipLostException) {
+            throw $lost;
         }
 
         // A guardrail's message is written for the person who started the job. An image or speech
