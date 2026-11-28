@@ -29,7 +29,7 @@ Upgrading from 0.16
     database schema update (the job table gets the columns
     ``run_token`` and ``run_claimed_at``), then start the workers
     again. For every active nr-llm provider and LLM configuration,
-    ``max_retries`` + 1 times the attempt timeout must stay at or below
+    (``max_retries`` + 1) times the attempt timeout must stay at or below
     1380 seconds; the worker logs a warning naming each record above
     it. Keep the clocks of all worker and web hosts synchronised (NTP).
 

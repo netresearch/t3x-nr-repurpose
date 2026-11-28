@@ -48,7 +48,7 @@ HTTP request that created the job returns immediately and the
    about 30 minutes later; the delivery after a dead
    worker takes the job over once the dead run has written nothing for 30
    minutes. A provider call must not outlast that: for every active nr-llm
-   provider and LLM configuration, ``max_retries`` + 1 times the attempt
+   provider and LLM configuration, (``max_retries`` + 1) times the attempt
    timeout must stay at or below 1380 seconds. The attempt timeout is the
    configuration's timeout for a call through a configuration, else the
    provider's ``api_timeout``. A ``timeout`` or ``maxRetries`` in the
